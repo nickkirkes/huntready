@@ -143,14 +143,14 @@ A hello-world that prints `"HuntReady MCP Server — scaffold"` and exits cleanl
 **Important:** No `.env` or database connection at M0. The scaffold proves the project compiles and runs. `package-lock.json` should be committed for reproducible installs.
 
 **Acceptance Criteria:**
-- [ ] `mcp-server/package.json` exists with `"type": "module"` and all dependencies listed above
-- [ ] `mcp-server/tsconfig.json` exists with strict mode, ESNext module, Bundler resolution
-- [ ] `mcp-server/src/index.ts` exists, compiles without error, and prints the expected message
-- [ ] `cd mcp-server && npm install` completes without error
-- [ ] `cd mcp-server && npx tsx src/index.ts` prints "HuntReady MCP Server — scaffold" and exits 0
-- [ ] `cd mcp-server && npm run lint` reports no type errors
-- [ ] `package-lock.json` is committed
-- [ ] No imports from `ingestion/` or any Python code
+- [x] `mcp-server/package.json` exists with `"type": "module"` and all dependencies listed above
+- [x] `mcp-server/tsconfig.json` exists with strict mode, ESNext module, Bundler resolution
+- [x] `mcp-server/src/index.ts` exists, compiles without error, and prints the expected message
+- [x] `cd mcp-server && npm install` completes without error
+- [x] `cd mcp-server && npx tsx src/index.ts` prints "HuntReady MCP Server — scaffold" and exits 0
+- [x] `cd mcp-server && npm run lint` reports no type errors
+- [x] `package-lock.json` is committed
+- [x] No imports from `ingestion/` or any Python code
 
 ---
 
