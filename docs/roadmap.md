@@ -24,10 +24,10 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 **Deliverables:**
 - The four root documents above.
 - `adrs/` directory with the initial ADR set.
-- Repository skeleton with top-level directories (`ingestion/`, `mcp-server/`, `web/`, `plugin/`, `supabase/`) and placeholder READMEs.
-- Supabase project provisioned, PostGIS extension enabled, initial migration in place defining the `regulations`, `units`, and `sources` tables. RLS policies deny public PostgREST access; only the service-role key can read or write.
+- Repository skeleton with top-level directories (`ingestion/`, `mcp-server/`, `web/`, `plugin/`, `supabase/`) and minimal language-appropriate scaffolding (lints and runs, no business logic).
+- Supabase project provisioned, PostGIS extension enabled, credentials available locally. No migrations in place; no tables created. The database exists and is reachable, ready to receive its first migration in M1.
 
-**Exit criteria:** documents read as consistent. Open questions that are genuinely blocking are resolved or escalated. Nothing in the thinking layer is still load-bearing for the build layer. The database is reachable and ready to accept data.
+**Exit criteria:** documents read as consistent. Open questions that are genuinely blocking are resolved or escalated. Nothing in the thinking layer is still load-bearing for the build layer. The repository scaffold is in place and the database is reachable.
 
 ---
 
@@ -43,10 +43,12 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 - An ADR documents any schema changes made during this milestone, and migrations reflect them.
 
 **Deliverables:**
+- Initial schema migrations defining the six entities (`regulation_record`, `season_definition`, `license_tag`, `draw_spec`, `reporting_obligation`, `geometry` + `jurisdiction_binding`) per the schema documented in `architecture.md`. Migrations live in `supabase/migrations/` as timestamped files.
+- RLS policies deny all access to authenticated and anon roles; only the service-role key can read or write. PostgREST consumer access is closed off as a structural commitment, not a configuration toggle.
 - `ingestion/states/montana/` complete (fetch, extract, normalize, validate, load, sources.yaml).
 - `ingestion/lib/` primitives for PDF extraction, schema validation, PostGIS-aware geometry preparation, and the Postgres writer.
 - Montana records loaded into Supabase.
-- Migrations in `supabase/migrations/` reflecting any schema evolution during M1.
+- Migrations in `supabase/migrations/` reflecting any schema evolution that occurred during M1.
 
 **Exit criteria:** a second developer could, in theory, onboard Idaho using the Montana adapter as a reference, without further schema changes. "In theory" is the honest standard here; the real test comes in M2.
 

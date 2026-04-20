@@ -133,7 +133,7 @@ Supabase specifically is chosen over self-hosted Postgres, Fly.io Postgres, or N
 
 ## Data model
 
-HuntReady's data model is decomposed into six entities that compose to produce a regulation view. The decomposition is motivated by real structural variance in state regulation data — multiple named seasons per hunting district, multiple license types per species, region-specific reporting obligations, overlapping geographic jurisdictions — that a single flat record cannot represent without duplication or ambiguity. The full reasoning and the research evidence behind each entity live in [`research/schema-v2-proposal.md`](research/schema-v2-proposal.md).
+HuntReady's data model is decomposed into six entities that compose to produce a regulation view. The decomposition is motivated by real structural variance in state regulation data — multiple named seasons per hunting district, multiple license types per species, region-specific reporting obligations, overlapping geographic jurisdictions — that a single flat record cannot represent without duplication or ambiguity. The full reasoning and the research evidence behind each entity live in [`research/schema-proposal-v2.md`](research/schema-proposal-v2.md).
 
 The six entities:
 
@@ -543,4 +543,4 @@ One regulation corpus, one schema, three surfaces, clean separation between inge
 
 ---
 
-*See [`roadmap.md`](roadmap.md) for milestones and scope. See the README for installation and local development. See [`research/schema-v2-proposal.md`](research/schema-v2-proposal.md) for the reasoning behind the data model.*
+*See [`roadmap.md`](roadmap.md) for milestones and scope. See the README for installation and local development. See [`research/schema-proposal-v2.md`](research/schema-proposal-v2.md) for the reasoning behind the data model.*
