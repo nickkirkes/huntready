@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build output
+.next/
+out/
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Supabase local
+.supabase/
+
+# Python
+*.egg-info/
+.eggs/
+
+# TypeScript
+*.tsbuildinfo
+
+# Mapbox
+.mapbox/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
