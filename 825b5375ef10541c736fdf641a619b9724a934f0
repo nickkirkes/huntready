@@ -1,0 +1,25 @@
+docs/planning/verification/S0.1-gitignore-coverage.md
+  ad6360150643025f 1-86
+docs/planning/README.md
+  ad6360150643025f 3,28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.0",
+  "base_commit_sha": "825b5375ef10541c736fdf641a619b9724a934f0",
+  "prompts": {
+    "ad6360150643025f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c4bb6b9e-2d24-46e9-a134-39c3e914cd04",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 93,
+      "total_deletions": 7,
+      "accepted_lines": 88,
+      "overriden_lines": 0
+    }
+  }
+}
