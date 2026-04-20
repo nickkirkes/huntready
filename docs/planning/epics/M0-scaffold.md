@@ -59,9 +59,9 @@ docs/planning/
 ```
 
 **Acceptance Criteria:**
-- [ ] `docs/planning/README.md` exists with milestone status table (M0-M5)
-- [ ] `docs/planning/epics/M0-scaffold.md` exists (this file)
-- [ ] Both files have valid internal markdown links that resolve
+- [x] `docs/planning/README.md` exists with milestone status table (M0-M5)
+- [x] `docs/planning/epics/M0-scaffold.md` exists (this file)
+- [x] Both files have valid internal markdown links that resolve
 
 ---
 
