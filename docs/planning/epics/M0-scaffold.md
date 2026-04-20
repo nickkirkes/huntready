@@ -1,8 +1,8 @@
 # M0: Repo Scaffold
 
-**Status:** Not Started
+**Status:** In Progress
 **Dependencies:** None (M0 is the first milestone)
-**Validated:** 2026-04-19
+**Validated:** 2026-04-20
 
 ---
 
@@ -26,18 +26,18 @@ The `.gitignore` already exists at repo root. This story verifies its completene
 The repo uses: Node.js (npm, possibly pnpm), Python 3.11+ (venv, pip, eggs), Next.js (.next/, out/), Supabase CLI (.supabase/), Mapbox, and standard OS/IDE artifacts. Environment variables live in `.env` files that must never be committed.
 
 **Acceptance Criteria:**
-- [ ] `.gitignore` covers `node_modules/`, `.next/`, `out/`, `dist/`, `build/`, `*.tsbuildinfo`
-- [ ] `.gitignore` covers `__pycache__/`, `*.pyc`, `.venv/`, `venv/`, `*.egg-info/`, `.eggs/`
-- [ ] `.gitignore` covers `.env`, `.env.local`, `.env.*.local`
-- [ ] `.gitignore` covers `.supabase/`
-- [ ] `.gitignore` covers `.DS_Store`, `Thumbs.db`
-- [ ] `.gitignore` covers debug logs (`npm-debug.log*`, `yarn-debug.log*`, `yarn-error.log*`)
-- [ ] Gaps identified and documented (if any):
+- [x] `.gitignore` covers `node_modules/`, `.next/`, `out/`, `dist/`, `build/`, `*.tsbuildinfo`
+- [x] `.gitignore` covers `__pycache__/`, `*.pyc`, `.venv/`, `venv/`, `*.egg-info/`, `.eggs/`
+- [x] `.gitignore` covers `.env`, `.env.local`, `.env.*.local`
+- [x] `.gitignore` covers `.supabase/`
+- [x] `.gitignore` covers `.DS_Store`, `Thumbs.db`
+- [x] `.gitignore` covers debug logs (`npm-debug.log*`, `yarn-debug.log*`, `yarn-error.log*`)
+- [x] Gaps identified and documented (if any):
   - `.pnpm-store/` (pnpm cache directory)
   - `pnpm-debug.log*` (pnpm debug logs)
   - `coverage/` (test coverage output)
   - `.env.*` with `!.env.example` (blocks `.env.production`, `.env.staging` etc. while allowing `.env.example` — currently only `.env.*.local` is blocked)
-- [ ] If gaps exist, a list of recommended additions is produced for an implementation agent
+- [x] If gaps exist, a list of recommended additions is produced for an implementation agent
 
 ---
 

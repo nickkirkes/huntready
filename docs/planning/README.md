@@ -10,7 +10,7 @@
 
 | Milestone | Name | Status | Validated | Dependencies |
 |---|---|---|---|---|
-| M0 | Scaffold | Not Started | 2026-04-19 | None |
+| M0 | Scaffold | In Progress | 2026-04-20 | None |
 | M1 | Montana Ingestion | Not Started | — | M0 |
 | M2 | Colorado Ingestion | Not Started | — | M1 |
 | M3 | MCP Server | Not Started | — | M1 |
@@ -46,9 +46,9 @@ None.
 
 ## Next Actions
 
-- **S0.1** is the first implementation task — verify `.gitignore` coverage and document any gaps.
-- S0.2 is already complete (this file and the M0 epic file exist).
-- The roadmap/PM-prompt discrepancy on M0 scope (migrations, RLS) should be resolved by the human before S0.8 begins.
+- S0.1 and S0.2 are complete.
+- **S0.3** is the next implementation task — create `.env.example` at repo root.
+- The roadmap/PM-prompt discrepancy on M0 scope (migrations, RLS) has been resolved (2026-04-20). Roadmap updated to match.
 
 ---
 
