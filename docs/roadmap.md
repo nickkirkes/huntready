@@ -49,6 +49,7 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 - `ingestion/lib/` primitives for PDF extraction, schema validation, PostGIS-aware geometry preparation, and the Postgres writer.
 - Montana records loaded into Supabase.
 - Migrations in `supabase/migrations/` reflecting any schema evolution that occurred during M1.
+- Repository quality gates: pre-commit hooks for lint, typecheck, and secrets scanning. Tooling choice (Husky vs. `pre-commit` vs. lefthook) decided at implementation time; the deliverable is the gates, not the tool.
 
 **Exit criteria:** a second developer could, in theory, onboard Idaho using the Montana adapter as a reference, without further schema changes. "In theory" is the honest standard here; the real test comes in M2.
 
@@ -92,6 +93,7 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 - `mcp-server/README.md` documenting each tool's shape and a worked example.
 - A working `.mcp-config.json` at the repo root.
 - Tests for each tool: at minimum one happy path, one missing-data path.
+- External error capture integrated (Sentry or equivalent). Errors from the MCP server and its HTTP shim are routed to an external service, not logged to application logs. Vendor choice is a preference and can change; the commitment is that error capture is routed through a single integration point.
 
 **Exit criteria:** an agentic client can hold a useful, grounded conversation with HuntReady about hunting in Montana. Colorado support follows automatically once M2 lands.
 
@@ -112,6 +114,7 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 - `web/` complete: map view, species/date picker, regulation panel with source links, tag info panel, agency contacts.
 - Deployment configuration for both the web app and the MCP server HTTP shim.
 - A single Mapbox token configured via environment variable; no other secrets.
+- Error capture active in the deployed web app, using the same provider selected in M3. Client-side errors are visible alongside server-side errors.
 
 **Exit criteria:** the product is usable by a hunter who has never heard of HuntReady before, with no onboarding beyond the landing page.
 
