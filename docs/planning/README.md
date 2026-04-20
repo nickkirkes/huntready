@@ -1,6 +1,6 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-04-19
+**Last Updated:** 2026-04-20
 **Current Milestone:** M0 (Scaffold)
 **Overall V1 Status:** 0/6 milestones complete
 
@@ -25,7 +25,7 @@
 
 | Story | Name | Status | Owner |
 |---|---|---|---|
-| S0.1 | Verify .gitignore coverage | Not Started | Implementation |
+| S0.1 | Verify .gitignore coverage | Complete | Implementation |
 | S0.2 | Create docs/planning/ structure | Complete | PM |
 | S0.3 | Create .env.example | Not Started | Implementation |
 | S0.4 | Scaffold mcp-server/ | Not Started | Implementation |
