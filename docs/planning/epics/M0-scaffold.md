@@ -88,11 +88,11 @@ Security constraints:
 - File must be committed; the corresponding `.env` must NOT be committed
 
 **Acceptance Criteria:**
-- [ ] `.env.example` exists at repo root
-- [ ] Contains all five variables listed above with empty values and descriptive comments
-- [ ] `DATABASE_URL` comment explicitly states it is for ingestion/migrations only, not serving
-- [ ] No real credentials, tokens, URLs, or project references in the file
-- [ ] File is tracked by git (not in `.gitignore`)
+- [x] `.env.example` exists at repo root
+- [x] Contains all five variables listed above with empty values and descriptive comments
+- [x] `DATABASE_URL` comment explicitly states it is for ingestion/migrations only, not serving
+- [x] No real credentials, tokens, URLs, or project references in the file
+- [x] File is tracked by git (not in `.gitignore`)
 
 ---
 
