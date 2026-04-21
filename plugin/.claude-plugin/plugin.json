@@ -1,0 +1,5 @@
+{
+  "name": "huntready",
+  "version": "0.0.1",
+  "description": "HuntReady Claude Code plugin — developer-facing skills for regulation lookup and state onboarding. See ADR-009."
+}
