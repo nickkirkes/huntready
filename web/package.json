@@ -1,0 +1,23 @@
+{
+  "name": "@huntready/web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "HuntReady web companion — Next.js App Router client of the MCP server (ADR-002)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.0.0"
+  }
+}
