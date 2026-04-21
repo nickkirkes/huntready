@@ -224,13 +224,13 @@ See ADR-003 (ingestion upstream and offline) and ADR-005 (Python for ingestion).
 **Platform note:** `psycopg[binary]` requires pre-compiled wheels. If install fails on the developer's platform (rare on macOS ARM with modern pip), fall back to `psycopg` without `[binary]` and ensure `libpq-dev` is available.
 
 **Acceptance Criteria:**
-- [ ] `ingestion/pyproject.toml` exists with `[build-system]`, project name, requires-python >= 3.11, and all dependencies listed above
-- [ ] `ingestion/ingestion/__init__.py` exists with a docstring referencing ADR-003 and ADR-005
-- [ ] `ingestion/states/montana/.gitkeep` and `ingestion/states/colorado/.gitkeep` exist
-- [ ] From `ingestion/`: `python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"` completes without error
-- [ ] Within the activated virtualenv: `python -c "import ingestion"` succeeds
-- [ ] No imports from `mcp-server/` or any TypeScript code exist in the Python project
-- [ ] `.venv/` directory is NOT committed (covered by `.gitignore`)
+- [x] `ingestion/pyproject.toml` exists with `[build-system]`, project name, requires-python >= 3.11, and all dependencies listed above
+- [x] `ingestion/ingestion/__init__.py` exists with a docstring referencing ADR-003 and ADR-005
+- [x] `ingestion/states/montana/.gitkeep` and `ingestion/states/colorado/.gitkeep` exist
+- [x] From `ingestion/`: `python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"` completes without error
+- [x] Within the activated virtualenv: `python -c "import ingestion"` succeeds
+- [x] No imports from `mcp-server/` or any TypeScript code exist in the Python project
+- [x] `.venv/` directory is NOT committed (covered by `.gitignore`)
 
 ---
 
