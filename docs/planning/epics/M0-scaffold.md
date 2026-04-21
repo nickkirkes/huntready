@@ -287,16 +287,16 @@ module.exports = nextConfig;
 **`app/page.tsx`** — renders an `<h1>HuntReady</h1>` and `<p>Scaffold — web companion</p>`. No `any` types.
 
 **Acceptance Criteria:**
-- [ ] `web/package.json` exists with next, react, react-dom dependencies and correct devDependencies
-- [ ] `web/tsconfig.json` exists with strict mode, jsx preserve, bundler resolution, isolatedModules
-- [ ] `web/next.config.js` exists with `reactStrictMode: true`
-- [ ] `web/app/layout.tsx` exists, exports default component with `<html>` and `<body>` tags, exports metadata
-- [ ] `web/app/page.tsx` exists and renders "HuntReady" heading with "Scaffold — web companion"
-- [ ] `cd web && npm install` completes without error
-- [ ] `cd web && npx next build` completes without error (production build succeeds)
-- [ ] No `any` types in any `.tsx` files
-- [ ] `package-lock.json` is committed
-- [ ] No imports from `ingestion/`, no direct database access, no MCP client code
+- [x] `web/package.json` exists with next, react, react-dom dependencies and correct devDependencies
+- [x] `web/tsconfig.json` exists with strict mode, jsx preserve, bundler resolution, isolatedModules
+- [x] `web/next.config.js` exists with `reactStrictMode: true`
+- [x] `web/app/layout.tsx` exists, exports default component with `<html>` and `<body>` tags, exports metadata
+- [x] `web/app/page.tsx` exists and renders "HuntReady" heading with "Scaffold — web companion"
+- [x] `cd web && npm install` completes without error
+- [x] `cd web && npx next build` completes without error (production build succeeds)
+- [x] No `any` types in any `.tsx` files
+- [x] `package-lock.json` is committed
+- [x] No imports from `ingestion/`, no direct database access, no MCP client code
 
 ---
 
