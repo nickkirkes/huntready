@@ -76,8 +76,8 @@ Per project security constraints, credentials never appear in committed files. `
 
 Variables to document (drawn from [`docs/architecture.md`](../../architecture.md) and CLAUDE.md):
 - `SUPABASE_URL` — Supabase project URL (used by MCP server and web app)
-- `SUPABASE_SERVICE_ROLE_KEY` — service-role key (MCP server + ingestion pipeline)
-- `SUPABASE_ANON_KEY` — anon key (web app, scoped by RLS)
+- `SUPABASE_SECRET_KEY` — secret key (MCP server + ingestion pipeline)
+- `SUPABASE_PUBLISHABLE_KEY` — publishable key (web app, scoped by RLS)
 - `DATABASE_URL` — direct Postgres connection string (ingestion pipeline + migrations only; not used by serving stack per [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md))
 - `MAPBOX_ACCESS_TOKEN` — Mapbox GL JS token (web map, needed at M4)
 
@@ -379,10 +379,10 @@ id = "your-project-id-here"
 **Human-executed provisioning steps** (not automatable by an agent):
 1. Create Supabase project named "huntready" on free tier via dashboard.supabase.com
 2. Enable PostGIS extension: Dashboard > Database > Extensions > search "postgis" > Enable
-3. Copy project URL, service-role key, anon key, and database connection string into local `.env` (per the variables documented in `.env.example` from S0.3)
+3. Copy project URL, secret key, publishable key, and database connection string into local `.env` (per the variables documented in `.env.example` from S0.3)
 4. Verify: `psql "$DATABASE_URL" -c "SELECT postgis_version();"` returns a version string
 
-**Security:** Credentials go into `.env` only — never into committed files. `DATABASE_URL` is a credentialed connection string containing a password; it follows the same "local `.env` only" rule as the service-role key.
+**Security:** Credentials go into `.env` only — never into committed files. `DATABASE_URL` is a credentialed connection string containing a password; it follows the same "local `.env` only" rule as the secret key.
 
 **RLS note:** At M0 there are no tables, so PostgREST exposes nothing. However, M1's first action must include a deny-all RLS policy on any tables it creates, per ADR-004's commitment that "PostgREST must be affirmatively disabled via RLS." This is documented here as context for the M1 PM; it is not an M0 deliverable.
 

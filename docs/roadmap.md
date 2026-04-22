@@ -44,7 +44,7 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 
 **Deliverables:**
 - Initial schema migrations defining the six entities (`regulation_record`, `season_definition`, `license_tag`, `draw_spec`, `reporting_obligation`, `geometry` + `jurisdiction_binding`) per the schema documented in `architecture.md`. Migrations live in `supabase/migrations/` as timestamped files.
-- RLS policies deny all access to authenticated and anon roles; only the service-role key can read or write. PostgREST consumer access is closed off as a structural commitment, not a configuration toggle.
+- RLS policies deny all access to authenticated and anon roles; only the secret key can read or write. PostgREST consumer access is closed off as a structural commitment, not a configuration toggle.
 - `ingestion/states/montana/` complete (fetch, extract, normalize, validate, load, sources.yaml).
 - `ingestion/lib/` primitives for PDF extraction, schema validation, PostGIS-aware geometry preparation, and the Postgres writer.
 - Montana records loaded into Supabase.
