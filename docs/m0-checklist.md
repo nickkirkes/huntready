@@ -8,7 +8,7 @@
 - The private GitHub repo exists with all thinking-layer docs committed
 - Four code directories (`mcp-server/`, `ingestion/`, `web/`, `plugin/`) have minimal scaffolding that lints and runs
 - Supabase project provisioned; connection string recorded
-- Tag `m0` is pushed
+- Tag `v0.0.0` is pushed
 - A clean clone into a new directory resolves every internal link in the docs
 
 ---
@@ -508,8 +508,8 @@ git commit -m "M0: scaffold
 - Supabase project provisioned (PostGIS enabled)
 - README with repo-shape overview and local-dev setup"
 
-git tag m0
-git push --tags origin main
+git tag -a v0.0.0 -m "v0.0.0: M0 repo scaffold complete"
+git push origin v0.0.0
 ```
 
 ## Step 11: Verify M0 is actually done

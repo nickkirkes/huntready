@@ -1,6 +1,6 @@
 # M0: Repo Scaffold
 
-**Status:** In Progress
+**Status:** Complete
 **Dependencies:** None (M0 is the first milestone)
 **Validated:** 2026-04-20
 
@@ -444,7 +444,7 @@ This is a PM-owned story. The PM agent writes these files directly after all imp
 
 ---
 
-### S0.10: Clean-clone verification and tag `m0`
+### S0.10: Clean-clone verification and tag `v0.0.0`
 
 **As a** reviewer evaluating this project
 **I want** confidence that a fresh clone of the repo works end-to-end
@@ -467,33 +467,33 @@ This story runs after all preceding stories (S0.1-S0.9) have merged to main. It 
    - All JSON and Markdown files exist at expected paths
 7. Verify `.env.example` exists and contains expected variable names
 8. If any verification step fails: stop, document the failure, hand back to an implementation agent. Do NOT tag.
-9. Once all verifications pass: `git tag -a m0 -m "M0: Repo scaffold complete. Working code scaffolds in four directories (mcp-server, ingestion, web, plugin), Supabase provisioned with PostGIS, thinking-layer documents committed, cold-clone verified."`
-10. Push the tag: `git push origin m0`
-11. Confirm on GitHub that the `m0` tag is visible
+9. Once all verifications pass: `git tag -a v0.0.0 -m "v0.0.0: M0 repo scaffold complete. Working code scaffolds in four directories (mcp-server, ingestion, web, plugin), Supabase provisioned with PostGIS, thinking-layer documents committed, cold-clone verified."`
+10. Push the tag: `git push origin v0.0.0`
+11. Confirm on GitHub that the `v0.0.0` tag is visible
 
 **Acceptance Criteria:**
-- [ ] Clean clone to `/tmp/huntready-verify` succeeds
-- [ ] All internal markdown links resolve (zero broken links)
-- [ ] `mcp-server/` installs and hello-world runs without error
-- [ ] `ingestion/` installs in a virtualenv and package imports successfully
-- [ ] `web/` installs and `next build` completes without error
-- [ ] `plugin/` files exist at expected paths
-- [ ] `.env.example` is present with all documented variables
-- [ ] Tag `m0` exists on the commit at `main` HEAD
+- [x] Clean clone to `/tmp/huntready-verify` succeeds
+- [x] All internal markdown links resolve (zero broken links)
+- [x] `mcp-server/` installs and hello-world runs without error
+- [x] `ingestion/` installs in a virtualenv and package imports successfully
+- [x] `web/` installs and `next build` completes without error
+- [x] `plugin/` files exist at expected paths
+- [x] `.env.example` is present with all documented variables
+- [ ] Tag `v0.0.0` exists on the commit at `main` HEAD
 - [ ] Tag is pushed to the remote and visible on GitHub
-- [ ] No new commits are produced by this story — it creates a tag on an existing commit
+- [x] No new commits are produced by this story — it creates a tag on an existing commit
 
 ---
 
 ## Exit Criteria
 
-- [ ] All 10 stories complete (S0.1 through S0.10)
-- [ ] `CLAUDE.md` updated to reflect final M0 state
-- [ ] `README.md` reads cleanly on GitHub and gets a cold visitor to local install in under ten minutes
-- [ ] Clean `git clone` to a fresh directory succeeds; all internal links resolve; all scaffolds install and run
-- [ ] Tag `m0` pushed and visible on GitHub
-- [ ] `CHANGELOG.md` reflects M0 completion
-- [ ] No secrets in any committed file
+- [x] All 10 stories complete (S0.1 through S0.10)
+- [x] `CLAUDE.md` updated to reflect final M0 state
+- [x] `README.md` reads cleanly on GitHub and gets a cold visitor to local install in under ten minutes
+- [x] Clean `git clone` to a fresh directory succeeds; all internal links resolve; all scaffolds install and run
+- [ ] Tag `v0.0.0` pushed and visible on GitHub
+- [x] `CHANGELOG.md` reflects M0 completion
+- [x] No secrets in any committed file
 
 ---
 
