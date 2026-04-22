@@ -1,0 +1,42 @@
+docs/adrs/ADR-006-schema-versioned-from-day-one.md
+  a0b9b76907b71fc7 52
+docs/prompts/m0-pm-prompt.md
+  a0b9b76907b71fc7 184,223-229,506,511,515,520
+docs/open-questions.md
+  a0b9b76907b71fc7 17,25,37,49
+docs/m0-checklist.md
+  a0b9b76907b71fc7 47,53-54,434-438
+docs/adrs/ADR-010-decomposed-entity-model.md
+  a0b9b76907b71fc7 12,53
+docs/adrs/ADR-012-draw-mechanics-sibling-entity.md
+  a0b9b76907b71fc7 56
+docs/planning/epics/M0-scaffold.md
+  a0b9b76907b71fc7 337,341
+docs/adrs/ADR-013-server-returns-structure-client-composes-presentation.md
+  a0b9b76907b71fc7 54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "f64569267697645a82b423de06529a581348f61d",
+  "prompts": {
+    "a0b9b76907b71fc7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8858c994-a3eb-484b-af15-980eabaafff3",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 31,
+      "total_deletions": 31,
+      "accepted_lines": 31,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
