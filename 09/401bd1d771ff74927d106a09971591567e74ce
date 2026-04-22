@@ -1,0 +1,35 @@
+docs/architecture.md
+  8545a79731b85e95 534
+CLAUDE.md
+  8545a79731b85e95 135-136
+docs/planning/epics/M0-scaffold.md
+  8545a79731b85e95 79-80,382,385
+docs/m0-checklist.md
+  8545a79731b85e95 191-192
+docs/roadmap.md
+  8545a79731b85e95 47
+docs/prompts/m0-pm-prompt.md
+  8545a79731b85e95 240
+.env.example
+  8545a79731b85e95 8,17,20-21,23,25-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "09401bd1d771ff74927d106a09971591567e74ce",
+  "prompts": {
+    "8545a79731b85e95": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "69c60ef1-2ccc-4ba8-be97-8f01f147a2e1",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 16,
+      "accepted_lines": 18,
+      "overriden_lines": 0
+    }
+  }
+}
