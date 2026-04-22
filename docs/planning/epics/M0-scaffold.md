@@ -433,14 +433,14 @@ This is a PM-owned story. The PM agent writes these files directly after all imp
 - No marketing language
 
 **Acceptance Criteria:**
-- [ ] `README.md` exists at repo root with: what HuntReady is, repo structure, prerequisites, setup instructions, doc links
-- [ ] README setup instructions are sequential, each step is a single command or action, no step requires knowledge not in the README
-- [ ] `CLAUDE.md` is updated (not rewritten) to reflect M0's final state
-- [ ] All internal markdown links in `CLAUDE.md` resolve to existing files
-- [ ] Any `CLAUDE.md` links to `research/schema-v2-proposal.md` are corrected to `research/schema-proposal-v2.md`
-- [ ] `MAPBOX_TOKEN` in CLAUDE.md is renamed to `MAPBOX_ACCESS_TOKEN`
-- [ ] `CHANGELOG.md` exists at repo root with `## [Unreleased]` and `## M0 — Scaffold` sections
-- [ ] No marketing language in any of the three files
+- [x] `README.md` exists at repo root with: what HuntReady is, repo structure, prerequisites, setup instructions, doc links
+- [x] README setup instructions are sequential, each step is a single command or action, no step requires knowledge not in the README
+- [x] `CLAUDE.md` is updated (not rewritten) to reflect M0's final state
+- [x] All internal markdown links in `CLAUDE.md` resolve to existing files
+- [x] Any `CLAUDE.md` links to `research/schema-v2-proposal.md` are corrected to `research/schema-proposal-v2.md`
+- [x] `MAPBOX_TOKEN` in CLAUDE.md is renamed to `MAPBOX_ACCESS_TOKEN`
+- [x] `CHANGELOG.md` exists at repo root with `## [Unreleased]` and `## M0 — Scaffold` sections
+- [x] No marketing language in any of the three files
 
 ---
 
