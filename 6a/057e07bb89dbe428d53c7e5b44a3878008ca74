@@ -1,0 +1,28 @@
+docs/planning/epics/M0-scaffold.md
+  a0b9b76907b71fc7 436-443
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "6a057e07bb89dbe428d53c7e5b44a3878008ca74",
+  "prompts": {
+    "a0b9b76907b71fc7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8858c994-a3eb-484b-af15-980eabaafff3",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 8,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
