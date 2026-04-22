@@ -391,10 +391,10 @@ id = "your-project-id-here"
 **Acceptance Criteria:**
 - [x] `supabase/config.toml` exists with placeholder project ID (not a real project ID)
 - [x] `supabase/migrations/.gitkeep` exists
-- [ ] Supabase project "huntready" is provisioned on free tier (human-verified)
-- [ ] PostGIS extension is enabled (human-verified via Dashboard)
-- [ ] `SELECT postgis_version()` returns a valid version string when run against the provisioned database (human-verified)
-- [ ] Credentials exist in local `.env` only — no secrets in any committed file
+- [x] Supabase project "huntready" is provisioned on free tier (human-verified)
+- [x] PostGIS extension is enabled (human-verified via Dashboard)
+- [x] `SELECT postgis_version()` returns a valid version string when run against the provisioned database (human-verified)
+- [x] Credentials exist in local `.env` only — no secrets in any committed file
 - [x] No migrations created at M0 (M1 scope)
 - [x] No RLS policies created at M0 (M1's first task, documented in M1 epic as a prerequisite)
 
