@@ -343,11 +343,11 @@ plugin/
 No TypeScript, no npm install, no runtime dependencies. Pure documentation scaffold.
 
 **Acceptance Criteria:**
-- [ ] `plugin/.claude-plugin/plugin.json` exists with valid JSON containing name, version, and description
-- [ ] `plugin/plugins/huntready/skills/regulation-lookup/SKILL.md` exists with placeholder content referencing M5
-- [ ] `plugin/plugins/huntready/skills/ingest-state/SKILL.md` exists with placeholder content referencing M5
-- [ ] No implementation code in `plugin/` — only JSON and Markdown
-- [ ] Internal markdown links in SKILL.md files resolve to existing docs
+- [x] `plugin/.claude-plugin/plugin.json` exists with valid JSON containing name, version, and description
+- [x] `plugin/plugins/huntready/skills/regulation-lookup/SKILL.md` exists with placeholder content referencing M5
+- [x] `plugin/plugins/huntready/skills/ingest-state/SKILL.md` exists with placeholder content referencing M5
+- [x] No implementation code in `plugin/` — only JSON and Markdown
+- [x] Internal markdown links in SKILL.md files resolve to existing docs
 
 ---
 
