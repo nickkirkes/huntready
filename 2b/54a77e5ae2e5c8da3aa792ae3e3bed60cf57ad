@@ -1,0 +1,30 @@
+docs/m0-checklist.md
+  52d42d9f1e0baefe 434-438
+docs/prompts/m0-pm-prompt.md
+  52d42d9f1e0baefe 184,223-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.2",
+  "base_commit_sha": "2b54a77e5ae2e5c8da3aa792ae3e3bed60cf57ad",
+  "prompts": {
+    "52d42d9f1e0baefe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3c7b1bae-6773-4951-9290-92ab86187fd6",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 13,
+      "total_deletions": 13,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
