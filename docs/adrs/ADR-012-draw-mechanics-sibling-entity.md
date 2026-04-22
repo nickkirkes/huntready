@@ -53,4 +53,4 @@ The `parameters` escape hatch is typed as `Record<string, unknown>` and the disc
 - [ADR-010](ADR-010-decomposed-entity-model.md) — The sibling-entity pattern this ADR applies.
 - [ADR-011](ADR-011-shape-c-response-envelope.md) — `draw_spec` is embedded in the response envelope's `ResolvedTag`.
 - [`research/colorado-draw-schema-proposal.md`](../research/colorado-draw-schema-proposal.md) — Extended reasoning, state comparisons, and worked examples.
-- [`research/schema-v2-proposal.md`](../research/schema-v2-proposal.md) — The entity in its schema context.
+- [`research/schema-proposal-v2.md`](../research/schema-proposal-v2.md) — The entity in its schema context.

@@ -44,14 +44,14 @@ huntready/
 │   ├── ADR-002-mcp-canonical-interface.md
 │   ├── ... (all 13 ADRs)
 ├── research/
-│   ├── schema-v2-proposal.md
+│   ├── schema-proposal-v2.md
 │   ├── montana-source-structure-findings.md
 │   ├── montana-gis-endpoints-verified.md
 │   ├── gmu-source-evaluation.md
 │   ├── colorado-draw-schema-proposal.md
 │   ├── mcp-tool-response-shape-recommendation.md
-│   ├── mcp-response-shape-analysis.md
-│   └── frontend-response-shape-analysis.md
+│   ├── mcp_response_shape_analysis.md
+│   └── response-shape-analysis.md
 ├── mcp-server/
 │   ├── package.json
 │   ├── tsconfig.json

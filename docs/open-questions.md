@@ -14,7 +14,7 @@ This is a *working* document. It is expected to grow during the build and shrink
 
 ## Recently resolved
 
-Questions resolved through the April 2026 research cycle. Listed here as visible handoff context during active work on M1 and M2; retire when the linked ADRs are sufficiently referenced elsewhere that this section is no longer useful for context. Full resolutions live in the linked research documents, in `architecture.md` / `research/schema-v2-proposal.md`, and in the ADRs linked under each question.
+Questions resolved through the April 2026 research cycle. Listed here as visible handoff context during active work on M1 and M2; retire when the linked ADRs are sufficiently referenced elsewhere that this section is no longer useful for context. Full resolutions live in the linked research documents, in `architecture.md` / `research/schema-proposal-v2.md`, and in the ADRs linked under each question.
 
 ### Q1. How are Montana's big game regulations actually structured in the source PDF?
 
@@ -22,7 +22,7 @@ Questions resolved through the April 2026 research cycle. Listed here as visible
 
 **Load-bearing discoveries for the schema:** (a) multiple named seasons per license row (Early / Archery Only / General / Heritage Muzzleloader / Late), (b) A-license vs B-license split with independent quotas, (c) closure predicates expressed as prose outside the table, (d) correction PDFs as a first-class publication type, (e) BMUs, HDs, and CWD Management Zones as three distinct geometry layers with overlay relationships, (f) region-specific reporting obligations within a species, (g) landowner preference as a quota sub-pool predicate.
 
-**Sources:** [`research/montana-source-structure-findings.md`](research/montana-source-structure-findings.md), [`research/montana-gis-endpoints-verified.md`](research/montana-gis-endpoints-verified.md). All nine schema pressure points are addressed by the v2 entity model in [`research/schema-v2-proposal.md`](research/schema-v2-proposal.md).
+**Sources:** [`research/montana-source-structure-findings.md`](research/montana-source-structure-findings.md), [`research/montana-gis-endpoints-verified.md`](research/montana-gis-endpoints-verified.md). All nine schema pressure points are addressed by the v2 entity model in [`research/schema-proposal-v2.md`](research/schema-proposal-v2.md).
 
 **Resolution home:** [ADR-010](adrs/ADR-010-decomposed-entity-model.md) records the entity decomposition these discoveries drove.
 
@@ -34,7 +34,7 @@ Questions resolved through the April 2026 research cycle. Listed here as visible
 
 **Divergences from the Q2 analyst's recommendation:** (a) `overview` dropped — clients compose their own headlines from structured sections, (b) `tags` pluralized to `tags: ResolvedTag[]` to accommodate Montana's A/B license pattern, (c) `reporting` pluralized to `obligations: ResolvedReportingObligation[]` for region-specific variance, (d) `closure_predicate` inline on `ResolvedSeasonWindow`, (e) `SUPERSEDED_BY_CORRECTION` warning code added.
 
-**Sources:** [`research/mcp-tool-response-shape-recommendation.md`](research/mcp-tool-response-shape-recommendation.md), [`research/mcp-response-shape-analysis.md`](research/mcp-response-shape-analysis.md), [`research/frontend-response-shape-analysis.md`](research/frontend-response-shape-analysis.md). The committed response shape is `GetRegulationsResponse` in `architecture.md`.
+**Sources:** [`research/mcp-tool-response-shape-recommendation.md`](research/mcp-tool-response-shape-recommendation.md), [`research/mcp_response_shape_analysis.md`](research/mcp_response_shape_analysis.md), [`research/response-shape-analysis.md`](research/response-shape-analysis.md). The committed response shape is `GetRegulationsResponse` in `architecture.md`.
 
 **Resolution home:** [ADR-011](adrs/ADR-011-shape-c-response-envelope.md) records the Shape C commitment; [ADR-013](adrs/ADR-013-server-returns-structure-client-composes-presentation.md) records the "no server-composed `overview`" principle that followed from it.
 
@@ -46,7 +46,7 @@ Questions resolved through the April 2026 research cycle. Listed here as visible
 
 **Verified against:** Colorado's 80/20 hybrid, Wyoming's 75/25 split with 2-year inactive forfeit, New Mexico's three statutory pools with no points, Utah's squared bonus system. All four serialize cleanly with no state-specific branches in shared code.
 
-**Sources:** [`research/colorado-draw-schema-proposal.md`](research/colorado-draw-schema-proposal.md). The committed schema is in `architecture.md` (entity: `DrawSpec`) and reasoning is in [`research/schema-v2-proposal.md`](research/schema-v2-proposal.md).
+**Sources:** [`research/colorado-draw-schema-proposal.md`](research/colorado-draw-schema-proposal.md). The committed schema is in `architecture.md` (entity: `DrawSpec`) and reasoning is in [`research/schema-proposal-v2.md`](research/schema-proposal-v2.md).
 
 **Resolution home:** [ADR-012](adrs/ADR-012-draw-mechanics-sibling-entity.md) records the sibling-entity draw model.
 

@@ -334,11 +334,11 @@ plugin/
 
 **`regulation-lookup/SKILL.md`:**
 - Title: "Regulation Lookup"
-- Body: "Scaffold — implementation deferred to M5. This skill will wrap HuntReady's MCP tools for querying regulation data during development sessions. See [`docs/roadmap.md`](../../../../docs/roadmap.md) milestone M5."
+- Body: "Scaffold — implementation deferred to M5. This skill will wrap HuntReady's MCP tools for querying regulation data during development sessions. See [`docs/roadmap.md`](../../roadmap.md) milestone M5."
 
 **`ingest-state/SKILL.md`:**
 - Title: "Ingest State"
-- Body: "Scaffold — implementation deferred to M5. This skill will walk a developer through onboarding a new state adapter: fetching sources, running the extractor, normalizing against the schema, and scaffolding a new adapter directory. See [`docs/roadmap.md`](../../../../docs/roadmap.md) milestone M5."
+- Body: "Scaffold — implementation deferred to M5. This skill will walk a developer through onboarding a new state adapter: fetching sources, running the extractor, normalizing against the schema, and scaffolding a new adapter directory. See [`docs/roadmap.md`](../../roadmap.md) milestone M5."
 
 No TypeScript, no npm install, no runtime dependencies. Pure documentation scaffold.
 

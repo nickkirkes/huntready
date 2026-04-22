@@ -9,7 +9,7 @@
 
 ## Context
 
-The v1 schema treated a regulation as a single `RegulationRecord` with embedded jurisdiction, applies_to, rules, and optional tag_info fields. First contact with Montana FWP's published regulations surfaced nine structural patterns the single-record shape could not express without duplication or ambiguity — multiple named seasons per hunting district, A-license and B-license splits with independent quotas, overlay geometries (Bear Management Units, CWD Management Zones) cross-cutting hunting districts, and six others enumerated in [`research/schema-v2-proposal.md`](../research/schema-v2-proposal.md). A single-table design could absorb these by cramming arrays into fields, duplicating records across seasons, or smuggling structure into free text, but each option degrades the schema's ability to answer queries without rederiving structure at read time.
+The v1 schema treated a regulation as a single `RegulationRecord` with embedded jurisdiction, applies_to, rules, and optional tag_info fields. First contact with Montana FWP's published regulations surfaced nine structural patterns the single-record shape could not express without duplication or ambiguity — multiple named seasons per hunting district, A-license and B-license splits with independent quotas, overlay geometries (Bear Management Units, CWD Management Zones) cross-cutting hunting districts, and six others enumerated in [`research/schema-proposal-v2.md`](../research/schema-proposal-v2.md). A single-table design could absorb these by cramming arrays into fields, duplicating records across seasons, or smuggling structure into free text, but each option degrades the schema's ability to answer queries without rederiving structure at read time.
 
 ## Decision
 
@@ -50,7 +50,7 @@ This ADR commits to the entity count and the composition pattern, not to the exa
 
 ## Links
 
-- [`research/schema-v2-proposal.md`](../research/schema-v2-proposal.md) — The extended reasoning, including worked examples for Montana HD 262, BMU 411, and Colorado E-E-024.
+- [`research/schema-proposal-v2.md`](../research/schema-proposal-v2.md) — The extended reasoning, including worked examples for Montana HD 262, BMU 411, and Colorado E-E-024.
 - [ADR-006](ADR-006-schema-versioned-from-day-one.md) — Versioning makes the decomposition's field-level evolution safe.
 - [ADR-011](ADR-011-shape-c-response-envelope.md) — The response shape composes from these entities.
 - [ADR-012](ADR-012-draw-mechanics-sibling-entity.md) — A specific application of the sibling-entity pattern to draw mechanics.
