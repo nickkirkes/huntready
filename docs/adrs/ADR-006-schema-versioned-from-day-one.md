@@ -49,4 +49,4 @@ The V1 evidence is concrete: the schema moved from v1 to v2 before any data was 
 - [ADR-005](ADR-005-python-for-ingestion-typescript-for-serving.md) — The three-place schema duplication that makes versioning more work.
 - [ADR-008](ADR-008-verbatim-regulation-text.md) — Verbatim text is part of the schema contract that evolves under versioning.
 - [ADR-010](ADR-010-decomposed-entity-model.md) — The v1-to-v2 structural revision; the first real exercise of this ADR's versioning commitment.
-- [`docs/research/schema-v2-proposal.md`](../research/schema-v2-proposal.md) — The v1-to-v2 reasoning already executed before V1.
+- [`docs/research/schema-proposal-v2.md`](../research/schema-proposal-v2.md) — The v1-to-v2 reasoning already executed before V1.

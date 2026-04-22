@@ -51,4 +51,4 @@ The principle generalizes. Structural concerns — the shape of the data, the en
 
 - [ADR-002](ADR-002-mcp-canonical-interface.md) — The canonical interface within which this principle operates.
 - [ADR-011](ADR-011-shape-c-response-envelope.md) — The first concrete application of this principle.
-- [`research/schema-v2-proposal.md`](../research/schema-v2-proposal.md) — The review in which the `overview` field was dropped and this principle was articulated.
+- [`research/schema-proposal-v2.md`](../research/schema-proposal-v2.md) — The review in which the `overview` field was dropped and this principle was articulated.

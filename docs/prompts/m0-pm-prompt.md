@@ -181,7 +181,7 @@ The M0 epic file is the primary artifact handed to implementation agents. Storie
 
 **Context:**
 [Everything an implementation agent needs to execute this story without reading any other document. Include:
-- Relevant ADR links (e.g. "See [ADR-002](../../adrs/ADR-002-mcp-canonical-interface.md)")
+- Relevant ADR links (e.g. "See [ADR-002](../adrs/ADR-002-mcp-canonical-interface.md)")
 - Exact file paths and directory structures
 - Any existing files being referenced or extended
 - Import/dependency constraints where relevant
@@ -220,13 +220,13 @@ Most M0 stories are sequential because they operate on the same repo root. Excep
 
 ## References
 
-- [`docs/context.md`](../../context.md) — V1 done criteria
-- [`docs/roadmap.md`](../../roadmap.md) — M0 scope
-- [ADR-002](../../adrs/ADR-002-mcp-canonical-interface.md) — canonical interface; `mcp-server/` scaffold
-- [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md) — Python/TypeScript split
-- [ADR-004](../../adrs/ADR-004-supabase-postgres-postgis.md) — Supabase provisioning
-- [ADR-005](../../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md) — language split
-- [ADR-009](../../adrs/ADR-009-agentic-development-first-class.md) — plugin scaffold
+- [`docs/context.md`](../context.md) — V1 done criteria
+- [`docs/roadmap.md`](../roadmap.md) — M0 scope
+- [ADR-002](../adrs/ADR-002-mcp-canonical-interface.md) — canonical interface; `mcp-server/` scaffold
+- [ADR-003](../adrs/ADR-003-ingestion-upstream-offline.md) — Python/TypeScript split
+- [ADR-004](../adrs/ADR-004-supabase-postgres-postgis.md) — Supabase provisioning
+- [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md) — language split
+- [ADR-009](../adrs/ADR-009-agentic-development-first-class.md) — plugin scaffold
 ```
 
 ---
@@ -503,21 +503,21 @@ These are non-negotiable for M0. Every story context section must surface the co
 - `.env.example` only; `.env` goes in `.gitignore`
 - Supabase credentials live in local `.env` until they are injected into the deploy environment (not an M0 concern)
 
-**Architectural boundaries ([ADR-002](docs/adrs/ADR-002-mcp-canonical-interface.md), [ADR-003](docs/adrs/ADR-003-ingestion-upstream-offline.md)):**
+**Architectural boundaries ([ADR-002](../adrs/ADR-002-mcp-canonical-interface.md), [ADR-003](../adrs/ADR-003-ingestion-upstream-offline.md)):**
 - `mcp-server/` does not import from `ingestion/`
 - `ingestion/` does not import from `mcp-server/`
 - `web/` and `plugin/` both read through the MCP server, not directly from the database
 
-**Language split ([ADR-005](docs/adrs/ADR-005-python-for-ingestion-typescript-for-serving.md)):**
+**Language split ([ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md)):**
 - `ingestion/` is Python 3.11+; everything else is TypeScript
 - Do not add cross-language glue code at M0; the shared contract is the Postgres schema, defined in three places manually kept in sync
 
-**Storage ([ADR-004](docs/adrs/ADR-004-supabase-postgres-postgis.md)):**
+**Storage ([ADR-004](../adrs/ADR-004-supabase-postgres-postgis.md)):**
 - Supabase project is the only database target for M0
 - PostGIS must be enabled before M1 begins
 - RLS policies are an M1 concern, not M0; document this in the epic file
 
-**Plugin conventions ([ADR-009](docs/adrs/ADR-009-agentic-development-first-class.md)):**
+**Plugin conventions ([ADR-009](../adrs/ADR-009-agentic-development-first-class.md)):**
 - `.claude-plugin/` + `plugins/huntready/skills/<skill>/SKILL.md`
 - Skills at M0 are placeholders only; implementation is M5 scope
 

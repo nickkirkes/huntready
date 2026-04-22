@@ -44,14 +44,14 @@ huntready/
 │   ├── ADR-002-mcp-canonical-interface.md
 │   ├── ... (all 13 ADRs)
 ├── research/
-│   ├── schema-v2-proposal.md
+│   ├── schema-proposal-v2.md
 │   ├── montana-source-structure-findings.md
 │   ├── montana-gis-endpoints-verified.md
 │   ├── gmu-source-evaluation.md
 │   ├── colorado-draw-schema-proposal.md
 │   ├── mcp-tool-response-shape-recommendation.md
-│   ├── mcp-response-shape-analysis.md
-│   └── frontend-response-shape-analysis.md
+│   ├── mcp_response_shape_analysis.md
+│   └── response-shape-analysis.md
 ├── mcp-server/
 │   ├── package.json
 │   ├── tsconfig.json
@@ -431,11 +431,11 @@ Currently scaffold (M0). See [`roadmap.md`](roadmap.md) for the build plan.
 - [`open-questions.md`](open-questions.md) — decisions not yet made
 - [`adrs/`](adrs/) — architecture decision records (13 accepted as of M0)
 - [`research/`](research/) — extended reasoning documents that informed the ADRs
-- [`mcp-server/`](mcp-server/) — MCP server (TypeScript); canonical query interface
-- [`ingestion/`](ingestion/) — regulation ingestion pipeline (Python)
-- [`web/`](web/) — web companion (Next.js)
-- [`plugin/`](plugin/) — Claude Code plugin (skills: `regulation-lookup`, `ingest-state`)
-- [`supabase/`](supabase/) — Postgres migrations and Supabase config
+- [`mcp-server/`](../mcp-server/) — MCP server (TypeScript); canonical query interface
+- [`ingestion/`](../ingestion/) — regulation ingestion pipeline (Python)
+- [`web/`](../web/) — web companion (Next.js)
+- [`plugin/`](../plugin/) — Claude Code plugin (skills: `regulation-lookup`, `ingest-state`)
+- [`supabase/`](../supabase/) — Postgres migrations and Supabase config
 
 ## Local development
 
