@@ -188,8 +188,8 @@ This documents what secrets/config are needed without committing them. Create at
 ```bash
 # Supabase — populate these from your Supabase project dashboard
 SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=  # MCP server and ingestion pipeline use this
-SUPABASE_ANON_KEY=          # Web app uses this (scoped by RLS)
+SUPABASE_SECRET_KEY=        # MCP server and ingestion pipeline use this
+SUPABASE_PUBLISHABLE_KEY=   # Web app uses this (scoped by RLS)
 
 # Database — direct connection for migrations and ingestion
 DATABASE_URL=postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres

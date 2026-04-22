@@ -531,7 +531,7 @@ V1 deploys to three hosting surfaces, all free-tier at V1 scale:
 
 The MCP server is also installable locally for agentic clients — a `.mcp-config.json` in the repo root lets a user register HuntReady with Claude Desktop in one line. Local installation uses the same Supabase database as the hosted server.
 
-Secrets in V1: the Supabase service-role key (for the MCP server), the Supabase anon key (for the web app, scoped by RLS), and the Mapbox token (for the web map). All other configuration is non-sensitive.
+Secrets in V1: the Supabase secret key (for the MCP server), the Supabase publishable key (for the web app, scoped by RLS), and the Mapbox token (for the web map). All other configuration is non-sensitive.
 
 ## Operational posture
 
