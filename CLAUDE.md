@@ -8,7 +8,7 @@ HuntReady is a regulatory data platform for licensed hunting in the US. Given a 
 
 ## Project status
 
-Currently at **M0 (Frame locked)** — design documents, ADRs, and schema are committed; no implementation code exists yet. The repo is docs-only. M1 begins Montana ingestion.
+**M0 (Scaffold) complete.** Design documents, ADRs, and schema are committed. Working code scaffolds exist in four directories (`mcp-server/`, `ingestion/`, `web/`, `plugin/`). Supabase project provisioned with PostGIS enabled. No business logic, no migrations, no regulation data yet. M1 begins Montana ingestion.
 
 ## Architecture
 
@@ -129,9 +129,10 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
   - ADR-012: Draw mechanics as sibling entity
   - ADR-013: Server returns structure, client composes presentation
 
-## Environment variables (once implementation exists)
+## Environment variables
 
 - `SUPABASE_URL` — Supabase project URL
 - `SUPABASE_SECRET_KEY` — secret key (MCP server + ingestion)
 - `SUPABASE_PUBLISHABLE_KEY` — publishable key (web app, scoped by RLS)
-- `MAPBOX_TOKEN` — Mapbox GL JS token (web map)
+- `DATABASE_URL` — direct Postgres connection string (ingestion pipeline + migrations only; not used by serving stack per ADR-003)
+- `MAPBOX_ACCESS_TOKEN` — Mapbox GL JS access token (web map)
