@@ -431,11 +431,11 @@ Currently scaffold (M0). See [`roadmap.md`](roadmap.md) for the build plan.
 - [`open-questions.md`](open-questions.md) — decisions not yet made
 - [`adrs/`](adrs/) — architecture decision records (13 accepted as of M0)
 - [`research/`](research/) — extended reasoning documents that informed the ADRs
-- [`mcp-server/`](../mcp-server/) — MCP server (TypeScript); canonical query interface
-- [`ingestion/`](../ingestion/) — regulation ingestion pipeline (Python)
-- [`web/`](../web/) — web companion (Next.js)
-- [`plugin/`](../plugin/) — Claude Code plugin (skills: `regulation-lookup`, `ingest-state`)
-- [`supabase/`](../supabase/) — Postgres migrations and Supabase config
+- [`mcp-server/`](mcp-server/) — MCP server (TypeScript); canonical query interface
+- [`ingestion/`](ingestion/) — regulation ingestion pipeline (Python)
+- [`web/`](web/) — web companion (Next.js)
+- [`plugin/`](plugin/) — Claude Code plugin (skills: `regulation-lookup`, `ingest-state`)
+- [`supabase/`](supabase/) — Postgres migrations and Supabase config
 
 ## Local development
 
