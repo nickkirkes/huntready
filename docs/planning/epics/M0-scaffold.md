@@ -76,8 +76,8 @@ Per project security constraints, credentials never appear in committed files. `
 
 Variables to document (drawn from [`docs/architecture.md`](../../architecture.md) and CLAUDE.md):
 - `SUPABASE_URL` — Supabase project URL (used by MCP server and web app)
-- `SUPABASE_SERVICE_ROLE_KEY` — service-role key (MCP server + ingestion pipeline)
-- `SUPABASE_ANON_KEY` — anon key (web app, scoped by RLS)
+- `SUPABASE_SECRET_KEY` — secret key (MCP server + ingestion pipeline)
+- `SUPABASE_PUBLISHABLE_KEY` — publishable key (web app, scoped by RLS)
 - `DATABASE_URL` — direct Postgres connection string (ingestion pipeline + migrations only; not used by serving stack per [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md))
 - `MAPBOX_ACCESS_TOKEN` — Mapbox GL JS token (web map, needed at M4)
 
@@ -343,11 +343,11 @@ plugin/
 No TypeScript, no npm install, no runtime dependencies. Pure documentation scaffold.
 
 **Acceptance Criteria:**
-- [ ] `plugin/.claude-plugin/plugin.json` exists with valid JSON containing name, version, and description
-- [ ] `plugin/plugins/huntready/skills/regulation-lookup/SKILL.md` exists with placeholder content referencing M5
-- [ ] `plugin/plugins/huntready/skills/ingest-state/SKILL.md` exists with placeholder content referencing M5
-- [ ] No implementation code in `plugin/` — only JSON and Markdown
-- [ ] Internal markdown links in SKILL.md files resolve to existing docs
+- [x] `plugin/.claude-plugin/plugin.json` exists with valid JSON containing name, version, and description
+- [x] `plugin/plugins/huntready/skills/regulation-lookup/SKILL.md` exists with placeholder content referencing M5
+- [x] `plugin/plugins/huntready/skills/ingest-state/SKILL.md` exists with placeholder content referencing M5
+- [x] No implementation code in `plugin/` — only JSON and Markdown
+- [x] Internal markdown links in SKILL.md files resolve to existing docs
 
 ---
 
@@ -379,24 +379,24 @@ id = "your-project-id-here"
 **Human-executed provisioning steps** (not automatable by an agent):
 1. Create Supabase project named "huntready" on free tier via dashboard.supabase.com
 2. Enable PostGIS extension: Dashboard > Database > Extensions > search "postgis" > Enable
-3. Copy project URL, service-role key, anon key, and database connection string into local `.env` (per the variables documented in `.env.example` from S0.3)
+3. Copy project URL, secret key, publishable key, and database connection string into local `.env` (per the variables documented in `.env.example` from S0.3)
 4. Verify: `psql "$DATABASE_URL" -c "SELECT postgis_version();"` returns a version string
 
-**Security:** Credentials go into `.env` only — never into committed files. `DATABASE_URL` is a credentialed connection string containing a password; it follows the same "local `.env` only" rule as the service-role key.
+**Security:** Credentials go into `.env` only — never into committed files. `DATABASE_URL` is a credentialed connection string containing a password; it follows the same "local `.env` only" rule as the secret key.
 
 **RLS note:** At M0 there are no tables, so PostgREST exposes nothing. However, M1's first action must include a deny-all RLS policy on any tables it creates, per ADR-004's commitment that "PostgREST must be affirmatively disabled via RLS." This is documented here as context for the M1 PM; it is not an M0 deliverable.
 
 **Roadmap alignment (resolved 2026-04-20):** `docs/roadmap.md` has been updated by the human so M0 reads as scaffold-only. M1 now owns the initial migrations and deny-all RLS policies. No expansion of S0.8 is needed.
 
 **Acceptance Criteria:**
-- [ ] `supabase/config.toml` exists with placeholder project ID (not a real project ID)
-- [ ] `supabase/migrations/.gitkeep` exists
-- [ ] Supabase project "huntready" is provisioned on free tier (human-verified)
-- [ ] PostGIS extension is enabled (human-verified via Dashboard)
-- [ ] `SELECT postgis_version()` returns a valid version string when run against the provisioned database (human-verified)
-- [ ] Credentials exist in local `.env` only — no secrets in any committed file
-- [ ] No migrations created at M0 (M1 scope)
-- [ ] No RLS policies created at M0 (M1's first task, documented in M1 epic as a prerequisite)
+- [x] `supabase/config.toml` exists with placeholder project ID (not a real project ID)
+- [x] `supabase/migrations/.gitkeep` exists
+- [x] Supabase project "huntready" is provisioned on free tier (human-verified)
+- [x] PostGIS extension is enabled (human-verified via Dashboard)
+- [x] `SELECT postgis_version()` returns a valid version string when run against the provisioned database (human-verified)
+- [x] Credentials exist in local `.env` only — no secrets in any committed file
+- [x] No migrations created at M0 (M1 scope)
+- [x] No RLS policies created at M0 (M1's first task, documented in M1 epic as a prerequisite)
 
 ---
 

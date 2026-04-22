@@ -132,6 +132,6 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
 ## Environment variables (once implementation exists)
 
 - `SUPABASE_URL` — Supabase project URL
-- `SUPABASE_SERVICE_ROLE_KEY` — service-role key (MCP server + ingestion)
-- `SUPABASE_ANON_KEY` — anon key (web app, scoped by RLS)
+- `SUPABASE_SECRET_KEY` — secret key (MCP server + ingestion)
+- `SUPABASE_PUBLISHABLE_KEY` — publishable key (web app, scoped by RLS)
 - `MAPBOX_TOKEN` — Mapbox GL JS token (web map)
