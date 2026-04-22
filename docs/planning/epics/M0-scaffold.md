@@ -389,14 +389,14 @@ id = "your-project-id-here"
 **Roadmap alignment (resolved 2026-04-20):** `docs/roadmap.md` has been updated by the human so M0 reads as scaffold-only. M1 now owns the initial migrations and deny-all RLS policies. No expansion of S0.8 is needed.
 
 **Acceptance Criteria:**
-- [ ] `supabase/config.toml` exists with placeholder project ID (not a real project ID)
-- [ ] `supabase/migrations/.gitkeep` exists
+- [x] `supabase/config.toml` exists with placeholder project ID (not a real project ID)
+- [x] `supabase/migrations/.gitkeep` exists
 - [ ] Supabase project "huntready" is provisioned on free tier (human-verified)
 - [ ] PostGIS extension is enabled (human-verified via Dashboard)
 - [ ] `SELECT postgis_version()` returns a valid version string when run against the provisioned database (human-verified)
 - [ ] Credentials exist in local `.env` only — no secrets in any committed file
-- [ ] No migrations created at M0 (M1 scope)
-- [ ] No RLS policies created at M0 (M1's first task, documented in M1 epic as a prerequisite)
+- [x] No migrations created at M0 (M1 scope)
+- [x] No RLS policies created at M0 (M1's first task, documented in M1 epic as a prerequisite)
 
 ---
 
