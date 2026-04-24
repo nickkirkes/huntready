@@ -176,30 +176,4 @@ Two audiences.
 
 For the builder: a way to know what "finished" means at each stage, so that completion is a clear decision and not a vibe. Milestones are checkpoints to stop, evaluate, and decide whether to proceed, adjust, or cut.
 
-For PM agents drafting epics and stories: a structured backbone to decompose into work. Each milestone gets one PM session that plans its constituent epics in sequence — a milestone-scoped PM, not an epic-scoped PM. The PM holds context across all of a milestone's epics, plans them iteratively (E01 first, then E02 once E01's stories merge, then E03), and hands off to the next milestone's PM via a `/handoff` summary. Epics within a milestone share a PM; milestones do not. This convention preserves continuity within a milestone without overloading any single agent with cross-milestone state.
-
-The roadmap is intentionally written at a level of abstraction that an agent can use without needing to ask what "ingested" or "deployed" mean in context — the context doc and architecture doc supply the rest.
-
-## How the roadmap, PRDs, and epics relate
-
-The roadmap describes *outcomes*. PRDs describe *scope and phasing within an outcome*. Epic files describe *concrete work decomposed from a PRD*.
-
-The chain is:
-
-```
-roadmap.md         (outcomes per milestone)
-       ↓
-docs/planning/prds/[NNN]-[scope].md   (scope, phasing, risks, decisions for one or more milestones)
-       ↓
-docs/planning/epics/[E_NN]-[name].md  (stories, acceptance criteria, validation findings)
-       ↓
-implementation (per ruckus or equivalent workflow)
-```
-
-A PM agent working on a milestone reads the roadmap for the milestone's outcome, the PRD for its scope and phasing, and the architecture/ADRs for the technical frame. The PM does not re-derive scope from the roadmap; that is the PRD's job. If the PRD and the roadmap disagree on scope, the PRD is treated as the more recent and more specific source — but the disagreement is surfaced to the human rather than silently resolved.
-
-Not every milestone needs its own PRD. Milestone scope that is straightforwardly derivable from the roadmap (as M0's was) can proceed without a PRD. PRDs exist when scope decisions, phasing, or risk profiles benefit from being made and recorded explicitly before epic planning begins. M1 is the first milestone with a PRD; subsequent milestones may or may not have one depending on their complexity.
-
-## PRD numbering
-
-PRDs are numbered sequentially across the project, not per-milestone. PRD-001 may scope M1; PRD-002 may scope M2 + M3 if those are tightly coupled; PRD-003 may scope a sub-milestone within M4. The numbering reflects creation order and provides a stable identifier regardless of what scope a PRD covers.
+For PM agents drafting epics and stories: a structured backbone to decompose into work. Each milestone is one epic (or a small set of related epics); each deliverable is a potential story or story cluster. The roadmap is intentionally written at a level of abstraction that an agent can use without needing to ask what "ingested" or "deployed" mean in context — the context doc and architecture doc supply the rest.

@@ -1,0 +1,44 @@
+# === Always ===
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Media and fonts
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.mp4
+*.webm
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# === JavaScript / TypeScript ===
+node_modules/
+dist/
+build/
+.next/
+out/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+*.min.js
+*.min.css
+*.map
+coverage/
+.nyc_output/
+
+# === Python ===
+.venv/
+__pycache__/
+
+# === Lock files ===
+*.lock
