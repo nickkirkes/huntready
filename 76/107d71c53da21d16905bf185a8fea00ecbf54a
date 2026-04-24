@@ -1,0 +1,47 @@
+docs/planning/epics/E01-schema-migrations.md
+  9a9554132d1ded94 1-598
+docs/planning/README.md
+  9a9554132d1ded94 3-4,22,24-34,38-43,49,55-57,63-64
+docs/planning/epics/E01-schema-migrations-review.md
+  d69c83824650ff66 1-107
+CLAUDE.md
+  9a9554132d1ded94 32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "76107d71c53da21d16905bf185a8fea00ecbf54a",
+  "prompts": {
+    "9a9554132d1ded94": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 640,
+      "total_deletions": 34,
+      "accepted_lines": 626,
+      "overriden_lines": 0
+    },
+    "d69c83824650ff66": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d11bd754-d472-45a9-90f3-36f20211c6eb",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 107,
+      "total_deletions": 0,
+      "accepted_lines": 107,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
