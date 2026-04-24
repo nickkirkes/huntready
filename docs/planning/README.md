@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-04-22
-**Current Milestone:** M1 (Montana Ingestion)
+**Last Updated:** 2026-04-24
+**Current Milestone:** M1 — Montana Ingestion
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -19,38 +19,46 @@
 
 ---
 
-## Current Milestone: M0
+## Current Milestone: M1 — Montana Ingestion
 
-### Story Status
+M1 delivers Montana regulations into Supabase Postgres, validated against the six-entity schema, covering five V1 species across all applicable jurisdictions. Three sequential epics:
+
+### Epic Status
+
+| Epic | Name | Status | Validated | Stories |
+|---|---|---|---|---|
+| E01 | Schema Migrations, RLS, and Quality Gates | Not Started | 2026-04-24 | 6 |
+| E02 | Montana Geometry Ingestion | Not Started — planned when E01 completes | — | TBD |
+| E03 | Montana Regulation Text Ingestion | Not Started — planned when E02 completes | — | TBD |
+
+### E01 Story Status
 
 | Story | Name | Status | Owner |
 |---|---|---|---|
-| S0.1 | Verify .gitignore coverage | Complete | Implementation |
-| S0.2 | Create docs/planning/ structure | Complete | PM |
-| S0.3 | Create .env.example | Complete | Implementation |
-| S0.4 | Scaffold mcp-server/ | Complete | Implementation |
-| S0.5 | Scaffold ingestion/ | Complete | Implementation |
-| S0.6 | Scaffold web/ | Complete | Implementation |
-| S0.7 | Scaffold plugin/ | Complete | Implementation |
-| S0.8 | supabase/ directory and provisioning | Complete | Implementation + Human |
-| S0.9 | Draft M0 documentation artifacts | Complete | PM |
-| S0.10 | Clean-clone verification and tag v0.0.0 | Complete | Implementation |
+| S01.1 | Install pre-commit hooks | Not Started | Implementation |
+| S01.2 | Initial migration — entity tables, link tables, indexes | Not Started | Implementation |
+| S01.3 | RLS migration — deny-all policies | Not Started | Implementation |
+| S01.4 | Python dataclasses matching DDL | Not Started | Implementation |
+| S01.5 | TypeScript types matching DDL | Not Started | Implementation |
+| S01.6 | Migration reproducibility verification | Not Started | Implementation |
 
 ---
 
 ## Active Blockers
 
-None.
+None. Previously identified blockers (`source_date`, `ingestion/lib/` path) resolved — see [E01 epic](epics/E01-schema-migrations.md) § "Known Issues to Escalate".
 
 ---
 
 ## Next Actions
 
-- M0 is complete. All 10 stories merged. Tag `v0.0.0` pending.
-- M1 (Montana Ingestion) is the next milestone.
+- Resolve three E01 blockers (human decisions above)
+- Begin S01.1 (pre-commit hooks) — recommended first story
+- E02 and E03 epic files will be drafted when their predecessor completes
 
 ---
 
 ## Epic Files
 
-- [M0 — Scaffold](epics/M0-scaffold.md)
+- [M0 — Scaffold](epics/completed/M0-scaffold.md)
+- [E01 — Schema Migrations, RLS, and Quality Gates](epics/E01-schema-migrations.md)

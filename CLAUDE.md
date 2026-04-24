@@ -29,7 +29,7 @@ Data Sources (state F&W agencies, PAD-US, BLM)
 - **MCP server is the canonical interface.** Web and plugin are both clients of the MCP server. No surface bypasses it to query the database directly.
 - **Ingestion is upstream and offline.** Python pipeline writes to Postgres; the TypeScript serving stack never imports from `ingestion/` or requires Python. Contributors working on serving can ignore the Python toolchain entirely.
 - **Authority preserved, not replaced.** Every regulation record requires a source citation (URL, agency, publication date). Regulation text is carried verbatim — no paraphrasing, no summarization. Records without citations fail validation.
-- **Schema versioned from day one.** Every row carries `schema_version` and `source_date`. The MCP server rejects records with unsupported schema versions.
+- **Schema versioned from day one.** `regulation_record` and `draw_spec` carry `schema_version`; source provenance is tracked via the `source` jsonb field (which includes `publication_date`). The MCP server rejects records with unsupported schema versions.
 - **Server returns structure; clients compose presentation.** No server-side `overview` or `headline` fields. Structured sections with always-present, null-bearing fields (null = "not applicable" vs omitted = ambiguous). Each client composes its own summary because each knows its presentation context.
 - **Agentic development is first-class.** The Claude Code plugin (`plugin/`) uses `.claude-plugin/` + `plugins/<name>/skills/<skill>/SKILL.md` convention. Documentation is the primary handoff mechanism between sessions.
 
