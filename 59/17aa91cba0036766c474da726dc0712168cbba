@@ -1,0 +1,28 @@
+docs/planning/epics/E01-schema-migrations.md
+  4a078f030fbc5130 3,22,46-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "5917aa91cba0036766c474da726dc0712168cbba",
+  "prompts": {
+    "4a078f030fbc5130": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "38d39e2c-3adb-4ac1-8072-2edda772baf3",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 9,
+      "total_deletions": 9,
+      "accepted_lines": 132,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
