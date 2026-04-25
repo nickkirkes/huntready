@@ -17,7 +17,11 @@
 
 -- PostGIS MUST be first — geography column type depends on it.
 -- On Supabase the extension is available but not auto-loaded.
-CREATE EXTENSION IF NOT EXISTS postgis;
+-- SCHEMA extensions avoids a type-name collision: PostGIS registers a base type
+-- named "geometry" in pg_type, and CREATE TABLE geometry would fail if both land
+-- in the public schema. Supabase projects always have an extensions schema in
+-- the search_path, so PostGIS functions remain accessible unqualified.
+CREATE EXTENSION IF NOT EXISTS postgis SCHEMA extensions;
 
 
 -- =============================================================================
