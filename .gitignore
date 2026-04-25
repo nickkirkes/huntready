@@ -28,6 +28,7 @@ Thumbs.db
 
 # Supabase local
 .supabase/
+supabase/.temp/
 
 # Python
 *.egg-info/
