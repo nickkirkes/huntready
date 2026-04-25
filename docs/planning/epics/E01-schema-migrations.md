@@ -1,6 +1,6 @@
 # E01: Schema Migrations, RLS, and Quality Gates
 
-**Status:** Not Started
+**Status:** In Progress
 **Milestone:** M1 — Montana Ingestion
 **Dependencies:** M0 (complete)
 **Validated:** 2026-04-24
@@ -19,7 +19,7 @@ See [PRD 001](../../planning/prds/001-M1-montana-ingestion.md) for authoritative
 
 ## Stories
 
-### S01.1: Install pre-commit hooks
+### S01.1: Install pre-commit hooks ✅
 
 **As a** developer committing to this repo
 **I want** pre-commit hooks running TypeScript lint, Python lint, and secrets scanning
@@ -43,13 +43,13 @@ Hooks must run cleanly against the current repo state (M0 scaffold). If existing
 
 **Acceptance Criteria:**
 
-- [ ] Pre-commit hook tool is installed and configured at repo root
-- [ ] TypeScript lint hook runs `tsc --noEmit` for `mcp-server/` and `web/`
-- [ ] Python lint hook runs `ruff check` for `ingestion/`
-- [ ] Secrets scanning hook is configured and runs on every commit
-- [ ] All hooks pass cleanly against the current repo state (no unresolved false positives)
-- [ ] `README.md` updated with hook setup instructions if manual developer action is needed
-- [ ] Hook config files committed to repo
+- [x] Pre-commit hook tool is installed and configured at repo root
+- [x] TypeScript lint hook runs `tsc --noEmit` for `mcp-server/` and `web/`
+- [x] Python lint hook runs `ruff check` for `ingestion/`
+- [x] Secrets scanning hook is configured and runs on every commit
+- [x] All hooks pass cleanly against the current repo state (no unresolved false positives)
+- [x] `README.md` updated with hook setup instructions if manual developer action is needed
+- [x] Hook config files committed to repo
 
 ---
 
