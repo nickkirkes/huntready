@@ -77,6 +77,32 @@ If you are provisioning a new Supabase project:
 3. Copy credentials into your `.env` (see `.env.example` for variable names)
 4. Verify: `psql "$DATABASE_URL" -c "SELECT postgis_version();"`
 
+### 6. Pre-commit hooks
+
+This repo uses [pre-commit](https://pre-commit.com) to enforce code quality on every commit.
+
+```bash
+# Install pre-commit (one-time)
+uv tool install pre-commit   # or: pip install pre-commit
+
+# Install the git hooks
+pre-commit install
+
+# Run all hooks manually (optional)
+pre-commit run --all-files
+```
+
+**What runs on commit:**
+
+| Hook | Scope | What it checks |
+|------|-------|----------------|
+| `tsc: mcp-server` | `mcp-server/**/*.ts` | TypeScript type errors |
+| `tsc: web` | `web/**/*.ts(x)` | TypeScript type errors |
+| `ruff` | `ingestion/` | Python lint (auto-fixes when possible) |
+| `detect-secrets` | All files | Prevents secrets from being committed |
+
+If a hook fails, fix the issue and re-stage your files. Ruff may auto-fix some issues — check `git diff` after a failure.
+
 ## Documentation
 
 - [Product context](docs/context.md) — what HuntReady is and is not
