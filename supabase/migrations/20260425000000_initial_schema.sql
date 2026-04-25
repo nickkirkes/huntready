@@ -59,6 +59,7 @@ CREATE TABLE season_definition (
     name            text    NOT NULL,                            -- "General", "Archery Only", etc.
     opens           date    NOT NULL,
     closes          date    NOT NULL,
+    CHECK (closes >= opens),
     weapon_type     text
         CHECK (weapon_type IN (
             'any_legal_weapon', 'archery', 'rifle', 'muzzleloader',
