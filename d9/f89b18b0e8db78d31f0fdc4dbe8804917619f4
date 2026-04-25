@@ -1,0 +1,28 @@
+supabase/migrations/20260425000000_initial_schema.sql
+  14576865bbe1916b 20-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d9f89b18b0e8db78d31f0fdc4dbe8804917619f4",
+  "prompts": {
+    "14576865bbe1916b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b01add22-fb52-49c8-9234-452c4a10485b",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 1,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
