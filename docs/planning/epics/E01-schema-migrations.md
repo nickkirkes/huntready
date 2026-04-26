@@ -53,7 +53,7 @@ Hooks must run cleanly against the current repo state (M0 scaffold). If existing
 
 ---
 
-### S01.2: Initial migration — entity tables, link tables, and indexes
+### S01.2: Initial migration — entity tables, link tables, and indexes ✅
 
 **As a** developer preparing the database for Montana data ingestion
 **I want** all entity tables, link tables, and indexes created via timestamped Supabase migration
@@ -278,25 +278,25 @@ The following types are stored as `jsonb` columns. Their structure is not enforc
 
 **Acceptance Criteria:**
 
-- [ ] Timestamped migration file(s) exist in `supabase/migrations/`
-- [ ] Migration begins with `CREATE EXTENSION IF NOT EXISTS postgis`
-- [ ] All 10 tables created (7 entity + 3 link) with columns, types, and constraints per spec above
-- [ ] Composite PKs on `regulation_record(state, jurisdiction_code, species_group, license_year)` and `draw_spec(state, hunt_code, year)`
-- [ ] Text PKs on all other entities (deterministic IDs, not random UUIDs)
-- [ ] `geography(MultiPolygon, 4326)` on `geometry.geom` — not `Polygon`, not `geometry` type
-- [ ] All `verbatim_rule` columns are `NOT NULL` (per ADR-008)
-- [ ] All `source` columns are `jsonb NOT NULL` (per ADR-001)
-- [ ] `schema_version` columns on `regulation_record` and `draw_spec` with `DEFAULT 2`
-- [ ] All CHECK constraints on enum-like fields present and matching TypeScript union types (including `weapon_type` and `residency` on `season_definition`)
-- [ ] `license_tag.draw_spec_key` and `draw_spec.successor_hunt_code_key` stored as `jsonb` (soft FK)
-- [ ] `license_tag.quota_range` uses `int4range` type
-- [ ] `draw_spec.pools` is `NOT NULL` without a default
-- [ ] FK from `jurisdiction_binding` to `regulation_record` (composite) and to `geometry` (simple)
-- [ ] Link table FKs to both `regulation_record` and child entities
-- [ ] GiST spatial index on `geometry.geom`
-- [ ] Supporting indexes on `geometry(state, kind)`, `regulation_record(state, species_group)`, `jurisdiction_binding(geometry_id)`
-- [ ] Migration applies cleanly to a fresh Supabase project with PostGIS enabled
-- [ ] `SELECT COUNT(*) FROM <table>` returns 0 for every table after migration
+- [x] Timestamped migration file(s) exist in `supabase/migrations/`
+- [x] Migration begins with `CREATE EXTENSION IF NOT EXISTS postgis`
+- [x] All 10 tables created (7 entity + 3 link) with columns, types, and constraints per spec above
+- [x] Composite PKs on `regulation_record(state, jurisdiction_code, species_group, license_year)` and `draw_spec(state, hunt_code, year)`
+- [x] Text PKs on all other entities (deterministic IDs, not random UUIDs)
+- [x] `geography(MultiPolygon, 4326)` on `geometry.geom` — not `Polygon`, not `geometry` type
+- [x] All `verbatim_rule` columns are `NOT NULL` (per ADR-008)
+- [x] All `source` columns are `jsonb NOT NULL` (per ADR-001)
+- [x] `schema_version` columns on `regulation_record` and `draw_spec` with `DEFAULT 2`
+- [x] All CHECK constraints on enum-like fields present and matching TypeScript union types (including `weapon_type` and `residency` on `season_definition`)
+- [x] `license_tag.draw_spec_key` and `draw_spec.successor_hunt_code_key` stored as `jsonb` (soft FK)
+- [x] `license_tag.quota_range` uses `int4range` type
+- [x] `draw_spec.pools` is `NOT NULL` without a default
+- [x] FK from `jurisdiction_binding` to `regulation_record` (composite) and to `geometry` (simple)
+- [x] Link table FKs to both `regulation_record` and child entities
+- [x] GiST spatial index on `geometry.geom`
+- [x] Supporting indexes on `geometry(state, kind)`, `regulation_record(state, species_group)`, `jurisdiction_binding(geometry_id)`
+- [x] Migration applies cleanly to a fresh Supabase project with PostGIS enabled
+- [x] `SELECT COUNT(*) FROM <table>` returns 0 for every table after migration
 
 ---
 
