@@ -236,7 +236,7 @@ export interface Geometry {
     | "restricted_area"
     | "bma"
     | "other";
-  geom: string; // WKT or GeoJSON; PostGIS geography(MultiPolygon, 4326)
+  geom: string; // WKT MultiPolygon; PostGIS geography(MultiPolygon, 4326)
   state: string;
   license_year: number | null;
   source: SourceCitation;
