@@ -300,7 +300,7 @@ The following types are stored as `jsonb` columns. Their structure is not enforc
 
 ---
 
-### S01.3: RLS migration — deny-all policies
+### S01.3: RLS migration — deny-all policies ✅
 
 **As a** developer ensuring the database cannot be accessed via PostgREST
 **I want** deny-all RLS policies on every table with defense-in-depth protections
@@ -358,14 +358,14 @@ Supabase's default `ALTER DEFAULT PRIVILEGES` grants `ALL` on new public-schema 
 
 **Acceptance Criteria:**
 
-- [ ] Timestamped migration file exists in `supabase/migrations/` (separate from entity table migration)
-- [ ] RLS enabled AND forced on all 10 tables
-- [ ] Deny-all policies for `authenticated` role on all 10 tables (USING false, WITH CHECK false)
-- [ ] Deny-all policies for `anon` role on all 10 tables
-- [ ] Explicit `REVOKE ALL` on all 10 tables from `anon` and `authenticated`
-- [ ] Service-role access is preserved (verify via `service_role` key query)
-- [ ] Verification via Supabase REST endpoint (curl-based) confirms: `anon` denied, `authenticated` denied, `service_role` succeeds
-- [ ] Migration applies cleanly after S01.2's migration
+- [x] Timestamped migration file exists in `supabase/migrations/` (separate from entity table migration)
+- [x] RLS enabled AND forced on all 10 tables
+- [x] Deny-all policies for `authenticated` role on all 10 tables (USING false, WITH CHECK false)
+- [x] Deny-all policies for `anon` role on all 10 tables
+- [x] Explicit `REVOKE ALL` on all 10 tables from `anon` and `authenticated`
+- [x] Service-role access is preserved (verify via `service_role` key query)
+- [x] Verification via Supabase REST endpoint (curl-based) confirms: `anon` denied, `authenticated` denied, `service_role` succeeds
+- [x] Migration applies cleanly after S01.2's migration
 
 ---
 
