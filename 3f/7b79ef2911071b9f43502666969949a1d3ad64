@@ -1,0 +1,32 @@
+ingestion/ingestion/lib/schema.py
+  906961425efb75ad 1-467
+docs/plans/s01.4-python-dataclasses-plan.md
+  906961425efb75ad 1-253
+ingestion/ingestion/lib/__init__.py
+  906961425efb75ad 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "3f7b79ef2911071b9f43502666969949a1d3ad64",
+  "prompts": {
+    "906961425efb75ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "00380db3-5e5a-4399-aa3c-a0a5013de425",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 728,
+      "total_deletions": 7,
+      "accepted_lines": 721,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
