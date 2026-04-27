@@ -1,0 +1,28 @@
+mcp-server/src/types/schema.ts
+  a539a81e48c691d6 239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4cc4bf585634289fc3dc1ea29ad51d0467cae07b",
+  "prompts": {
+    "a539a81e48c691d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4982580e-b0f9-4f8b-bb62-50d5e8f87f02",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 390,
+      "total_deletions": 1,
+      "accepted_lines": 133,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
