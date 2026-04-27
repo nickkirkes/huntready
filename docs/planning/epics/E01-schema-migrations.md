@@ -369,7 +369,7 @@ Supabase's default `ALTER DEFAULT PRIVILEGES` grants `ALL` on new public-schema 
 
 ---
 
-### S01.4: Python dataclasses matching DDL
+### S01.4: Python dataclasses matching DDL ✅
 
 **As a** developer writing ingestion adapters
 **I want** Pydantic models in `ingestion/lib/schema.py` that match the DDL one-to-one
@@ -439,24 +439,24 @@ Models containing optional sub-fields (ReservedPoolEligibility, AllocationPoolEl
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/ingestion/lib/__init__.py` exists
-- [ ] `ingestion/ingestion/lib/schema.py` exists with Pydantic models for all 18 types listed above
-- [ ] Every model field matches the corresponding DDL column in name and type
-- [ ] Every jsonb sub-model field and enum matches the canonical TypeScript interfaces in architecture.md exactly
-- [ ] Literal types used for all enum-like fields matching DDL CHECK constraints and TypeScript unions
-- [ ] `verbatim_rule` fields validated as non-empty strings
-- [ ] `source` fields typed as `SourceCitation` (not raw dict)
-- [ ] `schema_version` has `default=2` on `RegulationRecord` and `DrawSpec`
-- [ ] `DrawSpec.pools` validated as non-empty list
-- [ ] Optional sub-fields use `None` defaults with exclude-none serialization config
-- [ ] `ruff check ingestion/` passes with no errors
-- [ ] `mypy ingestion/lib/schema.py` passes (or with `--ignore-missing-imports` for pydantic)
-- [ ] Module is importable: `python -c "from ingestion.lib.schema import RegulationRecord, SeasonDefinition, LicenseTag, DrawSpec, ReportingObligation, Geometry, JurisdictionBinding"`
-- [ ] No imports from `mcp-server/` or any TypeScript code
+- [x] `ingestion/ingestion/lib/__init__.py` exists
+- [x] `ingestion/ingestion/lib/schema.py` exists with Pydantic models for all 18 types listed above
+- [x] Every model field matches the corresponding DDL column in name and type
+- [x] Every jsonb sub-model field and enum matches the canonical TypeScript interfaces in architecture.md exactly
+- [x] Literal types used for all enum-like fields matching DDL CHECK constraints and TypeScript unions
+- [x] `verbatim_rule` fields validated as non-empty strings
+- [x] `source` fields typed as `SourceCitation` (not raw dict)
+- [x] `schema_version` has `default=2` on `RegulationRecord` and `DrawSpec`
+- [x] `DrawSpec.pools` validated as non-empty list
+- [x] Optional sub-fields use `None` defaults with exclude-none serialization config
+- [x] `ruff check ingestion/` passes with no errors
+- [x] `mypy ingestion/lib/schema.py` passes (or with `--ignore-missing-imports` for pydantic)
+- [x] Module is importable: `python -c "from ingestion.lib.schema import RegulationRecord, SeasonDefinition, LicenseTag, DrawSpec, ReportingObligation, Geometry, JurisdictionBinding"`
+- [x] No imports from `mcp-server/` or any TypeScript code
 
 ---
 
-### S01.5: TypeScript types matching DDL
+### S01.5: TypeScript types matching DDL ✅
 
 **As a** developer building the MCP server
 **I want** TypeScript interfaces in `mcp-server/src/types/` that match the DDL and Python models
@@ -492,13 +492,13 @@ Any mismatches are bugs to fix in the same PR.
 
 **Acceptance Criteria:**
 
-- [ ] `mcp-server/src/types/schema.ts` exists with all entity interfaces and supporting types
-- [ ] `mcp-server/src/types/index.ts` exists as barrel export
-- [ ] Interfaces match `docs/architecture.md` § "Schema types" exactly
-- [ ] `cd mcp-server && npx tsc --noEmit` passes with no errors
-- [ ] No `any` types anywhere in the types files (per CLAUDE.md)
-- [ ] No imports from `ingestion/` or any Python code
-- [ ] Cross-language sync verified: every DDL column has a matching TypeScript field and Python field with compatible types
+- [x] `mcp-server/src/types/schema.ts` exists with all entity interfaces and supporting types
+- [x] `mcp-server/src/types/index.ts` exists as barrel export
+- [x] Interfaces match `docs/architecture.md` § "Schema types" exactly
+- [x] `cd mcp-server && npx tsc --noEmit` passes with no errors
+- [x] No `any` types anywhere in the types files (per CLAUDE.md)
+- [x] No imports from `ingestion/` or any Python code
+- [x] Cross-language sync verified: every DDL column has a matching TypeScript field and Python field with compatible types
 
 ---
 
