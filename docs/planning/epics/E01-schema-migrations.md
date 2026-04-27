@@ -456,7 +456,7 @@ Models containing optional sub-fields (ReservedPoolEligibility, AllocationPoolEl
 
 ---
 
-### S01.5: TypeScript types matching DDL
+### S01.5: TypeScript types matching DDL ✅
 
 **As a** developer building the MCP server
 **I want** TypeScript interfaces in `mcp-server/src/types/` that match the DDL and Python models
@@ -492,13 +492,13 @@ Any mismatches are bugs to fix in the same PR.
 
 **Acceptance Criteria:**
 
-- [ ] `mcp-server/src/types/schema.ts` exists with all entity interfaces and supporting types
-- [ ] `mcp-server/src/types/index.ts` exists as barrel export
-- [ ] Interfaces match `docs/architecture.md` § "Schema types" exactly
-- [ ] `cd mcp-server && npx tsc --noEmit` passes with no errors
-- [ ] No `any` types anywhere in the types files (per CLAUDE.md)
-- [ ] No imports from `ingestion/` or any Python code
-- [ ] Cross-language sync verified: every DDL column has a matching TypeScript field and Python field with compatible types
+- [x] `mcp-server/src/types/schema.ts` exists with all entity interfaces and supporting types
+- [x] `mcp-server/src/types/index.ts` exists as barrel export
+- [x] Interfaces match `docs/architecture.md` § "Schema types" exactly
+- [x] `cd mcp-server && npx tsc --noEmit` passes with no errors
+- [x] No `any` types anywhere in the types files (per CLAUDE.md)
+- [x] No imports from `ingestion/` or any Python code
+- [x] Cross-language sync verified: every DDL column has a matching TypeScript field and Python field with compatible types
 
 ---
 
