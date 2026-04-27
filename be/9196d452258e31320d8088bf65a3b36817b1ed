@@ -1,0 +1,30 @@
+mcp-server/src/types/schema.ts
+  a539a81e48c691d6 239
+docs/plans/S01.5-typescript-types-plan.md
+  a539a81e48c691d6 82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "be9196d452258e31320d8088bf65a3b36817b1ed",
+  "prompts": {
+    "a539a81e48c691d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4982580e-b0f9-4f8b-bb62-50d5e8f87f02",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 259,
+      "total_deletions": 2,
+      "accepted_lines": 133,
+      "overriden_lines": 1
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
