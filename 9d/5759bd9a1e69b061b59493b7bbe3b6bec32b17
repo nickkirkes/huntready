@@ -1,0 +1,34 @@
+supabase/.gitignore
+  0c9d1acf670c4cce 1-8
+supabase/config.toml
+  0c9d1acf670c4cce 1-396
+docs/runbooks/E01-migration-verification.md
+  0c9d1acf670c4cce 1-129
+docs/planning/epics/E01-schema-migrations.md
+  0c9d1acf670c4cce 3,505,539-547,553-560
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "9d5759bd9a1e69b061b59493b7bbe3b6bec32b17",
+  "prompts": {
+    "0c9d1acf670c4cce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da5c17e0-20df-412a-845b-90c3ddb48697",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1303,
+      "total_deletions": 45,
+      "accepted_lines": 1280,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
