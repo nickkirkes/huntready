@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-04-28
-**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active)
+**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active — S02.0 ready to start)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -59,14 +59,14 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 ## Active Blockers
 
-Two pre-implementation items require human action before S02.0 can complete:
+None blocking S02.0. Previously identified ADR blockers resolved 2026-04-28:
 
-1. **ADR for `SourceCitation.document_type='gis_layer'` extension** — needed for ArcGIS source provenance. PM does not write ADRs autonomously.
-2. **ADR for `geometry.verbatim_rule` column addition** — needed because layers #2 and #11 carry verbatim regulatory text in `REG`/`COMMENTS` fields (per ADR-008, must be preserved verbatim, can't be stashed in jsonb).
+- ~~ADR for `SourceCitation.document_type='gis_layer'` extension~~ → **[ADR-014](../adrs/ADR-014-source-citation-gis-layer-document-type.md)** Accepted
+- ~~ADR for `geometry.verbatim_rule` column + REG+COMMENTS handling~~ → **[ADR-015](../adrs/ADR-015-geometry-verbatim-rule-and-reg-comments-handling.md)** Accepted
 
-Plus one PRD-reconciliation item:
+One PRD-reconciliation item remains, but it does **not** block S02.0, S02.1, or S02.2:
 
-3. **PRD 001 jurisdiction_binding sequencing** — PRD says E02 writes binding rows; schema FK to regulation_record makes that impossible until E03. E02 produces a geometry overlay fixture instead. Proposed PRD wording in [E02 epic](epics/E02-geometry-ingestion.md) § "Known issues to escalate". PM does not modify PRDs.
+- **PRD 001 jurisdiction_binding sequencing** — PRD says E02 writes binding rows; schema FK to regulation_record makes that impossible until E03. E02 produces a geometry overlay fixture instead. Proposed PRD wording in [E02 epic](epics/E02-geometry-ingestion.md) § "Known issues to escalate". PM does not modify PRDs.
 
 Documentation-debt items (non-blocking):
 
@@ -76,8 +76,8 @@ Documentation-debt items (non-blocking):
 
 ## Next Actions
 
-- Resolve E02 pre-implementation items above (two ADRs + PRD reconciliation)
-- Begin S02.0 (schema prep) once ADRs land — recommended first story
+- Begin S02.0 (schema prep) — ADR-014 and ADR-015 are Accepted; door is open
+- After S02.0 merges, run `/update S02.0 complete` and S02.1 begins
 - E03 epic file will be drafted when E02 completes (run `/plan-next-epic`)
 
 ---
