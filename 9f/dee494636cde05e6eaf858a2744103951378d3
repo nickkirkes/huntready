@@ -1,0 +1,30 @@
+.ruckus/known-pitfalls.md
+  d1ea32b8b323551a 1-28
+.ruckus/workflow-upgrades
+  d1ea32b8b323551a 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "9fdee494636cde05e6eaf858a2744103951378d3",
+  "prompts": {
+    "d1ea32b8b323551a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f51a8d79-6b93-455e-9b30-c481869249c0",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 37,
+      "accepted_lines": 29,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
