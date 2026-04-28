@@ -52,11 +52,14 @@ Two schema gaps surfaced during E02 validation:
 
 **Migration deliverables:**
 
-1. New migration adding `'gis_layer'` to `source` jsonb's `document_type` enum (Postgres can't enforce jsonb-internal CHECK constraints, so this is enforced in Pydantic + TypeScript only — but the documentation must reflect the additional value).
-2. New migration adding `verbatim_rule text` (nullable) to `geometry`.
-3. Pydantic model update: `SourceCitation.document_type: Literal[..., "gis_layer"]` and `Geometry.verbatim_rule: str | None`.
-4. TypeScript interface update: same additions to `mcp-server/src/types/schema.ts`.
-5. Architecture.md update: extend the `SourceCitation` and `Geometry` interface definitions in §"Schema types" to match.
+1. New migration adding `verbatim_rule text` (nullable) to `geometry`.
+2. Pydantic model update: `SourceCitation.document_type: Literal[..., "gis_layer"]` and `Geometry.verbatim_rule: str | None = None`.
+3. TypeScript interface update: same additions to `mcp-server/src/types/schema.ts`.
+4. Architecture.md update: extend the `SourceCitation` and `Geometry` interface definitions in §"Schema types" to also cover the `'gis_layer'` enum value and the new `verbatim_rule` field. This is the audit trail for the `'gis_layer'` extension — there is no separate SQL migration for it (see below).
+
+**Why no SQL migration for `'gis_layer'`:** Postgres *can* enforce jsonb-internal enum membership via `CHECK ((source->>'document_type') IN (...))`, but the schema as set up in E01 doesn't use such constraints anywhere — Pydantic at write time + TypeScript at compile time are the enforcement layers. Adding a CHECK constraint just for `document_type` would be a substantial scope add (apply across every entity table that has a `source` jsonb) that doesn't pay back at V1 scale. Decision: rely on type-layer enforcement; revisit if drift occurs.
+
+**Pydantic model interaction note:** The `Geometry` model uses `model_config = ConfigDict(frozen=True, extra="forbid")`. Adding `verbatim_rule: str | None = None` is safe (additive default), but any test fixture or call site constructing `Geometry` instances must update its payloads — `extra="forbid"` rejects unknown fields, which means older callers passing only the original fields still work, but a typo like `verbatim_text` instead of `verbatim_rule` will fail loudly. No production data exists yet so this is low-risk in practice; flag in the AC.
 
 **Three-place sync per ADR-006.** The Pydantic and TypeScript types must update in the same PR as the migration.
 
@@ -66,13 +69,13 @@ Two schema gaps surfaced during E02 validation:
 
 **Acceptance Criteria:**
 
-- [ ] ADR-014 (or equivalent) drafted and accepted documenting `document_type='gis_layer'` extension
-- [ ] ADR-015 (or equivalent) drafted and accepted documenting `geometry.verbatim_rule` addition
+- [ ] ADR-014 (or equivalent) drafted and accepted documenting `document_type='gis_layer'` extension (type-layer enforcement, no SQL migration)
+- [ ] ADR-015 (or equivalent) drafted and accepted documenting `geometry.verbatim_rule` addition AND the REG+COMMENTS handling decision in S02.4 (HuntReady-introduced `\n\n--- COMMENTS ---\n\n` separator vs. source content)
 - [ ] Timestamped migration in `supabase/migrations/` adds `verbatim_rule text` (nullable) to `geometry`
 - [ ] Pydantic `SourceCitation.document_type` Literal updated to include `"gis_layer"`
-- [ ] Pydantic `Geometry` model updated to include `verbatim_rule: str | None = None`
+- [ ] Pydantic `Geometry` model updated to include `verbatim_rule: str | None = None` (additive default; `extra="forbid"` keeps existing call sites valid; new misspellings fail loudly)
 - [ ] TypeScript `SourceCitation` and `Geometry` interfaces updated to match
-- [ ] `architecture.md` § "Schema types" updated with the new fields
+- [ ] `architecture.md` § "Schema types" updated with the new fields (this is the audit trail for the `'gis_layer'` enum extension — no SQL migration for that change)
 - [ ] `tsc --noEmit`, `ruff check`, `mypy` all pass
 - [ ] Migration applies cleanly to a fresh Supabase project after E01's migrations
 - [ ] No data written
@@ -115,19 +118,20 @@ The library must address ArcGIS-specific gotchas surfaced during validation. Eac
 **3. Spatial reference verification (do NOT trust the header):**
 - ArcGIS may return Web Mercator coordinates while reporting `crs: EPSG:4326` in the GeoJSON envelope
 - After fetch, sanity-check coordinate ranges. Montana lies in lon `[-116, -104]`, lat `[44, 49]`. If any geometry coordinate has `|x| > 180` or `|y| > 90`, response is in projected units regardless of what the header says — fail loudly. Fallback reprojection from EPSG:3857 via `pyproj.Transformer.from_crs(3857, 4326, always_xy=True)` (NOT shapely — shapely doesn't do CRS).
+- **Dependency note:** `pyproj` is currently pulled transitively via `geopandas`. S02.1 imports it directly, so declare `pyproj` as a direct dependency in `ingestion/pyproject.toml` to prevent silent breakage if `geopandas` is ever removed or restructured.
 
 **4. Source fixture capture (per PRD R2 mitigation):**
 - Write two artifacts per layer per fetch:
   - `<service>-<layer_id>-metadata-<timestamp>.json` (raw layer descriptor)
   - `<service>-<layer_id>-features-<timestamp>.geojson` (raw feature collection)
-- Optionally: hash-suffixed historical copies + `<service>-<layer_id>-latest.{json,geojson}` symlinks for `ls`-based diff
 - These fixtures are committed to the repo (small) and used for drift detection in future ingestions
+- Rely on git history for diffs across runs — no symlinks or hash-suffix latest files (cross-platform fragility, no consumer)
 
-**5. Idempotent re-fetch:**
+**5. Per-feature change detection (NOT a skip-re-fetch optimization):**
 - Per-feature canonical hash: `sha256(canonical_json({objectid, geometry_wkt, attributes_sorted}))`
-- Layer-level hash: hash of sorted per-feature hashes
-- If layer hash matches the previous fixture, skip re-fetch and reuse cached output
-- If hash differs, write a new fixture and proceed with ingestion
+- On each ingest run, compare per-feature hashes against the prior committed fixture (or against the rows already in `geometry`) and log which features changed, were added, or were removed since the last run.
+- **Do NOT** skip the re-fetch on a layer-level hash match — V1 manual ingestion is rare enough that "skip if unchanged" saves seconds at most while adding maintenance surface (canonical_json correctness, shapely-version sensitivity in `geometry_wkt` output, test coverage for hash stability). Defer the layer-level hash + skip optimization until a real performance issue emerges.
+- **Hash invariance caveat:** the per-feature hash includes `geometry_wkt` (shapely-canonicalized output). A `shapely` upgrade can change WKT formatting (float precision, etc.), one-time-busting every layer's hash even when source data is identical. The `geometryPrecision=7` server-side parameter mitigates but doesn't eliminate this. Document the caveat in the library so a future shapely bump doesn't trigger a false-positive "everything changed" alert.
 
 **6. ArcGIS error envelope handling:**
 - ArcGIS returns HTTP 200 with `{error: {code, message, details}}` for many transient and permanent failures
@@ -145,41 +149,59 @@ The library must address ArcGIS-specific gotchas surfaced during validation. Eac
 - The library exposes `geojson_to_multipolygon_wkt(feature) -> str` that:
   1. Parse GeoJSON geometry via `shapely.geometry.shape(...)`
   2. Run `shapely.make_valid()`
-  3. Type-prune: if result is `Polygon` → wrap in `MultiPolygon([poly])`; if `MultiPolygon` → use as-is; if `GeometryCollection` → filter to polygonal members, union, wrap; if empty/zero-area → raise (do not insert silently)
+  3. Type-prune:
+     - if result is `Polygon` → wrap in `MultiPolygon([poly])`;
+     - if `MultiPolygon` → use as-is;
+     - if `GeometryCollection` → **raise loudly** with the offending feature's OBJECTID and attributes in the error message. Do NOT silently filter and union — a real ArcGIS Polygon layer that produces a GeometryCollection is a data-quality signal worth surfacing, not handling.
+     - if empty/zero-area → raise (do not insert silently)
   4. Return WKT string
 - Per [ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md), partial extractions that lose meaning are flagged loudly, never silently committed.
 
 **Source citation shape for ArcGIS layers (used by S02.2-S02.5):**
 ```python
+# editingInfo.lastEditDate from ArcGIS is Unix epoch in milliseconds, not an ISO string.
+# Convert before constructing SourceCitation (whose publication_date is documented as ISO date).
+_last_edit_ms = layer_metadata.get("editingInfo", {}).get("lastEditDate")
+publication_date = (
+    datetime.fromtimestamp(_last_edit_ms / 1000, tz=timezone.utc).date().isoformat()
+    if _last_edit_ms is not None
+    else fetch_date.isoformat()
+)
+
 SourceCitation(
     id=f"mt-fwp-arcgis-{service}-{layer_id}-{license_year}",
     agency="Montana Fish, Wildlife & Parks",
     title=f"{layer_metadata['name']} (Layer {layer_id})",
     url=f"{service_url}/{layer_id}",
-    publication_date=layer_metadata.get("editingInfo", {}).get("lastEditDate") or fetch_date,
-    document_type="gis_layer",  # requires S02.0 enum extension
+    publication_date=publication_date,
+    document_type="gis_layer",  # requires S02.0 type-layer extension
     supersedes=None,
     page_reference=None,
 )
 ```
+
+**Partial dependency on S02.0:** S02.1 needs the Pydantic Literal extension (`document_type='gis_layer'`) and the `Geometry.verbatim_rule` field to typecheck and run. The `verbatim_rule` SQL migration is needed only before S02.2 inserts data. So S02.0's *type updates* (Pydantic + TypeScript) and architecture.md update can land first, unblocking S02.1 development; the migration can land in parallel as long as it's merged before S02.2 starts.
 
 **Relevant ADRs:** [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md), [ADR-005](../../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md). **Depends on:** S02.0.
 
 **Acceptance Criteria:**
 
 - [ ] `ingestion/ingestion/lib/arcgis.py` exists with documented public API
+- [ ] `pyproj` declared as a direct dependency in `ingestion/pyproject.toml`
 - [ ] Layer metadata fetcher captures `<service>-<layer>-metadata-<timestamp>.json` fixtures
 - [ ] Paginated feature fetcher uses `orderByFields`, `exceededTransferLimit`, layer-discovered `maxRecordCount`
 - [ ] `outFields` populated explicitly from layer metadata (not `*`)
 - [ ] Coordinate-range sanity check (Montana bounds) hard-fails on Web Mercator coordinates returned with EPSG:4326 header
-- [ ] Per-feature canonical hash + layer-level hash for idempotency
-- [ ] Source fixture capture (metadata + features) committed
+- [ ] Per-feature canonical hash used for change-detection logging only (no layer-level skip-re-fetch optimization)
+- [ ] Library docstring documents shapely-version sensitivity of `geometry_wkt`-based hashes
+- [ ] Source fixture capture (metadata + features) committed; no symlinks or hash-suffixed latest files
 - [ ] ArcGIS error envelope handling with retry policy
 - [ ] Throttling at ≤1 req/500ms with custom User-Agent
-- [ ] `geojson_to_multipolygon_wkt(feature)` helper with type-pruning + make_valid
+- [ ] `geojson_to_multipolygon_wkt(feature)` helper raises loudly on `GeometryCollection` (with OBJECTID + attributes in the message); type-prunes `Polygon`/`MultiPolygon`; runs `shapely.make_valid` first
+- [ ] `editingInfo.lastEditDate` converted from epoch ms to ISO date before being used as `SourceCitation.publication_date`
 - [ ] Helper for `SourceCitation` construction with `document_type='gis_layer'`
 - [ ] `ruff check ingestion/`, `mypy ingestion/ingestion/lib/arcgis.py` pass
-- [ ] Unit tests cover: pagination boundary (N×maxRecordCount), error envelope, reprojection fallback, type-prune
+- [ ] Unit tests cover: pagination boundary (N×maxRecordCount), error envelope, reprojection fallback, type-prune, GeometryCollection-raises, lastEditDate conversion
 - [ ] No imports from state adapters; no Montana-specific code
 
 ---
@@ -221,6 +243,8 @@ Layers to ingest (all `kind = 'hunting_district'`):
 
 **Idempotency via UPSERT:** Re-running picks up upstream corrections. Orphan detection (rows in DB no longer in source) is deferred to S02.6.
 
+**State-adapter import path:** State adapters at `ingestion/states/montana/...` need to import the shared library at `ingestion/ingestion/lib/arcgis.py`. The exact mechanism (top-level package vs. `__init__.py` in `ingestion/states/`, or relative-path tricks via `pyproject.toml` package configuration) was settled in E01 for `ingestion/ingestion/lib/schema.py` consumption, but `ingestion/states/` was empty during E01. **AC: confirm the import path works (`from ingestion.lib.arcgis import ...` or whatever pattern E01 settled on) and document the resolution in `ingestion/states/montana/README.md` or in this story's runbook section.**
+
 **Relevant ADRs:** [ADR-001](../../adrs/ADR-001-authority-preserved.md), [ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md), [ADR-010](../../adrs/ADR-010-decomposed-entity-model.md), [ADR-012](../../adrs/ADR-012-draw-mechanics-sibling-entity.md) (MultiPolygon commitment).
 
 **Depends on:** S02.0, S02.1.
@@ -228,14 +252,15 @@ Layers to ingest (all `kind = 'hunting_district'`):
 **Acceptance Criteria:**
 
 - [ ] `ingestion/states/montana/load_hds.py` (or equivalent) exists
+- [ ] State-adapter import path works and is documented (`from ingestion.lib.arcgis import ...` or settled equivalent)
 - [ ] All three layers (#3, #10, #11) ingest without errors
 - [ ] Every row's `kind = 'hunting_district'` (none `'bmu'`)
 - [ ] `id` follows the species-prefixed pattern; no collisions between layers
 - [ ] `geom` is `geography(MultiPolygon, 4326)` — verify by `SELECT ST_GeometryType(geom::geometry) FROM geometry WHERE kind='hunting_district'` returns only `ST_MultiPolygon`
-- [ ] At least one row has `ST_NumGeometries(geom::geometry) > 1` (multi-part HD verification — Montana HDs along state lines)
+- [ ] **Named multi-part HD verification:** identify a specific Montana HD known to be multi-part (e.g., a district along the Idaho or Wyoming state line; the metadata fixture's pre-load `ST_NumGeometries` count gives candidates) and assert that *that named HD* has `ST_NumGeometries(geom::geometry) > 1` post-load. Document the chosen HD in the story output.
 - [ ] All rows pass `ST_IsValid(geom::geometry)` post-insert
 - [ ] `source` is a populated `SourceCitation` with `document_type='gis_layer'`
-- [ ] `license_year = 2026` for layer #11 (from `REGYEAR`); NULL or 2026 for #3, #10 per metadata
+- [ ] `license_year` matches the source's `REGYEAR` field for each row — for the 2026 fetch, layer #11 rows have `license_year=2026`; rows with no source `REGYEAR` (likely #3, #10 — verify from metadata fixture) have `license_year=NULL` (NOT hardcoded to 2026; the schema accepts NULL for year-invariant geometries)
 - [ ] `verbatim_rule` populated from `REG` field for #11; NULL where source field is absent
 - [ ] UPSERT semantics confirmed: re-running the load produces identical state (same row count, no duplicates)
 - [ ] Pre-S02.0 + S02.1 metadata fixtures committed for #3, #10, #11
@@ -303,7 +328,19 @@ Layers to ingest (all `kind = 'restricted_area'`):
 | #2 | Big Game Restricted Areas | `PORTIONNAME`, `REG`, `COMMENTS`, `AREA_AC/KM/MI` (verified in research) |
 | #15 | Elk Restricted Areas | TBD from metadata fixture |
 
-**Verbatim text:** Layer #2 carries both `REG` and `COMMENTS`. Per ADR-008, both must be preserved verbatim. The schema (S02.0) adds `geometry.verbatim_rule` for this. If both fields are populated and they differ, concatenate as `f"{REG}\n\n{COMMENTS}"` (with a documented separator) — do not silently drop either. This is the cleanest fit given current schema; if the two fields prove to need separate semantic handling, defer to a future ADR.
+**Verbatim text:** Layer #2 carries both `REG` and `COMMENTS`. Per ADR-008, both must be preserved verbatim. The schema (S02.0) adds `geometry.verbatim_rule` for this.
+
+**Combination rule (covered by ADR-015 scope):**
+
+| `REG` | `COMMENTS` | `verbatim_rule` value |
+|---|---|---|
+| populated | populated, different from `REG` | `f"{REG}\n\n--- COMMENTS ---\n\n{COMMENTS}"` |
+| populated | populated, identical to `REG` | `REG` (don't double-store the same string) |
+| populated | empty/whitespace | `REG` |
+| empty/whitespace | populated | `COMMENTS` |
+| empty/whitespace | empty/whitespace | `NULL` |
+
+**Separator is HuntReady-introduced delimiter, not source content.** The `\n\n--- COMMENTS ---\n\n` token is a deliberate editorial choice — pure concatenation (`\n\n`) was rejected because it loses the "these came from two distinct source attributes" signal that future consumers (E03 binding logic, MCP response composition) may need. The decision is captured in ADR-015 alongside the column addition; the reasoning is that ADR-008's verbatim discipline is preserved as long as the source strings themselves are not modified — only their concatenation is annotated.
 
 **Drop denormalized fields:** `AREA_AC`, `AREA_KM`, `AREA_MI` are pre-computed in the source. PostGIS computes `ST_Area(geom)` on demand. Do not store these — single source of truth.
 
@@ -317,11 +354,12 @@ Layers to ingest (all `kind = 'restricted_area'`):
 
 - [ ] Both layers (#2, #15) ingest without errors
 - [ ] Every row's `kind = 'restricted_area'`
-- [ ] `verbatim_rule` populated from `REG` (and `COMMENTS` concatenated where present and distinct)
+- [ ] `verbatim_rule` populated per the five-case combination rule above (REG only / COMMENTS only / both differ / both identical / both empty → NULL)
+- [ ] When both REG and COMMENTS are populated and differ, `verbatim_rule` contains the literal separator `\n\n--- COMMENTS ---\n\n` between them
 - [ ] No `AREA_*` fields stored as columns; areas computed via `ST_Area` on demand
 - [ ] All geometries are MultiPolygon, valid, in WGS84
 - [ ] Layer metadata fixtures committed for #2, #15
-- [ ] If `REG` or `COMMENTS` is empty/whitespace, `verbatim_rule = NULL` (not empty string)
+- [ ] **S02.5 coordination:** if S02.5 is using the layer-#2 exclusion-filter pattern for CWD zones, this story's load step applies the inverse (CWD-excluding) filter — see S02.5 for the exact discriminator predicate
 
 ---
 
@@ -344,12 +382,45 @@ The verified research doc does NOT enumerate a clear CWD-zone layer in `admbnd/h
 **Investigation steps (story execution sequence):**
 1. Query `https://fwp-gis.mt.gov/arcgis/rest/services?f=json` for any service or layer matching `cwd|chronic|disease|wasting` (case-insensitive)
 2. Search Hub catalog at `https://gis-mtfwp.hub.arcgis.com/api/v3/...?q=cwd`
-3. If neither yields a clear standalone CWD layer, query layer #2 (already loaded by S02.4) with the discriminator filter above. If matches found, classify those rows as CWD: update their `kind` from `'restricted_area'` to `'cwd_zone'`.
-4. If still no GIS source, document the gap in the epic file and defer to E03 (Legal Descriptions PDF).
+3. If neither yields a clear standalone CWD layer, derive CWD zones from layer #2 (Big Game Restricted Areas) using the **exclusion-filter pattern** (see below)
+4. If layer #2 contains no CWD-pattern rows, fall back to the **hand-traced GeoJSON path** (see below) — this preserves M1 success criterion 3 and avoids handing the work to E03 mid-stream
 
-**Fallback decision tree:**
-- ✅ GIS source found (standalone or filtered): ingest with `kind = 'cwd_zone'`. UAT spot-check Libby zone.
-- ❌ No GIS source: document in epic "Deferred items" and add a note to the E03 plan that CWD zones must be hand-traced from the Legal Descriptions PDF or manually defined. Do NOT block the epic.
+**Exclusion-filter pattern (resolves S02.4↔S02.5 idempotency hole):**
+
+The naive approach — let S02.4 ingest layer #2 as `restricted_area`, then have S02.5 mutate matching rows to `cwd_zone` — has an idempotency hole: re-running S02.4 reverts the kind via UPSERT. The clean fix is for S02.4 and S02.5 to share a discriminator predicate over layer #2 and apply mutually exclusive filters:
+
+- **Discriminator predicate:** `COMMENTS ILIKE '%CWD%' OR PORTIONNAME ILIKE '%chronic wasting%' OR REG ILIKE '%CWD%'` (case-insensitive). Implementation lives in `ingestion/states/montana/cwd_discriminator.py` (or equivalent) so both stories import the same predicate.
+- **S02.4's filter:** ingests layer #2 rows that DO NOT match the discriminator → `kind='restricted_area'`
+- **S02.5's filter:** ingests layer #2 rows that DO match the discriminator → `kind='cwd_zone'`
+- Each row is written exactly once. Re-running either story is idempotent. No row carries the wrong `kind` after any sequence of runs.
+
+**Hand-traced GeoJSON fallback** (when neither a standalone GIS layer nor layer-#2-filtered rows exist):
+
+- Hand-trace polygons from the FWP Legal Descriptions biennial PDF (V1 publication) and from current FWP regulation pages naming each CWD Management Zone
+- Check the GeoJSON into the repo at `ingestion/states/montana/cwd-zones-manual.geojson`
+- Each feature's properties must include: `name` (e.g., "Libby CWD Management Zone"), `regulation_year`, `source_pdf_page`
+- Ingest via the same load path as ArcGIS layers, but with a `SourceCitation` whose `agency="Montana Fish, Wildlife & Parks"`, `title="CWD Management Zones (manually traced from Legal Descriptions PDF)"`, `url=` link to the FWP regulation page or PDF, `document_type='annual_regulations'` (since we're sourcing from the published regulation), `page_reference` populated.
+- All hand-traced rows get `confidence='low'` per [ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md) — but note: `confidence` is a regulation_record-level field (E03 territory), not a geometry-level field. Carry a `manually_traced: true` flag in the `source` jsonb's `notes` field (or equivalent additive jsonb extension) so E03 knows to assign `confidence='low'` on regulation_records that bind to these geometries.
+- Hand-tracing is genuine work (not just file checking). Story execution must spec how many zones, who validates the polygons, and a UAT criterion (named zones — see below).
+
+**Fallback decision tree (revised):**
+
+| Scenario | Action | M1 success criterion 3 status |
+|---|---|---|
+| Standalone CWD MapServer/Hub layer found | Ingest with `kind='cwd_zone'`. | Met |
+| Layer #2 has CWD-pattern rows (exclusion-filter path) | S02.5 ingests them with `kind='cwd_zone'`; S02.4 ingests the rest as `restricted_area`. | Met |
+| Neither GIS source has CWD data | Hand-trace from PDF; check into `ingestion/states/montana/cwd-zones-manual.geojson`; ingest via same path. | Met (with documented `manually_traced` provenance) |
+| Hand-tracing blocked (e.g., PDF unavailable) | Escalate to PM as a blocker on M1 success criterion 3. Do not silently defer to E03. | At risk — escalation required |
+
+**Named CWD zones for UAT spot-check** (replaces "Libby or equivalent"):
+
+The current FWP Black Bear booklet and Legal Descriptions PDF name several Montana CWD Management Zones. UAT must verify all three of:
+
+1. **Libby CWD Management Zone** — Lincoln County, NW Montana. Test point ~`(48.388, -115.555)` (downtown Libby) should resolve to this zone.
+2. **South-Central Montana CWD Zone** — encompassing parts of Carbon and Park counties. Test point in Carbon County interior (e.g., ~`(45.07, -109.35)`) should resolve.
+3. **Northeast Montana CWD Zone** — historical hot spot in eastern HDs. Test point per current regulation document.
+
+If the actual CWD zone names have changed by execution time (regulations are biennial; check the live booklet), substitute current names and document the substitution. The principle is "three named zones with assigned test coordinates," not "three specific historical names."
 
 **Relevant ADRs:** Same as S02.2.
 
@@ -357,11 +428,13 @@ The verified research doc does NOT enumerate a clear CWD-zone layer in `admbnd/h
 
 **Acceptance Criteria:**
 
-- [ ] Investigation report committed to `ingestion/states/montana/cwd-source-discovery.md` documenting which path was taken
-- [ ] If GIS source found: at least one row in `geometry` with `kind='cwd_zone'`
-- [ ] **UAT:** Libby CWD Management Zone (or equivalent named zone) is queryable; `ST_Covers(libby_geom, ST_GeogFromText('POINT(<known coordinate>)'))` returns true
-- [ ] If no GIS source: epic file's "Deferred items" section updated with handoff to E03; no `cwd_zone` rows written
-- [ ] Layer metadata fixture committed (if a layer was found)
+- [ ] Investigation report committed to `ingestion/states/montana/cwd-source-discovery.md` documenting which path was taken (standalone GIS / exclusion-filter / hand-traced) and the discriminator predicate used
+- [ ] Discriminator predicate (if exclusion-filter path) lives in shared `cwd_discriminator.py` and is imported by both S02.4 and S02.5 — verified by grep that there is exactly one definition
+- [ ] At least one row in `geometry` with `kind='cwd_zone'` (one of: standalone GIS layer, exclusion-filtered layer #2, or hand-traced GeoJSON)
+- [ ] **UAT — three named zones must resolve correctly via `ST_Covers`:** Libby CWD Management Zone, South-Central Montana CWD Zone, and Northeast Montana CWD Zone (or current equivalents per the live FWP booklet — document any substitution and the test points used)
+- [ ] If hand-traced fallback used: `ingestion/states/montana/cwd-zones-manual.geojson` exists; each feature has `name`, `regulation_year`, `source_pdf_page`; the load path tags `source` jsonb with `manually_traced: true` and a note in `cwd-source-discovery.md` describes who validated the polygons
+- [ ] If GIS source found: layer metadata fixture committed
+- [ ] If hand-tracing is blocked (e.g., PDF unavailable): escalate to PM as a blocker on M1 success criterion 3, NOT silent defer to E03
 
 ---
 
@@ -377,7 +450,11 @@ The verified research doc does NOT enumerate a clear CWD-zone layer in `admbnd/h
 
 This story replaces the PRD's "jurisdiction_binding rows" deliverable. The schema cannot accept binding rows without regulation_records (E03 territory). Instead, E02 produces a JSON fixture capturing the spatial topology that E03 will consume.
 
-**Critical PostGIS gotcha:** `ST_Contains` and `ST_Overlaps` do **not** exist for `geography` type. Use `ST_Covers` (semantically `Contains`-with-boundary-included) and `ST_Intersects`. For partial-overlap detection, cast to `geometry`: `ST_Covers(a.geom::geometry, b.geom::geometry)` etc. Containment is a topological property invariant to projection, so the cast is safe for relationship tests on Montana-scale polygons. (For *area-ratio* computation with the cast, document that distances/areas are planar approximations — but area-ratio is not part of this story.)
+**PostGIS operator semantics on `geography` (correction of a common misconception):**
+
+PostGIS *does* implement `ST_Contains(geography, geography)` and `ST_Within(geography, geography)` (since 2.4), but their geography support is partial and semantically surprising at boundary-touching cases. The recommended pattern is to use `ST_Covers` and `ST_Intersects` directly on geography — both are well-supported, both are spheroid-correct, and both leverage the `geometry_geom_gix` GiST index that E01 created on the geography column.
+
+**Critically: do NOT cast to `::geometry` in the WHERE clause.** A geography GiST index is built on the geography type; casting to geometry at query time forces materialization of the cast and the planner will not use the geography index. Earlier drafts of this epic specified `a.geom::geometry && b.geom::geometry AND ST_Covers(a.geom::geometry, b.geom::geometry)` — that pattern is wrong: `&&` is not a geography operator (so it forces the cast), and the cast loses the index. Use geography operators directly; PostGIS internally optimizes `ST_Intersects(geog, geog)` and `ST_Covers(geog, geog)` to use the geography GiST.
 
 **Computation pattern (per relationship type):**
 
@@ -388,19 +465,17 @@ SELECT a.id AS parent, b.id AS child,
        'covers'::text AS relationship
 FROM geometry a, geometry b
 WHERE a.kind = 'hunting_district' AND b.kind = 'portion'
-  AND a.geom::geometry && b.geom::geometry           -- GiST index hint
-  AND ST_Covers(a.geom::geometry, b.geom::geometry);
+  AND ST_Covers(a.geom, b.geom);  -- geography native; uses geometry_geom_gix
 
 -- HD → CWD zone (containment OR intersection)
 SELECT a.id, b.id, a.kind, b.kind,
-       CASE WHEN ST_Covers(a.geom::geometry, b.geom::geometry) THEN 'covers' ELSE 'intersects' END
+       CASE WHEN ST_Covers(a.geom, b.geom) THEN 'covers' ELSE 'intersects' END
 FROM geometry a, geometry b
 WHERE a.kind = 'hunting_district' AND b.kind = 'cwd_zone'
-  AND a.geom::geometry && b.geom::geometry
-  AND ST_Intersects(a.geom::geometry, b.geom::geometry);
+  AND ST_Intersects(a.geom, b.geom);  -- ST_Covers ⊂ ST_Intersects
 
--- HD → Restricted Area (similar)
--- Self-referential: HD → itself (primary_unit role)
+-- HD → Restricted Area (similar to HD → CWD zone)
+-- Self-referential: HD → itself (primary_unit role) — generated programmatically, no spatial query needed
 ```
 
 **Fixture format:** `ingestion/states/montana/fixtures/geometry-overlays.json`
@@ -437,21 +512,41 @@ WHERE a.kind = 'hunting_district' AND b.kind = 'cwd_zone'
 | (hunting_district, restricted_area) | restricted_area |
 | (hunting_district, bmu) | bear_management_unit (only if BMUs eventually distinct from HDs; current V1 layer #10 is `hunting_district`) |
 
-**Coverage invariant:** Every `geometry` row written in S02.2-S02.5 must appear in the fixture either as a `parent_geometry_id` or `child_geometry_id` (the self-referential `primary_unit` row guarantees this for HDs). Top-level standalone geometries that don't relate to anything else are an error worth flagging.
+**Coverage invariant (strengthened):**
 
-**Performance:** Use `EXPLAIN ANALYZE` to verify the GiST index `geometry_geom_gix` (E01) is used via the `&&` bounding-box pre-filter. Sequential scan on this query is a bug.
+Every `geometry` row must appear in the fixture, but the role placement depends on `kind`:
+
+| `geometry.kind` | Required appearance in fixture |
+|---|---|
+| `hunting_district` | At least one `self`-relationship row with `parent_geometry_id == child_geometry_id` and `role_for_e03='primary_unit'`. Optionally: appears as `parent_geometry_id` in covers/intersects rows toward Portions, CWD zones, Restricted Areas. |
+| `portion` | Appears as `child_geometry_id` in at least one `covers` relationship to a `hunting_district` parent, with `role_for_e03='portion'`. |
+| `cwd_zone` | Appears as `child_geometry_id` in at least one `covers` or `intersects` relationship to a `hunting_district` parent, with `role_for_e03='cwd_management_zone'`. |
+| `restricted_area` | Appears as `child_geometry_id` in at least one `covers` or `intersects` relationship to a `hunting_district` parent, with `role_for_e03='restricted_area'`. |
+| `bmu` (none expected in V1 — layer #10 is `hunting_district`) | n/a |
+
+A Portion or Restricted Area that doesn't overlap any HD is a data-quality flag worth surfacing — fail loudly during fixture build.
+
+**Fixture schema documentation:** Commit a JSON Schema or TypedDict at `ingestion/states/montana/fixtures/geometry-overlays.schema.json` that types every field, every enum value, and the relationship-to-role mapping. E03 imports this to type-check its consumer rather than reverse-engineering the format from sample rows.
+
+**Performance check (softened from earlier draft):** Run `EXPLAIN ANALYZE` on the overlay-detection queries and document the chosen plan in the runbook. With ~200 HDs × ~50 Portions ≈ 10K candidate pairs, sequential scan would still complete in well under a second — performance is not a V1 blocker. The point of the EXPLAIN check is to confirm the geography GiST index is reachable from `ST_Covers(geog, geog)` / `ST_Intersects(geog, geog)`, not to demand an index scan. If PostgreSQL chooses a sequential scan because the dataset is small, that is acceptable; document the choice.
 
 **Relevant ADRs:** [ADR-004](../../adrs/ADR-004-supabase-postgres-postgis.md), [ADR-010](../../adrs/ADR-010-decomposed-entity-model.md).
 
-**Depends on:** S02.2, S02.3, S02.4, S02.5.
+**Depends on:** S02.2, S02.3, S02.4, S02.5. **Note: S02.5 may produce zero `cwd_zone` rows under the hand-traced fallback path or if the discriminator returns no matches.** S02.6 still works in that case — it produces fixture rows for HD↔HD self-references, HD→Portion, and HD→Restricted Area, with no HD→CWD entries. The coverage invariant accommodates this (CWD zones only need a binding-row "if any exist").
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/montana/fixtures/geometry-overlays.json` exists with at least: HD→HD self-references, HD→Portion containment, HD→Restricted Area, HD→CWD (if S02.5 produced any)
+- [ ] `ingestion/states/montana/fixtures/geometry-overlays.json` exists with at least: HD→HD self-references for every `hunting_district` row, HD→Portion containment, HD→Restricted Area, HD→CWD (if S02.5 produced any)
 - [ ] Every relationship has `parent_geometry_id`, `child_geometry_id`, `parent_kind`, `child_kind`, `relationship` (one of: `self`, `covers`, `intersects`), and `role_for_e03` (one of the seven `GeometryRole` enum values)
-- [ ] **Coverage invariant:** every row in `geometry` table appears in the fixture as parent or child of at least one relationship
+- [ ] **Fixture schema:** `ingestion/states/montana/fixtures/geometry-overlays.schema.json` (JSON Schema) committed and validates the fixture; alternatively, a TypedDict in `ingestion/ingestion/lib/overlays.py` typed for E03 import
+- [ ] **Strengthened coverage invariant:**
+  - Every `hunting_district` row has a self-relationship with `role_for_e03='primary_unit'`
+  - Every `portion` row appears as `child_geometry_id` in ≥1 relationship to a `hunting_district` parent with `role_for_e03='portion'`
+  - Every `cwd_zone` row appears as `child_geometry_id` in ≥1 relationship to a `hunting_district` parent with `role_for_e03='cwd_management_zone'`
+  - Every `restricted_area` row appears as `child_geometry_id` in ≥1 relationship to a `hunting_district` parent with `role_for_e03='restricted_area'`
+  - Any Portion / CWD / Restricted Area not overlapping any HD fails the build with the offending id surfaced
 - [ ] Every fixture-referenced `geometry_id` exists in the `geometry` table (FK-equivalent JSON-level validation)
-- [ ] **EXPLAIN ANALYZE** on the overlay-detection queries shows `Index Scan using geometry_geom_gix` (not Seq Scan)
+- [ ] **EXPLAIN ANALYZE plan documented in the runbook** (S02.7's runbook). The point is to verify the geography GiST index is reachable; an Index Scan is preferred but a Seq Scan on this small dataset is acceptable if documented. Sequential scan is NOT automatically a bug.
 - [ ] **UAT:** human spot-check that known relationships appear correctly (e.g., HD-262 contains its expected Elk Portion, if data supports it)
 - [ ] Generation script committed at `ingestion/states/montana/build_overlay_fixture.py`
 - [ ] Fixture is reproducible — running the script produces identical JSON (sorted keys, deterministic ordering)
@@ -472,19 +567,19 @@ This is the final E02 story. No new geometries written; no new schema. Verifies 
 
 **Verification steps:**
 
-1. **PostGIS gotcha-checked spot-checks:** Use `ST_Covers(geom::geometry, ST_GeogFromText('POINT(<lng> <lat>)')::geometry)` (NOT `ST_Contains`, NOT geography ST_Contains which doesn't exist). For each hand-picked Montana coordinate, the expected HD/Portion/Restricted Area row is returned.
+1. **Spot-checks via `ST_Covers` on geography (NOT `::geometry` cast):** Use `ST_Covers(geom, ST_GeogFromText('SRID=4326;POINT(<lng> <lat>)'))` to test point-in-polygon. (`ST_Contains(geography, geography)` does exist in PostGIS 2.4+ but its support is partial and semantically surprising at boundary-touching points; `ST_Covers` is the recommended predicate.) For each hand-picked Montana coordinate in the fixture, the expected HD/Portion/Restricted Area row is returned.
 
-2. **Topology validity check:** `SELECT id FROM geometry WHERE NOT ST_IsValid(geom::geometry)` returns zero rows. (Note the cast — `ST_IsValid(geography)` doesn't exist.)
+2. **Topology validity check:** `SELECT id FROM geometry WHERE NOT ST_IsValid(geom::geometry)` returns zero rows. (`ST_IsValid` is geometry-only; the cast is required here. The geography column already enforces lon/lat bounds at insert time, so this catches topology issues like self-intersection that survived `make_valid`.)
 
-3. **Multi-part HD verification:** `SELECT count(*) FROM geometry WHERE kind='hunting_district' AND ST_NumGeometries(geom::geometry) > 1` returns ≥1. Confirms multi-part districts (those along state lines) survived as MultiPolygon, not collapsed.
+3. **Multi-part HD verification (named):** Use the same named multi-part HD identified in S02.2's AC — `SELECT id, ST_NumGeometries(geom::geometry) FROM geometry WHERE id = '<that HD id>'` returns `> 1`. The named HD is the load-bearing test; aggregate counts elsewhere are supportive but not sufficient.
 
-4. **GiST index usage:** `EXPLAIN ANALYZE SELECT id FROM geometry WHERE geom::geometry && ST_MakeEnvelope(...)` shows `Index Scan using geometry_geom_gix`. Sequential scan is a bug.
+4. **Geography GiST index reachability check:** Run `EXPLAIN ANALYZE` on a representative point-in-polygon query (`SELECT id FROM geometry WHERE ST_Covers(geom, ST_GeogFromText('SRID=4326;POINT(...)'))`) and document the chosen plan in the runbook. Index Scan via `geometry_geom_gix` is preferred; a Seq Scan on this small dataset is acceptable as long as the index would be reachable on a larger one (i.e., the predicate is index-eligible, the planner chose Seq Scan for cost reasons). Bug case: predicate forces a cast or function call that prevents index use.
 
-5. **Reproducibility:** Wipe geometry rows; re-run `make ingest STATE=montana STAGE=geometry` (or equivalent); confirm same row count, same id set, same `geom` byte-equality.
+5. **Reproducibility (topological, not byte-level):** Wipe geometry rows; re-run `make ingest STATE=montana STAGE=geometry` (or equivalent); confirm same row count, same id set, AND for every id, `ST_Equals(reloaded.geom, prior.geom) = true`. (`ST_Equals` works directly on geography.) If a hash-based comparison is preferred over a row-by-row predicate, cast to geometry first: `md5(ST_AsBinary(ST_Normalize(geom::geometry)))` — `ST_Normalize` is geometry-only, so the cast is required. Byte-level equality of the raw `geom` value is NOT a valid test — `geography(MultiPolygon, 4326)` round-trips through canonicalization that can produce different EWKB bytes for topologically identical geometries (ring ordering, vertex ordering after `make_valid`, etc.).
 
-6. **Fixture file:** `ingestion/states/montana/fixtures/spatial-test-points.json` lists 3-5 known points with expected resolutions. CI/UAT loops this fixture rather than hardcoding.
+6. **Fixture file:** `ingestion/states/montana/fixtures/spatial-test-points.json` lists ≥1 named test point per `kind` value present in `geometry` (HD, Portion, Restricted Area, CWD zone if any). Each entry: `{name, lat, lng, expected_kind, expected_id_pattern, expected_role_for_e03}`. CI/UAT loops this fixture rather than hardcoding lat/lng in test code.
 
-**Reproducibility documentation:** Update or add to `docs/runbooks/E02-geometry-verification.md` (parallel to E01's runbook).
+**Reproducibility documentation:** Update or add to `docs/runbooks/E02-geometry-verification.md` (parallel to E01's runbook). Include a runbook note: *the wipe + re-ingest pattern works in E02 standalone because nothing yet FK-references `geometry`. Once E03 lands and `jurisdiction_binding` rows reference `geometry.id`, the wipe step will require coordinated handling (DELETE CASCADE or sequenced delete from `jurisdiction_binding` first). This pattern is E02-only.*
 
 **Relevant ADRs:** [ADR-004](../../adrs/ADR-004-supabase-postgres-postgis.md).
 
@@ -492,13 +587,13 @@ This is the final E02 story. No new geometries written; no new schema. Verifies 
 
 **Acceptance Criteria:**
 
-- [ ] Spot-check fixture file `ingestion/states/montana/fixtures/spatial-test-points.json` exists with ≥3 known coordinates and expected (HD, Portion if applicable, Restricted Area if applicable, CWD zone if applicable) resolution
-- [ ] **UAT:** Human verifies each fixture point resolves to the expected HD via `ST_Covers` query
+- [ ] Spot-check fixture file `ingestion/states/montana/fixtures/spatial-test-points.json` exists with ≥1 named test point per `kind` present in `geometry` (HD, Portion, Restricted Area, CWD zone if any). Each entry has `{name, lat, lng, expected_kind, expected_id_pattern, expected_role_for_e03}`.
+- [ ] **UAT:** Human verifies each fixture point resolves correctly via `ST_Covers(geom, ST_GeogFromText(...))`
 - [ ] All `geometry` rows pass `ST_IsValid(geom::geometry)`
-- [ ] Multi-part HD count > 0
-- [ ] GiST index used (EXPLAIN ANALYZE confirms)
-- [ ] Re-running ingestion produces identical state (row count, id set, geom byte-equality)
-- [ ] `docs/runbooks/E02-geometry-verification.md` exists documenting verification steps
+- [ ] **Named multi-part HD** (the same one identified in S02.2's AC) returns `ST_NumGeometries(geom::geometry) > 1`
+- [ ] EXPLAIN ANALYZE plan documented in the runbook for both a point-in-polygon query and an overlay-detection query; predicate is index-eligible (Seq Scan on small dataset is acceptable if documented)
+- [ ] Re-running ingestion is reproducible: row count, id set, and `ST_Equals(reloaded.geom, prior.geom) = true` for every id (NOT byte-equality; `ST_Equals` or `md5(ST_AsBinary(ST_Normalize(geom)))` is the right test)
+- [ ] `docs/runbooks/E02-geometry-verification.md` exists, includes the wipe-and-re-ingest pattern note (E02-only; once E03 lands, this requires coordinated delete from `jurisdiction_binding` first)
 - [ ] No new schema, migration, or shared-library changes — this story only verifies and documents
 
 ---
@@ -530,7 +625,9 @@ This is the final E02 story. No new geometries written; no new schema. Verifies 
 
 **Recommended merge order:** S02.0 → S02.1 → S02.2 → S02.3 → S02.4 → S02.5 → S02.6 → S02.7
 
-S02.2 and S02.3 are theoretically parallelizable (different layers, no shared write keys), but sequential simplifies coordination and reuses the same patterns.
+S02.2, S02.3, and S02.4 are genuinely parallelizable: different layers, disjoint id prefixes, no shared write keys. Sequential is the default because it simplifies branch coordination and reuses the same loading patterns; **parallel is acceptable if branch-management cost is low.** S02.4 and S02.5 share a discriminator predicate (the CWD exclusion-filter), so coordinate the predicate definition before either starts.
+
+S02.1's *type updates* (Pydantic + TypeScript) from S02.0 are needed for compile; the SQL migration from S02.0 is needed only before S02.2 inserts data. So S02.1 can begin development as soon as S02.0's type-layer changes land — the migration can land in parallel.
 
 ---
 
@@ -558,6 +655,8 @@ These were considered during E02 planning and explicitly deferred:
 3. **CWD zone source uncertainty (S02.5).** The verified research doesn't catalog a clear CWD-zone GIS layer. Story includes a fallback path (defer to E03's Legal Descriptions PDF) but the discovery may surface findings worth documenting separately.
 
 4. **Layer metadata field-name verification.** Research only enumerated fields for layers #2, #11, #14. Layers #3, #4, #10, #12, #13, #15 have unverified field names. S02.1's metadata fixture capture handles this defensively, but it is a real surface area for surprises.
+
+5. **PostGIS operator semantics on `geography` type.** The S02.6 query patterns rely on `ST_Covers(geog, geog)` and `ST_Intersects(geog, geog)` using the `geometry_geom_gix` GiST index. PostgreSQL's planner choices on small datasets can vary, and `ST_Contains(geography, geography)` exists but with partial/surprising semantics. Before locking the S02.6 query patterns, run `EXPLAIN ANALYZE` against actual loaded data and verify the planner does not force a cast or full sequential scan that loses index reachability. If the planner refuses the index, escalate before downstream stories assume the pattern is performant.
 
 ---
 
