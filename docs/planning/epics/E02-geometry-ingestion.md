@@ -652,7 +652,7 @@ These were considered during E02 planning and explicitly deferred:
    - ADR for `geometry.verbatim_rule` column addition
    PM does not write ADRs autonomously — these need a human or an explicit ADR-drafting session.
 
-3. **CWD zone source uncertainty (S02.5).** The verified research doesn't catalog a clear CWD-zone GIS layer. Story includes a fallback path (defer to E03's Legal Descriptions PDF) but the discovery may surface findings worth documenting separately.
+3. **CWD zone source uncertainty (S02.5).** The verified research doesn't catalog a clear CWD-zone GIS layer. Story includes a hand-traced GeoJSON fallback path that preserves M1 success criterion 3, but the discovery may surface findings worth documenting separately.
 
 4. **Layer metadata field-name verification.** Research only enumerated fields for layers #2, #11, #14. Layers #3, #4, #10, #12, #13, #15 have unverified field names. S02.1's metadata fixture capture handles this defensively, but it is a real surface area for surprises.
 
