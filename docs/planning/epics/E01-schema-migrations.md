@@ -284,7 +284,7 @@ The following types are stored as `jsonb` columns. Their structure is not enforc
 - [x] Composite PKs on `regulation_record(state, jurisdiction_code, species_group, license_year)` and `draw_spec(state, hunt_code, year)`
 - [x] Text PKs on all other entities (deterministic IDs, not random UUIDs)
 - [x] `geography(MultiPolygon, 4326)` on `geometry.geom` — not `Polygon`, not `geometry` type
-- [x] All `verbatim_rule` columns are `NOT NULL` (per ADR-008)
+- [x] All `verbatim_rule` columns are `NOT NULL` (per ADR-008), except `jurisdiction_binding.verbatim_rule` which is `text` (nullable) per architecture.md `string | null`
 - [x] All `source` columns are `jsonb NOT NULL` (per ADR-001)
 - [x] `schema_version` columns on `regulation_record` and `draw_spec` with `DEFAULT 2`
 - [x] All CHECK constraints on enum-like fields present and matching TypeScript union types (including `weapon_type` and `residency` on `season_definition`)

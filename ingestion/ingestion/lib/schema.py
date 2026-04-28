@@ -4,6 +4,12 @@ These models are the Python leg of the three-place schema sync
 (DDL -> Python -> TypeScript). Field names match DDL column names exactly.
 Canonical type definitions: docs/architecture.md § "Schema types".
 
+Serialization convention: optional sub-fields default to None. When
+serializing to jsonb for DB insert, callers must use
+`model.model_dump(exclude_none=True)` so that absent optional fields are
+omitted from the JSON rather than written as null. This matches TypeScript's
+absent-key semantics for optional properties (`?:`).
+
 See ADR-005, ADR-006, ADR-008, ADR-010, ADR-012.
 """
 

@@ -347,7 +347,7 @@ type AllocationPool = {
 
 Three cross-cutting schema conventions worth stating explicitly.
 
-**Verbatim text.** Every regulation reference carries a `verbatim_rule` string containing the exact published text. HuntReady does not paraphrase regulations; it routes to them. This is enforced at ingestion: records without verbatim text fail validation.
+**Verbatim text.** Every regulation-bearing entity carries a `verbatim_rule` string containing the exact published text. HuntReady does not paraphrase regulations; it routes to them. This is enforced at ingestion: records without verbatim text fail validation. The one exception is `JurisdictionBinding`, where `verbatim_rule` is `string | null` — some bindings are purely structural links between a regulation and a geometry with no specific regulation text to quote.
 
 **Confidence.** Every entity carries a `confidence: "high" | "medium" | "low"` field produced by the ingestion pipeline. Records with `low` confidence surface with an explicit warning and a prominent link to the authoritative source. Records with `medium` confidence display normally but are included in periodic QA. Exact calibration of confidence is per-state adapter logic, tracked as an open question; the field exists in the schema regardless.
 

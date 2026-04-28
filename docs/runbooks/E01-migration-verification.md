@@ -70,6 +70,18 @@ curl -s http://127.0.0.1:<API_PORT>/rest/v1/regulation_record \
 
 Expected: `{"code":"42501","details":null,"hint":null,"message":"permission denied for table regulation_record"}`
 
+### Authenticated role denied
+
+```bash
+curl -s http://127.0.0.1:<API_PORT>/rest/v1/regulation_record \
+  -H "apikey: <ANON_KEY>" \
+  -H "Authorization: Bearer <AUTHENTICATED_JWT>"
+```
+
+To generate an authenticated JWT for local testing, use `supabase inspect db --jwt --role authenticated` or craft one manually with the project's JWT secret and `"role": "authenticated"` in the payload.
+
+Expected: `{"code":"42501","details":null,"hint":null,"message":"permission denied for table regulation_record"}`
+
 ### Service role succeeds
 
 ```bash
