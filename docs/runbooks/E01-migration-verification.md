@@ -78,7 +78,19 @@ curl -s http://127.0.0.1:<API_PORT>/rest/v1/regulation_record \
   -H "Authorization: Bearer <AUTHENTICATED_JWT>"
 ```
 
-To generate an authenticated JWT for local testing, use `supabase inspect db --jwt --role authenticated` or craft one manually with the project's JWT secret and `"role": "authenticated"` in the payload.
+To generate an authenticated JWT for local testing, get the JWT secret from `supabase status` (shown as `JWT secret`), then mint a token with Node.js builtins:
+
+```bash
+node -e "
+  const c = require('crypto');
+  const h = Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url');
+  const p = Buffer.from(JSON.stringify({role:'authenticated',iss:'supabase',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url');
+  const s = c.createHmac('sha256','<JWT_SECRET>').update(h+'.'+p).digest('base64url');
+  console.log(h+'.'+p+'.'+s);
+"
+```
+
+Replace `<JWT_SECRET>` with the value from `supabase status`.
 
 Expected: `{"code":"42501","details":null,"hint":null,"message":"permission denied for table regulation_record"}`
 
