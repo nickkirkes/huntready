@@ -1,6 +1,6 @@
 # E01: Schema Migrations, RLS, and Quality Gates
 
-**Status:** In Progress
+**Status:** Complete
 **Milestone:** M1 — Montana Ingestion
 **Dependencies:** M0 (complete)
 **Validated:** 2026-04-24
@@ -502,7 +502,7 @@ Any mismatches are bugs to fix in the same PR.
 
 ---
 
-### S01.6: Migration reproducibility verification
+### S01.6: Migration reproducibility verification ✅
 
 **As a** developer validating that E01's schema work is complete and repeatable
 **I want** confirmation that migrations are reproducible and a brief runbook exists
@@ -536,28 +536,28 @@ Final E01 story. Produces no new schema code — verifies existing migrations fr
 
 **Acceptance Criteria:**
 
-- [ ] Migrations apply cleanly to a fresh Supabase project
-- [ ] All 10 tables are queryable after migration
-- [ ] `COUNT(*)` returns 0 on every table
-- [ ] RLS verification passes (anon denied, authenticated denied, service_role succeeds)
-- [ ] PostGIS verification passes
-- [ ] Migrations apply cleanly to a second fresh Supabase project (reproducible)
-- [ ] Cross-language type checks pass (`tsc --noEmit`, `ruff check`, `mypy`)
-- [ ] Brief runbook exists documenting migration and verification steps
-- [ ] No new schema, migration, or type definition changes — this story only verifies existing work and produces documentation
+- [x] Migrations apply cleanly to a fresh Supabase project
+- [x] All 10 tables are queryable after migration
+- [x] `COUNT(*)` returns 0 on every table
+- [x] RLS verification passes (anon denied, authenticated denied, service_role succeeds)
+- [x] PostGIS verification passes
+- [x] Migrations apply cleanly to a second fresh Supabase project (reproducible)
+- [x] Cross-language type checks pass (`tsc --noEmit`, `ruff check`, `mypy`)
+- [x] Brief runbook exists documenting migration and verification steps
+- [x] No new schema, migration, or type definition changes — this story only verifies existing work and produces documentation
 
 ---
 
 ## Exit Criteria
 
-- [ ] All 6 stories complete (S01.1 through S01.6)
-- [ ] All 10 tables exist with correct schema, constraints, and indexes
-- [ ] RLS deny-all active on all 10 tables; service-role access preserved
-- [ ] Python dataclasses match DDL one-to-one
-- [ ] TypeScript interfaces match architecture.md and DDL
-- [ ] Pre-commit hooks running cleanly
-- [ ] Migrations reproducible on a fresh Supabase project
-- [ ] No secrets in any committed file
+- [x] All 6 stories complete (S01.1 through S01.6)
+- [x] All 10 tables exist with correct schema, constraints, and indexes
+- [x] RLS deny-all active on all 10 tables; service-role access preserved
+- [x] Python dataclasses match DDL one-to-one
+- [x] TypeScript interfaces match architecture.md and DDL
+- [x] Pre-commit hooks running cleanly
+- [x] Migrations reproducible on a fresh Supabase project
+- [x] No secrets in any committed file
 
 ---
 
