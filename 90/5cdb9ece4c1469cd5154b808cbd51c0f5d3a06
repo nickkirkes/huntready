@@ -1,0 +1,12 @@
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "905cdb9ece4c1469cd5154b808cbd51c0f5d3a06",
+  "prompts": {},
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
