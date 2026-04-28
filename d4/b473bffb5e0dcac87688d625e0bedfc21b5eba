@@ -1,0 +1,28 @@
+docs/runbooks/E01-migration-verification.md
+  0c9d1acf670c4cce 33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d4b473bffb5e0dcac87688d625e0bedfc21b5eba",
+  "prompts": {
+    "0c9d1acf670c4cce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da5c17e0-20df-412a-845b-90c3ddb48697",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 727,
+      "overriden_lines": 1
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
