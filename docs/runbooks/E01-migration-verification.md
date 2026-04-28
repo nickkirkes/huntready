@@ -30,7 +30,7 @@ supabase link --project-ref <project-id>
 supabase db push
 ```
 
-Requires `SUPABASE_URL` and credentials in `.env.local`. The project ref is the subdomain from your Supabase URL.
+Requires `SUPABASE_URL` and credentials in `.env` (see `.env.example`). The project ref is the subdomain from your Supabase URL.
 
 ## 3. Verify Tables and PostGIS
 
