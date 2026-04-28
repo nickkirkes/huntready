@@ -170,6 +170,22 @@ M0 ──► M1 ──► M2 ──► M4
 
 M1 unblocks both M2 (more state data) and M3 (MCP server against Montana). Those can proceed in parallel if capacity allows. M4 depends on M3 being functional; it does not strictly depend on M2, though launching M4 without M2 would leave Colorado out of the public demo and is not recommended. M5 depends on M4 being deployed and on the MCP server being stable.
 
+## Deferred from V1
+
+These items were considered during milestone planning and explicitly deferred from V1 scope. They are tracked here, not in the planning README, because the planning README's lifecycle is per-milestone — deferred items must outlive the milestone in which they were surfaced.
+
+A deferred item is not a future commitment. It is a record that the decision to leave it out of V1 was deliberate, and a placeholder for the conversation when (if) a real user need or operational signal calls it back into scope.
+
+| Item | Surfaced during | Reason for deferral | Trigger to revisit |
+|---|---|---|---|
+| **Block Management Areas (BMA layer)** | M1 / E02 planning (2026-04-28) | FWP refreshes BMAs mid-season; treating them as static V1 ingestion conflicts with the offline-reproducible commitment (ADR-003). Designing weekly/daily refresh logic is more scope than V1 warrants. | Real user need for BMA-aware "where can I hunt today" routing, OR an operational signal that BMA stale-state is causing user-facing harm. |
+| **Multi-year geometry backfill (e.g., 2025 alongside 2026)** | M1 / E02 planning (2026-04-28) | No V1 user persona asks for "what was last year's season?" — V1's user is "planning *this* trip." Pulling 2025 also creates orphan geometries with no matching 2025 regulation_records (E03 ingests 2026 only). | A real user request for historical regulation lookup, OR an internal need for year-over-year drift detection that source fixtures don't already cover. |
+| **True ecological Bear Management Units (NCDE-style BMUs)** | M1 / E02 planning (2026-04-28) | Distinct from FWP's "Black Bear Hunting Districts" (regulatory layer #10, classified as `kind='hunting_district'` in V1). True ecological BMUs may not exist as a standalone GIS layer in MT FWP; species-management overlay is not a V1 regulation surface. | Species-management context becoming a user-facing feature, OR a BMU-keyed ingestion source surfacing in a future state. |
+| **Big Game Distribution layers** (`wild/bigGameDistribution/MapServer`) | M1 / E02 planning (2026-04-28) | Habitat/distribution context for "where do these animals live," not regulatory boundaries. Useful for future "where to hunt" features, not for V1's "what are the regulations" surface. | A V2 surface that needs habitat overlay (e.g., "show me elk winter range within HD-262"). |
+| **FWP Lands Locations (FAS, State Parks, WMAs)** (`fwplnd/fwpLands/MapServer`) | M1 / E02 planning (2026-04-28) | Access/lands context. Out of V1 regulation scope per PRD 001. | A V2 surface that needs access-aware planning. |
+
+When a deferred item is revisited, move it out of this table and into a milestone (existing or new). Update the trigger column with the actual triggering event so the decision history is preserved.
+
 ## What the roadmap is *for*
 
 Two audiences.
