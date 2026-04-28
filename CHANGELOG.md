@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## E01 — Schema Migrations, RLS, and Quality Gates — 2026-04-28
+
+- S01.1: Installed pre-commit hooks (TypeScript `tsc --noEmit`, Python `ruff check`, secrets scanning via `detect-secrets`); secrets baseline at `.secrets.baseline`, config at `.pre-commit-config.yaml`
+- S01.2: Initial migration creating all 10 entity and link tables with composite/text PKs, jsonb soft FKs, `geography(MultiPolygon, 4326)` columns, `int4range` quota ranges, CHECK constraints on every enum-like field, and 4 supporting indexes (GiST spatial + 3 query-pattern); migration at `supabase/migrations/20260425000000_initial_schema.sql`
+- S01.3: RLS deny-all migration applying three-layer defense-in-depth (ENABLE + FORCE RLS, deny-all policies for `authenticated` and `anon`, explicit REVOKE) on all 10 tables; service-role bypass preserved; migration at `supabase/migrations/20260425000001_rls_deny_all.sql`
+- S01.4: Pydantic models for all 18 entity and jsonb sub-model types in `ingestion/ingestion/lib/schema.py`, mirroring DDL one-to-one with `Literal` types matching CHECK constraints and `exclude_none=True` serialization for optional jsonb fields
+- S01.5: TypeScript interfaces in `mcp-server/src/types/{schema.ts,index.ts}` matching architecture.md exactly; `tsc --noEmit` clean; no `any` types
+- S01.6: Migration reproducibility verified against two fresh Supabase projects; cross-language type checks pass (`tsc --noEmit`, `ruff check`, `mypy`); runbook at `docs/runbooks/E01-migration-verification.md`
+- E01 audit (#15) ran against all 64 ACs (53 MET, 4 PARTIALLY, 1 NOT) and applied 4 fixes: clarified `verbatim_rule` nullable convention for `jurisdiction_binding`, added missing `authenticated` curl test to runbook, replaced invalid Supabase CLI command in runbook, documented `exclude_none=True` convention in `schema.py`
+
 ## M0 — Scaffold — 2026-04-22
 
 - Verified `.gitignore` covers Node, Python, Next.js, Supabase, OS files, and `.env*` patterns; documented gaps for pnpm and broader `.env.*` coverage

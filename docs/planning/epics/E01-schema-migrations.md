@@ -4,6 +4,7 @@
 **Milestone:** M1 — Montana Ingestion
 **Dependencies:** M0 (complete)
 **Validated:** 2026-04-24
+**Completed:** 2026-04-28 (audit verified 53/64 ACs MET, 4 PARTIALLY MET, 1 NOT MET; all actionable findings fixed in commit `6318614`)
 **Estimated Stories:** 6
 **UAT Gating:** All stories UAT: no (verification-gated, no human sign-off required)
 

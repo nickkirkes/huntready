@@ -8,7 +8,7 @@ HuntReady is a regulatory data platform for licensed hunting in the US. Given a 
 
 ## Project status
 
-**M0 (Scaffold) complete.** Design documents, ADRs, and schema are committed. Working code scaffolds exist in four directories (`mcp-server/`, `ingestion/`, `web/`, `plugin/`). Supabase project provisioned with PostGIS enabled. No business logic, no migrations, no regulation data yet. M1 begins Montana ingestion.
+**M1 in progress (E01 complete, E02 next).** M0 scaffold complete. E01 (schema migrations, RLS, quality gates) merged 2026-04-28: 10 tables (7 entity + 3 link) created in `supabase/migrations/`, deny-all RLS active on every table with three-layer defense-in-depth (ENABLE+FORCE, deny-all policies, REVOKE), Pydantic models in `ingestion/ingestion/lib/schema.py` and TypeScript interfaces in `mcp-server/src/types/` mirror the DDL, pre-commit hooks (TypeScript lint + Python ruff + secrets scanning) installed. Migration reproducibility verified against fresh Supabase projects; runbook at `docs/runbooks/E01-migration-verification.md`. No data loaded yet. E02 (Montana geometry ingestion) is next.
 
 ## Architecture
 
