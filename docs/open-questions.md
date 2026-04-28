@@ -212,6 +212,20 @@ With Postgres as the storage layer, the tools can return richer, pre-composited 
 
 **Resolution home:** a `LICENSE` file and a note in the README when Phase 2 begins. An ADR if the decision has architectural implications (e.g., BSL's time-based conversion has downstream scheduling implications).
 
+### Q14. How do Supabase's new publishable/secret API keys affect RLS verification and service-role access patterns?
+
+**Why it matters:** Supabase has deprecated the legacy `anon` and `service_role` JWT keys in favor of new `sb_publishable_*` and `sb_secret_*` keys. HuntReady's RLS deny-all policies target the `anon` and `authenticated` PostgreSQL roles, which are unaffected at the database level. However, the E01 migration verification runbook (`docs/runbooks/E01-migration-verification.md`) uses legacy keys in curl commands to verify RLS behavior. If the legacy keys are removed, those verification steps break. Additionally, the MCP server and ingestion pipeline may need to adopt the new key format for Supabase client connections.
+
+**What needs to be decided:**
+
+1. Do the new keys still map to the same PostgreSQL roles (`anon`, `authenticated`, `service_role`) under the hood, or does Supabase's API layer handle authorization differently?
+2. Should runbooks and `.env` templates migrate to the new key format now, or wait until Supabase removes legacy key support?
+3. Does the MCP server's `SUPABASE_SECRET_KEY` (used for service-role bypass) need to change?
+
+**Surfaced by:** E01 epic audit (2026-04-28). Observed in the Supabase dashboard — legacy keys are on a separate tab labeled "Legacy anon, service_role API keys."
+
+**Resolution home:** Update to `architecture.md` storage section and `docs/runbooks/E01-migration-verification.md`. An ADR only if the new keys change the RLS enforcement model.
+
 ---
 
 ## Parking lot

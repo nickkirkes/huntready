@@ -84,7 +84,7 @@ To generate an authenticated JWT for local testing, get the JWT secret from `sup
 node -e "
   const c = require('crypto');
   const h = Buffer.from(JSON.stringify({alg:'HS256',typ:'JWT'})).toString('base64url');
-  const p = Buffer.from(JSON.stringify({role:'authenticated',iss:'supabase',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url');
+  const p = Buffer.from(JSON.stringify({role:'authenticated',exp:Math.floor(Date.now()/1000)+3600})).toString('base64url');
   const s = c.createHmac('sha256','<JWT_SECRET>').update(h+'.'+p).digest('base64url');
   console.log(h+'.'+p+'.'+s);
 "
