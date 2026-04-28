@@ -1,0 +1,47 @@
+docs/adrs/ADR-014-source-citation-gis-layer-document-type.md
+  97ac4a1e86b28a47 1-59
+docs/adrs/README.md
+  9a9554132d1ded94 76-77
+docs/adrs/ADR-015-geometry-verbatim-rule-and-reg-comments-handling.md
+  97ac4a1e86b28a47 1-75
+docs/planning/README.md
+  9a9554132d1ded94 4,62,64-65,67,69,79-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "5e39527d87a4bdc3a1f29659d101115d2013951e",
+  "prompts": {
+    "97ac4a1e86b28a47": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a97b4029-686f-4de9-a691-911bc6936465",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 183,
+      "total_deletions": 49,
+      "accepted_lines": 134,
+      "overriden_lines": 0
+    },
+    "9a9554132d1ded94": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 8,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
