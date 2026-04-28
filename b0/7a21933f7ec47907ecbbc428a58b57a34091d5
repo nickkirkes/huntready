@@ -1,0 +1,36 @@
+ingestion/ingestion/lib/schema.py
+  38589478a99b786d 7-12
+docs/planning/epics/E01-schema-migrations-audit.md
+  38589478a99b786d 1-143
+docs/architecture.md
+  38589478a99b786d 350
+docs/planning/epics/E01-schema-migrations.md
+  38589478a99b786d 287
+docs/runbooks/E01-migration-verification.md
+  38589478a99b786d 73-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b07a21933f7ec47907ecbbc428a58b57a34091d5",
+  "prompts": {
+    "38589478a99b786d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "85468672-e75e-47fe-96f4-dba9dd1aab07",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 167,
+      "total_deletions": 6,
+      "accepted_lines": 163,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
