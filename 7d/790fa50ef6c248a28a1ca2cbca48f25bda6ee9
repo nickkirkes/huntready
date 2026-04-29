@@ -1,0 +1,34 @@
+mcp-server/src/types/schema.ts
+  39fb9b3ddc68ee44 53-54,243
+supabase/migrations/20260428000000_geometry_verbatim_rule.sql
+  39fb9b3ddc68ee44 1-21
+docs/architecture.md
+  39fb9b3ddc68ee44 240,273,351
+ingestion/ingestion/lib/schema.py
+  39fb9b3ddc68ee44 74-75,392
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "7d790fa50ef6c248a28a1ca2cbca48f25bda6ee9",
+  "prompts": {
+    "39fb9b3ddc68ee44": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bc21ed65-de34-451f-aeb4-f49def7520c1",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 30,
+      "total_deletions": 4,
+      "accepted_lines": 30,
+      "overriden_lines": 0
+    }
+  },
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  }
+}
