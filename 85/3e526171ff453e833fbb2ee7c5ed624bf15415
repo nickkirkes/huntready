@@ -1,0 +1,27 @@
+ingestion/tests/test_arcgis.py
+  13cfb882c09808dd 795-853
+docs/planning/epics/E02-geometry-ingestion.md
+  13cfb882c09808dd 110,118,122-126,168-170,176,183-184,187,203-206,208,210
+ingestion/ingestion/lib/arcgis.py
+  13cfb882c09808dd 452-457,461-471,473-479,483,580-583
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "853e526171ff453e833fbb2ee7c5ed624bf15415",
+  "prompts": {
+    "13cfb882c09808dd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "713a56bf-fc53-416f-963d-cc4534ae6a14",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1857,
+      "total_deletions": 20,
+      "accepted_lines": 1392,
+      "overriden_lines": 0
+    }
+  }
+}
