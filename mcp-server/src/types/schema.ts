@@ -50,7 +50,8 @@ export interface SourceCitation {
     | "annual_regulations"
     | "rule_change"
     | "emergency_order"
-    | "correction";
+    | "correction"
+    | "gis_layer";
   supersedes: string | null;
   page_reference: string | null;
 }
@@ -239,6 +240,7 @@ export interface Geometry {
   geom: string; // WKT MultiPolygon; PostGIS geography(MultiPolygon, 4326)
   state: string;
   license_year: number | null;
+  verbatim_rule: string | null; // verbatim regulatory text from source attributes (e.g., ArcGIS REG/COMMENTS); null when source has none
   source: SourceCitation;
 }
 
