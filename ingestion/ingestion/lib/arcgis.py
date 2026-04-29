@@ -30,6 +30,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -46,8 +47,32 @@ from ingestion.lib.schema import SourceCitation
 
 # fwp-gis.mt.gov constants — used as defaults; functions accept overrides
 MT_FWP_HOST = "fwp-gis.mt.gov"
-DEFAULT_USER_AGENT = "HuntReady-Ingestion/1.0 (contact: nick@rowdycloud.io)"
+
+# Base User-Agent value (no contact info — see _default_user_agent below for the
+# full string). Operators MAY set HUNTREADY_INGESTION_CONTACT in the environment
+# to append a `(contact: <value>)` suffix per the operational hygiene convention
+# described in CLAUDE.md (gives upstream data providers a way to reach us).
+# Kept in the env, not source, so the contact can change without a code edit
+# and a personal email is never burned into git history.
+USER_AGENT_BASE = "HuntReady-Ingestion/1.0"
+_CONTACT_ENV_VAR = "HUNTREADY_INGESTION_CONTACT"
+
 DEFAULT_THROTTLE_SECONDS = 0.5
+
+
+def _default_user_agent() -> str:
+    """Return the User-Agent string, optionally including a contact suffix.
+
+    If the `HUNTREADY_INGESTION_CONTACT` env var is set (and non-empty after
+    stripping whitespace), the returned UA looks like
+    `"HuntReady-Ingestion/1.0 (contact: <value>)"`. Otherwise just the base
+    name is returned. Read-on-demand (not at import time) so callers can
+    set the env var and have it take effect within the same process.
+    """
+    contact = (os.environ.get(_CONTACT_ENV_VAR) or "").strip()
+    if contact:
+        return f"{USER_AGENT_BASE} (contact: {contact})"
+    return USER_AGENT_BASE
 
 # Module-level per-host throttle state. Tests reset this via the
 # autouse `_reset_throttle_state` fixture in conftest.py.
@@ -736,10 +761,15 @@ def _write_features_fixture(
     )
 
 
-def _build_session(user_agent: str = DEFAULT_USER_AGENT) -> requests.Session:
-    """Construct a requests.Session with the project's User-Agent header set."""
+def _build_session(user_agent: str | None = None) -> requests.Session:
+    """Construct a requests.Session with the project's User-Agent header set.
+
+    `user_agent=None` (the default) resolves the User-Agent at call time via
+    `_default_user_agent()`, which honors the `HUNTREADY_INGESTION_CONTACT`
+    env var if set. Callers may pass an explicit string to override entirely.
+    """
     session = requests.Session()
-    session.headers.update({"User-Agent": user_agent})
+    session.headers.update({"User-Agent": user_agent or _default_user_agent()})
     return session
 
 

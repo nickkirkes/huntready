@@ -1128,6 +1128,72 @@ class TestBuildSourceCitation:
         )
 
 
+class TestUserAgent:
+    """User-Agent must NOT bake a personal email into source. The contact
+    suffix is opt-in via the HUNTREADY_INGESTION_CONTACT env var."""
+
+    def test_default_user_agent_has_no_contact_when_env_unset(
+        self, monkeypatch
+    ) -> None:
+        from ingestion.lib.arcgis import _default_user_agent
+        monkeypatch.delenv("HUNTREADY_INGESTION_CONTACT", raising=False)
+        ua = _default_user_agent()
+        assert ua == "HuntReady-Ingestion/1.0"
+        assert "@" not in ua  # no email anywhere
+        assert "contact" not in ua.lower()
+
+    def test_default_user_agent_includes_contact_when_env_set(
+        self, monkeypatch
+    ) -> None:
+        from ingestion.lib.arcgis import _default_user_agent
+        monkeypatch.setenv("HUNTREADY_INGESTION_CONTACT", "ingest@example.com")
+        ua = _default_user_agent()
+        assert ua == "HuntReady-Ingestion/1.0 (contact: ingest@example.com)"
+
+    def test_default_user_agent_strips_whitespace_and_treats_blank_as_unset(
+        self, monkeypatch
+    ) -> None:
+        from ingestion.lib.arcgis import _default_user_agent
+        monkeypatch.setenv("HUNTREADY_INGESTION_CONTACT", "   ")
+        ua = _default_user_agent()
+        assert ua == "HuntReady-Ingestion/1.0"
+
+    def test_session_uses_default_user_agent_at_call_time(
+        self, monkeypatch
+    ) -> None:
+        """_build_session() with no explicit UA reads env at call time, not import time —
+        operators can set the env var after import and still get the contact suffix.
+        """
+        from ingestion.lib.arcgis import _build_session
+        monkeypatch.setenv("HUNTREADY_INGESTION_CONTACT", "operator@example.com")
+        session = _build_session()
+        assert (
+            session.headers["User-Agent"]
+            == "HuntReady-Ingestion/1.0 (contact: operator@example.com)"
+        )
+
+    def test_session_accepts_explicit_user_agent_override(self) -> None:
+        from ingestion.lib.arcgis import _build_session
+        session = _build_session(user_agent="CustomUA/2.0")
+        assert session.headers["User-Agent"] == "CustomUA/2.0"
+
+    def test_no_personal_email_in_module_source(self) -> None:
+        """Regression: ensure no personal email gets re-introduced as a source-level constant."""
+        import inspect
+        from pathlib import Path
+
+        from ingestion.lib import arcgis
+        src = Path(inspect.getfile(arcgis)).read_text(encoding="utf-8")
+        # The literal email that triggered the violation
+        assert "nick@rowdycloud.io" not in src
+        # Defensive: no rowdycloud-domain reference anywhere in non-comment code
+        for line in src.splitlines():
+            if line.lstrip().startswith("#"):
+                continue  # comments may explain examples
+            if "@" in line and "rowdycloud" in line:
+                pytest.fail(f"personal email pattern found in source: {line!r}")
+
+
 class TestErrorHandlingAndLogging:
     def test_fetch_layer_metadata_malformed_response_raises_arcgiserror(
         self, monkeypatch, tmp_fixture_dir
