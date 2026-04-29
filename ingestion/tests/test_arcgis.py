@@ -171,13 +171,18 @@ class TestCheckAndFixProjection:
             _check_and_fix_projection([feature])
 
     def test_post_reprojection_still_invalid_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """If reprojection produces out-of-range coords (no real-world case but defensive)."""
+        """If reprojection produces out-of-range coords, the post-check raises.
+
+        Inputs must be within EPSG:3857 valid extent (±~2e7) so the pre-check
+        passes; we then stub Transformer to identity so the output stays out
+        of WGS84 range and trips the post-reprojection guard.
+        """
         feature = {
             "type": "Feature",
             "properties": {"OBJECTID": 1},
             "geometry": {
                 "type": "Polygon",
-                "coordinates": [[[1e9, 1e9], [1e9 + 1, 1e9], [1e9 + 1, 1e9 + 1], [1e9, 1e9 + 1], [1e9, 1e9]]],
+                "coordinates": [[[1e7, 1e7], [1e7 + 1, 1e7], [1e7 + 1, 1e7 + 1], [1e7, 1e7 + 1], [1e7, 1e7]]],
             },
         }
 
@@ -192,6 +197,60 @@ class TestCheckAndFixProjection:
             type("T", (), {"from_crs": staticmethod(lambda *a, **kw: IdentityTransformer())})(),
         )
         with pytest.raises(ArcGISError, match=r"post-reprojection"):
+            _check_and_fix_projection([feature])
+
+    def test_mixed_batch_raises(self) -> None:
+        """A batch with some in-range and some out-of-range features is refused.
+
+        ArcGIS layers serve a single CRS per layer; mixed coords indicate a
+        server-side inconsistency. Reprojecting all features (including the
+        in-range ones) would corrupt the correct features.
+        """
+        in_range_feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 1, "DISTRICT": "good"},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                    [-111.0, 46.0], [-110.0, 46.0], [-110.0, 47.0], [-111.0, 47.0], [-111.0, 46.0],
+                ]],
+            },
+        }
+        out_of_range_feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 99, "DISTRICT": "bad"},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                    [-12826000.0, 5688000.0], [-12825000.0, 5688000.0],
+                    [-12825000.0, 5689000.0], [-12826000.0, 5689000.0],
+                    [-12826000.0, 5688000.0],
+                ]],
+            },
+        }
+        with pytest.raises(ArcGISError, match=r"mixed-CRS batch.*OBJECTID=99"):
+            _check_and_fix_projection([in_range_feature, out_of_range_feature])
+
+    def test_out_of_3857_range_raises_before_reprojection(self) -> None:
+        """Coordinates exceeding EPSG:3857 valid extent (~2e7) cannot be safely
+        reprojected — source CRS is neither WGS84 nor Web Mercator. Raise rather
+        than letting pyproj produce silently-wrong lat/lon (e.g. UTM-like inputs
+        that happen to land back in valid WGS84 range after a bogus 3857 transform).
+        """
+        feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 7},
+            "geometry": {
+                "type": "Polygon",
+                # 5e7 exceeds ±20037508 (the 3857 bound at ±180° longitude).
+                "coordinates": [[
+                    [5e7, 5e7], [5e7 + 1, 5e7], [5e7 + 1, 5e7 + 1], [5e7, 5e7 + 1], [5e7, 5e7],
+                ]],
+            },
+        }
+        with pytest.raises(
+            ArcGISError, match=r"exceed EPSG:3857 valid extent.*OBJECTID=7",
+        ):
             _check_and_fix_projection([feature])
 
 

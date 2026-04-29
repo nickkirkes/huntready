@@ -263,6 +263,14 @@ def geojson_to_multipolygon_wkt(feature: dict[str, Any]) -> str:
     return valid.wkt
 
 
+# Half-circumference of the WGS84 ellipsoid in meters at the equator. EPSG:3857
+# (Web Mercator) coordinates are bounded by ±this value at ±180° longitude. Used
+# to sanity-check that out-of-WGS84-range inputs are at least *plausibly* in
+# Web Mercator before we attempt a 3857→4326 reprojection. Inputs that exceed
+# this bound are in some other projected CRS (e.g. UTM) and we cannot guess.
+_EPSG_3857_HALF_CIRCUMFERENCE_M = 20037508.342789244
+
+
 def _coordinates_in_wgs84_range(coords: list) -> bool:
     """Recursively walk a GeoJSON coordinates structure; return True iff every
     [x, y] (or [x, y, z]) pair has |x| <= 180 and |y| <= 90.
@@ -275,6 +283,25 @@ def _coordinates_in_wgs84_range(coords: list) -> bool:
         return abs(x) <= 180 and abs(y) <= 90
     # Recurse — coords is a list of rings, sub-rings, or sub-polygons
     return all(_coordinates_in_wgs84_range(c) for c in coords)
+
+
+def _coordinates_in_3857_range(coords: list) -> bool:
+    """Recursively check that every coordinate fits the EPSG:3857 valid extent.
+
+    Used as a pre-check before attempting a 3857→4326 reprojection: if inputs
+    exceed this bound, the source CRS is neither WGS84 nor Web Mercator and a
+    bogus reprojection would silently succeed (the post-reprojection bounds
+    check catches gross failures, not subtly-wrong UTM-as-3857 confusion).
+    """
+    if not coords:
+        return True
+    if isinstance(coords[0], (int, float)):
+        x, y = coords[0], coords[1]
+        return (
+            abs(x) <= _EPSG_3857_HALF_CIRCUMFERENCE_M
+            and abs(y) <= _EPSG_3857_HALF_CIRCUMFERENCE_M
+        )
+    return all(_coordinates_in_3857_range(c) for c in coords)
 
 
 def _reproject_coordinates(coords: list, transformer: Transformer) -> list:
@@ -300,11 +327,23 @@ def _check_and_fix_projection(features: list[dict[str, Any]]) -> list[dict[str, 
     must extend this helper consciously rather than getting silently
     unchecked coordinates.
 
-    Detection: if ANY coordinate has |x| > 180 or |y| > 90, the response is
-    treated as projected (EPSG:3857) regardless of what the GeoJSON crs
-    envelope claims (ArcGIS sometimes lies). Reprojection uses
-    pyproj.Transformer.from_crs(3857, 4326, always_xy=True). If the
-    reprojected output still has out-of-range coordinates, raise.
+    Detection and reprojection are scoped narrowly:
+
+    1. Per-feature classification: each feature is either fully in WGS84 range
+       or fully out. (A single feature with one bad coordinate is treated as
+       out-of-range — partial corruption inside one feature still indicates a
+       CRS issue, not data integrity.)
+    2. Mixed batches (some in-range, some out) are refused outright. ArcGIS
+       layers serve a single CRS per layer; a mixed response is a server-side
+       inconsistency that should be loud, not silently reprojected.
+    3. All-out-of-range batches must additionally fit the EPSG:3857 valid
+       extent (±~20037508 m at ±180°). If inputs exceed that, the source CRS
+       is something other than WGS84 or Web Mercator (e.g. UTM); reprojection
+       from 3857 would silently land in valid lat/lon bounds and corrupt the
+       data. Raise instead.
+    4. Otherwise, reproject from EPSG:3857 to 4326 via
+       pyproj.Transformer.from_crs(3857, 4326, always_xy=True). Post-reproject
+       output is rechecked against WGS84 bounds.
     """
     for feature in features:
         gtype = (feature.get("geometry") or {}).get("type")
@@ -316,12 +355,46 @@ def _check_and_fix_projection(features: list[dict[str, Any]]) -> list[dict[str, 
             )
             raise ArcGISError(msg)
 
-    all_in_range = all(
-        _coordinates_in_wgs84_range(feature["geometry"]["coordinates"])
-        for feature in features
-    )
-    if all_in_range:
+    in_range_count = 0
+    out_of_range_count = 0
+    sample_out_of_range_oid: int | str | None = None
+    for feature in features:
+        if _coordinates_in_wgs84_range(feature["geometry"]["coordinates"]):
+            in_range_count += 1
+        else:
+            out_of_range_count += 1
+            if sample_out_of_range_oid is None:
+                sample_out_of_range_oid = _read_objectid(feature)
+
+    if out_of_range_count == 0:
         return features
+
+    # Mixed batch — single CRS expected per ArcGIS layer; refuse rather than
+    # blindly reproject the in-range features (which would corrupt them).
+    if in_range_count > 0:
+        msg = (
+            f"mixed-CRS batch: {in_range_count} of {len(features)} features in WGS84 range, "
+            f"{out_of_range_count} out of range "
+            f"(first out-of-range OBJECTID={sample_out_of_range_oid}). "
+            "ArcGIS layers serve a single CRS — refusing to reproject."
+        )
+        raise ArcGISError(msg)
+
+    # All out-of-range. Confirm inputs at least fit EPSG:3857 valid extent
+    # before attempting a 3857→4326 reprojection. A UTM-like input (e.g.
+    # within ±20037508 but actually projected differently) can still slip
+    # through to the post-reprojection bounds check; that is the residual
+    # risk we accept per the story spec, which mandates the 3857 fallback.
+    for feature in features:
+        if not _coordinates_in_3857_range(feature["geometry"]["coordinates"]):
+            oid = _read_objectid(feature)
+            msg = (
+                f"out-of-range coordinates exceed EPSG:3857 valid extent "
+                f"(±{_EPSG_3857_HALF_CIRCUMFERENCE_M:.0f} m); first offending "
+                f"OBJECTID={oid}. Source CRS is neither WGS84 nor Web Mercator; "
+                "cannot safely reproject."
+            )
+            raise ArcGISError(msg)
 
     _logger.warning(
         "projection fallback triggered: %d features have out-of-range coords, "
