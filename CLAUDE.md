@@ -70,6 +70,21 @@ cd web && npm install && npm run dev
 supabase db push                  # Apply migrations to Supabase
 ```
 
+## Verification commands
+
+Used by `/ruckus:verify-all` and the Stop hook. Run from the repo root.
+
+```bash
+# Python ingestion — lint, type, test
+cd ingestion && .venv/bin/ruff check ingestion/ tests/
+cd ingestion && .venv/bin/mypy ingestion/lib/
+cd ingestion && .venv/bin/pytest tests/
+
+# TypeScript serving (when files exist; mcp-server and web both currently empty)
+cd mcp-server && npx tsc --noEmit
+cd web && npx tsc --noEmit
+```
+
 ## Data model (6 entities)
 
 - **`regulation_record`** — anchor entity, keyed by (state, jurisdiction_code, species_group, license_year)
