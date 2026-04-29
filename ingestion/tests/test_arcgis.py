@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import date
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -806,30 +805,50 @@ class TestBuildSourceCitation:
             raw={},
         )
 
-    def test_lastedit_epoch_ms_to_iso(self) -> None:
-        # 1700000000000 ms = 2023-11-14T22:13:20 UTC -> date is 2023-11-14
+    def test_publication_date_is_jan_1_of_license_year(self) -> None:
+        """Per ADR-014: publication_date = Jan 1 of REGYEAR (i.e. license_year)."""
         sc = build_source_citation(
             service_url="https://fwp-gis.mt.gov/arcgis/rest/services/admbnd/huntingDistricts/MapServer",
             layer_id=11,
             metadata=self._meta(last_edit_date_ms=1700000000000),
             license_year=2026,
-            fetch_date=date(2026, 4, 29),
             state_slug="mt-fwp",
             agency="Montana Fish, Wildlife & Parks",
         )
-        assert sc.publication_date == "2023-11-14"
+        assert sc.publication_date == "2026-01-01"
 
-    def test_falls_back_to_fetch_date(self) -> None:
+    def test_publication_date_ignores_lastedit_per_adr014(self) -> None:
+        """Regression: lastEditDate is an edit timestamp, not a publication
+        date. ADR-014 prescribes Jan 1 of license_year regardless of
+        last_edit_date_ms — even when lastEditDate would suggest a different
+        year. The metadata edit timestamp is preserved on LayerMetadata for
+        forensic value but never bleeds into publication_date.
+        """
+        # lastEditDate=1700000000000 → 2023-11-14 if used (wrong); ADR-014 → 2025-01-01
         sc = build_source_citation(
-            service_url="https://fwp-gis.mt.gov/arcgis/rest/services/admbnd/huntingDistricts/MapServer",
-            layer_id=11,
+            service_url="https://example.com/svc/MapServer",
+            layer_id=1,
+            metadata=self._meta(last_edit_date_ms=1700000000000),
+            license_year=2025,
+            state_slug="mt-fwp",
+            agency="Montana Fish, Wildlife & Parks",
+        )
+        assert sc.publication_date == "2025-01-01"
+        assert sc.publication_date != "2023-11-14"
+
+    def test_publication_date_unaffected_by_missing_lastedit(self) -> None:
+        """When lastEditDate is absent, publication_date is still Jan 1 of
+        license_year (no fallback needed — license_year is required and
+        carries the regulation-cycle year)."""
+        sc = build_source_citation(
+            service_url="https://example.com/svc/MapServer",
+            layer_id=1,
             metadata=self._meta(last_edit_date_ms=None),
             license_year=2026,
-            fetch_date=date(2026, 4, 29),
             state_slug="mt-fwp",
             agency="Montana Fish, Wildlife & Parks",
         )
-        assert sc.publication_date == "2026-04-29"
+        assert sc.publication_date == "2026-01-01"
 
     def test_document_type_is_gis_layer(self) -> None:
         sc = build_source_citation(
@@ -837,7 +856,6 @@ class TestBuildSourceCitation:
             layer_id=11,
             metadata=self._meta(last_edit_date_ms=1700000000000),
             license_year=2026,
-            fetch_date=date(2026, 4, 29),
             state_slug="mt-fwp",
             agency="Montana Fish, Wildlife & Parks",
         )
@@ -849,7 +867,6 @@ class TestBuildSourceCitation:
             layer_id=11,
             metadata=self._meta(),
             license_year=2026,
-            fetch_date=date(2026, 4, 29),
             state_slug="mt-fwp",
             agency="Montana Fish, Wildlife & Parks",
         )
@@ -861,7 +878,6 @@ class TestBuildSourceCitation:
             layer_id=11,
             metadata=self._meta(),
             license_year=2026,
-            fetch_date=date(2026, 4, 29),
             state_slug="mt-fwp",
             agency="Montana Fish, Wildlife & Parks",
         )
@@ -873,7 +889,6 @@ class TestBuildSourceCitation:
             layer_id=11,
             metadata=self._meta(name="Deer Elk Lion Hunting Districts"),
             license_year=2026,
-            fetch_date=date(2026, 4, 29),
             state_slug="mt-fwp",
             agency="Montana Fish, Wildlife & Parks",
         )

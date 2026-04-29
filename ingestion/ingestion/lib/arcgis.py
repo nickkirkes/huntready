@@ -32,7 +32,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -668,29 +668,34 @@ def build_source_citation(
     layer_id: int,
     metadata: LayerMetadata,
     license_year: int,
-    fetch_date: date,
     state_slug: str,
     agency: str,
 ) -> SourceCitation:
     """Construct a SourceCitation for an ArcGIS layer with `document_type='gis_layer'`.
 
-    `publication_date` is taken from `metadata.last_edit_date_ms` (Unix epoch
-    milliseconds, converted to UTC ISO date) when available; otherwise falls
-    back to `fetch_date.isoformat()`.
+    Per [ADR-014], `publication_date` for `gis_layer` citations is `Jan 1 of
+    REGYEAR` — i.e., the year of regulation applicability. The caller passes
+    `license_year=REGYEAR` for features carrying that attribute (verified for
+    MT FWP layer #11 Deer/Elk/Lion HDs, layer #14 Elk Portions). For features
+    without REGYEAR (e.g. layers #3 Antelope, #10 Black Bear), the caller
+    chooses a deliberate default — typically the fetch year. The intent is
+    "which annual regulation cycle does this citation belong to?", not
+    "when was the polygon last edited on the server."
+
+    `metadata.last_edit_date_ms` (the server's `editingInfo.lastEditDate`) is
+    deliberately NOT used here: it is an edit timestamp, not a publication
+    date. A typo fix in March bumps lastEditDate without changing which
+    annual regulation the polygon represents. The field is preserved on
+    `LayerMetadata` for forensic value (e.g. drift detection across runs).
 
     `state_slug` is the prefix the state adapter passes (e.g. "mt-fwp" for
     Montana FWP, matching the epic E02 spec example
-    `id=f"mt-fwp-arcgis-{service}-{layer_id}-{license_year}"`). Pass `state_slug="mt-fwp"`
-    in S02.2 to match the spec exactly.
+    `id=f"mt-fwp-arcgis-{service}-{layer_id}-{license_year}"`). Pass
+    `state_slug="mt-fwp"` in S02.2 to match the spec exactly.
+
+    [ADR-014]: docs/adrs/ADR-014-source-citation-gis-layer-document-type.md
     """
-    if metadata.last_edit_date_ms is not None:
-        publication_date = (
-            datetime.fromtimestamp(metadata.last_edit_date_ms / 1000, tz=timezone.utc)
-            .date()
-            .isoformat()
-        )
-    else:
-        publication_date = fetch_date.isoformat()
+    publication_date = f"{license_year:04d}-01-01"
 
     service_slug = _slug_from_service(service_url)
     return SourceCitation(
