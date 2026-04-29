@@ -449,16 +449,38 @@ def _check_and_fix_projection(
     return reprojected
 
 
-def _read_objectid(feature: dict[str, Any]) -> int | str | None:
-    """Best-effort OBJECTID extractor used in error messages.
+def _read_objectid(
+    feature: dict[str, Any],
+    *,
+    oid_field: str | None = None,
+) -> int | str | None:
+    """Best-effort OBJECTID extractor used in error messages and dedup.
 
     GeoJSON ArcGIS responses put attributes under either `properties` (the
     f=geojson convention) or `attributes` (the f=json convention).
+
+    When the caller knows the layer's actual OID column from
+    `metadata.object_id_field` (e.g. `"OBJECTID_1"` or `"FID"`), pass it via
+    `oid_field` to look there first. Without it we fall back to the common
+    keys (`OBJECTID`/`objectid`/`FID`) and finally `feature["id"]` — that
+    fallback is fine for error-message contexts where any stable identifier
+    suffices, but the dedup path in `fetch_features` should pass `oid_field`
+    so layers with non-default OID columns dedup correctly (otherwise every
+    feature returns the same fallback, all features collapse to one survivor,
+    and the count cross-check raises a confusing mismatch instead of a clear
+    bug indication).
     """
+    common_keys = ("OBJECTID", "objectid", "FID")
+    candidates: tuple[str, ...]
+    if oid_field is not None and oid_field not in common_keys:
+        candidates = (oid_field, *common_keys)
+    else:
+        candidates = common_keys
+
     for key in ("properties", "attributes"):
         attrs = feature.get(key)
         if isinstance(attrs, dict):
-            for oid_key in ("OBJECTID", "objectid", "FID"):
+            for oid_key in candidates:
                 if oid_key in attrs:
                     val = attrs[oid_key]
                     return val if isinstance(val, (int, str)) else str(val)
@@ -555,7 +577,10 @@ def fetch_features(
         )
         features = page.get("features") or []
         for feature in features:
-            oid = _read_objectid(feature)
+            # Pass metadata.object_id_field so dedup uses the layer's actual
+            # OID column (FID, OBJECTID_1, etc.) rather than collapsing every
+            # feature to the same fallback identifier.
+            oid = _read_objectid(feature, oid_field=metadata.object_id_field)
             if oid in seen_oids:
                 duplicate_oids.append(oid)
                 continue

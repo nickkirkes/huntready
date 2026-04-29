@@ -107,7 +107,7 @@ The library must address ArcGIS-specific gotchas surfaced during validation. Eac
 **2. Paginated feature fetch:**
 - Page size = layer's `maxRecordCount` (do NOT hardcode 2000)
 - Required query parameters:
-  - `where=OBJECTID>=0` (always-true, more portable than `1=1`)
+  - `where=f"{metadata.object_id_field}>=0"` (always-true, more portable than `1=1`; uses the layer's actual OID column from metadata — some ArcGIS layers use `FID`, `OBJECTID_1`, etc., not `OBJECTID`. *Earlier drafts of this epic hardcoded `OBJECTID>=0`; that was the source of a real bug caught by review on 2026-04-29 and corrected in commit 9d4961b.*)
   - `outFields=` *explicit comma-separated list from metadata*, NOT `*` (some servers truncate `*` if `excludeFromAllRequest` is set on a field)
   - `orderByFields=<objectIdField> ASC` — required for stable pagination (without this, ArcGIS may return overlapping/missing rows on page boundaries)
   - `f=geojson&outSR=4326`
@@ -115,11 +115,15 @@ The library must address ArcGIS-specific gotchas surfaced during validation. Eac
   - `geometryPrecision=7` (~1cm at this latitude — canonicalizes float output for hash stability)
 - Termination condition: loop until response's `exceededTransferLimit` is `false`/absent AND page is empty. **Do NOT** use "fewer than page-size returned" as the termination signal — fails at exact-N×pageSize boundaries.
 - Cross-check final feature count against a separate `returnCountOnly=true` query before pagination starts. Hard-fail on discrepancy.
-- Dedup by OBJECTID after all pages collected.
+- Dedup by the layer's actual OID column (`metadata.object_id_field` — read from `feature["properties"][metadata.object_id_field]`, or `feature["id"]` if ArcGIS GeoJSON populated it). Same reasoning as the `where` clause: don't hardcode `OBJECTID` because layers may use `FID`, `OBJECTID_1`, etc.
 
 **3. Spatial reference verification (do NOT trust the header):**
 - ArcGIS may return Web Mercator coordinates while reporting `crs: EPSG:4326` in the GeoJSON envelope
-- After fetch, sanity-check coordinate ranges. Montana lies in lon `[-116, -104]`, lat `[44, 49]`. If any geometry coordinate has `|x| > 180` or `|y| > 90`, response is in projected units regardless of what the header says — fail loudly. Fallback reprojection from EPSG:3857 via `pyproj.Transformer.from_crs(3857, 4326, always_xy=True)` (NOT shapely — shapely doesn't do CRS).
+- After fetch, sanity-check coordinate ranges. Montana lies in lon `[-116, -104]`, lat `[44, 49]`. If any geometry coordinate has `|x| > 180` or `|y| > 90`, response is in projected units regardless of what the header says. Fallback reprojection from EPSG:3857 via `pyproj.Transformer.from_crs(3857, 4326, always_xy=True)` (NOT shapely — shapely doesn't do CRS).
+- **Implementation refinements (commits afe5be9, 2f0b6d5):** the simple "any out-of-range → reproject" heuristic was tightened during S02.1 build:
+  - **Mixed batches refused.** ArcGIS layers serve a single CRS per layer; if some features are in WGS84 range and others are not, refuse rather than blindly reprojecting (would corrupt the in-range ones). Raise `ArcGISError` with counts and first offending OBJECTID.
+  - **EPSG:3857 valid-extent pre-check.** Out-of-range inputs must additionally fit ±20037508 m (the 3857 bound at ±180°) before reprojection. Inputs beyond that are some other projected CRS (UTM, State Plane, etc.) and a 3857 transform would silently produce in-range-but-wrong WGS84 coords. Raise instead of guessing.
+  - **Declared-CRS cross-check.** Read `extent.spatialReference.latestWkid` (fall back to `wkid`) from layer metadata; surface it on `LayerMetadata.spatial_reference_wkid`. When in-range coords are accepted from a non-4326-native layer, emit a WARNING — covers the residual blind spot where 3857 coords near `(0, 0)` (e.g. equator+prime meridian) fall within ±180/±90 and would otherwise pass through silently misprojected.
 - **Dependency note:** `pyproj` is currently pulled transitively via `geopandas`. S02.1 imports it directly, so declare `pyproj` as a direct dependency in `ingestion/pyproject.toml` to prevent silent breakage if `geopandas` is ever removed or restructured.
 
 **4. Source fixture capture (per PRD R2 mitigation):**
@@ -160,31 +164,27 @@ The library must address ArcGIS-specific gotchas surfaced during validation. Eac
 - Per [ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md), partial extractions that lose meaning are flagged loudly, never silently committed.
 
 **Source citation shape for ArcGIS layers (used by S02.2-S02.5):**
-```python
-# editingInfo.lastEditDate from ArcGIS is Unix epoch in milliseconds, not an ISO string.
-# Convert before constructing SourceCitation (whose publication_date is documented as ISO date).
-_last_edit_ms = layer_metadata.get("editingInfo", {}).get("lastEditDate")
-publication_date = (
-    datetime.fromtimestamp(_last_edit_ms / 1000, tz=timezone.utc).date().isoformat()
-    if _last_edit_ms is not None
-    else fetch_date.isoformat()
-)
 
+Per [ADR-014](../../adrs/ADR-014-source-citation-gis-layer-document-type.md), `publication_date` for `gis_layer` citations is **Jan 1 of REGYEAR** (the year of regulation applicability, which the caller already passes as `license_year`). `editingInfo.lastEditDate` is *not* a publication date — it is an edit timestamp that bumps on typo fixes — so it is intentionally not used for `publication_date`. It is kept on `LayerMetadata.last_edit_date_ms` for forensic value (drift detection across runs).
+
+```python
 SourceCitation(
     id=f"mt-fwp-arcgis-{service}-{layer_id}-{license_year}",
     agency="Montana Fish, Wildlife & Parks",
     title=f"{layer_metadata['name']} (Layer {layer_id})",
     url=f"{service_url}/{layer_id}",
-    publication_date=publication_date,
+    publication_date=f"{license_year:04d}-01-01",  # ADR-014: Jan 1 of REGYEAR
     document_type="gis_layer",  # requires S02.0 type-layer extension
     supersedes=None,
     page_reference=None,
 )
 ```
 
+> **Supersession note (2026-04-29).** Earlier drafts of this story used `editingInfo.lastEditDate → publication_date` directly. That contradicts ADR-014 (accepted 2026-04-28, after this epic was first drafted) and was corrected in commit 0e5e805. ADRs supersede story examples per [ADR-009](../../adrs/ADR-009-agentic-development-first-class.md).
+
 **Partial dependency on S02.0:** S02.1 needs the Pydantic Literal extension (`document_type='gis_layer'`) and the `Geometry.verbatim_rule` field to typecheck and run. The `verbatim_rule` SQL migration is needed only before S02.2 inserts data. So S02.0's *type updates* (Pydantic + TypeScript) and architecture.md update can land first, unblocking S02.1 development; the migration can land in parallel as long as it's merged before S02.2 starts.
 
-**Relevant ADRs:** [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md), [ADR-005](../../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md). **Depends on:** S02.0.
+**Relevant ADRs:** [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md), [ADR-005](../../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md), [ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md), [ADR-014](../../adrs/ADR-014-source-citation-gis-layer-document-type.md) (publication_date semantics). **Depends on:** S02.0.
 
 **Acceptance Criteria:**
 
@@ -200,10 +200,14 @@ SourceCitation(
 - [ ] ArcGIS error envelope handling with retry policy
 - [ ] Throttling at ≤1 req/500ms with custom User-Agent
 - [ ] `geojson_to_multipolygon_wkt(feature)` helper raises loudly on `GeometryCollection` (with OBJECTID + attributes in the message); type-prunes `Polygon`/`MultiPolygon`; runs `shapely.make_valid` first
-- [ ] `editingInfo.lastEditDate` converted from epoch ms to ISO date before being used as `SourceCitation.publication_date`
+- [ ] `SourceCitation.publication_date = f"{license_year:04d}-01-01"` per ADR-014 (NOT derived from `editingInfo.lastEditDate`)
+- [ ] `LayerMetadata` exposes `spatial_reference_wkid` (parsed from `extent.spatialReference.latestWkid` then `wkid`); `_check_and_fix_projection` accepts it and warns when accepting in-range coords from a non-4326-native layer
+- [ ] Mixed-CRS batches (some features in WGS84 range, others not) raise `ArcGISError` rather than reprojecting the in-range features
+- [ ] All-out-of-range batches must additionally fit ±20037508 m (EPSG:3857 valid extent) before reprojection; raise otherwise
 - [ ] Helper for `SourceCitation` construction with `document_type='gis_layer'`
+- [ ] `where` clause uses `metadata.object_id_field` (not hardcoded `OBJECTID`) so layers with non-default OID columns work
 - [ ] `ruff check ingestion/`, `mypy ingestion/ingestion/lib/arcgis.py` pass
-- [ ] Unit tests cover: pagination boundary (N×maxRecordCount), error envelope, reprojection fallback, type-prune, GeometryCollection-raises, lastEditDate conversion
+- [ ] Unit tests cover: pagination boundary (N×maxRecordCount), mid-page boundary, error envelope, reprojection fallback, mixed-batch refusal, EPSG:3857 bounds pre-check, declared-CRS warning, type-prune, GeometryCollection-raises, publication_date is Jan 1 of license_year (not lastEditDate)
 - [ ] No imports from state adapters; no Montana-specific code
 
 ---

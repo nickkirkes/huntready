@@ -792,6 +792,65 @@ class TestFetchFeatures:
         # All requests should use the layer's actual OID column, not hardcoded "OBJECTID"
         assert all(p.get("where") == "FID>=0" for p in captured_params)
 
+    def test_dedup_uses_metadata_object_id_field(
+        self, monkeypatch, tmp_fixture_dir,
+    ) -> None:
+        """Dedup must read the OID from the layer's actual OID column.
+
+        For a layer with `object_id_field="OBJECTID_1"`, the OID lives at
+        `properties["OBJECTID_1"]`. If `_read_objectid` only tried the
+        common keys (OBJECTID/objectid/FID) and fell through to
+        `feature["id"]` (which the response doesn't include here), every
+        feature would resolve to the same fallback value — collapsing to
+        one survivor and triggering a confusing count-mismatch error
+        instead of producing the right rows.
+        """
+        meta = LayerMetadata(
+            name="Test",
+            object_id_field="OBJECTID_1",
+            max_record_count=2000,
+            out_fields=("OBJECTID_1", "DISTRICT"),
+            geometry_type="esriGeometryPolygon",
+            last_edit_date_ms=None,
+            raw={},
+        )
+
+        def make_feat(oid: int) -> dict:
+            return {
+                "type": "Feature",
+                # No top-level "id" — force the helper to read from properties
+                "properties": {"OBJECTID_1": oid, "DISTRICT": str(oid)},
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [-111.0, 46.0], [-110.0, 46.0], [-110.0, 47.0], [-111.0, 47.0], [-111.0, 46.0],
+                    ]],
+                },
+            }
+
+        # 3 distinct OBJECTID_1 values across two pages, with one duplicate
+        # (OID 2 appears in both pages — dedup should drop the second).
+        responses = [
+            {"count": 3},
+            {"features": [make_feat(1), make_feat(2)], "exceededTransferLimit": True},
+            {"features": [make_feat(2), make_feat(3)], "exceededTransferLimit": False},
+            {"features": [], "exceededTransferLimit": False},
+        ]
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        out = fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+        # Must return exactly 3 distinct features (1, 2, 3) — not 1 (collapse)
+        # or 4 (no dedup). Either failure mode would also trip the count
+        # cross-check, so a passing test here proves dedup looked at OBJECTID_1.
+        assert len(out) == 3
+        oids = {feat["properties"]["OBJECTID_1"] for feat in out}
+        assert oids == {1, 2, 3}
+
 
 class TestBuildSourceCitation:
     def _meta(self, *, last_edit_date_ms: int | None = None, name: str = "Deer Elk Lion HDs") -> LayerMetadata:
