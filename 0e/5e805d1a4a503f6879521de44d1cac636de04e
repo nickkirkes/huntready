@@ -1,0 +1,25 @@
+ingestion/ingestion/lib/arcgis.py
+  13cfb882c09808dd 35,676-689,693-696,698
+ingestion/tests/test_arcgis.py
+  13cfb882c09808dd 808-809,818,820-827,829-845,851
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "0e5e805d1a4a503f6879521de44d1cac636de04e",
+  "prompts": {
+    "13cfb882c09808dd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "713a56bf-fc53-416f-963d-cc4534ae6a14",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1056,
+      "total_deletions": 29,
+      "accepted_lines": 650,
+      "overriden_lines": 0
+    }
+  }
+}
