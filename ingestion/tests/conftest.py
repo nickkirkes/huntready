@@ -42,6 +42,13 @@ def sample_layer_descriptor() -> dict[str, Any]:
             {"name": "Shape__Area", "type": "esriFieldTypeDouble", "excludeFromAllRequest": True},
         ],
         "editingInfo": {"lastEditDate": 1700000000000},
+        "extent": {
+            "xmin": -116.05,
+            "ymin": 44.36,
+            "xmax": -104.04,
+            "ymax": 49.0,
+            "spatialReference": {"wkid": 4326, "latestWkid": 4326},
+        },
     }
 
 

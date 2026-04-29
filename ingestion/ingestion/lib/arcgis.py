@@ -76,6 +76,10 @@ class LayerMetadata:
     geometry_type: str
     last_edit_date_ms: int | None  # editingInfo.lastEditDate; None if absent
     raw: dict[str, Any] = field(repr=False)  # full descriptor (used for fixture write)
+    # Layer's native EPSG code from extent.spatialReference (latestWkid then wkid).
+    # Used by _check_and_fix_projection to flag the origin-near corner case where
+    # 3857 coords look like WGS84. None if metadata lacks the field.
+    spatial_reference_wkid: int | None = None
 
 
 def _throttle(host: str, min_interval: float = DEFAULT_THROTTLE_SECONDS) -> None:
@@ -318,7 +322,11 @@ def _reproject_coordinates(coords: list, transformer: Transformer) -> list:
     return [_reproject_coordinates(c, transformer) for c in coords]
 
 
-def _check_and_fix_projection(features: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _check_and_fix_projection(
+    features: list[dict[str, Any]],
+    *,
+    declared_native_crs_wkid: int | None = None,
+) -> list[dict[str, Any]]:
     """Verify features are in WGS84; reproject from EPSG:3857 if not.
 
     Geometry-type guard: only Polygon and MultiPolygon are supported. Anything
@@ -344,6 +352,18 @@ def _check_and_fix_projection(features: list[dict[str, Any]]) -> list[dict[str, 
     4. Otherwise, reproject from EPSG:3857 to 4326 via
        pyproj.Transformer.from_crs(3857, 4326, always_xy=True). Post-reproject
        output is rechecked against WGS84 bounds.
+
+    Origin-near corner case: the magnitude-based detection has a residual
+    blind spot. EPSG:3857 coords near (0, 0) (e.g. `(50, 50)`) fall within
+    WGS84 bounds and are accepted as 4326 without reprojection — silent
+    corruption (~6000 km misplacement) for any layer covering the
+    equator+prime meridian intersection. To surface this when it could
+    matter, callers may pass `declared_native_crs_wkid` (read from
+    `metadata.spatial_reference_wkid`); a WARNING is logged when an
+    in-range pass-through happens for a non-4326-native layer. We don't
+    raise because the server may have legitimately honored outSR=4326,
+    and we can't distinguish "honored" from "ignored at origin" purely
+    from the coordinate magnitudes.
     """
     for feature in features:
         gtype = (feature.get("geometry") or {}).get("type")
@@ -367,6 +387,15 @@ def _check_and_fix_projection(features: list[dict[str, Any]]) -> list[dict[str, 
                 sample_out_of_range_oid = _read_objectid(feature)
 
     if out_of_range_count == 0:
+        if declared_native_crs_wkid is not None and declared_native_crs_wkid != 4326:
+            _logger.warning(
+                "all %d features passed WGS84 range check, but layer's declared "
+                "native CRS is EPSG:%d. If the server ignored outSR=4326 and the "
+                "layer covers the equator/prime meridian, coordinates may be "
+                "silently misprojected (residual limitation of magnitude-based "
+                "detection — story spec accepts this).",
+                len(features), declared_native_crs_wkid,
+            )
         return features
 
     # Mixed batch — single CRS expected per ArcGIS layer; refuse rather than
@@ -568,7 +597,10 @@ def fetch_features(
         return []
 
     # Projection guard
-    checked = _check_and_fix_projection(dedup_features)
+    checked = _check_and_fix_projection(
+        dedup_features,
+        declared_native_crs_wkid=metadata.spatial_reference_wkid,
+    )
 
     # Fixture write
     _write_features_fixture(fixture_dir, layer_slug, layer_id, timestamp, checked)
@@ -715,6 +747,14 @@ def fetch_layer_metadata(
     last_edit_ms = (data.get("editingInfo") or {}).get("lastEditDate")
     last_edit_ms_typed = last_edit_ms if isinstance(last_edit_ms, int) else None
 
+    extent = data.get("extent")
+    sr = extent.get("spatialReference") if isinstance(extent, dict) else None
+    sr = sr if isinstance(sr, dict) else {}
+    # latestWkid is the modern EPSG code; wkid is the Esri legacy code (often
+    # 102100 for Web Mercator). Prefer latestWkid.
+    sr_wkid = sr.get("latestWkid") or sr.get("wkid")
+    spatial_reference_wkid = sr_wkid if isinstance(sr_wkid, int) else None
+
     try:
         return LayerMetadata(
             name=data["name"],
@@ -724,6 +764,7 @@ def fetch_layer_metadata(
             geometry_type=data["geometryType"],
             last_edit_date_ms=last_edit_ms_typed,
             raw=data,
+            spatial_reference_wkid=spatial_reference_wkid,
         )
     except KeyError as exc:
         msg = (

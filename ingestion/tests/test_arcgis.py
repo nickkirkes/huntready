@@ -231,6 +231,48 @@ class TestCheckAndFixProjection:
         with pytest.raises(ArcGISError, match=r"mixed-CRS batch.*OBJECTID=99"):
             _check_and_fix_projection([in_range_feature, out_of_range_feature])
 
+    def test_in_range_pass_through_with_non_4326_native_emits_warning(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Origin-near corner case: 3857 coords like (50, 50) pass the WGS84
+        range check but aren't actually WGS84. When the layer's declared
+        native CRS is non-4326, surface this risk via a WARNING log even
+        though we accept the coords as-is (we can't distinguish honored
+        outSR=4326 from server-bug-at-origin from coords alone).
+        """
+        # Coords near origin, in WGS84 range (|x|<180, |y|<90) but suspiciously
+        # close to (0, 0) — could be 3857 meters that the server failed to reproject.
+        feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 1, "DISTRICT": "near-origin"},
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[
+                    [50.0, 50.0], [60.0, 50.0], [60.0, 60.0], [50.0, 60.0], [50.0, 50.0],
+                ]],
+            },
+        }
+        with caplog.at_level(logging.WARNING, logger="ingestion.lib.arcgis"):
+            out = _check_and_fix_projection([feature], declared_native_crs_wkid=3857)
+        # Coords pass through unchanged (we don't distort the happy path)
+        assert out == [feature]
+        # But a warning was emitted documenting the residual risk
+        assert any(
+            "declared native CRS is EPSG:3857" in rec.message for rec in caplog.records
+        )
+
+    def test_in_range_pass_through_with_4326_native_no_warning(
+        self, caplog: pytest.LogCaptureFixture, sample_polygon_feature: dict
+    ) -> None:
+        """The warning should only fire for non-4326 native layers."""
+        with caplog.at_level(logging.WARNING, logger="ingestion.lib.arcgis"):
+            _check_and_fix_projection(
+                [sample_polygon_feature], declared_native_crs_wkid=4326,
+            )
+        assert not any(
+            "declared native CRS" in rec.message for rec in caplog.records
+        )
+
     def test_out_of_3857_range_raises_before_reprojection(self) -> None:
         """Coordinates exceeding EPSG:3857 valid extent (~2e7) cannot be safely
         reprojected — source CRS is neither WGS84 nor Web Mercator. Raise rather
@@ -429,13 +471,76 @@ class TestFetchLayerMetadata:
         )
         assert nested.exists()
 
+    def test_extracts_spatial_reference_wkid_prefers_latestWkid(
+        self, monkeypatch, tmp_fixture_dir, sample_layer_descriptor
+    ) -> None:
+        """latestWkid is the modern EPSG code; prefer it over the legacy wkid."""
+        descriptor = dict(sample_layer_descriptor)
+        descriptor["extent"] = {
+            "xmin": -1.3e7, "ymin": 5.5e6, "xmax": -1.2e7, "ymax": 6.1e6,
+            "spatialReference": {"wkid": 102100, "latestWkid": 3857},
+        }
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: descriptor,
+        )
+        meta = fetch_layer_metadata(
+            "https://example.com/svc/MapServer",
+            1,
+            tmp_fixture_dir,
+            layer_slug="svc",
+            timestamp="20260101T000000Z",
+        )
+        assert meta.spatial_reference_wkid == 3857
+
+    def test_extracts_spatial_reference_wkid_falls_back_to_wkid(
+        self, monkeypatch, tmp_fixture_dir, sample_layer_descriptor
+    ) -> None:
+        """When latestWkid is absent, fall back to wkid."""
+        descriptor = dict(sample_layer_descriptor)
+        descriptor["extent"] = {"spatialReference": {"wkid": 4326}}
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: descriptor,
+        )
+        meta = fetch_layer_metadata(
+            "https://example.com/svc/MapServer",
+            1,
+            tmp_fixture_dir,
+            layer_slug="svc",
+            timestamp="20260101T000000Z",
+        )
+        assert meta.spatial_reference_wkid == 4326
+
+    def test_spatial_reference_wkid_none_when_extent_missing(
+        self, monkeypatch, tmp_fixture_dir, sample_layer_descriptor
+    ) -> None:
+        descriptor = dict(sample_layer_descriptor)
+        descriptor.pop("extent", None)
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: descriptor,
+        )
+        meta = fetch_layer_metadata(
+            "https://example.com/svc/MapServer",
+            1,
+            tmp_fixture_dir,
+            layer_slug="svc",
+            timestamp="20260101T000000Z",
+        )
+        assert meta.spatial_reference_wkid is None
+
 
 # ---------------------------------------------------------------------------
 # fetch_features helpers
 # ---------------------------------------------------------------------------
 
 
-def _make_layer_metadata(*, max_record_count: int = 2) -> LayerMetadata:
+def _make_layer_metadata(
+    *,
+    max_record_count: int = 2,
+    spatial_reference_wkid: int | None = None,
+) -> LayerMetadata:
     """Build a LayerMetadata stub for fetch_features tests."""
     return LayerMetadata(
         name="Test Layer",
@@ -445,6 +550,7 @@ def _make_layer_metadata(*, max_record_count: int = 2) -> LayerMetadata:
         geometry_type="esriGeometryPolygon",
         last_edit_date_ms=None,
         raw={},
+        spatial_reference_wkid=spatial_reference_wkid,
     )
 
 
