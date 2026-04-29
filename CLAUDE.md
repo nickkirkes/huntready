@@ -8,7 +8,7 @@ HuntReady is a regulatory data platform for licensed hunting in the US. Given a 
 
 ## Project status
 
-**M1 in progress (E01 complete, E02 next).** M0 scaffold complete. E01 (schema migrations, RLS, quality gates) merged 2026-04-28: 10 tables (7 entity + 3 link) created in `supabase/migrations/`, deny-all RLS active on every table with three-layer defense-in-depth (ENABLE+FORCE, deny-all policies, REVOKE), Pydantic models in `ingestion/ingestion/lib/schema.py` and TypeScript interfaces in `mcp-server/src/types/` mirror the DDL, pre-commit hooks (TypeScript lint + Python ruff + secrets scanning) installed. Migration reproducibility verified against fresh Supabase projects; runbook at `docs/runbooks/E01-migration-verification.md`. No data loaded yet. E02 (Montana geometry ingestion) is next.
+**M1 in progress (E01 complete; E02 active — 1/8 stories complete).** M0 scaffold complete. E01 (schema migrations, RLS, quality gates) merged 2026-04-28: 10 tables (7 entity + 3 link) created in `supabase/migrations/`, deny-all RLS active on every table with three-layer defense-in-depth (ENABLE+FORCE, deny-all policies, REVOKE), Pydantic models in `ingestion/ingestion/lib/schema.py` and TypeScript interfaces in `mcp-server/src/types/` mirror the DDL, pre-commit hooks (TypeScript lint + Python ruff + secrets scanning) installed. Migration reproducibility verified against fresh Supabase projects; runbook at `docs/runbooks/E01-migration-verification.md`. E02 S02.0 (schema prep for Montana geometry ingestion) merged 2026-04-29: `geometry.verbatim_rule text` (nullable) added via migration `20260428000000_geometry_verbatim_rule.sql`; `SourceCitation.document_type` extended with `'gis_layer'` (type-layer enforcement per ADR-014). No data loaded yet. S02.1 (ArcGIS fetch infrastructure shared library) is next.
 
 ## Architecture
 
@@ -114,7 +114,7 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
 - [docs/architecture.md](docs/architecture.md) — system design, schema types, response shapes
 - [docs/roadmap.md](docs/roadmap.md) — milestones M0-M5
 - [docs/open-questions.md](docs/open-questions.md) — unresolved decisions (check before making architectural calls)
-- [docs/adrs/](docs/adrs/) — 13 architecture decision records:
+- [docs/adrs/](docs/adrs/) — 15 architecture decision records:
   - ADR-001: Authority preserved, not replaced
   - ADR-002: MCP server as canonical interface
   - ADR-003: Ingestion upstream and offline
@@ -128,6 +128,8 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
   - ADR-011: Shape C response envelope (null = not applicable, omitted = never)
   - ADR-012: Draw mechanics as sibling entity
   - ADR-013: Server returns structure, client composes presentation
+  - ADR-014: `SourceCitation.document_type='gis_layer'` (type-layer enforcement)
+  - ADR-015: `geometry.verbatim_rule` column + REG+COMMENTS handling rule
 
 ## Environment variables
 

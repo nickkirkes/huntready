@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- E02 S02.0: Schema preparation for Montana geometry ingestion — added `verbatim_rule text` (nullable) to `geometry` via migration `supabase/migrations/20260428000000_geometry_verbatim_rule.sql`; extended `SourceCitation.document_type` Literal/union with `"gis_layer"` (type-layer enforcement only per ADR-014, no SQL CHECK); three-place sync across Pydantic (`ingestion/ingestion/lib/schema.py`), TypeScript (`mcp-server/src/types/schema.ts`), and `docs/architecture.md` per ADR-006; merged 2026-04-29 (PR #18); no data loaded
+
 ## E01 — Schema Migrations, RLS, and Quality Gates — 2026-04-28
 
 - S01.1: Installed pre-commit hooks (TypeScript `tsc --noEmit`, Python `ruff check`, secrets scanning via `detect-secrets`); secrets baseline at `.secrets.baseline`, config at `.pre-commit-config.yaml`

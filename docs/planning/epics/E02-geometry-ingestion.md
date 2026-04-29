@@ -1,6 +1,6 @@
 # E02: Montana Geometry Ingestion
 
-**Status:** Not Started
+**Status:** In Progress (S02.0 complete; S02.1 next)
 **Milestone:** M1 — Montana Ingestion
 **Dependencies:** E01 (complete, merged 2026-04-28)
 **Validated:** 2026-04-28
@@ -30,6 +30,8 @@ This resolution was confirmed sound by the Schema Stress-Test reviewer; alternat
 ## Stories
 
 ### S02.0: Schema preparation — `document_type='gis_layer'` + `geometry.verbatim_rule`
+
+**Status:** Complete (merged 2026-04-29, PR #18)
 
 **As a** developer ingesting Montana geometries
 **I want** the schema extended to accommodate ArcGIS source citations and verbatim regulatory text on geometry rows
@@ -69,16 +71,16 @@ Two schema gaps surfaced during E02 validation:
 
 **Acceptance Criteria:**
 
-- [ ] ADR-014 (or equivalent) drafted and accepted documenting `document_type='gis_layer'` extension (type-layer enforcement, no SQL migration)
-- [ ] ADR-015 (or equivalent) drafted and accepted documenting `geometry.verbatim_rule` addition AND the REG+COMMENTS handling decision in S02.4 (HuntReady-introduced `\n\n--- COMMENTS ---\n\n` separator vs. source content)
-- [ ] Timestamped migration in `supabase/migrations/` adds `verbatim_rule text` (nullable) to `geometry`
-- [ ] Pydantic `SourceCitation.document_type` Literal updated to include `"gis_layer"`
-- [ ] Pydantic `Geometry` model updated to include `verbatim_rule: str | None = None` (additive default; `extra="forbid"` keeps existing call sites valid; new misspellings fail loudly)
-- [ ] TypeScript `SourceCitation` and `Geometry` interfaces updated to match
-- [ ] `architecture.md` § "Schema types" updated with the new fields (this is the audit trail for the `'gis_layer'` enum extension — no SQL migration for that change)
-- [ ] `tsc --noEmit`, `ruff check`, `mypy` all pass
-- [ ] Migration applies cleanly to a fresh Supabase project after E01's migrations
-- [ ] No data written
+- [x] ADR-014 (or equivalent) drafted and accepted documenting `document_type='gis_layer'` extension (type-layer enforcement, no SQL migration)
+- [x] ADR-015 (or equivalent) drafted and accepted documenting `geometry.verbatim_rule` addition AND the REG+COMMENTS handling decision in S02.4 (HuntReady-introduced `\n\n--- COMMENTS ---\n\n` separator vs. source content)
+- [x] Timestamped migration in `supabase/migrations/` adds `verbatim_rule text` (nullable) to `geometry`
+- [x] Pydantic `SourceCitation.document_type` Literal updated to include `"gis_layer"`
+- [x] Pydantic `Geometry` model updated to include `verbatim_rule: str | None = None` (additive default; `extra="forbid"` keeps existing call sites valid; new misspellings fail loudly)
+- [x] TypeScript `SourceCitation` and `Geometry` interfaces updated to match
+- [x] `architecture.md` § "Schema types" updated with the new fields (this is the audit trail for the `'gis_layer'` enum extension — no SQL migration for that change)
+- [x] `tsc --noEmit`, `ruff check`, `mypy` all pass
+- [x] Migration applies cleanly to a fresh Supabase project after E01's migrations
+- [x] No data written
 
 ---
 
