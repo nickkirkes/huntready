@@ -167,7 +167,12 @@ The library must address ArcGIS-specific gotchas surfaced during validation. Eac
 
 Per [ADR-014](../../adrs/ADR-014-source-citation-gis-layer-document-type.md), `publication_date` for `gis_layer` citations is **Jan 1 of REGYEAR** (the year of regulation applicability, which the caller already passes as `license_year`). `editingInfo.lastEditDate` is *not* a publication date — it is an edit timestamp that bumps on typo fixes — so it is intentionally not used for `publication_date`. It is kept on `LayerMetadata.last_edit_date_ms` for forensic value (drift detection across runs).
 
+**`license_year` is required and must not be None** in the citation. This is distinct from `Geometry.license_year` (which is `int | None` and may be `NULL` for layers without a per-feature REGYEAR — see S02.2). The citation always carries a year because it answers "which annual regulation cycle does this evidence belong to?", a question the citation must always have an answer for. The state adapter resolves the year before constructing the citation:
+
 ```python
+# In the state adapter (S02.2): one citation per feature.
+license_year = feature_regyear if feature_regyear is not None else fetch_date.year
+
 SourceCitation(
     id=f"mt-fwp-arcgis-{service}-{layer_id}-{license_year}",
     agency="Montana Fish, Wildlife & Parks",
@@ -179,6 +184,8 @@ SourceCitation(
     page_reference=None,
 )
 ```
+
+The `build_source_citation` helper enforces this contract at the type level (`license_year: int`, not `int | None`). Layers without a per-feature REGYEAR (e.g. #3 Antelope, #10 Black Bear) write `Geometry.license_year=None` for the row's regulation-applicability metadata while still providing a valid year for the citation (typically `fetch_date.year`).
 
 > **Supersession note (2026-04-29).** Earlier drafts of this story used `editingInfo.lastEditDate → publication_date` directly. That contradicts ADR-014 (accepted 2026-04-28, after this epic was first drafted) and was corrected in commit 0e5e805. ADRs supersede story examples per [ADR-009](../../adrs/ADR-009-agentic-development-first-class.md).
 

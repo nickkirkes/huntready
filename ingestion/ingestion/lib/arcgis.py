@@ -675,7 +675,28 @@ def fetch_features(
         "resultRecordCount": metadata.max_record_count,
     }
 
+    # Absolute iteration cap as belt-and-suspenders. expected_count pages
+    # at max_record_count rows each, plus a terminator page, plus slack for
+    # off-by-one and one-page-of-server-hiccup. Hits before infinite loop
+    # under any pathological server response pattern.
+    pages_needed = (
+        (expected_count + metadata.max_record_count - 1) // metadata.max_record_count
+        if metadata.max_record_count > 0 else 1
+    )
+    max_iterations = pages_needed + 3
+
+    iterations = 0
     while True:
+        iterations += 1
+        if iterations > max_iterations:
+            msg = (
+                f"pagination loop exceeded max iterations ({max_iterations}) "
+                f"for layer {layer_id} (expected_count={expected_count}, "
+                f"max_record_count={metadata.max_record_count}); server may be "
+                f"returning inconsistent exceededTransferLimit flags."
+            )
+            raise ArcGISError(msg)
+
         page = _request_with_retry(
             session,
             query_url,
@@ -694,10 +715,14 @@ def fetch_features(
             seen_oids.add(oid)
             dedup_features.append(feature)
 
-        exceeded = bool(page.get("exceededTransferLimit", False))
-        is_empty = not features
-
-        if not exceeded and is_empty:
+        # Terminate on any empty page, regardless of exceededTransferLimit.
+        # Defends against the pathological case where a server returns
+        # features=[] but claims exceededTransferLimit=True — the original
+        # `not exceeded AND is_empty` rule would spin forever there. The
+        # exact-N×maxRecordCount termination is preserved because the
+        # terminator page in that case IS empty (we still fetch one extra
+        # page after the last non-empty response, just like before).
+        if not features:
             break
 
         offset += metadata.max_record_count

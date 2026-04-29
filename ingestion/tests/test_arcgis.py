@@ -913,6 +913,71 @@ class TestFetchFeatures:
         assert -116 < fx < -114
         assert 45 < fy < 46
 
+    def test_terminates_on_empty_page_even_when_exceeded_true(
+        self, monkeypatch, tmp_fixture_dir,
+    ) -> None:
+        """A misbehaving server can return features=[] with
+        exceededTransferLimit=True. The previous "not exceeded AND empty"
+        rule would spin forever on that response. The fix terminates on
+        any empty page regardless of the exceeded flag.
+        """
+        meta = _make_layer_metadata(max_record_count=2)
+        responses = [
+            {"count": 2},
+            # First page returns 2 features and claims more.
+            {"features": [_make_polygon_feature(1), _make_polygon_feature(2)],
+             "exceededTransferLimit": True},
+            # Server then returns empty + still claims more (the bug case).
+            # Loop must terminate here, not spin.
+            {"features": [], "exceededTransferLimit": True},
+        ]
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        out = fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+        assert len(out) == 2
+        assert responses == []  # Both pages consumed exactly once — no spin
+
+    def test_iteration_cap_raises_on_pathological_server(
+        self, monkeypatch, tmp_fixture_dir,
+    ) -> None:
+        """If a server keeps returning non-empty pages with exceededTransferLimit=True
+        forever (e.g., always serving the same OIDs that get deduped), the iteration
+        cap fires with a clear ArcGISError before the loop runs unbounded.
+        """
+        meta = _make_layer_metadata(max_record_count=2)
+        # expected_count=2: pages_needed=1, max_iterations = 1 + 3 = 4.
+        # The server returns the same exceeded=True non-empty page forever.
+        # All features after page 1 are dedup duplicates, so dedup_features stays
+        # at 2 — but the loop keeps fetching because pages aren't empty.
+        repeating_page = {
+            "features": [_make_polygon_feature(1), _make_polygon_feature(2)],
+            "exceededTransferLimit": True,
+        }
+
+        # First response is the count query; everything after is the repeating page.
+        call_count = {"n": 0}
+
+        def fake_request(*a, **kw):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return {"count": 2}
+            return repeating_page
+
+        monkeypatch.setattr("ingestion.lib.arcgis._request_with_retry", fake_request)
+
+        with pytest.raises(
+            ArcGISError, match=r"pagination loop exceeded max iterations \(4\)",
+        ):
+            fetch_features(
+                "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+                layer_slug="svc", timestamp="20260101T000000Z",
+            )
+
     def test_where_clause_uses_metadata_object_id_field(
         self, monkeypatch, tmp_fixture_dir,
     ) -> None:
