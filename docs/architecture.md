@@ -237,6 +237,7 @@ interface Geometry {
   geom: "MultiPolygon";               // PostGIS: geography(MultiPolygon, 4326)
   state: string;
   license_year: number | null;
+  verbatim_rule: string | null;       // verbatim regulatory text from source attributes (e.g., ArcGIS REG/COMMENTS); null when source has none
   source: SourceCitation;
 }
 
@@ -269,7 +270,7 @@ interface SourceCitation {
   title: string;
   url: string;
   publication_date: string;
-  document_type: "annual_regulations" | "rule_change" | "emergency_order" | "correction";
+  document_type: "annual_regulations" | "rule_change" | "emergency_order" | "correction" | "gis_layer";
   supersedes: string | null;          // for corrections: the SourceCitation.id being amended
   page_reference: string | null;
 }
@@ -347,7 +348,7 @@ type AllocationPool = {
 
 Three cross-cutting schema conventions worth stating explicitly.
 
-**Verbatim text.** Every regulation-bearing entity carries a `verbatim_rule` string containing the exact published text. HuntReady does not paraphrase regulations; it routes to them. This is enforced at ingestion: records without verbatim text fail validation. The one exception is `JurisdictionBinding`, where `verbatim_rule` is `string | null` — some bindings are purely structural links between a regulation and a geometry with no specific regulation text to quote.
+**Verbatim text.** Every regulation-bearing entity carries a `verbatim_rule` string containing the exact published text. HuntReady does not paraphrase regulations; it routes to them. This is enforced at ingestion: records without verbatim text fail validation. Two entities carry a nullable `verbatim_rule`: `JurisdictionBinding`, where some bindings are purely structural links between a regulation and a geometry with no specific regulation text to quote; and `Geometry`, where polygon source attributes (e.g., MT FWP layer #11's `REG` field) sometimes have no rule text at all.
 
 **Confidence.** Every entity carries a `confidence: "high" | "medium" | "low"` field produced by the ingestion pipeline. Records with `low` confidence surface with an explicit warning and a prominent link to the authoritative source. Records with `medium` confidence display normally but are included in periodic QA. Exact calibration of confidence is per-state adapter logic, tracked as an open question; the field exists in the schema regardless.
 

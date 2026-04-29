@@ -71,7 +71,8 @@ class SourceCitation(BaseModel):
     url: str
     publication_date: str
     document_type: Literal[
-        "annual_regulations", "rule_change", "emergency_order", "correction"
+        "annual_regulations", "rule_change", "emergency_order", "correction",
+        "gis_layer",
     ]
     supersedes: str | None = None
     page_reference: str | None = None
@@ -388,6 +389,7 @@ class Geometry(BaseModel):
     geom: str  # WKT representation; validated below
     state: str
     license_year: int | None = None
+    verbatim_rule: str | None = None
     source: SourceCitation
 
     @field_validator("geom")
