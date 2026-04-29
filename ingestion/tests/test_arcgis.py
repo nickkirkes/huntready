@@ -294,13 +294,63 @@ class TestCheckAndFixProjection:
         ):
             _check_and_fix_projection([feature])
 
+    def test_geometry_with_missing_coordinates_raises_arcgiserror(self) -> None:
+        """A Polygon geometry without a `coordinates` key would otherwise
+        raise KeyError on the downstream coords access. Convert to ArcGISError
+        with the OID surfaced so callers see a structured library error
+        instead of an unhandled crash.
+        """
+        feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 99},
+            "geometry": {"type": "Polygon"},  # no coordinates key
+        }
+        with pytest.raises(
+            ArcGISError, match=r"OBJECTID=99.*coordinates",
+        ):
+            _check_and_fix_projection([feature])
 
-def _make_response(*, status_code: int = 200, json_body: dict | None = None, text: str = "") -> MagicMock:
-    """Build a mock requests.Response with `.status_code`, `.json()`, `.text`."""
+    def test_geometry_with_null_coordinates_raises_arcgiserror(self) -> None:
+        """coordinates=None must raise ArcGISError. (Without the guard,
+        `_coordinates_in_wgs84_range(None)` returns True and the feature
+        passes through silently — an even worse failure mode.)
+        """
+        feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 7},
+            "geometry": {"type": "Polygon", "coordinates": None},
+        }
+        with pytest.raises(
+            ArcGISError, match=r"OBJECTID=7.*coordinates",
+        ):
+            _check_and_fix_projection([feature])
+
+    def test_geometry_with_non_list_coordinates_raises_arcgiserror(self) -> None:
+        """A scalar/string in `coordinates` is malformed; raise loudly."""
+        feature = {
+            "type": "Feature",
+            "attributes": {"OBJECTID": 5},
+            "geometry": {"type": "Polygon", "coordinates": "not-a-list"},
+        }
+        with pytest.raises(
+            ArcGISError, match=r"OBJECTID=5.*coordinates",
+        ):
+            _check_and_fix_projection([feature])
+
+
+def _make_response(
+    *,
+    status_code: int = 200,
+    json_body: dict | None = None,
+    text: str = "",
+    headers: dict | None = None,
+) -> MagicMock:
+    """Build a mock requests.Response with `.status_code`, `.json()`, `.text`, `.headers`."""
     resp = MagicMock(spec=requests_lib.Response)
     resp.status_code = status_code
     resp.json.return_value = json_body or {}
     resp.text = text
+    resp.headers = headers or {}
     return resp
 
 
@@ -384,6 +434,108 @@ class TestRequestWithRetry:
         out = _request_with_retry(session, "http://example.com", host="example.com")
         assert out == {"ok": True}
         assert session.get.call_count == 2
+
+    def test_http_429_retries_then_succeeds(self, monkeypatch) -> None:
+        """HTTP 429 (Too Many Requests) is transient — back off and retry,
+        not abort. ArcGIS uses 429 for throttling.
+        """
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        session = MagicMock(spec=requests_lib.Session)
+        session.get.side_effect = [
+            _make_response(status_code=429, text="rate limit exceeded"),
+            _make_response(json_body={"ok": True}),
+        ]
+        out = _request_with_retry(session, "http://example.com", host="example.com")
+        assert out == {"ok": True}
+        assert session.get.call_count == 2
+
+    def test_http_408_retries_then_succeeds(self, monkeypatch) -> None:
+        """HTTP 408 (Request Timeout) is transient — retry per RFC 7231 §6.5.7."""
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        session = MagicMock(spec=requests_lib.Session)
+        session.get.side_effect = [
+            _make_response(status_code=408, text="timeout"),
+            _make_response(json_body={"ok": True}),
+        ]
+        out = _request_with_retry(session, "http://example.com", host="example.com")
+        assert out == {"ok": True}
+        assert session.get.call_count == 2
+
+    def test_http_429_exhausts_retries_then_raises(self, monkeypatch) -> None:
+        """If 429 persists across all retries, raise — but only after
+        actually trying (not on first response like 4xx).
+        """
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        session = MagicMock(spec=requests_lib.Session)
+        session.get.return_value = _make_response(status_code=429, text="busy")
+        with pytest.raises(ArcGISError, match=r"HTTP 429 after 3 retries"):
+            _request_with_retry(session, "http://example.com", host="example.com")
+        # 1 initial + 3 retries = 4 attempts
+        assert session.get.call_count == 4
+
+    def test_http_429_honors_retry_after_header(self, monkeypatch) -> None:
+        """Retry-After header value drives sleep duration when present.
+
+        Note: the throttle helper also calls time.sleep on subsequent attempts
+        (~500ms), so we assert on the FIRST sleep (the retry backoff) rather
+        than the full sequence.
+        """
+        sleeps: list[float] = []
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis.time.sleep", lambda s: sleeps.append(s),
+        )
+        session = MagicMock(spec=requests_lib.Session)
+        session.get.side_effect = [
+            _make_response(
+                status_code=429,
+                text="busy",
+                headers={"Retry-After": "5"},
+            ),
+            _make_response(json_body={"ok": True}),
+        ]
+        _request_with_retry(session, "http://example.com", host="example.com")
+        assert sleeps[0] == 5.0  # first sleep == Retry-After, not the 1.0 default backoff
+
+    def test_retry_after_capped_falls_back_to_backoff(self, monkeypatch) -> None:
+        """Retry-After exceeding the cap is ignored; fall back to backoff.
+
+        Defends against a buggy/malicious server returning a huge value
+        that would stall ingestion.
+        """
+        sleeps: list[float] = []
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis.time.sleep", lambda s: sleeps.append(s),
+        )
+        session = MagicMock(spec=requests_lib.Session)
+        session.get.side_effect = [
+            _make_response(
+                status_code=429,
+                text="busy",
+                headers={"Retry-After": "999"},  # exceeds 30s cap
+            ),
+            _make_response(json_body={"ok": True}),
+        ]
+        _request_with_retry(session, "http://example.com", host="example.com")
+        # Falls back to backoff schedule first entry (1.0s)
+        assert sleeps[0] == 1.0
+
+    def test_retry_after_invalid_falls_back_to_backoff(self, monkeypatch) -> None:
+        """Non-numeric Retry-After (e.g. HTTP-date format, junk) is ignored."""
+        sleeps: list[float] = []
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis.time.sleep", lambda s: sleeps.append(s),
+        )
+        session = MagicMock(spec=requests_lib.Session)
+        session.get.side_effect = [
+            _make_response(
+                status_code=429,
+                text="busy",
+                headers={"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"},
+            ),
+            _make_response(json_body={"ok": True}),
+        ]
+        _request_with_retry(session, "http://example.com", host="example.com")
+        assert sleeps[0] == 1.0
 
 
 class TestFetchLayerMetadata:

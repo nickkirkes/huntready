@@ -100,8 +100,40 @@ def _throttle(host: str, min_interval: float = DEFAULT_THROTTLE_SECONDS) -> None
 # error envelope is a permanent failure (raise immediately).
 _TRANSIENT_ARCGIS_CODES: frozenset[int] = frozenset({500, 504, 504001})
 
+# Transient HTTP status codes in the 4xx range. By default the 4xx range is
+# permanent, but RFC 7231 §6.5.7 (408 Request Timeout) and RFC 6585 §4 (429
+# Too Many Requests) are conventionally transient — the server is asking us
+# to back off and retry. ArcGIS services use 429 for throttling, so we must
+# honor it rather than abort ingestion.
+_TRANSIENT_HTTP_CODES: frozenset[int] = frozenset({408, 429})
+
+# Cap on Retry-After header value (seconds). A buggy or malicious server
+# could send an arbitrary value; longer than this we ignore the header and
+# fall back to the backoff schedule rather than letting one fetch stall.
+_MAX_RETRY_AFTER_SECONDS: float = 30.0
+
 # Backoff schedule (seconds) for transient retries. Length determines max retries.
 _BACKOFF_SCHEDULE: tuple[float, ...] = (1.0, 2.0, 4.0)
+
+
+def _parse_retry_after(value: str | None) -> float | None:
+    """Parse a `Retry-After` HTTP header as seconds, capped at the module max.
+
+    Returns None for missing, non-numeric, negative, or excessive values
+    (caller falls back to the backoff schedule). HTTP-date format
+    (RFC 7231 §7.1.3) is intentionally not supported in V1: ArcGIS servers
+    in practice use the seconds form, and the date form would add date
+    parsing surface for marginal value.
+    """
+    if value is None:
+        return None
+    try:
+        seconds = float(value.strip())
+    except (ValueError, AttributeError):
+        return None
+    if seconds < 0 or seconds > _MAX_RETRY_AFTER_SECONDS:
+        return None
+    return seconds
 
 
 def _request_with_retry(
@@ -119,8 +151,11 @@ def _request_with_retry(
     treats codes in `_TRANSIENT_ARCGIS_CODES` (500/504/504001) as transient
     (retry with backoff); any other error code is permanent (raise immediately).
 
-    HTTP 5xx and `requests.RequestException` are also transient. HTTP 4xx is
-    permanent.
+    HTTP 5xx, `requests.RequestException`, and the transient 4xx codes
+    (`_TRANSIENT_HTTP_CODES` = {408, 429}) are all retried with backoff.
+    On 408/429 the `Retry-After` header is honored when present and below
+    `_MAX_RETRY_AFTER_SECONDS`; otherwise the backoff schedule applies.
+    All other 4xx responses are permanent.
 
     The `host` argument is used by `_throttle` to enforce per-host rate limits
     (≤1 req/500ms by default).
@@ -142,7 +177,33 @@ def _request_with_retry(
             msg = f"network error after {max_retries} retries: {exc}"
             raise ArcGISError(msg) from exc
 
-        # 4xx → permanent
+        # Transient 4xx (408 Request Timeout, 429 Too Many Requests) — back off.
+        # Honors Retry-After if present and within bounds.
+        if response.status_code in _TRANSIENT_HTTP_CODES:
+            last_error = ArcGISError(
+                f"HTTP {response.status_code} from {url} (transient; will retry)"
+            )
+            if attempt < max_retries:
+                retry_after = _parse_retry_after(
+                    response.headers.get("Retry-After")
+                )
+                sleep_seconds = (
+                    retry_after if retry_after is not None
+                    else _BACKOFF_SCHEDULE[attempt]
+                )
+                _logger.warning(
+                    "HTTP %d from %s — backing off %ss before retry %d/%d "
+                    "(Retry-After header %s)",
+                    response.status_code, url, sleep_seconds,
+                    attempt + 1, max_retries,
+                    "honored" if retry_after is not None else "absent/ignored",
+                )
+                time.sleep(sleep_seconds)
+                continue
+            msg = f"HTTP {response.status_code} after {max_retries} retries: {url}"
+            raise ArcGISError(msg)
+
+        # Other 4xx → permanent
         if 400 <= response.status_code < 500:
             msg = f"HTTP {response.status_code} from {url}: {response.text[:200]}"
             raise ArcGISError(msg)
@@ -366,12 +427,33 @@ def _check_and_fix_projection(
     from the coordinate magnitudes.
     """
     for feature in features:
-        gtype = (feature.get("geometry") or {}).get("type")
+        geom = feature.get("geometry")
+        if not isinstance(geom, dict):
+            oid = _read_objectid(feature)
+            msg = (
+                f"_check_and_fix_projection only supports Polygon/MultiPolygon, "
+                f"got {None if geom is None else type(geom).__name__} "
+                f"for OBJECTID={oid}"
+            )
+            raise ArcGISError(msg)
+        gtype = geom.get("type")
         if gtype not in ("Polygon", "MultiPolygon"):
             oid = _read_objectid(feature)
             msg = (
                 f"_check_and_fix_projection only supports Polygon/MultiPolygon, "
                 f"got {gtype} for OBJECTID={oid}"
+            )
+            raise ArcGISError(msg)
+        # Validate the coordinates field exists and is a list, so downstream
+        # `feature["geometry"]["coordinates"]` accesses can't raise
+        # KeyError/TypeError on malformed responses.
+        coords = geom.get("coordinates")
+        if not isinstance(coords, list):
+            oid = _read_objectid(feature)
+            msg = (
+                f"feature OBJECTID={oid} has geometry type={gtype!r} but "
+                f"missing or non-list coordinates "
+                f"(got {type(coords).__name__})"
             )
             raise ArcGISError(msg)
 
