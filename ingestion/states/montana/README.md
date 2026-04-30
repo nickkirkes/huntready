@@ -13,7 +13,7 @@ from ingestion.lib.arcgis import fetch_layer_metadata, fetch_features
 from ingestion.lib.db import connect, upsert_geometries
 ```
 
-The `.venv` is created and the package installed by `make dev` (or `pip install -e .` inside `ingestion/`). The scripts must be invoked via the venv interpreter (see below).
+The `.venv` is created and the package installed editable via `pip install -e .` inside `ingestion/` (or your preferred resolver — `uv pip install -e .`). The scripts must be invoked via the venv interpreter (see below).
 
 ## Running the S02.2 hunting-district loader
 
