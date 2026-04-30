@@ -1,0 +1,330 @@
+{
+  "advancedQueryCapabilities": {
+    "supportsAdvancedQueryRelated": true,
+    "supportsCountDistinct": true,
+    "supportsCurrentUserQueries": true,
+    "supportsDistinct": true,
+    "supportsHavingClause": true,
+    "supportsLod": false,
+    "supportsOrderBy": true,
+    "supportsPagination": true,
+    "supportsPercentileStatistics": true,
+    "supportsQueryAnalytic": false,
+    "supportsQueryRelatedPagination": true,
+    "supportsQueryWithDatumTransformation": true,
+    "supportsQueryWithDistance": true,
+    "supportsQueryWithLodSR": false,
+    "supportsReturningQueryExtent": true,
+    "supportsSqlExpression": true,
+    "supportsSqlFormat": false,
+    "supportsStatistics": true,
+    "supportsTimeRelation": true,
+    "supportsTrueCurve": true,
+    "useStandardizedQueries": true
+  },
+  "archivingInfo": {
+    "startArchivingMoment": -1,
+    "supportsQueryWithHistoricMoment": false
+  },
+  "canModifyLayer": false,
+  "canScaleSymbols": false,
+  "capabilities": "Map,Query,Data",
+  "cimVersion": "3.3.0",
+  "copyrightText": "",
+  "currentVersion": 11.3,
+  "dateFieldsTimeReference": null,
+  "datesInUnknownTimezone": false,
+  "defaultSubtypeCode": null,
+  "defaultVisibility": false,
+  "description": "This layer depicts portions of elk hunting districts.",
+  "displayField": "PORTIONNAME",
+  "drawingInfo": {
+    "labelingInfo": [
+      {
+        "allowOverrun": true,
+        "deconflictionStrategy": "static",
+        "labelExpression": "[PORTIONNAME]",
+        "labelPlacement": "esriServerPolygonPlacementAlwaysHorizontal",
+        "maxScale": 0,
+        "minScale": 1000000,
+        "multiPart": "labelPerPart",
+        "name": "Default",
+        "priority": 14,
+        "removeDuplicates": "none",
+        "repeatLabel": false,
+        "stackLabel": false,
+        "symbol": {
+          "angle": 0,
+          "backgroundColor": null,
+          "borderLineColor": null,
+          "borderLineSize": null,
+          "color": [
+            168,
+            112,
+            0,
+            255
+          ],
+          "font": {
+            "decoration": "none",
+            "family": "Arial",
+            "size": 8,
+            "style": "normal",
+            "weight": "bold"
+          },
+          "haloColor": [
+            225,
+            225,
+            225,
+            255
+          ],
+          "haloSize": 2,
+          "horizontalAlignment": "center",
+          "kerning": true,
+          "rightToLeft": false,
+          "type": "esriTS",
+          "verticalAlignment": "bottom",
+          "xoffset": 0,
+          "yoffset": 0
+        },
+        "useCodedValues": true
+      }
+    ],
+    "renderer": {
+      "symbol": {
+        "color": [
+          168,
+          112,
+          0,
+          255
+        ],
+        "outline": {
+          "color": [
+            168,
+            112,
+            0,
+            255
+          ],
+          "style": "esriSLSSolid",
+          "type": "esriSLS",
+          "width": 2
+        },
+        "style": "esriSFSSolid",
+        "type": "esriSFS"
+      },
+      "type": "simple"
+    },
+    "scaleSymbols": true,
+    "transparency": 0
+  },
+  "extent": {
+    "spatialReference": {
+      "falseM": -100000,
+      "falseX": -20037700,
+      "falseY": -30241100,
+      "falseZ": 0,
+      "latestWkid": 3857,
+      "mTolerance": 2,
+      "mUnits": 10000,
+      "wkid": 102100,
+      "xyTolerance": 0.001,
+      "xyUnits": 148923141.92838538,
+      "zTolerance": 2,
+      "zUnits": 1
+    },
+    "xmax": -11955983.892,
+    "xmin": -12834449.5691,
+    "ymax": 6274860.494000003,
+    "ymin": 5603836.479199998
+  },
+  "fields": [
+    {
+      "alias": "MAPLINK",
+      "domain": null,
+      "length": 200,
+      "name": "MAPLINK",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "OBJECTID",
+      "domain": null,
+      "name": "OBJECTID",
+      "type": "esriFieldTypeOID"
+    },
+    {
+      "alias": "REG",
+      "domain": null,
+      "length": 15,
+      "name": "REG",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "DISTRICT",
+      "domain": null,
+      "length": 25,
+      "name": "DISTRICT",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "PORTIONNAME",
+      "domain": null,
+      "length": 150,
+      "name": "PORTIONNAME",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "PORTIONTYPE",
+      "domain": null,
+      "length": 5,
+      "name": "PORTIONTYPE",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "COMMENTS",
+      "domain": null,
+      "length": 150,
+      "name": "COMMENTS",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "SHAPECODE",
+      "domain": null,
+      "length": 20,
+      "name": "SHAPECODE",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "AREA_AC",
+      "domain": null,
+      "name": "AREA_AC",
+      "type": "esriFieldTypeInteger"
+    },
+    {
+      "alias": "AREA_KM",
+      "domain": null,
+      "name": "AREA_KM",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "AREA_MI",
+      "domain": null,
+      "name": "AREA_MI",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "REGYEAR",
+      "domain": null,
+      "length": 4,
+      "name": "REGYEAR",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "SHAPE",
+      "domain": null,
+      "name": "SHAPE",
+      "type": "esriFieldTypeGeometry"
+    },
+    {
+      "alias": "SHAPE_Length",
+      "domain": null,
+      "name": "SHAPE_Length",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "SHAPE_Area",
+      "domain": null,
+      "name": "SHAPE_Area",
+      "type": "esriFieldTypeDouble"
+    }
+  ],
+  "geometryField": {
+    "alias": "SHAPE",
+    "name": "SHAPE",
+    "type": "esriFieldTypeGeometry"
+  },
+  "geometryProperties": {
+    "mapUnits": {
+      "uwkid": 9001
+    },
+    "shapeAreaFieldName": "SHAPE_Area",
+    "shapeLengthFieldName": "SHAPE_Length",
+    "units": "esriMeters"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "hasAttachments": false,
+  "hasGeometryProperties": true,
+  "hasLabels": true,
+  "hasMetadata": true,
+  "htmlPopupType": "esriServerHTMLPopupTypeAsHTMLText",
+  "id": 14,
+  "indexes": [
+    {
+      "description": "",
+      "fields": "OBJECTID",
+      "isAscending": true,
+      "isUnique": true,
+      "name": "FDO_OBJECTID"
+    },
+    {
+      "description": "",
+      "fields": "SHAPE",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "FDO_SHAPE"
+    }
+  ],
+  "isDataArchived": false,
+  "isDataVersioned": false,
+  "maxRecordCount": 2000,
+  "maxScale": 0,
+  "minScale": 0,
+  "name": "Elk Portions",
+  "ownershipBasedAccessControlForFeatures": {
+    "allowOthersToQuery": true
+  },
+  "parentLayer": {
+    "id": 1,
+    "name": "Big Game Districts"
+  },
+  "preferredTimeReference": null,
+  "referenceScale": 0.0,
+  "relationships": [],
+  "sourceSpatialReference": {
+    "falseM": -100000,
+    "falseX": -20037700,
+    "falseY": -30241100,
+    "falseZ": -100000,
+    "latestWkid": 3857,
+    "mTolerance": 0.001,
+    "mUnits": 10000,
+    "wkid": 102100,
+    "xyTolerance": 0.001,
+    "xyUnits": 10000,
+    "zTolerance": 0.001,
+    "zUnits": 10000
+  },
+  "subLayers": [],
+  "subtypeField": null,
+  "subtypeFieldName": null,
+  "subtypes": [],
+  "supportedQueryFormats": "JSON, geoJSON, PBF",
+  "supportedSpatialRelationships": [
+    "esriSpatialRelIntersects",
+    "esriSpatialRelContains",
+    "esriSpatialRelCrosses",
+    "esriSpatialRelEnvelopeIntersects",
+    "esriSpatialRelIndexIntersects",
+    "esriSpatialRelOverlaps",
+    "esriSpatialRelTouches",
+    "esriSpatialRelWithin",
+    "esriSpatialRelRelation"
+  ],
+  "supportsAdvancedQueries": true,
+  "supportsCoordinatesQuantization": true,
+  "supportsDatumTransformation": true,
+  "supportsDynamicLegends": true,
+  "supportsExceedsLimitStatistics": true,
+  "supportsStatistics": true,
+  "type": "Feature Layer",
+  "typeIdField": null,
+  "useStandardizedQueries": true
+}

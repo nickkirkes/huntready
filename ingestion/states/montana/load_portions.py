@@ -24,7 +24,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import psycopg
 import requests
@@ -101,37 +101,65 @@ def _slugify(text: str) -> str:
 
 _SHAPECODE_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
+# Slug strategy is chosen per-layer by `_load_layer`, not per-feature, because
+# SHAPECODE collisions are layer-wide data realities (e.g. MT FWP layer #12
+# uses `mdPt312` for both East and West halves of district 312). The whole
+# layer must use the same field so feature IDs in a layer are uniformly
+# formatted; per-feature mixing would produce a confusing mosaic of slug
+# styles. Per spec line 308: "Fail loudly if neither SHAPECODE nor unique
+# PORTIONNAME yields collision-free IDs within a layer."
+SlugStrategy = Literal["shapecode", "portionname"]
 
-def _extract_portion_slug(props: dict[str, Any], metadata: LayerMetadata) -> str:
-    """Pick the per-portion identifier slug.
 
-    Prefers SHAPECODE (verbatim — it's already a code) over slugified
-    PORTIONNAME. SHAPECODE must match `[A-Za-z0-9_-]+` because it is
-    embedded directly in hyphen-delimited geometry IDs; any other content
-    (spaces, slashes, accents) raises ArcGISError to fail loudly rather
-    than write a malformed ID. Raises ArcGISError if neither field yields
-    a non-empty value.
+def _extract_portion_slug(
+    props: dict[str, Any],
+    metadata: LayerMetadata,
+    *,
+    strategy: SlugStrategy,
+) -> str:
+    """Pick the per-portion identifier slug under the chosen layer strategy.
+
+    `strategy="shapecode"`: use SHAPECODE verbatim (it's a code, not free text).
+    SHAPECODE must match `[A-Za-z0-9_-]+` because it is embedded directly in
+    hyphen-delimited geometry IDs; any other content raises ArcGISError. Falls
+    back to slugified PORTIONNAME if SHAPECODE is missing/empty on a single
+    feature (rare; occurs in mixed layers). Raises if both are absent.
+
+    `strategy="portionname"`: use slugified PORTIONNAME directly. SHAPECODE is
+    ignored. Raises if PORTIONNAME is missing/empty.
     """
-    shapecode = props.get("SHAPECODE")
-    if shapecode is not None:
-        coerced = str(shapecode)
-        if coerced.strip():
-            if not _SHAPECODE_PATTERN.fullmatch(coerced):
-                msg = (
-                    f"layer {metadata.name!r} feature SHAPECODE {coerced!r} "
-                    f"contains characters outside [A-Za-z0-9_-]; "
-                    f"refusing to embed in geometry id"
-                )
-                raise ArcGISError(msg)
-            return coerced
+    if strategy == "shapecode":
+        shapecode = props.get("SHAPECODE")
+        if shapecode is not None:
+            coerced = str(shapecode)
+            if coerced.strip():
+                if not _SHAPECODE_PATTERN.fullmatch(coerced):
+                    msg = (
+                        f"layer {metadata.name!r} feature SHAPECODE {coerced!r} "
+                        f"contains characters outside [A-Za-z0-9_-]; "
+                        f"refusing to embed in geometry id"
+                    )
+                    raise ArcGISError(msg)
+                return coerced
+        portion_name = props.get("PORTIONNAME")
+        if portion_name is not None:
+            coerced = str(portion_name)
+            if coerced.strip():
+                return _slugify(coerced)
+        msg = (
+            f"layer {metadata.name!r} feature missing both SHAPECODE and "
+            f"PORTIONNAME; available={list(metadata.out_fields)}"
+        )
+        raise ArcGISError(msg)
+    # strategy == "portionname"
     portion_name = props.get("PORTIONNAME")
     if portion_name is not None:
         coerced = str(portion_name)
         if coerced.strip():
             return _slugify(coerced)
     msg = (
-        f"layer {metadata.name!r} feature missing both SHAPECODE and "
-        f"PORTIONNAME; available={list(metadata.out_fields)}"
+        f"layer {metadata.name!r} feature missing PORTIONNAME under "
+        f"portionname strategy; available={list(metadata.out_fields)}"
     )
     raise ArcGISError(msg)
 
@@ -142,10 +170,12 @@ def _feature_to_geometry(
     layer_metadata: LayerMetadata,
     service_url: str,
     fetch_year: int,
+    *,
+    slug_strategy: SlugStrategy,
 ) -> Geometry:
     props = feature["properties"]
     district = _extract_district(props, layer_metadata)
-    slug = _extract_portion_slug(props, layer_metadata)
+    slug = _extract_portion_slug(props, layer_metadata, strategy=slug_strategy)
     geometry_wkt = arcgis.geojson_to_multipolygon_wkt(feature)
     license_year = _extract_license_year(props)
     # Citation license_year prefers per-feature REGYEAR ("which annual cycle is
@@ -173,6 +203,29 @@ def _feature_to_geometry(
     )
 
 
+def _build_geoms(
+    features: list[dict[str, Any]],
+    layer_config: PortionLayerConfig,
+    metadata: LayerMetadata,
+    service_url: str,
+    fetch_year: int,
+    *,
+    slug_strategy: SlugStrategy,
+) -> list[Geometry]:
+    return [
+        _feature_to_geometry(
+            f, layer_config, metadata, service_url, fetch_year,
+            slug_strategy=slug_strategy,
+        )
+        for f in features
+    ]
+
+
+def _duplicate_ids(geoms: list[Geometry]) -> list[str]:
+    counts = Counter(g.id for g in geoms)
+    return sorted(i for i, n in counts.items() if n > 1)
+
+
 def _load_layer(
     conn: psycopg.Connection[Any],
     service_url: str,
@@ -184,10 +237,15 @@ def _load_layer(
 ) -> list[Geometry]:
     """Fetch metadata + features for one portion layer, normalize, and UPSERT.
 
+    Slug strategy is chosen per-layer: try SHAPECODE first; if that produces
+    duplicate IDs within the layer (a real MT FWP data condition — e.g.
+    layer #12 mule-deer reuses `mdPt312` for two distinct district-312
+    polygons), fall back to slugified PORTIONNAME for the whole layer. Raise
+    ArcGISError only if BOTH strategies collide. Per spec line 308.
+
     Returns the list of Geometry instances written (for caller-side spot-checking).
-    Raises ArcGISError if normalized features produce duplicate geometry IDs
-    (i.e. SHAPECODE/PORTIONNAME slugs collide within a layer).
     """
+    logger = logging.getLogger(__name__)
     metadata = arcgis.fetch_layer_metadata(
         service_url,
         layer_config.layer_id,
@@ -207,23 +265,59 @@ def _load_layer(
         # Zero features is not an expected outcome for any V1 portion layer.
         # Most likely cause: server-side filter, projection mismatch, or wrong
         # OID field — surface loudly rather than silently writing nothing.
-        logging.getLogger(__name__).warning(
+        logger.warning(
             "layer %d (%s) returned zero features; skipping upsert",
             layer_config.layer_id, layer_config.species_slug,
         )
-    geoms = [
-        _feature_to_geometry(f, layer_config, metadata, service_url, fetch_year)
-        for f in features
-    ]
-    ids = [g.id for g in geoms]
-    if len(ids) != len(set(ids)):
-        duplicates = sorted(i for i, n in Counter(ids).items() if n > 1)
+        db.upsert_geometries(conn, [])
+        return []
+
+    # Try SHAPECODE first.
+    try:
+        geoms = _build_geoms(
+            features, layer_config, metadata, service_url, fetch_year,
+            slug_strategy="shapecode",
+        )
+        shapecode_dupes = _duplicate_ids(geoms)
+        if not shapecode_dupes:
+            db.upsert_geometries(conn, geoms)
+            return geoms
+        # SHAPECODE collides — fall back, log so operators can audit.
+        logger.info(
+            "layer %d (%s): SHAPECODE collided on %d id(s) (%s%s); "
+            "retrying with PORTIONNAME slugs",
+            layer_config.layer_id, layer_config.species_slug,
+            len(shapecode_dupes), shapecode_dupes[:3],
+            "..." if len(shapecode_dupes) > 3 else "",
+        )
+    except ArcGISError as exc:
+        # SHAPECODE strategy raised on a feature (e.g. invalid character or
+        # neither SHAPECODE nor PORTIONNAME present). Treat as fallback signal
+        # rather than a hard failure: PORTIONNAME-only path will either succeed
+        # or surface a clearer error.
+        logger.info(
+            "layer %d (%s): SHAPECODE strategy raised (%s); "
+            "retrying with PORTIONNAME slugs",
+            layer_config.layer_id, layer_config.species_slug, exc,
+        )
+    geoms = _build_geoms(
+        features, layer_config, metadata, service_url, fetch_year,
+        slug_strategy="portionname",
+    )
+    portionname_dupes = _duplicate_ids(geoms)
+    if portionname_dupes:
         msg = (
-            f"layer {layer_config.layer_id} ({layer_config.species_slug}) produced "
-            f"{len(ids) - len(set(ids))} duplicate geometry id(s): {duplicates[:5]}"
-            + (f" ... ({len(duplicates) - 5} more)" if len(duplicates) > 5 else "")
+            f"layer {layer_config.layer_id} ({layer_config.species_slug}) "
+            f"produced duplicate geometry id(s) under both SHAPECODE and "
+            f"PORTIONNAME strategies: {portionname_dupes[:5]}"
+            + (f" ... ({len(portionname_dupes) - 5} more)"
+               if len(portionname_dupes) > 5 else "")
         )
         raise ArcGISError(msg)
+    logger.info(
+        "layer %d (%s): %d portions ingested with slug strategy=PORTIONNAME",
+        layer_config.layer_id, layer_config.species_slug, len(geoms),
+    )
     db.upsert_geometries(conn, geoms)
     return geoms
 

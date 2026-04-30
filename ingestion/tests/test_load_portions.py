@@ -195,52 +195,69 @@ class TestSlugify:
 class TestExtractPortionSlug:
     def test_shapecode_preferred_when_present(self, sample_metadata: LayerMetadata) -> None:
         props = {"DISTRICT": "262", "SHAPECODE": "262A", "PORTIONNAME": "North Fork"}
-        result = _extract_portion_slug(props, sample_metadata)
+        result = _extract_portion_slug(props, sample_metadata, strategy="shapecode")
         assert result == "262A"
 
     def test_falls_back_to_portionname_when_shapecode_absent(self, sample_metadata: LayerMetadata) -> None:
         props = {"DISTRICT": "262", "PORTIONNAME": "North Fork"}
-        result = _extract_portion_slug(props, sample_metadata)
+        result = _extract_portion_slug(props, sample_metadata, strategy="shapecode")
         assert result == "north-fork"
 
     def test_falls_back_when_shapecode_empty_string(self, sample_metadata: LayerMetadata) -> None:
         props = {"DISTRICT": "262", "SHAPECODE": "", "PORTIONNAME": "North Fork"}
-        result = _extract_portion_slug(props, sample_metadata)
+        result = _extract_portion_slug(props, sample_metadata, strategy="shapecode")
         assert result == "north-fork"
 
     def test_falls_back_when_shapecode_whitespace_only(self, sample_metadata: LayerMetadata) -> None:
         props = {"DISTRICT": "262", "SHAPECODE": "   ", "PORTIONNAME": "North Fork"}
-        result = _extract_portion_slug(props, sample_metadata)
+        result = _extract_portion_slug(props, sample_metadata, strategy="shapecode")
         assert result == "north-fork"
 
     def test_raises_when_both_absent(self, sample_metadata: LayerMetadata) -> None:
         with pytest.raises(ArcGISError) as exc_info:
-            _extract_portion_slug({"DISTRICT": "262"}, sample_metadata)
+            _extract_portion_slug({"DISTRICT": "262"}, sample_metadata, strategy="shapecode")
         msg = str(exc_info.value)
         assert "missing both SHAPECODE and PORTIONNAME" in msg
         assert "available=" in msg
 
     def test_raises_when_both_empty(self, sample_metadata: LayerMetadata) -> None:
         with pytest.raises(ArcGISError):
-            _extract_portion_slug({"DISTRICT": "262", "SHAPECODE": "", "PORTIONNAME": ""}, sample_metadata)
+            _extract_portion_slug({"DISTRICT": "262", "SHAPECODE": "", "PORTIONNAME": ""}, sample_metadata, strategy="shapecode")
 
     def test_raises_when_shapecode_contains_space(self, sample_metadata: LayerMetadata) -> None:
         # SHAPECODE is embedded verbatim in hyphen-delimited geometry IDs.
         # Any non-id-safe character must fail loudly.
         with pytest.raises(ArcGISError) as exc_info:
-            _extract_portion_slug({"DISTRICT": "262", "SHAPECODE": "262 A"}, sample_metadata)
+            _extract_portion_slug({"DISTRICT": "262", "SHAPECODE": "262 A"}, sample_metadata, strategy="shapecode")
         assert "SHAPECODE" in str(exc_info.value)
         assert "[A-Za-z0-9_-]" in str(exc_info.value)
 
     def test_raises_when_shapecode_contains_slash(self, sample_metadata: LayerMetadata) -> None:
         with pytest.raises(ArcGISError):
-            _extract_portion_slug({"DISTRICT": "262", "SHAPECODE": "262/A"}, sample_metadata)
+            _extract_portion_slug({"DISTRICT": "262", "SHAPECODE": "262/A"}, sample_metadata, strategy="shapecode")
 
     def test_accepts_alphanumeric_and_hyphen_shapecode(self, sample_metadata: LayerMetadata) -> None:
         result = _extract_portion_slug(
-            {"DISTRICT": "262", "SHAPECODE": "262-A_b"}, sample_metadata
+            {"DISTRICT": "262", "SHAPECODE": "262-A_b"}, sample_metadata, strategy="shapecode"
         )
         assert result == "262-A_b"
+
+    def test_portionname_strategy_ignores_shapecode(self, sample_metadata: LayerMetadata) -> None:
+        # Under the portionname strategy, SHAPECODE is irrelevant — even if
+        # present and well-formed, the slug comes from PORTIONNAME.
+        props = {"DISTRICT": "262", "SHAPECODE": "262A", "PORTIONNAME": "North Fork"}
+        result = _extract_portion_slug(props, sample_metadata, strategy="portionname")
+        assert result == "north-fork"
+
+    def test_portionname_strategy_raises_when_portionname_absent(
+        self, sample_metadata: LayerMetadata,
+    ) -> None:
+        with pytest.raises(ArcGISError) as exc_info:
+            _extract_portion_slug(
+                {"DISTRICT": "262", "SHAPECODE": "262A"}, sample_metadata, strategy="portionname"
+            )
+        assert "PORTIONNAME" in str(exc_info.value)
+        assert "portionname strategy" in str(exc_info.value)
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +288,8 @@ class TestFeatureToGeometry:
     ) -> None:
         _patch_arcgis(monkeypatch, sample_citation)
         result = _feature_to_geometry(
-            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026
+            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026,
+            slug_strategy="shapecode",
         )
         assert isinstance(result, Geometry)
         assert result.kind == "portion"
@@ -285,7 +303,8 @@ class TestFeatureToGeometry:
     ) -> None:
         _patch_arcgis(monkeypatch, sample_citation)
         result = _feature_to_geometry(
-            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026
+            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026,
+            slug_strategy="shapecode",
         )
         assert result.id == "MT-HD-elk-262-portion-262A-geom"
 
@@ -305,7 +324,8 @@ class TestFeatureToGeometry:
             },
         }
         result = _feature_to_geometry(
-            feature, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026
+            feature, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026,
+            slug_strategy="shapecode",
         )
         assert result.id == "MT-HD-elk-262-portion-north-fork-geom"
 
@@ -318,7 +338,8 @@ class TestFeatureToGeometry:
     ) -> None:
         _patch_arcgis(monkeypatch, sample_citation)
         result = _feature_to_geometry(
-            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026
+            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026,
+            slug_strategy="shapecode",
         )
         assert result.name == "Elk HD 262 portion 262A"
 
@@ -331,7 +352,8 @@ class TestFeatureToGeometry:
     ) -> None:
         _patch_arcgis(monkeypatch, sample_citation)
         result = _feature_to_geometry(
-            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026
+            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026,
+            slug_strategy="shapecode",
         )
         assert result.verbatim_rule == "Hunting permitted only with archery equipment."
 
@@ -348,7 +370,8 @@ class TestFeatureToGeometry:
             "properties": {**SAMPLE_PORTION_FEATURE["properties"], "REG": ""},
         }
         result = _feature_to_geometry(
-            feature, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026
+            feature, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026,
+            slug_strategy="shapecode",
         )
         assert result.verbatim_rule is None
 
@@ -361,7 +384,8 @@ class TestFeatureToGeometry:
     ) -> None:
         _patch_arcgis(monkeypatch, sample_citation)
         result = _feature_to_geometry(
-            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026
+            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2026,
+            slug_strategy="shapecode",
         )
         assert result.license_year == 2026
 
@@ -384,7 +408,10 @@ class TestFeatureToGeometry:
             "geojson_to_multipolygon_wkt",
             lambda f: "MULTIPOLYGON (((-110 45, -109 45, -109 46, -110 46, -110 45)))",
         )
-        _feature_to_geometry(SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL, fetch_year=2099)
+        _feature_to_geometry(
+            SAMPLE_PORTION_FEATURE, elk_config, sample_metadata, SERVICE_URL,
+            fetch_year=2099, slug_strategy="shapecode",
+        )
         assert captured["license_year"] == 2026  # from REGYEAR, not fetch_year
 
     def test_citation_falls_back_to_fetch_year_when_regyear_absent(
@@ -414,7 +441,8 @@ class TestFeatureToGeometry:
             },
         }
         result = _feature_to_geometry(
-            feature, antelope_config, sample_metadata, SERVICE_URL, fetch_year=2026
+            feature, antelope_config, sample_metadata, SERVICE_URL, fetch_year=2026,
+            slug_strategy="shapecode",
         )
         assert captured["license_year"] == 2026  # fell back to fetch_year
         assert result.license_year is None  # Geometry.license_year stays None
@@ -501,7 +529,7 @@ class TestLoadLayer:
 
         assert len(result) == 2
 
-    def test_raises_on_id_collision(
+    def test_raises_when_both_strategies_collide(
         self,
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path,
@@ -509,23 +537,71 @@ class TestLoadLayer:
         sample_citation: SourceCitation,
         elk_config: PortionLayerConfig,
     ) -> None:
+        # Two features with identical SHAPECODE AND identical PORTIONNAME:
+        # neither strategy yields collision-free IDs, so loader must fail.
         feature_1 = copy.deepcopy(SAMPLE_PORTION_FEATURE)
         feature_1["properties"]["SHAPECODE"] = "262A"
         feature_1["properties"]["DISTRICT"] = "262"
-
         feature_2 = copy.deepcopy(SAMPLE_PORTION_FEATURE)
         feature_2["properties"]["SHAPECODE"] = "262A"
         feature_2["properties"]["DISTRICT"] = "262"
+        # Both have PORTIONNAME="North Fork" via SAMPLE_PORTION_FEATURE.
 
         _patch_load_layer(monkeypatch, sample_metadata, sample_citation, [feature_1, feature_2])
         mock_upsert = MagicMock()
         monkeypatch.setattr(load_portions_module.db, "upsert_geometries", mock_upsert)
 
         conn = MagicMock()
-        with pytest.raises(ArcGISError, match="duplicate geometry id"):
+        with pytest.raises(ArcGISError, match="under both SHAPECODE and PORTIONNAME"):
             _load_layer(conn, SERVICE_URL, elk_config, tmp_path, 2026)
 
         mock_upsert.assert_not_called()
+
+    def test_falls_back_to_portionname_when_shapecode_collides(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+        sample_metadata: LayerMetadata,
+        sample_citation: SourceCitation,
+        elk_config: PortionLayerConfig,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        # Real MT FWP layer #12 condition: same DISTRICT, same SHAPECODE, but
+        # distinct PORTIONNAMEs. Loader must detect the SHAPECODE collision and
+        # silently retry with PORTIONNAME slugs (which are unique).
+        feature_1 = copy.deepcopy(SAMPLE_PORTION_FEATURE)
+        feature_1["properties"]["DISTRICT"] = "312"
+        feature_1["properties"]["SHAPECODE"] = "mdPt312"
+        feature_1["properties"]["PORTIONNAME"] = "Portion of HD 312 East side"
+        feature_2 = copy.deepcopy(SAMPLE_PORTION_FEATURE)
+        feature_2["properties"]["DISTRICT"] = "312"
+        feature_2["properties"]["SHAPECODE"] = "mdPt312"
+        feature_2["properties"]["PORTIONNAME"] = "Portion of HD 312 West side"
+
+        _patch_load_layer(monkeypatch, sample_metadata, sample_citation, [feature_1, feature_2])
+        mock_upsert = MagicMock()
+        monkeypatch.setattr(load_portions_module.db, "upsert_geometries", mock_upsert)
+
+        conn = MagicMock()
+        with caplog.at_level("INFO", logger="states.montana.load_portions"):
+            result = _load_layer(conn, SERVICE_URL, elk_config, tmp_path, 2026)
+
+        assert len(result) == 2
+        ids = sorted(g.id for g in result)
+        assert ids == [
+            "MT-HD-elk-312-portion-portion-of-hd-312-east-side-geom",
+            "MT-HD-elk-312-portion-portion-of-hd-312-west-side-geom",
+        ]
+        # Confirm fallback was logged (operator audit trail).
+        assert any(
+            "SHAPECODE collided" in r.message and "PORTIONNAME" in r.message
+            for r in caplog.records
+        )
+        assert any(
+            "slug strategy=PORTIONNAME" in r.message for r in caplog.records
+        )
+        mock_upsert.assert_called_once()
+        assert len(mock_upsert.call_args[0][1]) == 2
 
     def test_passes_correct_layer_slug(
         self,

@@ -114,15 +114,13 @@ Expected: the validity query returns zero rows. The multi-part query should surf
 After running `load_portions.py`, also confirm portions loaded correctly:
 
 ```sql
--- Counts by species prefix; confirms all four portion layers wrote rows.
--- Strips the trailing -{DISTRICT}-portion-{slug}-geom, leaving the species
--- prefix (handles multi-word species like "mule-deer").
-SELECT regexp_replace(id, '^MT-HD-(.+)-[^-]+-portion-.+-geom$', '\1') AS species,
-       COUNT(*)
-FROM geometry
-WHERE kind='portion'
-GROUP BY species
-ORDER BY species;
+-- Counts by id_prefix; confirms all four portion layers wrote rows.
+-- Plain LIKE filters per species since PORTIONNAME slugs may contain the
+-- substring "portion" (e.g. mule-deer fallback uses "Portion of HD ..." names).
+SELECT 'antelope'   AS species, COUNT(*) FROM geometry WHERE kind='portion' AND id LIKE 'MT-HD-antelope-%'
+UNION ALL SELECT 'mule-deer',   COUNT(*) FROM geometry WHERE kind='portion' AND id LIKE 'MT-HD-mule-deer-%'
+UNION ALL SELECT 'whitetail',   COUNT(*) FROM geometry WHERE kind='portion' AND id LIKE 'MT-HD-whitetail-%'
+UNION ALL SELECT 'elk',         COUNT(*) FROM geometry WHERE kind='portion' AND id LIKE 'MT-HD-elk-%';
 
 -- Spot-check the portion ID format
 SELECT id FROM geometry WHERE kind='portion' ORDER BY id LIMIT 5;
@@ -154,6 +152,22 @@ First successful load of all three layers:
 All rows: `kind='hunting_district'`, `state='US-MT'`, `source.document_type='gis_layer'`, `license_year=2026`, `verbatim_rule` populated from each feature's `REG` field. UPSERT idempotency confirmed by re-running with unchanged row counts.
 
 **Data-quality note:** `MT-HD-antelope-556-geom` (OBJECTID=385, MT FWP layer #3) has a self-intersecting source polygon. `shapely.make_valid` produces a `GeometryCollection [Polygon, LineString]`; the `arcgis.geojson_to_multipolygon_wkt` helper recovers the polygonal part (area preserved exactly) and emits a WARNING. Worth flagging upstream to MT FWP.
+
+## S02.3 initial load record (2026-04-30)
+
+First successful load of all four portion layers:
+
+| Layer | Slug strategy | Rows |
+|-------|---------------|------|
+| #4 (Antelope Portions) | SHAPECODE | 4 |
+| #12 (Mule Deer Portions) | PORTIONNAME (SHAPECODE collided) | 11 |
+| #13 (Whitetail Portions) | SHAPECODE | 13 |
+| #14 (Elk Portions) | SHAPECODE | 27 |
+| **Total** | | **55** |
+
+All rows: `kind='portion'`, `state='US-MT'`, `source.document_type='gis_layer'`, `license_year=2026`, `verbatim_rule` populated from each feature's `REG` field (55/55 non-null). All geometries topologically valid (`ST_IsValid(...)=TRUE`). UPSERT idempotency confirmed by re-running with unchanged row counts.
+
+**Slug-strategy note:** Layer #12 (mule-deer) reuses `SHAPECODE='mdPt312'` for both East- and West-half polygons of district 312, and `mdPt388` for both Inside/Outside-of-Weapons-Restriction-Area polygons of district 388. The loader detects the SHAPECODE collision after building the layer's geometries and silently retries with `_slugify(PORTIONNAME)` for the entire layer. Per spec line 308: "Fail loudly if neither SHAPECODE nor unique PORTIONNAME yields collision-free IDs within a layer." Layer #12's longer IDs (max 106 chars) reflect this fallback — the other three layers use the compact SHAPECODE form (≤39 chars). The strategy choice is logged at INFO level so operators can audit.
 
 ## Related
 
