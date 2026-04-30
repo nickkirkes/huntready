@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-04-29
-**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active — S02.0 complete, S02.1 next)
+**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active — S02.0/S02.1 complete, S02.2 next)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -28,7 +28,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
-| E02 | Montana Geometry Ingestion | In Progress (1/8 stories complete) | 2026-04-28 | — | 8 |
+| E02 | Montana Geometry Ingestion | In Progress (2/8 stories complete) | 2026-04-28 | — | 8 |
 | E03 | Montana Regulation Text Ingestion | Not Started — planned when E02 completes | — | — | TBD |
 
 ### E02 Story Status
@@ -36,7 +36,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | Story | Name | Status | Owner |
 |---|---|---|---|
 | S02.0 | Schema preparation — `document_type='gis_layer'` + `geometry.verbatim_rule` | Complete | Implementation |
-| S02.1 | ArcGIS fetch infrastructure (shared library) | Not Started | Implementation |
+| S02.1 | ArcGIS fetch infrastructure (shared library) | Complete | Implementation |
 | S02.2 | Hunting District ingestion (#3, #10, #11) | Not Started | Implementation |
 | S02.3 | Portions ingestion (#4, #12, #13, #14) | Not Started | Implementation |
 | S02.4 | Restricted Areas with verbatim text (#2, #15) | Not Started | Implementation |
@@ -59,9 +59,9 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 ## Active Blockers
 
-None blocking S02.1. ADR blockers cleared 2026-04-28 (ADR-014, ADR-015 accepted) and S02.0 schema-prep merged 2026-04-29 (PR #18) — Pydantic `Geometry.verbatim_rule` and `SourceCitation.document_type='gis_layer'` are available for S02.1's ArcGIS SourceCitation construction.
+None blocking S02.2. S02.1 (ArcGIS fetch infrastructure) merged 2026-04-29 (PR #20) — `ingestion/ingestion/lib/arcgis.py` is available for state adapters to import (`fetch_layer_metadata`, `fetch_features`, `geojson_to_multipolygon_wkt`, `build_source_citation`, `compute_feature_hash`).
 
-One PRD-reconciliation item remains, but it does **not** block S02.1 or S02.2:
+One PRD-reconciliation item remains, but it does **not** block S02.2:
 
 - **PRD 001 jurisdiction_binding sequencing** — PRD says E02 writes binding rows; schema FK to regulation_record makes that impossible until E03. E02 produces a geometry overlay fixture instead. Proposed PRD wording in [E02 epic](epics/E02-geometry-ingestion.md) § "Known issues to escalate". PM does not modify PRDs.
 
@@ -71,10 +71,8 @@ Documentation-debt items (non-blocking):
 
 ---
 
-## Next Actions
-
-- Begin S02.1 (ArcGIS fetch infrastructure) — shared `ingestion/ingestion/lib/arcgis.py` library with metadata fetch, paginated feature fetch, source-fixture capture, and per-feature change detection
-- After S02.1 merges, S02.2–S02.5 proceed in dependency order using the shared library
+- Begin S02.2 (Hunting District ingestion) — first live MT FWP fetches against layers #3 Antelope, #10 Black Bear, #11 Deer/Elk/Lion using S02.1's shared library. Source fixtures land here.
+- S02.3 / S02.4 are parallelizable with S02.2 if branch-management cost is low
 - E03 epic file will be drafted when E02 completes (run `/plan-next-epic`)
 
 ---
