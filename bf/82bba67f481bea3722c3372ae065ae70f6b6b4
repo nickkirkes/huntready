@@ -1,0 +1,29 @@
+ingestion/tests/test_load_portions.py
+  df0975496f450e3f 1-592
+ingestion/states/montana/README.md
+  df0975496f450e3f 33-55,114-136
+docs/plans/S02.3-portions-ingestion-plan.md
+  df0975496f450e3f 1-270
+ingestion/states/montana/load_portions.py
+  df0975496f450e3f 1-256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "bf82bba67f481bea3722c3372ae065ae70f6b6b4",
+  "prompts": {
+    "df0975496f450e3f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b91e0d81-516b-4709-8774-696c909c0943",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1513,
+      "total_deletions": 7,
+      "accepted_lines": 1457,
+      "overriden_lines": 0
+    }
+  }
+}
