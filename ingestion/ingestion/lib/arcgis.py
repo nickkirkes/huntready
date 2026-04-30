@@ -314,15 +314,25 @@ def geojson_to_multipolygon_wkt(feature: dict[str, Any]) -> str:
     Steps:
       1. Parse `feature["geometry"]` via `shapely.geometry.shape`.
       2. Run `shapely.validation.make_valid` to fix self-intersections / ring orientation.
-      3. Type-prune: Polygon -> MultiPolygon([poly]); MultiPolygon -> pass through;
-         GeometryCollection or anything else -> raise loudly with OBJECTID + attributes.
+      3. Type-prune:
+         - Polygon -> MultiPolygon([poly]); MultiPolygon -> pass through.
+         - GeometryCollection -> if the polygonal parts preserve the input area
+           (unary_union(poly_parts).area ≈ parsed.area within float epsilon),
+           unify them and emit a WARNING; otherwise raise. A GeometryCollection
+           with 1 Polygon + ancillary LineStrings/Points (zero area) is a
+           topological artifact of self-intersection repair, not data loss.
+         - Anything else -> raise loudly with OBJECTID + attributes.
       4. Reject empty / zero-area geometries (raise).
 
-    Per ADR-008, partial extractions that lose meaning are flagged loudly. A
-    GeometryCollection from a polygon-typed ArcGIS layer is a data-quality
-    signal worth surfacing — refuse to silently filter and union.
+    Per ADR-008, partial extractions that lose meaning are flagged loudly. The
+    GeometryCollection recovery rule preserves that discipline: lossy cases
+    (partial overlaps, slivers carrying real area) still raise; the WARNING
+    surfaces the source's invalid topology for operator audit even when
+    recovery succeeds.
     """
-    from shapely.geometry import MultiPolygon, Polygon
+    import math
+    from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
+    from shapely.ops import unary_union
 
     geom_dict = feature.get("geometry")
     oid = _read_objectid(feature)
@@ -339,6 +349,32 @@ def geojson_to_multipolygon_wkt(feature: dict[str, Any]) -> str:
         valid = MultiPolygon([valid])
     elif isinstance(valid, MultiPolygon):
         pass
+    elif isinstance(valid, GeometryCollection):
+        polygonal = [g for g in valid.geoms if isinstance(g, (Polygon, MultiPolygon))]
+        recovered = unary_union(polygonal) if polygonal else None
+        if (
+            recovered is not None
+            and not recovered.is_empty
+            and isinstance(recovered, (Polygon, MultiPolygon))
+            and math.isclose(recovered.area, parsed.area, rel_tol=1e-6, abs_tol=1e-12)
+        ):
+            _logger.warning(
+                "geojson_to_multipolygon_wkt: recovered Polygon parts from "
+                "GeometryCollection for feature OBJECTID=%s attributes=%s — "
+                "make_valid produced %d non-polygonal artifacts; polygonal area "
+                "preserved exactly. Source has invalid topology worth auditing.",
+                oid, attrs, len(valid.geoms) - len(polygonal),
+            )
+            valid = MultiPolygon([recovered]) if isinstance(recovered, Polygon) else recovered
+        else:
+            recovered_area = recovered.area if recovered is not None else None
+            msg = (
+                f"GeometryCollection from feature OBJECTID={oid} attributes={attrs} "
+                f"— polygonal parts do not preserve area (parsed={parsed.area!r}, "
+                f"recovered={recovered_area!r}); refusing to silently lose data. "
+                "Treat as data-quality issue."
+            )
+            raise ArcGISError(msg)
     else:
         msg = (
             f"{type(valid).__name__} from feature OBJECTID={oid} attributes={attrs} "
@@ -922,10 +958,41 @@ def fetch_layer_metadata(
     sr_wkid = sr.get("latestWkid") or sr.get("wkid")
     spatial_reference_wkid = sr_wkid if isinstance(sr_wkid, int) else None
 
+    # Some ArcGIS servers (e.g. MT FWP's admbnd/huntingDistricts) omit the
+    # top-level `objectIdField` even though the OID column is present in
+    # `fields` with type `esriFieldTypeOID`. Fall back to scanning fields.
+    object_id_field = data.get("objectIdField")
+    if not isinstance(object_id_field, str) or not object_id_field:
+        oid_candidates = [
+            f["name"] for f in fields
+            if isinstance(f, dict)
+            and f.get("type") == "esriFieldTypeOID"
+            and isinstance(f.get("name"), str)
+        ]
+        if oid_candidates:
+            # Prefer the canonical "OBJECTID" name when multiple OID-typed fields
+            # exist (joined layers, schema-repaired layers with OBJECTID_1, etc.).
+            preferred = [c for c in oid_candidates if c == "OBJECTID"]
+            object_id_field = preferred[0] if preferred else oid_candidates[0]
+            _logger.warning(
+                "layer %s: objectIdField missing at top level; using %r from fields scan "
+                "(all OID-typed candidates: %r)",
+                url, object_id_field, oid_candidates,
+            )
+        else:
+            field_names = [f.get("name") for f in fields if isinstance(f, dict)]
+            msg = (
+                f"malformed layer metadata response from {url}: "
+                f"missing 'objectIdField' and no esriFieldTypeOID in fields; "
+                f"available top-level keys: {sorted(data.keys())}; "
+                f"field names: {field_names}"
+            )
+            raise ArcGISError(msg)
+
     try:
         return LayerMetadata(
             name=data["name"],
-            object_id_field=data["objectIdField"],
+            object_id_field=object_id_field,
             max_record_count=int(data["maxRecordCount"]),
             out_fields=out_fields,
             geometry_type=data["geometryType"],
