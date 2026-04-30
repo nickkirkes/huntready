@@ -173,18 +173,21 @@ class TestExtractLicenseYear:
 # ---------------------------------------------------------------------------
 
 
+SERVICE_URL_FOR_FEATURE = "https://fwp-gis.mt.gov/arcgis/rest/services/admbnd/huntingDistricts/MapServer"
+
+
 class TestFeatureToGeometry:
     def test_basic_geometry_fields(
         self,
         deer_elk_lion_config: HDLayerConfig,
         sample_metadata: LayerMetadata,
-        sample_citation: SourceCitation,
     ) -> None:
         geom = _feature_to_geometry(
             SAMPLE_POLYGON_FEATURE,
             deer_elk_lion_config,
             sample_metadata,
-            sample_citation,
+            SERVICE_URL_FOR_FEATURE,
+            2026,
         )
         assert isinstance(geom, Geometry)
         assert geom.id == "MT-HD-deer-elk-lion-262-geom"
@@ -193,19 +196,22 @@ class TestFeatureToGeometry:
         assert geom.state == "US-MT"
         assert geom.license_year == 2026
         assert geom.verbatim_rule == "Hunting permitted only with archery equipment."
-        assert geom.source is sample_citation
+        assert geom.source.document_type == "gis_layer"
+        # citation.publication_date encodes citation.license_year per ADR-014
+        assert geom.source.publication_date == "2026-01-01"
+        assert geom.source.agency == "Montana Fish, Wildlife & Parks"
 
     def test_geom_is_valid_multipolygon_wkt(
         self,
         deer_elk_lion_config: HDLayerConfig,
         sample_metadata: LayerMetadata,
-        sample_citation: SourceCitation,
     ) -> None:
         geom = _feature_to_geometry(
             SAMPLE_POLYGON_FEATURE,
             deer_elk_lion_config,
             sample_metadata,
-            sample_citation,
+            SERVICE_URL_FOR_FEATURE,
+            2026,
         )
         assert geom.geom.startswith("MULTIPOLYGON")
 
@@ -213,27 +219,27 @@ class TestFeatureToGeometry:
         self,
         antelope_config: HDLayerConfig,
         sample_metadata: LayerMetadata,
-        sample_citation: SourceCitation,
-    ) -> None:
-        feature = {
-            **SAMPLE_POLYGON_FEATURE,
-            "properties": {**SAMPLE_POLYGON_FEATURE["properties"], "DISTRICT": "700"},
-        }
-        geom = _feature_to_geometry(feature, antelope_config, sample_metadata, sample_citation)
-        assert geom.id == "MT-HD-antelope-700-geom"
-
-    def test_species_id_collision_deer_elk_lion(
-        self,
-        deer_elk_lion_config: HDLayerConfig,
-        sample_metadata: LayerMetadata,
-        sample_citation: SourceCitation,
     ) -> None:
         feature = {
             **SAMPLE_POLYGON_FEATURE,
             "properties": {**SAMPLE_POLYGON_FEATURE["properties"], "DISTRICT": "700"},
         }
         geom = _feature_to_geometry(
-            feature, deer_elk_lion_config, sample_metadata, sample_citation
+            feature, antelope_config, sample_metadata, SERVICE_URL_FOR_FEATURE, 2026,
+        )
+        assert geom.id == "MT-HD-antelope-700-geom"
+
+    def test_species_id_collision_deer_elk_lion(
+        self,
+        deer_elk_lion_config: HDLayerConfig,
+        sample_metadata: LayerMetadata,
+    ) -> None:
+        feature = {
+            **SAMPLE_POLYGON_FEATURE,
+            "properties": {**SAMPLE_POLYGON_FEATURE["properties"], "DISTRICT": "700"},
+        }
+        geom = _feature_to_geometry(
+            feature, deer_elk_lion_config, sample_metadata, SERVICE_URL_FOR_FEATURE, 2026,
         )
         assert geom.id == "MT-HD-deer-elk-lion-700-geom"
 
@@ -242,21 +248,57 @@ class TestFeatureToGeometry:
         antelope_config: HDLayerConfig,
         deer_elk_lion_config: HDLayerConfig,
         sample_metadata: LayerMetadata,
-        sample_citation: SourceCitation,
     ) -> None:
         feature = {
             **SAMPLE_POLYGON_FEATURE,
             "properties": {**SAMPLE_POLYGON_FEATURE["properties"], "DISTRICT": "700"},
         }
         antelope_geom = _feature_to_geometry(
-            feature, antelope_config, sample_metadata, sample_citation
+            feature, antelope_config, sample_metadata, SERVICE_URL_FOR_FEATURE, 2026,
         )
         deer_geom = _feature_to_geometry(
-            feature, deer_elk_lion_config, sample_metadata, sample_citation
+            feature, deer_elk_lion_config, sample_metadata, SERVICE_URL_FOR_FEATURE, 2026,
         )
         assert antelope_geom.id != deer_geom.id
         assert antelope_geom.id == "MT-HD-antelope-700-geom"
         assert deer_geom.id == "MT-HD-deer-elk-lion-700-geom"
+
+    def test_citation_uses_regyear_when_present(
+        self,
+        deer_elk_lion_config: HDLayerConfig,
+        sample_metadata: LayerMetadata,
+    ) -> None:
+        # Per epic E02:175-188, citation.license_year prefers per-feature REGYEAR
+        # so a 2025-cycle feature loaded in a 2026 fetch run is correctly attributed.
+        feature = {
+            **SAMPLE_POLYGON_FEATURE,
+            "properties": {**SAMPLE_POLYGON_FEATURE["properties"], "REGYEAR": 2025},
+        }
+        geom = _feature_to_geometry(
+            feature, deer_elk_lion_config, sample_metadata, SERVICE_URL_FOR_FEATURE, 2026,
+        )
+        assert geom.license_year == 2025
+        assert geom.source.publication_date == "2025-01-01"
+
+    def test_citation_falls_back_to_fetch_year_when_regyear_absent(
+        self,
+        antelope_config: HDLayerConfig,
+        sample_metadata: LayerMetadata,
+    ) -> None:
+        # Per epic E02:175-188, citation.license_year falls back to fetch_year
+        # only when source data carries no REGYEAR. Geometry.license_year stays NULL.
+        feature = {
+            **SAMPLE_POLYGON_FEATURE,
+            "properties": {
+                k: v for k, v in SAMPLE_POLYGON_FEATURE["properties"].items()
+                if k != "REGYEAR"
+            },
+        }
+        geom = _feature_to_geometry(
+            feature, antelope_config, sample_metadata, SERVICE_URL_FOR_FEATURE, 2026,
+        )
+        assert geom.license_year is None
+        assert geom.source.publication_date == "2026-01-01"
 
 
 # ---------------------------------------------------------------------------
@@ -366,13 +408,16 @@ class TestLoadLayer:
         assert fd2 == fixture_dir
         assert slug2 == "huntingDistricts"
 
-        # --- build_source_citation called correctly ---
-        assert len(build_citation_calls) == 1
+        # --- build_source_citation called per-feature with correct args ---
+        # Per the per-feature citation contract (epic E02:175-188), the helper is
+        # called once per ingested feature, not once per layer. The sample feature
+        # has REGYEAR=2026 which equals fetch_year, so license_year=2026 either way.
+        assert len(build_citation_calls) == len(canned_features)
         call_kwargs = build_citation_calls[0]
         assert call_kwargs["service_url"] == SERVICE_URL
         assert call_kwargs["layer_id"] == deer_elk_lion_config.layer_id
         assert call_kwargs["metadata"] is sample_metadata
-        assert call_kwargs["license_year"] == fetch_year
+        assert call_kwargs["license_year"] == 2026
         assert call_kwargs["state_slug"] == "mt-fwp"
         assert call_kwargs["agency"] == "Montana Fish, Wildlife & Parks"
 

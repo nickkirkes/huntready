@@ -32,7 +32,7 @@ import requests
 
 from ingestion.lib import arcgis, db
 from ingestion.lib.arcgis import ArcGISError, LayerMetadata
-from ingestion.lib.schema import Geometry, SourceCitation
+from ingestion.lib.schema import Geometry
 
 
 MT_FWP_HUNTING_DISTRICTS_URL = "https://fwp-gis.mt.gov/arcgis/rest/services/admbnd/huntingDistricts/MapServer"
@@ -94,18 +94,33 @@ def _feature_to_geometry(
     feature: dict[str, Any],
     layer_config: HDLayerConfig,
     layer_metadata: LayerMetadata,
-    citation: SourceCitation,
+    service_url: str,
+    fetch_year: int,
 ) -> Geometry:
     props = feature["properties"]
     district = _extract_district(props, layer_metadata)
     geometry_wkt = arcgis.geojson_to_multipolygon_wkt(feature)
+    license_year = _extract_license_year(props)
+    # Citation license_year prefers per-feature REGYEAR ("which annual cycle is
+    # this evidence from"); falls back to fetch_year only when source data
+    # carries no REGYEAR. Geometry.license_year stays REGYEAR-or-NULL because
+    # NULL is meaningful for year-invariant geometries (separate field, separate
+    # contract). Per epic E02-geometry-ingestion.md:175-188.
+    citation = arcgis.build_source_citation(
+        service_url=service_url,
+        layer_id=layer_config.layer_id,
+        metadata=layer_metadata,
+        license_year=license_year if license_year is not None else fetch_year,
+        state_slug=MT_STATE_SLUG,
+        agency=MT_AGENCY,
+    )
     return Geometry(
         id=f"{layer_config.id_prefix}-{district}-geom",
         name=f"{layer_config.species_display} HD {district}",
         kind="hunting_district",
         geom=geometry_wkt,
         state=MT_STATE_CODE,
-        license_year=_extract_license_year(props),
+        license_year=license_year,
         verbatim_rule=_extract_verbatim_rule(props),
         source=citation,
     )
@@ -123,9 +138,6 @@ def _load_layer(
     """Fetch metadata + features for one HD layer, normalize, and UPSERT.
 
     Returns the list of Geometry instances written (for caller-side spot-checking).
-
-    # citation.license_year is always fetch_year (which annual cycle this evidence
-    # belongs to); Geometry.license_year is per-row REGYEAR-or-NULL.
     """
     metadata = arcgis.fetch_layer_metadata(
         service_url,
@@ -142,15 +154,10 @@ def _load_layer(
         layer_slug=MT_LAYER_SLUG,
         session=session,
     )
-    citation = arcgis.build_source_citation(
-        service_url=service_url,
-        layer_id=layer_config.layer_id,
-        metadata=metadata,
-        license_year=fetch_year,
-        state_slug=MT_STATE_SLUG,
-        agency=MT_AGENCY,
-    )
-    geoms = [_feature_to_geometry(f, layer_config, metadata, citation) for f in features]
+    geoms = [
+        _feature_to_geometry(f, layer_config, metadata, service_url, fetch_year)
+        for f in features
+    ]
     db.upsert_geometries(conn, geoms)
     return geoms
 
