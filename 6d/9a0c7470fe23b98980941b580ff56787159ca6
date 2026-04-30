@@ -1,0 +1,45 @@
+ingestion/states/montana/fixtures/huntingDistricts-3-metadata-20260430T171509Z.json
+  d5c8fbf5e97c2802 1-298
+ingestion/states/montana/README.md
+  d5c8fbf5e97c2802 1-118
+ingestion/tests/test_arcgis.py
+  d5c8fbf5e97c2802 84-88,103-132,717-758
+ingestion/tests/test_db.py
+  d5c8fbf5e97c2802 1-186
+ingestion/ingestion/lib/db.py
+  d5c8fbf5e97c2802 1-116
+ingestion/states/montana/fixtures/huntingDistricts-11-metadata-20260430T171533Z.json
+  d5c8fbf5e97c2802 1-305
+docs/plans/S02.2-hunting-district-ingestion-plan.md
+  d5c8fbf5e97c2802 1-232
+ingestion/states/montana/fixtures/.gitignore
+  d5c8fbf5e97c2802 1-11
+ingestion/tests/test_load_hds.py
+  d5c8fbf5e97c2802 1-390
+ingestion/states/montana/fixtures/huntingDistricts-10-metadata-20260430T171524Z.json
+  d5c8fbf5e97c2802 1-298
+ingestion/ingestion/lib/arcgis.py
+  d5c8fbf5e97c2802 317-324,327-331,333-335,352-377,961-991,995
+ingestion/states/montana/load_hds.py
+  d5c8fbf5e97c2802 1-184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6d9a0c7470fe23b98980941b580ff56787159ca6",
+  "prompts": {
+    "d5c8fbf5e97c2802": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1457736f-8c8c-4d4f-a944-459844b3796f",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 10488,
+      "total_deletions": 85,
+      "accepted_lines": 3540,
+      "overriden_lines": 0
+    }
+  }
+}
