@@ -635,15 +635,15 @@ class TestLoadLayer:
         assert mock_metadata_fn.call_args.kwargs["layer_slug"] == "huntingDistricts"
         assert mock_features_fn.call_args.kwargs["layer_slug"] == "huntingDistricts"
 
-    def test_logs_warning_on_zero_features(
+    def test_raises_on_zero_features(
         self,
         monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path,
         sample_metadata: LayerMetadata,
         elk_config: PortionLayerConfig,
-        caplog: pytest.LogCaptureFixture,
     ) -> None:
-        # Empty layer is not an expected outcome — must surface in the run log.
+        # Zero features is not an expected outcome for any V1 portion layer.
+        # Loader must fail loud (ArcGISError) rather than write an empty load.
         monkeypatch.setattr(
             load_portions_module.arcgis, "fetch_layer_metadata", lambda *a, **k: sample_metadata,
         )
@@ -654,15 +654,8 @@ class TestLoadLayer:
         monkeypatch.setattr(load_portions_module.db, "upsert_geometries", mock_upsert)
 
         conn = MagicMock()
-        with caplog.at_level("WARNING", logger="states.montana.load_portions"):
-            result = _load_layer(conn, SERVICE_URL, elk_config, tmp_path, 2026)
+        with pytest.raises(ArcGISError, match="returned zero features"):
+            _load_layer(conn, SERVICE_URL, elk_config, tmp_path, 2026)
 
-        assert result == []
-        assert any(
-            "zero features" in r.message and r.levelname == "WARNING"
-            for r in caplog.records
-        )
-        # Empty list is still passed to upsert; the empty-call is harmless and
-        # keeps the call-site invariant simple.
-        mock_upsert.assert_called_once()
-        assert mock_upsert.call_args[0][1] == []
+        # No DB write attempted on the empty-layer path.
+        mock_upsert.assert_not_called()

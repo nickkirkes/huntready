@@ -262,15 +262,17 @@ def _load_layer(
         session=session,
     )
     if not features:
-        # Zero features is not an expected outcome for any V1 portion layer.
-        # Most likely cause: server-side filter, projection mismatch, or wrong
-        # OID field — surface loudly rather than silently writing nothing.
-        logger.warning(
-            "layer %d (%s) returned zero features; skipping upsert",
-            layer_config.layer_id, layer_config.species_slug,
+        # Zero features is not an expected outcome for any V1 portion layer
+        # (live load 2026-04-30 confirmed 4/11/13/27 features for #4/#12/#13/#14).
+        # Most likely cause: server-side filter, projection mismatch, wrong OID
+        # field, or upstream layer renumbering. Fail loud rather than write
+        # nothing and have the operator miss it among INFO log noise.
+        msg = (
+            f"layer {layer_config.layer_id} ({layer_config.species_slug}) "
+            f"returned zero features; refusing to record an empty load. "
+            f"Investigate server response, projection guard, or OID resolution."
         )
-        db.upsert_geometries(conn, [])
-        return []
+        raise ArcGISError(msg)
 
     # Try SHAPECODE first.
     try:
