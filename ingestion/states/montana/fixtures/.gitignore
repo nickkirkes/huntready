@@ -1,0 +1,11 @@
+# Raw feature collections — committing these would add ~180MB per run to git
+# (51 + 38 + 90 MB across MT FWP layers #3, #10, #11). The S02.1 spec at
+# docs/planning/epics/E02-geometry-ingestion.md (line 134-138) calls for
+# committing both metadata + features fixtures, but assumed "small". Real MT
+# data exceeds the assumption by ~3 orders of magnitude.
+#
+# Until a fixture-storage policy is decided (e.g. git-lfs, object-store
+# upload + manifest, or sampling), keep features fixtures local-only.
+# Metadata files (~7KB each) ARE committed for drift detection on field
+# names, OID columns, and spatialReference.
+*-features-*.geojson

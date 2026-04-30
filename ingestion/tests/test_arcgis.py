@@ -81,7 +81,11 @@ class TestGeojsonToMultipolygonWkt:
         parsed = from_wkt(wkt)
         assert len(parsed.geoms) == 2
 
-    def test_geometry_collection_raises_with_objectid(self) -> None:
+    def test_geometry_collection_recovers_when_polygon_area_preserved(
+        self, caplog
+    ) -> None:
+        # A GC with a Polygon + a zero-area Point is a topological artifact, not
+        # data loss. Polygonal parts preserve area → recover with WARNING.
         feature = {
             "type": "Feature",
             "properties": {"OBJECTID": 99, "DISTRICT": "BAD"},
@@ -96,7 +100,36 @@ class TestGeojsonToMultipolygonWkt:
                 ],
             },
         }
-        with pytest.raises(ArcGISError, match=r"OBJECTID=99"):
+        with caplog.at_level("WARNING", logger="ingestion.lib.arcgis"):
+            wkt = geojson_to_multipolygon_wkt(feature)
+        assert wkt.startswith("MULTIPOLYGON")
+        assert any(
+            "OBJECTID=99" in r.getMessage() and "non-polygonal artifacts" in r.getMessage()
+            for r in caplog.records
+        )
+
+    def test_geometry_collection_raises_when_area_not_preserved(self) -> None:
+        # Two overlapping polygons in a GC: parsed.area = sum (counts overlap
+        # twice); unary_union.area = single coverage (counts overlap once).
+        # Areas don't match → raise (genuine data loss).
+        feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 12, "DISTRICT": "OVL"},
+            "geometry": {
+                "type": "GeometryCollection",
+                "geometries": [
+                    {
+                        "type": "Polygon",
+                        "coordinates": [[[-111.0, 46.0], [-109.0, 46.0], [-109.0, 48.0], [-111.0, 48.0], [-111.0, 46.0]]],
+                    },
+                    {
+                        "type": "Polygon",
+                        "coordinates": [[[-110.0, 47.0], [-108.0, 47.0], [-108.0, 49.0], [-110.0, 49.0], [-110.0, 47.0]]],
+                    },
+                ],
+            },
+        }
+        with pytest.raises(ArcGISError, match=r"OBJECTID=12.*do not preserve area"):
             geojson_to_multipolygon_wkt(feature)
 
     def test_empty_polygon_raises_with_objectid(self) -> None:
@@ -680,6 +713,48 @@ class TestFetchLayerMetadata:
             timestamp="20260101T000000Z",
         )
         assert meta.spatial_reference_wkid is None
+
+    def test_falls_back_to_fields_oid_when_top_level_missing(
+        self, monkeypatch, tmp_fixture_dir, sample_layer_descriptor
+    ) -> None:
+        # Real-world: MT FWP's huntingDistricts MapServer omits the top-level
+        # objectIdField but the OID column is present in fields[].
+        descriptor = dict(sample_layer_descriptor)
+        descriptor.pop("objectIdField", None)
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: descriptor,
+        )
+        meta = fetch_layer_metadata(
+            "https://example.com/svc/MapServer",
+            1,
+            tmp_fixture_dir,
+            layer_slug="svc",
+            timestamp="20260101T000000Z",
+        )
+        assert meta.object_id_field == "OBJECTID"
+
+    def test_raises_when_no_oid_anywhere(
+        self, monkeypatch, tmp_fixture_dir, sample_layer_descriptor
+    ) -> None:
+        descriptor = dict(sample_layer_descriptor)
+        descriptor.pop("objectIdField", None)
+        descriptor["fields"] = [
+            {"name": "DISTRICT", "type": "esriFieldTypeString"},
+            {"name": "REG", "type": "esriFieldTypeString"},
+        ]
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: descriptor,
+        )
+        with pytest.raises(ArcGISError, match=r"missing 'objectIdField'"):
+            fetch_layer_metadata(
+                "https://example.com/svc/MapServer",
+                1,
+                tmp_fixture_dir,
+                layer_slug="svc",
+                timestamp="20260101T000000Z",
+            )
 
 
 # ---------------------------------------------------------------------------
