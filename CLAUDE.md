@@ -70,6 +70,21 @@ cd web && npm install && npm run dev
 supabase db push                  # Apply migrations to Supabase
 ```
 
+## Verification commands
+
+Used by `/ruckus:verify-all` and the Stop hook. Run from the repo root.
+
+```bash
+# Python ingestion — lint, type, test
+cd ingestion && .venv/bin/ruff check ingestion/ tests/
+cd ingestion && .venv/bin/mypy ingestion/lib/
+cd ingestion && .venv/bin/pytest tests/
+
+# TypeScript serving (when files exist; mcp-server and web both currently empty)
+cd mcp-server && npx tsc --noEmit
+cd web && npx tsc --noEmit
+```
+
 ## Data model (6 entities)
 
 - **`regulation_record`** — anchor entity, keyed by (state, jurisdiction_code, species_group, license_year)
@@ -138,3 +153,4 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
 - `SUPABASE_PUBLISHABLE_KEY` — publishable key (web app, scoped by RLS)
 - `DATABASE_URL` — direct Postgres connection string (ingestion pipeline + migrations only; not used by serving stack per ADR-003)
 - `MAPBOX_ACCESS_TOKEN` — Mapbox GL JS access token (web map)
+- `HUNTREADY_INGESTION_CONTACT` — *recommended for ingestion runs.* Email or URL appended to the ArcGIS HTTP `User-Agent` as `(contact: <value>)`. Gives upstream data providers (state F&W agencies) a way to reach the operator if a fetch behaves unexpectedly. Empty/unset → User-Agent omits the contact suffix. Kept in env (not source) so the contact can change without a code edit.
