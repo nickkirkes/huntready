@@ -280,7 +280,7 @@ Layers to ingest (all `kind = 'hunting_district'`):
 - [x] `license_year` matches the source's `REGYEAR` field for each row — `Geometry.license_year` is REGYEAR-or-NULL; `SourceCitation.license_year` falls back to `fetch_year` when REGYEAR is absent (so the citation always has an annual cycle, while the geometry can stay year-invariant). Per-feature enforcement in commit `e78a1c4`.
 - [x] `verbatim_rule` populated from `REG` field for #11; NULL where source field is absent (`_extract_verbatim_rule` in `load_hds.py`)
 - [x] UPSERT semantics confirmed: re-running the load produces identical state (same row count, no duplicates) — `ingestion/ingestion/lib/db.py::upsert_geometries` plus 186 lines of `tests/test_db.py`
-- [x] Layer metadata fixtures committed for #3, #10, #11 at `ingestion/states/montana/fixtures/huntingDistricts-{3,10,11}-metadata-*.json` (and feature fixtures for the same)
+- [x] Layer metadata fixtures committed for #3, #10, #11 at `ingestion/states/montana/fixtures/huntingDistricts-{3,10,11}-metadata-*.json` (~7KB each). Feature fixtures (`*-features-*.geojson`) are local-only — gitignored due to ~180MB-per-run size; see "Known issues to escalate" item 6.
 
 ---
 
@@ -315,14 +315,14 @@ Layers to ingest (all `kind = 'portion'`):
 
 **Acceptance Criteria:**
 
-- [ ] All four layers (#4, #12, #13, #14) ingest without errors
-- [ ] Every row's `kind = 'portion'`
-- [ ] `id` collision-free within each layer; species-prefixed
-- [ ] All geometries are MultiPolygon, valid, in WGS84
-- [ ] `verbatim_rule` populated from `REG` for #14; NULL where absent
-- [ ] `source.document_type = 'gis_layer'`
-- [ ] UPSERT semantics confirmed
-- [ ] Layer metadata fixtures committed for #4, #12, #13, #14
+- [x] All four layers (#4, #12, #13, #14) ingest without errors — 4 + 11 + 13 + 27 = 55 portions loaded 2026-04-30
+- [x] Every row's `kind = 'portion'`
+- [x] `id` collision-free within each layer; species-prefixed (`MT-HD-antelope-`, `MT-HD-mule-deer-`, `MT-HD-whitetail-`, `MT-HD-elk-`). Layer-wide slug strategy (SHAPECODE preferred, slugified PORTIONNAME fallback) handles real SHAPECODE collisions in layer #12 (commit `ed2a05c`); pre-upsert collision check fails loud listing up to 5 duplicates.
+- [x] All geometries are MultiPolygon, valid, in WGS84 (via `arcgis.geojson_to_multipolygon_wkt` + `make_valid`)
+- [x] `verbatim_rule` populated from `REG` for #14; NULL where absent (`_extract_verbatim_rule` mirrors S02.2's `load_hds.py` pattern)
+- [x] `source.document_type = 'gis_layer'` (per-feature `SourceCitation` construction with REGYEAR-derived `publication_date`)
+- [x] UPSERT semantics confirmed via shared `ingestion/ingestion/lib/db.py::upsert_geometries` plus 661 lines of `tests/test_load_portions.py`
+- [x] Layer metadata fixtures committed for #4, #12, #13, #14 at `ingestion/states/montana/fixtures/huntingDistricts-{4,12,13,14}-metadata-*.json` (~7KB each). Feature fixtures (`*-features-*.geojson`) are local-only — gitignored at `ingestion/states/montana/fixtures/.gitignore` because real MT data is ~180MB per run, ~3 orders of magnitude over the original "small fixtures" assumption in S02.1's spec. See "Known issues to escalate" item 6.
 
 ---
 
@@ -674,6 +674,8 @@ These were considered during E02 planning and explicitly deferred:
 4. **Layer metadata field-name verification.** Research only enumerated fields for layers #2, #11, #14. Layers #3, #4, #10, #12, #13, #15 have unverified field names. S02.1's metadata fixture capture handles this defensively, but it is a real surface area for surprises.
 
 5. **PostGIS operator semantics on `geography` type.** The S02.6 query patterns rely on `ST_Covers(geog, geog)` and `ST_Intersects(geog, geog)` using the `geometry_geom_gix` GiST index. PostgreSQL's planner choices on small datasets can vary, and `ST_Contains(geography, geography)` exists but with partial/surprising semantics. Before locking the S02.6 query patterns, run `EXPLAIN ANALYZE` against actual loaded data and verify the planner does not force a cast or full sequential scan that loses index reachability. If the planner refuses the index, escalate before downstream stories assume the pattern is performant.
+
+6. **Feature-fixture commit policy deviates from S02.1 spec.** S02.1's spec line 134 says "Source fixture capture (metadata + features) committed; no symlinks or hash-suffixed latest files" under the assumption that fixtures would be small. Real MT FWP feature payloads are ~180MB per run (51 + 38 + 90 MB across layers #3, #10, #11; portions add tens of MB more). S02.2 surfaced this and added `ingestion/states/montana/fixtures/.gitignore` excluding `*-features-*.geojson` while keeping metadata files committed (~7KB each, sufficient for field-name and OID-column drift detection). **Decision needed before E02 closes:** adopt one of git-lfs, object-store + manifest, or sampling for feature-fixture preservation. Until then, drift detection on actual feature data depends on local fixture corpora that are not shared. The metadata-only commit pattern is documented in the gitignore.
 
 ---
 
