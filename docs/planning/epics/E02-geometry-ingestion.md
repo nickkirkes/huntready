@@ -1,6 +1,6 @@
 # E02: Montana Geometry Ingestion
 
-**Status:** In Progress (S02.0 complete; S02.1 next)
+**Status:** In Progress (S02.0, S02.1 complete; S02.2 next)
 **Milestone:** M1 — Montana Ingestion
 **Dependencies:** E01 (complete, merged 2026-04-28)
 **Validated:** 2026-04-28
@@ -85,6 +85,8 @@ Two schema gaps surfaced during E02 validation:
 ---
 
 ### S02.1: ArcGIS fetch infrastructure (shared library)
+
+**Status:** Complete (PR review passed 2026-04-29)
 
 **As a** developer ingesting MT FWP MapServer layers
 **I want** a robust shared `arcgis` library handling pagination, source-fixture capture, and idempotent re-fetch
@@ -195,27 +197,29 @@ The `build_source_citation` helper enforces this contract at the type level (`li
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/ingestion/lib/arcgis.py` exists with documented public API
-- [ ] `pyproj` declared as a direct dependency in `ingestion/pyproject.toml`
-- [ ] Layer metadata fetcher captures `<service>-<layer>-metadata-<timestamp>.json` fixtures
-- [ ] Paginated feature fetcher uses `orderByFields`, `exceededTransferLimit`, layer-discovered `maxRecordCount`
-- [ ] `outFields` populated explicitly from layer metadata (not `*`)
-- [ ] Coordinate-range sanity check (Montana bounds) hard-fails on Web Mercator coordinates returned with EPSG:4326 header
-- [ ] Per-feature canonical hash used for change-detection logging only (no layer-level skip-re-fetch optimization)
-- [ ] Library docstring documents shapely-version sensitivity of `geometry_wkt`-based hashes
-- [ ] Source fixture capture (metadata + features) committed; no symlinks or hash-suffixed latest files
-- [ ] ArcGIS error envelope handling with retry policy
-- [ ] Throttling at ≤1 req/500ms with custom User-Agent
-- [ ] `geojson_to_multipolygon_wkt(feature)` helper raises loudly on `GeometryCollection` (with OBJECTID + attributes in the message); type-prunes `Polygon`/`MultiPolygon`; runs `shapely.make_valid` first
-- [ ] `SourceCitation.publication_date = f"{license_year:04d}-01-01"` per ADR-014 (NOT derived from `editingInfo.lastEditDate`)
-- [ ] `LayerMetadata` exposes `spatial_reference_wkid` (parsed from `extent.spatialReference.latestWkid` then `wkid`); `_check_and_fix_projection` accepts it and warns when accepting in-range coords from a non-4326-native layer
-- [ ] Mixed-CRS batches (some features in WGS84 range, others not) raise `ArcGISError` rather than reprojecting the in-range features
-- [ ] All-out-of-range batches must additionally fit ±20037508 m (EPSG:3857 valid extent) before reprojection; raise otherwise
-- [ ] Helper for `SourceCitation` construction with `document_type='gis_layer'`
-- [ ] `where` clause uses `metadata.object_id_field` (not hardcoded `OBJECTID`) so layers with non-default OID columns work
-- [ ] `ruff check ingestion/`, `mypy ingestion/ingestion/lib/arcgis.py` pass
-- [ ] Unit tests cover: pagination boundary (N×maxRecordCount), mid-page boundary, error envelope, reprojection fallback, mixed-batch refusal, EPSG:3857 bounds pre-check, declared-CRS warning, type-prune, GeometryCollection-raises, publication_date is Jan 1 of license_year (not lastEditDate)
-- [ ] No imports from state adapters; no Montana-specific code
+- [x] `ingestion/ingestion/lib/arcgis.py` exists with documented public API
+- [x] `pyproj` declared as a direct dependency in `ingestion/pyproject.toml`
+- [x] Layer metadata fetcher captures `<service>-<layer>-metadata-<timestamp>.json` fixtures
+- [x] Paginated feature fetcher uses `orderByFields`, `exceededTransferLimit`, layer-discovered `maxRecordCount`
+- [x] `outFields` populated explicitly from layer metadata (not `*`)
+- [x] Coordinate-range sanity check (Montana bounds) hard-fails on Web Mercator coordinates returned with EPSG:4326 header
+- [x] Per-feature canonical hash used for change-detection logging only (no layer-level skip-re-fetch optimization)
+- [x] Library docstring documents shapely-version sensitivity of `geometry_wkt`-based hashes
+- [x] Source fixture capture (metadata + features) committed; no symlinks or hash-suffixed latest files (write path implemented; first fixtures land in S02.2 when live MT FWP fetches run)
+- [x] ArcGIS error envelope handling with retry policy (transient codes 500/504/504001 retry; permanent ArcGIS codes raise immediately; HTTP 408/429 transient with Retry-After honored up to 30s)
+- [x] Throttling at ≤1 req/500ms with custom User-Agent (operator-configurable contact via `HUNTREADY_INGESTION_CONTACT` env var; no PII baked into source)
+- [x] `geojson_to_multipolygon_wkt(feature)` helper raises loudly on `GeometryCollection` (with OBJECTID + attributes in the message); type-prunes `Polygon`/`MultiPolygon`; runs `shapely.make_valid` first
+- [x] `SourceCitation.publication_date = f"{license_year:04d}-01-01"` per ADR-014 (NOT derived from `editingInfo.lastEditDate`)
+- [x] `LayerMetadata` exposes `spatial_reference_wkid` (parsed from `extent.spatialReference.latestWkid` then `wkid`); `_check_and_fix_projection` accepts it and warns when accepting in-range coords from a non-4326-native layer
+- [x] Mixed-CRS batches (some features in WGS84 range, others not) raise `ArcGISError` rather than reprojecting the in-range features
+- [x] All-out-of-range batches must additionally fit ±20037508 m (EPSG:3857 valid extent) before reprojection; raise otherwise
+- [x] Helper for `SourceCitation` construction with `document_type='gis_layer'`
+- [x] `where` clause uses `metadata.object_id_field` (not hardcoded `OBJECTID`) so layers with non-default OID columns work
+- [x] Pagination terminates on any empty page regardless of `exceededTransferLimit`; absolute iteration cap as belt-and-suspenders against pathological server responses
+- [x] Geometry shape guard validates `coordinates` is a list before downstream access (raises `ArcGISError` with OID instead of bare `KeyError`/`TypeError`)
+- [x] `ruff check ingestion/`, `mypy ingestion/ingestion/lib/arcgis.py` pass
+- [x] Unit tests cover: pagination boundary (N×maxRecordCount), mid-page boundary, empty-page-with-exceeded-true, iteration cap, error envelope, HTTP 408/429 with Retry-After, reprojection fallback, mixed-batch refusal, EPSG:3857 bounds pre-check, declared-CRS warning, type-prune, GeometryCollection-raises, missing/null/non-list coordinates, publication_date is Jan 1 of license_year (not lastEditDate), User-Agent has no PII when env unset
+- [x] No imports from state adapters; no Montana-specific code
 
 ---
 
