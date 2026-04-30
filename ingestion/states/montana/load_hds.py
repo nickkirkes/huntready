@@ -165,9 +165,8 @@ def main(argv: list[str] | None = None) -> int:
     logger = logging.getLogger(__name__)
 
     MT_FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
-    session = arcgis._build_session()
 
-    with db.connect() as conn:
+    with arcgis._build_session() as session, db.connect() as conn:
         for layer_config in HD_LAYERS:
             logger.info("loading layer %d (%s)", layer_config.layer_id, layer_config.species_slug)
             geoms = _load_layer(
