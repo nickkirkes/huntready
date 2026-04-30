@@ -1,0 +1,27 @@
+ingestion/tests/test_load_hds.py
+  d5c8fbf5e97c2802 176-178,189-190,199-202,213-214,227-229,242,257,260,266-302,411-415,420
+docs/plans/S02.2-hunting-district-ingestion-plan.md
+  d5c8fbf5e97c2802 101,106,110
+ingestion/states/montana/load_hds.py
+  d5c8fbf5e97c2802 35,97-98,103-116,123,157-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e78a1c4864a41f7e25096be121aad2243af21f33",
+  "prompts": {
+    "d5c8fbf5e97c2802": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1457736f-8c8c-4d4f-a944-459844b3796f",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 2080,
+      "total_deletions": 36,
+      "accepted_lines": 1336,
+      "overriden_lines": 0
+    }
+  }
+}
