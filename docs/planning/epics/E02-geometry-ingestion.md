@@ -580,7 +580,7 @@ A Portion or Restricted Area that doesn't overlap any HD is a data-quality flag 
 
 **Context:**
 
-This is the final E02 story. No new geometries written; no new schema. Verifies what's been built.
+This is the final E02 story. No new geometries written; no new schema. Verifies what's been built — plus one small shared-library extension (feature-fixture manifest, see step 7) that resolves known-issues item 6.
 
 **Verification steps:**
 
@@ -596,6 +596,15 @@ This is the final E02 story. No new geometries written; no new schema. Verifies 
 
 6. **Fixture file:** `ingestion/states/montana/fixtures/spatial-test-points.json` lists ≥1 named test point per `kind` value present in `geometry` (HD, Portion, Restricted Area, CWD zone if any). Each entry: `{name, lat, lng, expected_kind, expected_id_pattern, expected_role_for_e03}`. CI/UAT loops this fixture rather than hardcoding lat/lng in test code.
 
+7. **Feature-fixture manifest (resolves known-issues item 6):** Extend `arcgis.fetch_features` to write a small JSON manifest alongside the (gitignored) `*-features-*.geojson` payload. Manifest path: `<service>-<layer>-manifest-<timestamp>.json` in the same fixtures directory. Required content per manifest:
+   - `features_count` — number of features in the fetch
+   - `layer_hash` — hash over the sorted per-feature canonical hashes (same hash function as `compute_feature_hash`)
+   - `hash_distribution` — histogram of per-feature hashes by first 2 hex chars (256 buckets) for cheap drift signaling without per-feature detail
+   - `fetched_at` — ISO timestamp of the fetch run
+   - `source_url` — service URL + layer ID used
+   - `source_layer_max_record_count` and `source_layer_object_id_field` — copied from the metadata fixture for cross-checking
+   Manifests are tiny (~5KB each) and committed to git. Update `ingestion/states/montana/fixtures/.gitignore` to permit `*-manifest-*.json` while still excluding `*-features-*.geojson`. Re-fetch against unchanged source produces an identical manifest (modulo `fetched_at`); a manifest delta against the prior committed version is the cross-operator drift-detection signal that the metadata fixture alone can't catch (feature counts, geometry shape changes, attribute value drift). This is a ~30-line extension to `ingestion/ingestion/lib/arcgis.py` plus tests; not a new story.
+
 **Reproducibility documentation:** Update or add to `docs/runbooks/E02-geometry-verification.md` (parallel to E01's runbook). Include a runbook note: *the wipe + re-ingest pattern works in E02 standalone because nothing yet FK-references `geometry`. Once E03 lands and `jurisdiction_binding` rows reference `geometry.id`, the wipe step will require coordinated handling (DELETE CASCADE or sequenced delete from `jurisdiction_binding` first). This pattern is E02-only.*
 
 **Relevant ADRs:** [ADR-004](../../adrs/ADR-004-supabase-postgres-postgis.md).
@@ -610,8 +619,10 @@ This is the final E02 story. No new geometries written; no new schema. Verifies 
 - [ ] **Named multi-part HD** (the same one identified in S02.2's AC) returns `ST_NumGeometries(geom::geometry) > 1`
 - [ ] EXPLAIN ANALYZE plan documented in the runbook for both a point-in-polygon query and an overlay-detection query; predicate is index-eligible (Seq Scan on small dataset is acceptable if documented)
 - [ ] Re-running ingestion is reproducible: row count, id set, and `ST_Equals(reloaded.geom, prior.geom) = true` for every id (NOT byte-equality; `ST_Equals` or `md5(ST_AsBinary(ST_Normalize(geom)))` is the right test)
-- [ ] `docs/runbooks/E02-geometry-verification.md` exists, includes the wipe-and-re-ingest pattern note (E02-only; once E03 lands, this requires coordinated delete from `jurisdiction_binding` first)
-- [ ] No new schema, migration, or shared-library changes — this story only verifies and documents
+- [ ] `arcgis.fetch_features` writes a `<service>-<layer>-manifest-<timestamp>.json` manifest alongside the gitignored features payload (fields: `features_count`, `layer_hash`, `hash_distribution`, `fetched_at`, `source_url`, `source_layer_max_record_count`, `source_layer_object_id_field`). Re-fetch against unchanged source produces an identical manifest modulo `fetched_at`. Unit tests cover manifest shape, hash determinism, and re-fetch invariance.
+- [ ] `ingestion/states/montana/fixtures/.gitignore` updated to permit `*-manifest-*.json` while still excluding `*-features-*.geojson`. Manifests committed for every layer ingested in S02.2-S02.5.
+- [ ] `docs/runbooks/E02-geometry-verification.md` exists, includes the wipe-and-re-ingest pattern note (E02-only; once E03 lands, this requires coordinated delete from `jurisdiction_binding` first), AND documents the manifest-diff workflow as the drift-detection check (`git diff` on `*-manifest-*.json` is the smoke test before any re-ingest)
+- [ ] No new schema or migration changes — this story extends `ingestion/ingestion/lib/arcgis.py` (~30 lines for the manifest writer) but writes no new geometry rows
 
 ---
 
@@ -623,7 +634,7 @@ This is the final E02 story. No new geometries written; no new schema. Verifies 
 - [ ] All geometries are `geography(MultiPolygon, 4326)`; multi-part HDs preserved
 - [ ] `geometry-overlays.json` fixture covers every loaded geometry; ready for E03 to consume
 - [ ] Schema additions (S02.0): `verbatim_rule` on geometry; `gis_layer` document_type — applied with ADRs
-- [ ] Source fixtures (metadata + features) committed for every ingested layer
+- [ ] Source fixtures committed for every ingested layer: layer metadata (~7KB each) AND per-fetch manifest (~5KB each, added in S02.7). Raw `*-features-*.geojson` payloads remain local-only — gitignored due to ~180MB-per-run size; cross-operator drift detection uses the manifest, not the raw features (see S02.7 step 7).
 - [ ] Spatial queries (`ST_Covers`) against known coordinates return correct HD assignments
 - [ ] Re-running ingestion is idempotent (UPSERT semantics)
 - [ ] Pre-commit hooks (E01) running cleanly throughout
@@ -675,7 +686,7 @@ These were considered during E02 planning and explicitly deferred:
 
 5. **PostGIS operator semantics on `geography` type.** The S02.6 query patterns rely on `ST_Covers(geog, geog)` and `ST_Intersects(geog, geog)` using the `geometry_geom_gix` GiST index. PostgreSQL's planner choices on small datasets can vary, and `ST_Contains(geography, geography)` exists but with partial/surprising semantics. Before locking the S02.6 query patterns, run `EXPLAIN ANALYZE` against actual loaded data and verify the planner does not force a cast or full sequential scan that loses index reachability. If the planner refuses the index, escalate before downstream stories assume the pattern is performant.
 
-6. **Feature-fixture commit policy deviates from S02.1 spec.** S02.1's spec line 134 says "Source fixture capture (metadata + features) committed; no symlinks or hash-suffixed latest files" under the assumption that fixtures would be small. Real MT FWP feature payloads are ~180MB per run (51 + 38 + 90 MB across layers #3, #10, #11; portions add tens of MB more). S02.2 surfaced this and added `ingestion/states/montana/fixtures/.gitignore` excluding `*-features-*.geojson` while keeping metadata files committed (~7KB each, sufficient for field-name and OID-column drift detection). **Decision needed before E02 closes:** adopt one of git-lfs, object-store + manifest, or sampling for feature-fixture preservation. Until then, drift detection on actual feature data depends on local fixture corpora that are not shared. The metadata-only commit pattern is documented in the gitignore.
+6. ~~**Feature-fixture commit policy deviates from S02.1 spec.**~~ **Resolved by folding a checksum-manifest writer into S02.7 (see step 7 + AC).** Raw `*-features-*.geojson` payloads (~180MB per run) stay local-only; manifests (~5KB each, containing `features_count` / `layer_hash` / `hash_distribution`) are committed and provide cross-operator drift detection on counts, geometry shapes, and attribute values that metadata fixtures alone can't catch. The richer git-lfs / object-store options remain available for V2 if manifest-level detection proves insufficient — that decision can be made empirically once the manifest corpus has run for a milestone.
 
 ---
 
