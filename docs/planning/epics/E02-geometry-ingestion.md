@@ -268,19 +268,19 @@ Layers to ingest (all `kind = 'hunting_district'`):
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/montana/load_hds.py` (or equivalent) exists
-- [ ] State-adapter import path works and is documented (`from ingestion.lib.arcgis import ...` or settled equivalent)
-- [ ] All three layers (#3, #10, #11) ingest without errors
-- [ ] Every row's `kind = 'hunting_district'` (none `'bmu'`)
-- [ ] `id` follows the species-prefixed pattern; no collisions between layers
-- [ ] `geom` is `geography(MultiPolygon, 4326)` — verify by `SELECT ST_GeometryType(geom::geometry) FROM geometry WHERE kind='hunting_district'` returns only `ST_MultiPolygon`
-- [ ] **Named multi-part HD verification:** identify a specific Montana HD known to be multi-part (e.g., a district along the Idaho or Wyoming state line; the metadata fixture's pre-load `ST_NumGeometries` count gives candidates) and assert that *that named HD* has `ST_NumGeometries(geom::geometry) > 1` post-load. Document the chosen HD in the story output.
-- [ ] All rows pass `ST_IsValid(geom::geometry)` post-insert
-- [ ] `source` is a populated `SourceCitation` with `document_type='gis_layer'`
-- [ ] `license_year` matches the source's `REGYEAR` field for each row — for the 2026 fetch, layer #11 rows have `license_year=2026`; rows with no source `REGYEAR` (likely #3, #10 — verify from metadata fixture) have `license_year=NULL` (NOT hardcoded to 2026; the schema accepts NULL for year-invariant geometries)
-- [ ] `verbatim_rule` populated from `REG` field for #11; NULL where source field is absent
-- [ ] UPSERT semantics confirmed: re-running the load produces identical state (same row count, no duplicates)
-- [ ] Pre-S02.0 + S02.1 metadata fixtures committed for #3, #10, #11
+- [x] `ingestion/states/montana/load_hds.py` (or equivalent) exists
+- [x] State-adapter import path works and is documented (`from ingestion.lib.arcgis import ...` or settled equivalent) — see [`ingestion/states/montana/README.md`](../../../ingestion/states/montana/README.md)
+- [x] All three layers (#3, #10, #11) ingest without errors — 61 + 35 + 139 = 235 HDs loaded 2026-04-30
+- [x] Every row's `kind = 'hunting_district'` (none `'bmu'`)
+- [x] `id` follows the species-prefixed pattern; no collisions between layers (`MT-HD-antelope-`, `MT-HD-bear-`, `MT-HD-deer-elk-lion-`)
+- [x] `geom` is `geography(MultiPolygon, 4326)` — verify by `SELECT ST_GeometryType(geom::geometry) FROM geometry WHERE kind='hunting_district'` returns only `ST_MultiPolygon`
+- [x] **Named multi-part HD verification:** **`MT-HD-deer-elk-lion-690-geom` with `ST_NumGeometries = 12`** is the canonical assertion target (per `ingestion/states/montana/README.md` line 93). Reuse for S02.7's verification suite.
+- [x] All rows pass `ST_IsValid(geom::geometry)` post-insert (Supabase cluster-config quirk surfaced — required `ST_GeomFromText(ST_AsText(geom), 4326)` cast; documented in `.ruckus/known-pitfalls.md`)
+- [x] `source` is a populated `SourceCitation` with `document_type='gis_layer'` (per-feature construction enforced in commit `e78a1c4`)
+- [x] `license_year` matches the source's `REGYEAR` field for each row — `Geometry.license_year` is REGYEAR-or-NULL; `SourceCitation.license_year` falls back to `fetch_year` when REGYEAR is absent (so the citation always has an annual cycle, while the geometry can stay year-invariant). Per-feature enforcement in commit `e78a1c4`.
+- [x] `verbatim_rule` populated from `REG` field for #11; NULL where source field is absent (`_extract_verbatim_rule` in `load_hds.py`)
+- [x] UPSERT semantics confirmed: re-running the load produces identical state (same row count, no duplicates) — `ingestion/ingestion/lib/db.py::upsert_geometries` plus 186 lines of `tests/test_db.py`
+- [x] Layer metadata fixtures committed for #3, #10, #11 at `ingestion/states/montana/fixtures/huntingDistricts-{3,10,11}-metadata-*.json` (and feature fixtures for the same)
 
 ---
 

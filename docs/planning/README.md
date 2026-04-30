@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-04-29
-**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active — S02.0/S02.1 complete, S02.2 next)
+**Last Updated:** 2026-04-30
+**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active — S02.0/S02.1/S02.2 complete, S02.3 next)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -28,7 +28,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
-| E02 | Montana Geometry Ingestion | In Progress (2/8 stories complete) | 2026-04-28 | — | 8 |
+| E02 | Montana Geometry Ingestion | In Progress (3/8 stories complete) | 2026-04-28 | — | 8 |
 | E03 | Montana Regulation Text Ingestion | Not Started — planned when E02 completes | — | — | TBD |
 
 ### E02 Story Status
@@ -37,7 +37,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 |---|---|---|---|
 | S02.0 | Schema preparation — `document_type='gis_layer'` + `geometry.verbatim_rule` | Complete | Implementation |
 | S02.1 | ArcGIS fetch infrastructure (shared library) | Complete | Implementation |
-| S02.2 | Hunting District ingestion (#3, #10, #11) | Not Started | Implementation |
+| S02.2 | Hunting District ingestion (#3, #10, #11) | Complete | Implementation |
 | S02.3 | Portions ingestion (#4, #12, #13, #14) | Not Started | Implementation |
 | S02.4 | Restricted Areas with verbatim text (#2, #15) | Not Started | Implementation |
 | S02.5 | CWD zone discovery and ingestion | Not Started | Implementation (UAT: yes) |
@@ -59,9 +59,9 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 ## Active Blockers
 
-None blocking S02.2. S02.1 (ArcGIS fetch infrastructure) merged 2026-04-29 (PR #20) — `ingestion/ingestion/lib/arcgis.py` is available for state adapters to import (`fetch_layer_metadata`, `fetch_features`, `geojson_to_multipolygon_wkt`, `build_source_citation`, `compute_feature_hash`).
+None blocking S02.3. S02.2 (Hunting District ingestion) merged 2026-04-30 — 235 Montana HDs loaded; `ingestion/ingestion/lib/db.py::upsert_geometries` available for downstream stories. Named multi-part HD anchor (`MT-HD-deer-elk-lion-690-geom`, 12 parts) reserved for S02.7's verification suite.
 
-One PRD-reconciliation item remains, but it does **not** block S02.2:
+One PRD-reconciliation item remains, but it does **not** block S02.3:
 
 - **PRD 001 jurisdiction_binding sequencing** — PRD says E02 writes binding rows; schema FK to regulation_record makes that impossible until E03. E02 produces a geometry overlay fixture instead. Proposed PRD wording in [E02 epic](epics/E02-geometry-ingestion.md) § "Known issues to escalate". PM does not modify PRDs.
 
@@ -71,8 +71,8 @@ Documentation-debt items (non-blocking):
 
 ---
 
-- Begin S02.2 (Hunting District ingestion) — first live MT FWP fetches against layers #3 Antelope, #10 Black Bear, #11 Deer/Elk/Lion using S02.1's shared library. Source fixtures land here.
-- S02.3 / S02.4 are parallelizable with S02.2 if branch-management cost is low
+- Begin S02.3 (Portions ingestion) — layers #4 Antelope Portions, #12 Mule Deer Portions, #13 Whitetail Portions, #14 Elk Portions. Reuses S02.2's pattern (load_hds.py is the template) with `kind='portion'` and parent-HD identity preserved for S02.6's overlay fixture.
+- S02.4 (Restricted Areas with verbatim text) is parallelizable with S02.3 if branch-management cost is low
 - E03 epic file will be drafted when E02 completes (run `/plan-next-epic`)
 
 ---
