@@ -3,7 +3,7 @@
 Project: huntready
 Domain: Regulatory data platform for licensed hunting in the US.
 
-Pitfalls discovered through development. Updated by `/ruckus:build` and `/ruckus:fix` wrap-up stages.
+Pitfalls discovered through development. Updated by `/roughly:build` and `/roughly:fix` wrap-up stages.
 
 ---
 
@@ -121,3 +121,37 @@ Both defenses are required because either alone allows the silent flip:
 Example: `ingestion/states/montana/load_restricted_areas.py:main()` and the `TestMainCommitAtomicity` class in `tests/test_load_restricted_areas.py`.
 
 Surfaced by silent-failure-hunter on S02.4 review on 2026-04-30.
+
+### "MT FWP services" can mean either the on-prem MapServer or the ArcGIS Online org
+
+Montana FWP publishes GIS data through two distinct hosts: the on-prem `https://fwp-gis.mt.gov/arcgis/rest/services` MapServer (where `admbnd/huntingDistricts` lives) AND the public ArcGIS Online organization `MtFishWildlifeParks` (where `https://services3.arcgis.com/Cdxz8r11hT0MGzg1/...` services live, including the `ADMBND_HD_CWD` FeatureServer used by S02.5). Discovery work that enumerates only the on-prem catalog will miss layers that only exist on ArcGIS Online — and vice versa.
+
+When asked "does MT FWP have a layer for X," check both:
+
+1. `https://fwp-gis.mt.gov/arcgis/rest/services?f=json` (every folder, every service)
+2. ArcGIS Online sharing search: `https://www.arcgis.com/sharing/rest/search?q=<keyword>+montana&f=json` — filter results by `owner=MtFishWildlifeParks` afterward (the Hub v3 API is unreliable: 502/504 on multiple endpoints during S02.5 investigation; the sharing REST API is the dependable fallback)
+
+S02.4's empirical "no CWD rows in layer #2" was correct for the on-prem catalog; S02.5's `ADMBND_HD_CWD` FeatureServer find on the ArcGIS Online org would have been missed if the search had stopped at the on-prem root.
+
+Surfaced by S02.5 investigation on 2026-05-01.
+
+## Conventions — Pre-commit & secrets
+
+### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings
+
+ArcGIS Online metadata fixtures (`*-metadata-*.json` files committed for drift detection) carry a top-level `serviceItemId` field whose value is a 32-character hex UUID — for example `"serviceItemId": "8837c07298054f5e8be2e072681d870c"` in the S02.5 `ADMBND_HD_CWD` fixture. The pre-commit `detect-secrets` hook (`HexHighEntropyString` plugin, `limit: 3.0`) flags this as a potential secret and blocks the commit.
+
+These IDs are NOT secrets — they are publicly addressable URL components: `https://www.arcgis.com/home/item.html?id=<serviceItemId>` resolves to the public item page for any anonymous user. They are part of the "what" of the data, not credentials.
+
+The fix when committing a new ArcGIS metadata fixture:
+
+```bash
+detect-secrets scan --baseline .secrets.baseline   # update baseline with new finding
+git add .secrets.baseline
+```
+
+The new finding lands in `results` with `is_verified: false`. That is fine — `is_verified: false` means "not yet audited," which is sufficient for the hook to skip the file. Optionally run `detect-secrets audit .secrets.baseline` to mark the entry as a confirmed false positive (sets `is_verified: true`).
+
+Do NOT use `git commit --no-verify` to bypass the hook. The system instructions forbid it, and it would defeat the hook's purpose for genuine secrets.
+
+Surfaced by S02.5 commit on 2026-05-01.
