@@ -192,6 +192,43 @@ All rows: `kind='portion'`, `state='US-MT'`, `source.document_type='gis_layer'`,
 
 **Slug-strategy note:** Layer #12 (mule-deer) reuses `SHAPECODE='mdPt312'` for both East- and West-half polygons of district 312, and `mdPt388` for both Inside/Outside-of-Weapons-Restriction-Area polygons of district 388. The loader detects the SHAPECODE collision after building the layer's geometries and silently retries with `_slugify(PORTIONNAME)` for the entire layer. Per spec line 308: "Fail loudly if neither SHAPECODE nor unique PORTIONNAME yields collision-free IDs within a layer." Layer #12's longer IDs (max 106 chars) reflect this fallback — the other three layers use the compact SHAPECODE form (≤39 chars). The strategy choice is logged at INFO level so operators can audit.
 
+## S02.4 initial load record (2026-04-30)
+
+First successful load of both restricted-area layers:
+
+| Layer | `id` prefix | Rows |
+|-------|-------------|------|
+| #2 (Big Game Restricted Areas) | `MT-restricted-bigame-` | 53 |
+| #15 (Elk Restricted Areas) | `MT-restricted-elk-` | 4 |
+| **Total** | | **57** |
+
+All rows: `kind='restricted_area'`, `state='US-MT'`, `source.document_type='gis_layer'`, `verbatim_rule` populated for all 57 rows (none null), 55 of 57 contain the `--- COMMENTS ---` separator (both `REG` and `COMMENTS` populated and differ; the other 2 are REG-only or REG==COMMENTS dedup cases). Layer #2 has no `REGYEAR` field, so its 53 rows have `license_year=NULL`. Layer #15's 4 rows have `license_year=2026`. All geometries topologically valid (`ST_IsValid(...)=TRUE`). UPSERT idempotency confirmed by re-running with unchanged row counts.
+
+**CWD discriminator finding:** Layer #2's 53 features included **zero CWD-matching rows** — the discriminator filter ran clean. This is significant for [S02.5 planning](../../../docs/planning/epics/E02-geometry-ingestion.md): the exclusion-filter path over layer #2 will not yield any CWD zones. S02.5 must use the standalone-layer discovery path (Hub catalog search) or fall through to the hand-traced GeoJSON fallback.
+
+**Post-load verification SQL** (Supabase-compatible — uses the `ST_GeomFromText(ST_AsText(...))` workaround per [.ruckus/known-pitfalls.md](../../../.ruckus/known-pitfalls.md)):
+
+```sql
+-- Counts by id_prefix
+SELECT 'bigame' AS area, COUNT(*) FROM geometry WHERE kind='restricted_area' AND id LIKE 'MT-restricted-bigame-%'
+UNION ALL SELECT 'elk', COUNT(*) FROM geometry WHERE kind='restricted_area' AND id LIKE 'MT-restricted-elk-%';
+
+-- verbatim_rule populated and contains the separator
+SELECT
+  COUNT(*) FILTER (WHERE verbatim_rule IS NOT NULL) AS with_rule,
+  COUNT(*) FILTER (WHERE verbatim_rule LIKE '%--- COMMENTS ---%') AS with_separator
+FROM geometry WHERE kind='restricted_area';
+
+-- No CWD rows escaped to S02.4 (sanity check on the discriminator)
+SELECT id, verbatim_rule FROM geometry
+WHERE kind='restricted_area' AND id LIKE 'MT-restricted-bigame-%'
+  AND (verbatim_rule ILIKE '%CWD%' OR verbatim_rule ILIKE '%chronic wasting%');
+
+-- Geometry validity
+SELECT id FROM geometry WHERE kind='restricted_area'
+  AND NOT ST_IsValid(ST_GeomFromText(ST_AsText(geom), 4326));
+```
+
 ## Related
 
 - Epic: [`docs/planning/epics/E02-geometry-ingestion.md`](../../../docs/planning/epics/E02-geometry-ingestion.md) — S02.2 starts at line 226
