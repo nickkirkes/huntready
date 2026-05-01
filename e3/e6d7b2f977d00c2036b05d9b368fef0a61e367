@@ -1,0 +1,52 @@
+ingestion/states/montana/load_cwd_zones.py
+  f5ccc477933d5e61 1-214
+.roughly/workflow-upgrades
+  4da760d59f41bdef 1-4
+.roughly/known-pitfalls.md
+  4da760d59f41bdef 1-123
+ingestion/states/montana/cwd-source-discovery.md
+  f5ccc477933d5e61 1-189
+ingestion/states/montana/README.md
+  f5ccc477933d5e61 249-330
+docs/plans/S02.5-cwd-zone-discovery-plan.md
+  f5ccc477933d5e61 1-647
+.secrets.baseline
+  f5ccc477933d5e61 94-96,129-140
+ingestion/tests/test_load_cwd_zones.py
+  f5ccc477933d5e61 1-674
+ingestion/states/montana/fixtures/ADMBND_HD_CWD-0-metadata-20260501T141952Z.json
+  f5ccc477933d5e61 1-446
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e3e6d7b2f977d00c2036b05d9b368fef0a61e367",
+  "prompts": {
+    "4da760d59f41bdef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "914bc066-c567-4943-a51e-1945fc00a91c",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 131,
+      "total_deletions": 3,
+      "accepted_lines": 127,
+      "overriden_lines": 0
+    },
+    "f5ccc477933d5e61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f40e9ad2-3c9c-4dd4-8c11-1b977b0225b6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 3281,
+      "total_deletions": 58,
+      "accepted_lines": 2777,
+      "overriden_lines": 2
+    }
+  }
+}
