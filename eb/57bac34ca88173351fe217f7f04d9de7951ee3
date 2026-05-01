@@ -1,0 +1,31 @@
+docs/plans/S02.6-geometry-overlay-fixture-plan.md
+  e92112e13b470cdc 1-210
+ingestion/ingestion/lib/overlays.py
+  e92112e13b470cdc 1-134
+ingestion/states/montana/README.md
+  e92112e13b470cdc 215,331-364
+ingestion/tests/test_build_overlay_fixture.py
+  e92112e13b470cdc 1-677
+ingestion/states/montana/build_overlay_fixture.py
+  e92112e13b470cdc 1-283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "eb57bac34ca88173351fe217f7f04d9de7951ee3",
+  "prompts": {
+    "e92112e13b470cdc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "462b9120-1a15-4d8b-b4d6-60e60ddb0a86",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1397,
+      "total_deletions": 25,
+      "accepted_lines": 1374,
+      "overriden_lines": 0
+    }
+  }
+}
