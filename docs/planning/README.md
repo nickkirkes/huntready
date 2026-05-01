@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-04-30
-**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active — S02.0/S02.1/S02.2/S02.3 complete, S02.4 next)
+**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active — S02.0/S02.1/S02.2/S02.3/S02.4 complete, S02.5 next)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -28,7 +28,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
-| E02 | Montana Geometry Ingestion | In Progress (4/8 stories complete) | 2026-04-28 | — | 8 |
+| E02 | Montana Geometry Ingestion | In Progress (5/8 stories complete) | 2026-04-28 | — | 8 |
 | E03 | Montana Regulation Text Ingestion | Not Started — planned when E02 completes | — | — | TBD |
 
 ### E02 Story Status
@@ -39,7 +39,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | S02.1 | ArcGIS fetch infrastructure (shared library) | Complete | Implementation |
 | S02.2 | Hunting District ingestion (#3, #10, #11) | Complete | Implementation |
 | S02.3 | Portions ingestion (#4, #12, #13, #14) | Complete | Implementation |
-| S02.4 | Restricted Areas with verbatim text (#2, #15) | Not Started | Implementation |
+| S02.4 | Restricted Areas with verbatim text (#2, #15) | Complete | Implementation |
 | S02.5 | CWD zone discovery and ingestion | Not Started | Implementation (UAT: yes) |
 | S02.6 | Geometry overlay fixture | Not Started | Implementation (UAT: yes) |
 | S02.7 | Spatial query verification + epic exit | Not Started | Implementation (UAT: yes) |
@@ -59,9 +59,9 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 ## Active Blockers
 
-None blocking S02.4. S02.3 (Portions ingestion) merged 2026-04-30 — 55 Montana portions loaded; the load_hds.py / load_portions.py pattern is now the template for S02.4 (`ingestion/states/montana/load_restricted_areas.py` will follow the same shape).
+None blocking S02.5. S02.4 (Restricted Areas) merged 2026-04-30 — 57 restricted-area geometries loaded; shared `cwd_discriminator.py` is in place. **Empirical finding from S02.4 live load:** layer #2 has zero CWD-matching rows, so S02.5's exclusion-filter path produces nothing. S02.5 must investigate Hub-catalog for a standalone CWD layer or fall through to the hand-traced GeoJSON path documented in the S02.5 story spec.
 
-One PRD-reconciliation item remains, but it does **not** block S02.4:
+One PRD-reconciliation item remains, but it does **not** block S02.5:
 
 - **PRD 001 jurisdiction_binding sequencing** — PRD says E02 writes binding rows; schema FK to regulation_record makes that impossible until E03. E02 produces a geometry overlay fixture instead. Proposed PRD wording in [E02 epic](epics/E02-geometry-ingestion.md) § "Known issues to escalate". PM does not modify PRDs.
 
@@ -71,7 +71,7 @@ Documentation-debt items (non-blocking):
 
 ---
 
-- Begin S02.4 (Restricted Areas with verbatim text) — layers #2 Big Game Restricted Areas, #15 Elk Restricted Areas. Loads with `kind='restricted_area'` and applies the five-case `verbatim_rule` rule from REG/COMMENTS per ADR-015 (HuntReady-introduced separator). S02.5 may apply the layer-#2 exclusion-filter pattern for CWD zones.
+- Begin S02.5 (CWD zone discovery and ingestion). Investigation tree (per epic spec): (1) MapServer root catalog search for cwd|chronic|wasting, (2) Hub catalog search at gis-mtfwp.hub.arcgis.com, (3) layer-#2 exclusion-filter path **already known to produce zero CWD rows from S02.4's live load**, (4) hand-traced GeoJSON fallback at `ingestion/states/montana/cwd-zones-manual.geojson` with `confidence='low'` provenance. UAT pins to three named CWD zones (Libby, South-Central Montana, Northeast Montana — confirm names against current FWP booklet).
 - E03 epic file will be drafted when E02 completes (run `/plan-next-epic`)
 
 ---
