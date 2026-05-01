@@ -1,0 +1,27 @@
+.roughly/workflow-upgrades
+  f5ccc477933d5e61 1-4
+.roughly/known-pitfalls.md
+  f5ccc477933d5e61 1-157
+.secrets.baseline
+  f5ccc477933d5e61 130-138,149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c9e5444b1089d537d8ce3fa7d52c62c000ff3c06",
+  "prompts": {
+    "f5ccc477933d5e61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f40e9ad2-3c9c-4dd4-8c11-1b977b0225b6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 44,
+      "total_deletions": 1,
+      "accepted_lines": 171,
+      "overriden_lines": 0
+    }
+  }
+}
