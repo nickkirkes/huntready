@@ -246,6 +246,88 @@ SELECT id FROM geometry WHERE kind='restricted_area'
   AND NOT ST_IsValid(ST_GeomFromText(ST_AsText(geom), 4326));
 ```
 
+## S02.5 — CWD Zones (Path A: ADMBND_HD_CWD FeatureServer)
+
+**Source:** `ADMBND_HD_CWD` Feature Service on ArcGIS Online — `https://services3.arcgis.com/Cdxz8r11hT0MGzg1/arcgis/rest/services/ADMBND_HD_CWD/FeatureServer/0` (owner `MtFishWildlifeParks`, public, 2 polygon features for REGYEAR=2026).
+
+See [cwd-source-discovery.md](cwd-source-discovery.md) for the investigation that selected Path A over the discriminator-filter (Path B) and hand-traced (Path C) fallbacks.
+
+**Spec deviation:** The story spec called for three named zones (Libby, South-Central, Northeast); the live FWP layer publishes two (Libby, Kalispell). Substitution is permitted by the spec; documented in the discovery report.
+
+### Running the S02.5 CWD zones loader
+
+Run from the repo root:
+
+```bash
+ingestion/.venv/bin/python ingestion/states/montana/load_cwd_zones.py
+```
+
+Same env requirements (`DATABASE_URL`, optional `HUNTREADY_INGESTION_CONTACT`) as the other Montana loaders. Hits the dedicated `ADMBND_HD_CWD` FeatureServer rather than the `admbnd/huntingDistricts` MapServer.
+
+### Layer loaded by `load_cwd_zones.py`
+
+| Service                     | Layer ID | Name                               | `id` prefix                        |
+|-----------------------------|----------|------------------------------------|------------------------------------|
+| ADMBND_HD_CWD FeatureServer | 0        | Chronic Wasting Disease Hunt Areas | `MT-CWD-zone-{AREANAME_slug}-geom` |
+
+All rows have `kind='cwd_zone'`, `state='US-MT'`, `license_year=2026`.
+
+**Expected rows:** 2 rows.
+
+| OBJECTID | AREANAME                      | SQMILES |
+|----------|-------------------------------|---------|
+| 967      | Libby CWD Management Zone     | 499     |
+| 968      | Kalispell CWD Management Zone | 154     |
+
+### Post-load verification (S02.5)
+
+```sql
+-- 1. Row count
+SELECT count(*) FROM geometry WHERE state='US-MT' AND kind='cwd_zone';
+
+-- 2. Geometry validity
+SELECT id, ST_IsValid(ST_GeomFromText(ST_AsText(geom), 4326)) AS is_valid
+  FROM geometry WHERE kind='cwd_zone' AND state='US-MT';
+
+-- 3. UAT — Libby zone spot-check (test point inside the polygon bbox)
+SELECT id, name FROM geometry
+  WHERE kind='cwd_zone' AND state='US-MT'
+    AND ST_Covers(ST_GeomFromText(ST_AsText(geom), 4326),
+                  ST_SetSRID(ST_Point(-115.555, 48.388), 4326));
+-- (expected: one row, "Libby CWD Management Zone")
+
+-- 4. UAT — Kalispell zone spot-check
+SELECT id, name FROM geometry
+  WHERE kind='cwd_zone' AND state='US-MT'
+    AND ST_Covers(ST_GeomFromText(ST_AsText(geom), 4326),
+                  ST_SetSRID(ST_Point(-114.320, 48.310), 4326));
+-- (expected: one row, "Kalispell CWD Management Zone")
+
+-- 5. UAT — outside-zone control (eastern Montana)
+SELECT count(*) FROM geometry
+  WHERE kind='cwd_zone' AND state='US-MT'
+    AND ST_Covers(ST_GeomFromText(ST_AsText(geom), 4326),
+                  ST_SetSRID(ST_Point(-106.500, 46.800), 4326));
+-- (expected: 0)
+```
+
+## S02.5 initial load record (2026-05-01)
+
+First successful load of the dedicated `ADMBND_HD_CWD` FeatureServer:
+
+| Layer                       | `id` prefix      | Rows |
+|-----------------------------|------------------|------|
+| ADMBND_HD_CWD/FeatureServer/0 | `MT-CWD-zone-` | 2    |
+
+All 2 rows: `kind='cwd_zone'`, `state='US-MT'`, `license_year=2026`, `source.document_type='gis_layer'`, `source.agency='Montana Fish, Wildlife & Parks'`, `verbatim_rule=NULL` (this layer has no inline regulation text — only a `WEBPAGE` URL pointing to `https://fwp.mt.gov/cwd`). Both geometries pass `ST_IsValid`. UPSERT idempotency confirmed by re-running with unchanged row counts.
+
+**UAT** — all five `ST_Covers` queries above pass:
+- Libby zone resolves at `(-115.555, 48.388)` → `MT-CWD-zone-libby-cwd-management-zone-geom`
+- Kalispell zone resolves at `(-114.320, 48.310)` → `MT-CWD-zone-kalispell-cwd-management-zone-geom`
+- Outside-zone control at `(-106.500, 46.800)` returns 0 rows
+
+**CRS detection:** The shared loader emitted the magnitude-based CRS warning (declared layer CRS is EPSG:3857; `outSR=4326` requested). Coordinates pass the WGS84 range check; bbox is `(-115.80 to -114.15)` lng / `(48.16 to 48.64)` lat — well outside equator/prime-meridian ambiguity. Per [.ruckus/known-pitfalls.md](../../../.ruckus/known-pitfalls.md) the warning is acceptable for this dataset.
+
 ## Related
 
 - Epic: [`docs/planning/epics/E02-geometry-ingestion.md`](../../../docs/planning/epics/E02-geometry-ingestion.md) — S02.2 starts at line 226
