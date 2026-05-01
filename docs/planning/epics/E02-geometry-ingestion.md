@@ -490,7 +490,7 @@ else:
 
 The audit log lands at `ingestion/states/montana/fixtures/geometry-overlays-dropped.json` (committed) — filtering is one-way; the audit lets a future reviewer verify nothing semantically real was discarded. The thresholds, denominator choice (`child.area`), and rejected-alternative spaces are documented in [ADR-016](../../adrs/ADR-016-digitization-tolerant-containment.md).
 
-The `restricted_area` coverage invariant is intentionally relaxed: real Montana data includes "no-hunt" zones (Glacier National Park, Sun River Game Preserve, Yellowstone NP) that are adjacent to HDs but not contained within them. Restricted-area orphans surface as INFO-logged warnings rather than build failures. Portions and CWD-zone orphans still fail the build (these are always subdivisions of HD coverage). See ADR-016 for the semantic justification.
+The `restricted_area` coverage invariant carves out an **explicit allowlist** of geometry IDs that are documented no-hunt zones. V1 entries: Glacier National Park, Sun River Game Preserve, Yellowstone NP — all three are adjacent to HDs but geometrically don't overlap them. Allowlisted RA orphans surface as INFO-logged warnings; any other RA orphan blocks the build, same as portion/CWD orphans. Adding a new ID to the allowlist is a code change (`EXPECTED_RA_ORPHAN_IDS` in `build_overlay_fixture.py`) that gets the same review as any other constant. See [ADR-016](../../adrs/ADR-016-digitization-tolerant-containment.md) for the rationale (incl. the explicit rejection of blanket RA tolerance, which would silently swallow real data regressions).
 
 Self-relationship rows for each `hunting_district` are generated programmatically; no spatial computation needed.
 
@@ -560,7 +560,7 @@ Every `geometry` row must appear in the kept fixture (or be explicitly tolerated
   - Every `hunting_district` row has a self-relationship with `role_for_e03='primary_unit'`.
   - Every `portion` row appears as `child_geometry_id` in ≥1 covers/intersects relationship to an HD parent with `role_for_e03='portion'`. Orphans fail the build loudly.
   - Every `cwd_zone` row appears as `child_geometry_id` in ≥1 covers/intersects relationship to an HD parent with `role_for_e03='cwd_management_zone'`. Orphans fail the build loudly.
-  - `restricted_area` rows are *expected* to have HD parents but orphans are tolerated (INFO-logged) per ADR-016 — real MT data has 3 known no-hunt zones (national parks, game preserves) that legitimately don't overlap HDs.
+  - Every `restricted_area` row appears as `child_geometry_id` in ≥1 covers/intersects relationship to an HD parent with `role_for_e03='restricted_area'`, **OR** the row's id is on the `EXPECTED_RA_ORPHAN_IDS` allowlist (currently 3 documented no-hunt zones — Glacier NP, Sun River Game Preserve, Yellowstone NP — INFO-logged at build time per ADR-016). Any orphan NOT on the allowlist fails the build loudly.
 - [ ] Every fixture-referenced `geometry_id` (parent or child) exists in the loaded geometry list (JSON-level FK check).
 - [ ] **Threshold edge tests** in `tests/test_build_overlay_fixture.py` lock in the contract: `overlap_pct = 0.989 → "intersects"`, `0.990 → "covers"`, `0.011 → "intersects"`, `0.009 → dropped`.
 - [ ] **UAT:** human spot-check that known relationships appear correctly (e.g., HD-262 has only its self-row plus any genuinely contained portions/RAs, not boundary-edge noise).
