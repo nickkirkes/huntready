@@ -20,14 +20,14 @@ from ingestion.lib.overlays import OverlayFixtureRow
 from states.montana.build_overlay_fixture import (
     COVER_DROP_THRESHOLD,
     COVER_RELABEL_THRESHOLD,
+    EXPECTED_RA_ORPHAN_IDS,
     OverlayFixtureError,
     _build_hd_self_rows,
     _build_overlay_pairs,
     _collect_overlay_rows,
     _load_geometries,
     _validate_coverage,
-    _write_dropped_audit,
-    _write_fixture,
+    _write_outputs,
     main,
 )
 
@@ -301,21 +301,63 @@ class TestValidateCoverage:
         assert "orphan cwd_zone" in str(exc.value)
         assert "CWD-orphan" in str(exc.value)
 
-    def test_restricted_area_orphan_does_not_raise(
+    def test_allowlisted_restricted_area_orphan_does_not_raise(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        # Per ADR-016: restricted_area orphans (national parks, game preserves)
-        # are allowed and surfaced via INFO log, not raised.
+        # Per ADR-016: allowlisted no-hunt zones (national parks, game
+        # preserves) are surfaced via INFO log, not raised. Use an actual
+        # entry from EXPECTED_RA_ORPHAN_IDS so the test exercises the
+        # real allowlist contract.
         import logging
+        allowlisted_id = next(iter(EXPECTED_RA_ORPHAN_IDS))
         caplog.set_level(logging.INFO, logger="states.montana.build_overlay_fixture")
         parsed = self._parsed(
             ("HD-1", "hunting_district"),
-            ("RA-orphan-park", "restricted_area"),
+            (allowlisted_id, "restricted_area"),
         )
         rows: list[OverlayFixtureRow] = []
         _validate_coverage(parsed, rows)  # no raise
-        assert any("restricted_area orphan" in r.message for r in caplog.records)
-        assert any("RA-orphan-park" in r.message for r in caplog.records)
+        assert any("ADR-016 allowlist" in r.message for r in caplog.records)
+        assert any(allowlisted_id in r.message for r in caplog.records)
+
+    def test_unexpected_restricted_area_orphan_raises(self) -> None:
+        # Per ADR-016: an RA orphan NOT on the allowlist is a real data
+        # regression and must fail the build. This is the protection
+        # against silent-tolerance regressions.
+        not_allowlisted = "MT-restricted-bigame-some-internal-archery-zone-geom"
+        assert not_allowlisted not in EXPECTED_RA_ORPHAN_IDS
+        parsed = self._parsed(
+            ("HD-1", "hunting_district"),
+            (not_allowlisted, "restricted_area"),
+        )
+        rows: list[OverlayFixtureRow] = []
+        with pytest.raises(OverlayFixtureError) as exc:
+            _validate_coverage(parsed, rows)
+        assert "orphan restricted_area" in str(exc.value)
+        assert not_allowlisted in str(exc.value)
+
+    def test_mixed_ra_orphans_only_unexpected_blocks(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # If both allowlisted and unexpected RA orphans exist, the
+        # allowlisted ones still get logged but the unexpected one raises.
+        import logging
+        allowlisted_id = next(iter(EXPECTED_RA_ORPHAN_IDS))
+        unexpected_id = "MT-restricted-bigame-regression-target-geom"
+        caplog.set_level(logging.INFO, logger="states.montana.build_overlay_fixture")
+        parsed = self._parsed(
+            ("HD-1", "hunting_district"),
+            (allowlisted_id, "restricted_area"),
+            (unexpected_id, "restricted_area"),
+        )
+        rows: list[OverlayFixtureRow] = []
+        with pytest.raises(OverlayFixtureError) as exc:
+            _validate_coverage(parsed, rows)
+        # Only the unexpected one should be in the error.
+        assert unexpected_id in str(exc.value)
+        assert allowlisted_id not in str(exc.value)
+        # Allowlisted one should still be logged at INFO.
+        assert any(allowlisted_id in r.message for r in caplog.records)
 
     def test_unknown_geometry_id_raises(self) -> None:
         parsed = self._parsed(("HD-1", "hunting_district"))
@@ -395,121 +437,134 @@ class TestCollectOverlayRows:
 
 
 # ---------------------------------------------------------------------------
-# TestWriteFixture
+# TestWriteOutputs
 # ---------------------------------------------------------------------------
 
 
-class TestWriteFixture:
-    def test_byte_identical_across_input_orders(
+def _audit_dict(parent: str, child: str, pct: float) -> dict:
+    return {
+        "parent_geometry_id": parent,
+        "child_geometry_id": child,
+        "parent_kind": "hunting_district",
+        "child_kind": "portion",
+        "overlap_pct": pct,
+    }
+
+
+class TestWriteOutputs:
+    def _redirect_paths(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+        fixture_path = tmp_path / "geometry-overlays.json"
+        audit_path = tmp_path / "geometry-overlays-dropped.json"
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
+        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", fixture_path)
+        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", audit_path)
+        return fixture_path, audit_path
+
+    def test_writes_both_files_atomically(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        out1 = tmp_path / "a" / "geometry-overlays.json"
-        out2 = tmp_path / "b" / "geometry-overlays.json"
-        rows_order_a: list[OverlayFixtureRow] = [
+        fix_p, aud_p = self._redirect_paths(tmp_path, monkeypatch)
+        kept = [_sample_kept_row("HD-1", "P-1")]
+        dropped = [_audit_dict("HD-1", "P-2", 0.001)]
+        _write_outputs(kept, dropped)  # type: ignore[arg-type]
+        assert fix_p.exists()
+        assert aud_p.exists()
+        assert not (tmp_path / "geometry-overlays.json.tmp").exists()
+        assert not (tmp_path / "geometry-overlays-dropped.json.tmp").exists()
+
+    def test_fixture_byte_identical_across_input_orders(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Run twice in different subdirs with reversed input orders; both
+        # fixture files should be byte-identical.
+        path_a = tmp_path / "a"
+        path_b = tmp_path / "b"
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", path_a)
+        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", path_a / "fixture.json")
+        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", path_a / "audit.json")
+        rows_a: list[OverlayFixtureRow] = [
             _sample_kept_row("HD-2", "P-2"),
             _sample_kept_row("HD-1", "P-1"),
         ]
-        rows_order_b = list(reversed(rows_order_a))
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path / "a")
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out1)
-        _write_fixture(rows_order_a)
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path / "b")
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out2)
-        _write_fixture(rows_order_b)
-        assert out1.read_bytes() == out2.read_bytes()
+        _write_outputs(rows_a, [])
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", path_b)
+        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", path_b / "fixture.json")
+        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", path_b / "audit.json")
+        _write_outputs(list(reversed(rows_a)), [])
+        assert (path_a / "fixture.json").read_bytes() == (path_b / "fixture.json").read_bytes()
 
-    def test_trailing_newline(
+    def test_audit_sorted_by_parent_then_child(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        out = tmp_path / "geometry-overlays.json"
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out)
-        _write_fixture([_sample_kept_row("HD", "C")])
-        text = out.read_text()
-        assert text.endswith("\n")
+        _, aud_p = self._redirect_paths(tmp_path, monkeypatch)
+        dropped = [
+            _audit_dict("HD-2", "C-1", 0.005),
+            _audit_dict("HD-1", "C-2", 0.005),
+            _audit_dict("HD-1", "C-1", 0.005),
+        ]
+        _write_outputs([], dropped)  # type: ignore[arg-type]
+        loaded = json.loads(aud_p.read_text())
+        order = [(r["parent_geometry_id"], r["child_geometry_id"]) for r in loaded]
+        assert order == [("HD-1", "C-1"), ("HD-1", "C-2"), ("HD-2", "C-1")]
 
-    def test_sorted_by_parent_then_child_then_relationship(
+    def test_fixture_sort_tie_break_on_relationship(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        out = tmp_path / "geometry-overlays.json"
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out)
-        # Same (parent, child) with different relationship — relationship is the tie-break.
+        fix_p, _ = self._redirect_paths(tmp_path, monkeypatch)
         rows: list[OverlayFixtureRow] = [
             _sample_kept_row("HD-1", "C-1", "portion", "intersects", "portion"),
             _sample_kept_row("HD-1", "C-1", "portion", "covers", "portion"),
         ]
-        _write_fixture(rows)
-        loaded = json.loads(out.read_text())
+        _write_outputs(rows, [])
+        loaded = json.loads(fix_p.read_text())
         assert loaded[0]["relationship"] == "covers"
         assert loaded[1]["relationship"] == "intersects"
 
-    def test_atomic_via_tmp_then_replace(
+    def test_trailing_newlines(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        out = tmp_path / "geometry-overlays.json"
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out)
-        _write_fixture([_sample_kept_row("HD", "C")])
-        # No leftover .tmp file
+        fix_p, aud_p = self._redirect_paths(tmp_path, monkeypatch)
+        _write_outputs([_sample_kept_row("HD", "C")], [_audit_dict("HD", "X", 0.001)])  # type: ignore[arg-type]
+        assert fix_p.read_text().endswith("\n")
+        assert aud_p.read_text().endswith("\n")
+
+    def test_audit_write_failure_does_not_update_fixture(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The reviewer's case: if the audit write fails after the fixture
+        # tmp is created but before either is renamed, neither final file
+        # should change. Pre-populate the destinations with sentinel content
+        # so we can detect any write.
+        fix_p, aud_p = self._redirect_paths(tmp_path, monkeypatch)
+        sentinel_fixture = "PRIOR_FIXTURE_CONTENT\n"
+        sentinel_audit = "PRIOR_AUDIT_CONTENT\n"
+        fix_p.write_text(sentinel_fixture)
+        aud_p.write_text(sentinel_audit)
+
+        # Force the audit .tmp write to fail by making DROPPED_AUDIT_PATH
+        # point at a path whose parent doesn't exist (and bypass mkdir).
+        # Easier: monkeypatch Path.write_text on the audit tmp file to raise.
+        original_write_text = Path.write_text
+        audit_tmp_name = "geometry-overlays-dropped.json.tmp"
+
+        def selective_fail(self: Path, data: str, **kwargs: Any) -> int:
+            if self.name == audit_tmp_name:
+                raise OSError("simulated audit write failure")
+            return original_write_text(self, data, **kwargs)
+
+        monkeypatch.setattr(Path, "write_text", selective_fail)
+
+        with pytest.raises(OSError, match="simulated audit write failure"):
+            _write_outputs(
+                [_sample_kept_row("HD", "C")],
+                [_audit_dict("HD", "X", 0.001)],  # type: ignore[arg-type]
+            )
+
+        # Neither final file should have changed
+        assert fix_p.read_text() == sentinel_fixture
+        assert aud_p.read_text() == sentinel_audit
+        # The fixture .tmp should have been cleaned up
         assert not (tmp_path / "geometry-overlays.json.tmp").exists()
-        assert out.exists()
-
-
-# ---------------------------------------------------------------------------
-# TestWriteDroppedAudit
-# ---------------------------------------------------------------------------
-
-
-class TestWriteDroppedAudit:
-    def _audit(self, parent: str, child: str, pct: float) -> dict:
-        return {
-            "parent_geometry_id": parent,
-            "child_geometry_id": child,
-            "parent_kind": "hunting_district",
-            "child_kind": "portion",
-            "overlap_pct": pct,
-        }
-
-    def test_byte_identical_across_input_orders(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        out1 = tmp_path / "a" / "audit.json"
-        out2 = tmp_path / "b" / "audit.json"
-        rows_a = [self._audit("HD-2", "C-2", 0.001), self._audit("HD-1", "C-1", 0.002)]
-        rows_b = list(reversed(rows_a))
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path / "a")
-        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", out1)
-        _write_dropped_audit(rows_a)  # type: ignore[arg-type]
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path / "b")
-        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", out2)
-        _write_dropped_audit(rows_b)  # type: ignore[arg-type]
-        assert out1.read_bytes() == out2.read_bytes()
-
-    def test_sorted_by_parent_then_child(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        out = tmp_path / "audit.json"
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
-        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", out)
-        rows = [
-            self._audit("HD-2", "C-1", 0.005),
-            self._audit("HD-1", "C-2", 0.005),
-            self._audit("HD-1", "C-1", 0.005),
-        ]
-        _write_dropped_audit(rows)  # type: ignore[arg-type]
-        loaded = json.loads(out.read_text())
-        order = [(r["parent_geometry_id"], r["child_geometry_id"]) for r in loaded]
-        assert order == [("HD-1", "C-1"), ("HD-1", "C-2"), ("HD-2", "C-1")]
-
-    def test_trailing_newline(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        out = tmp_path / "audit.json"
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
-        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", out)
-        _write_dropped_audit([self._audit("HD", "C", 0.001)])  # type: ignore[arg-type]
-        assert out.read_text().endswith("\n")
 
 
 # ---------------------------------------------------------------------------
@@ -518,28 +573,25 @@ class TestWriteDroppedAudit:
 
 
 class TestMain:
-    def test_returns_zero_and_writes_both_files(
+    def test_returns_zero_and_writes_outputs(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         kept_rows = [_sample_kept_row("HD-1", "HD-1", "hunting_district", "self", "primary_unit")]
         dropped_rows: list[Any] = []
         mock_collect = MagicMock(return_value=(kept_rows, dropped_rows))
-        mock_write_fix = MagicMock()
-        mock_write_audit = MagicMock()
+        mock_write_outputs = MagicMock()
         mock_connect = MagicMock()
         mock_connect.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_connect.return_value.__exit__ = MagicMock(return_value=None)
 
         monkeypatch.setattr(build_fixture.db, "connect", mock_connect)
         monkeypatch.setattr(build_fixture, "_collect_overlay_rows", mock_collect)
-        monkeypatch.setattr(build_fixture, "_write_fixture", mock_write_fix)
-        monkeypatch.setattr(build_fixture, "_write_dropped_audit", mock_write_audit)
+        monkeypatch.setattr(build_fixture, "_write_outputs", mock_write_outputs)
 
         rc = main([])
         assert rc == 0
         mock_collect.assert_called_once()
-        mock_write_fix.assert_called_once_with(kept_rows)
-        mock_write_audit.assert_called_once_with(dropped_rows)
+        mock_write_outputs.assert_called_once_with(kept_rows, dropped_rows)
 
     def test_overlay_fixture_error_propagates(
         self, monkeypatch: pytest.MonkeyPatch
@@ -583,7 +635,9 @@ class TestEndToEndShapelyPipeline:
         hd2_geom = _square(9, 0, 5)
         # half_ra: 50% inside HD → intersects (kept)
         half_ra = _square(8, 0, 4)
-        # Use a completely orphan RA (no HD overlap) — should be allowed (ADR-016)
+        # Use a completely orphan RA (no HD overlap) — must be on the
+        # ADR-016 allowlist to be allowed without raising.
+        orphan_ra_id = next(iter(EXPECTED_RA_ORPHAN_IDS))
         orphan_ra = _square(100, 100, 1)
         # CWD inside HD
         cwd = _square(3, 3, 1)
@@ -595,7 +649,7 @@ class TestEndToEndShapelyPipeline:
             ("P-edge", "portion", edge_portion),
             ("CWD-1", "cwd_zone", cwd),
             ("RA-half", "restricted_area", half_ra),
-            ("RA-orphan", "restricted_area", orphan_ra),
+            (orphan_ra_id, "restricted_area", orphan_ra),
         ]
         monkeypatch.setattr(build_fixture, "_load_geometries", MagicMock(return_value=parsed))
         kept, dropped = _collect_overlay_rows(MagicMock())
@@ -613,8 +667,8 @@ class TestEndToEndShapelyPipeline:
         assert ("cwd_zone", "CWD-1", "covers") in kept_ids
         # RA-half intersects HD-1
         assert ("restricted_area", "RA-half", "intersects") in kept_ids
-        # RA-orphan absent (no HD overlap), but no raise — orphan tolerated
-        assert all(r["child_geometry_id"] != "RA-orphan" for r in kept)
+        # Allowlisted RA orphan absent (no HD overlap), no raise — ADR-016 carve-out
+        assert all(r["child_geometry_id"] != orphan_ra_id for r in kept)
         # Audit contains the boundary edge case
         assert any(d["child_geometry_id"] == "P-edge" and d["parent_geometry_id"] == "HD-1" for d in dropped)
 

@@ -227,13 +227,19 @@ def _collect_overlay_rows(
     return kept, dropped
 
 
-# Child kinds where an orphan (no HD parent passing the area threshold)
-# fails the coverage invariant. ``restricted_area`` is intentionally
-# excluded: real Montana data includes "no-hunt" zones — Glacier National
-# Park, Sun River Game Preserve, Yellowstone National Park — that are
-# adjacent to HDs but not contained within them. These are documented in
-# ADR-016 and surface as INFO-logged orphans rather than build failures.
-_ORPHAN_FAILS_INVARIANT: frozenset[str] = frozenset({"portion", "cwd_zone"})
+# Per ADR-016: an explicit allowlist of restricted_area geometry IDs that
+# are documented no-hunt zones (national parks, game preserves) and
+# legitimately have no HD parent. Any restricted_area orphan NOT on this
+# list is a real data regression and fails the build. Add a new id only
+# after human review confirms it is a no-hunt zone, not an internal HD
+# restriction (e.g., archery-only area inside an HD) that lost its parent.
+EXPECTED_RA_ORPHAN_IDS: frozenset[str] = frozenset(
+    {
+        "MT-restricted-bigame-glacier-national-park-geom",
+        "MT-restricted-bigame-sun-river-game-preserve-geom",
+        "MT-restricted-bigame-yellowstone-national-park-geom",
+    }
+)
 
 
 def _validate_coverage(
@@ -243,15 +249,21 @@ def _validate_coverage(
     """Validate the S02.6 coverage invariant; collect all violations then raise once.
 
     Two checks, both run before raising:
-      A. Every ``portion`` / ``cwd_zone`` row in the geometry table appears
-         as ``child_geometry_id`` of some ``hunting_district`` parent
-         (relationship ``covers`` or ``intersects``). Dropped pairs (audit
-         log) are NOT counted toward coverage — only kept rows.
+      A. Every ``portion`` / ``cwd_zone`` / ``restricted_area`` row in the
+         geometry table appears as ``child_geometry_id`` of some
+         ``hunting_district`` parent (relationship ``covers`` or
+         ``intersects``). Dropped pairs (audit log) are NOT counted toward
+         coverage — only kept rows.
 
-         ``restricted_area`` orphans are reported at INFO level rather than
-         raised: large no-hunt zones (national parks, game preserves) are
-         legitimately adjacent to HDs without overlapping them. See
-         ADR-016 for the semantic justification.
+         ``restricted_area`` orphans split into two cases:
+           - Allowlisted no-hunt zones (``EXPECTED_RA_ORPHAN_IDS``):
+             reported at INFO level, do not block. Large preserves like
+             Glacier NP, Sun River Game Preserve, Yellowstone NP are
+             legitimately adjacent to HDs without overlapping them.
+           - Anything else: blocks the build like portion/CWD orphans.
+             A previously-covered restricted_area becoming an orphan is a
+             real data regression worth surfacing loudly. See ADR-016 for
+             the rationale.
       B. Every fixture-referenced ``geometry_id`` (parent or child) exists
          in the loaded geometry list.
     """
@@ -268,18 +280,23 @@ def _validate_coverage(
         if (kind, geom_id) not in child_set:
             orphans_by_kind.setdefault(kind, []).append(geom_id)
 
-    # Surface non-blocking restricted_area orphans for operator visibility.
-    ra_orphans = orphans_by_kind.get("restricted_area", [])
-    if ra_orphans:
-        _logger.info(
-            "%d restricted_area orphan(s) without HD parent (ADR-016 no-hunt zones, allowed): %s",
-            len(ra_orphans),
-            sorted(ra_orphans),
-        )
-
-    blocking_orphans = {
-        kind: ids for kind, ids in orphans_by_kind.items() if kind in _ORPHAN_FAILS_INVARIANT
-    }
+    blocking_orphans: dict[str, list[str]] = {}
+    if "portion" in orphans_by_kind:
+        blocking_orphans["portion"] = sorted(orphans_by_kind["portion"])
+    if "cwd_zone" in orphans_by_kind:
+        blocking_orphans["cwd_zone"] = sorted(orphans_by_kind["cwd_zone"])
+    if "restricted_area" in orphans_by_kind:
+        ra_orphans = orphans_by_kind["restricted_area"]
+        expected = sorted(r for r in ra_orphans if r in EXPECTED_RA_ORPHAN_IDS)
+        unexpected = sorted(r for r in ra_orphans if r not in EXPECTED_RA_ORPHAN_IDS)
+        if expected:
+            _logger.info(
+                "%d restricted_area orphan(s) per ADR-016 allowlist (no-hunt zones): %s",
+                len(expected),
+                expected,
+            )
+        if unexpected:
+            blocking_orphans["restricted_area"] = unexpected
 
     id_set: set[str] = {g[0] for g in parsed}
     unknown_ids: set[str] = set()
@@ -293,43 +310,67 @@ def _validate_coverage(
         return
 
     lines = ["overlay fixture coverage invariant violated:"]
-    for kind in ("portion", "cwd_zone"):
+    for kind in ("portion", "cwd_zone", "restricted_area"):
         if kind in blocking_orphans:
-            lines.append(f"  orphan {kind}: {sorted(blocking_orphans[kind])!r}")
+            lines.append(f"  orphan {kind}: {blocking_orphans[kind]!r}")
     if unknown_ids:
         lines.append(f"  unknown geometry ids referenced in fixture: {sorted(unknown_ids)!r}")
     raise OverlayFixtureError("\n".join(lines))
 
 
-def _write_fixture(rows: list[OverlayFixtureRow]) -> None:
-    """Serialize overlay rows to the JSON fixture file atomically."""
-    sorted_rows = sorted(
-        rows,
+def _write_outputs(
+    kept: list[OverlayFixtureRow],
+    dropped: list[DroppedOverlayPair],
+) -> None:
+    """Serialize and write the fixture + audit pair as a transaction.
+
+    Two-phase write to minimize the partial-update window:
+      1. Pre-serialize both payloads in memory (catches any serialization
+         error before touching disk).
+      2. Write both ``.tmp`` files. If the second write fails, the first
+         ``.tmp`` is unlinked so neither real file gets updated.
+      3. Rename both ``.tmp`` files to their final paths.
+
+    The renames in step 3 are not jointly atomic (POSIX has no
+    multi-file rename), but renames are extremely fast and rarely fail
+    given the writes already succeeded. The first rename is the kept
+    fixture: if the second rename fails after the first succeeds, the
+    on-disk state is "current fixture + previous audit", which is
+    preferable to "previous fixture + current audit" (the audit is
+    informational; the fixture is what E03 consumes). The orphan ``.tmp``
+    is left for manual inspection rather than auto-deleted, so the
+    operator can see the fixture/audit divergence.
+    """
+    sorted_kept = sorted(
+        kept,
         key=lambda r: (r["parent_geometry_id"], r["child_geometry_id"], r["relationship"]),
     )
-    MT_FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = OVERLAY_FIXTURE_PATH.with_name(OVERLAY_FIXTURE_PATH.name + ".tmp")
-    payload = json.dumps(sorted_rows, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
-    tmp_path.write_text(payload, encoding="utf-8")
-    tmp_path.replace(OVERLAY_FIXTURE_PATH)
-    _logger.info("wrote %d overlay rows to %s", len(sorted_rows), OVERLAY_FIXTURE_PATH)
-
-
-def _write_dropped_audit(dropped: list[DroppedOverlayPair]) -> None:
-    """Serialize the dropped-pair audit log to its JSON file atomically.
-
-    Filtering is one-way; the audit lets a future reviewer verify that
-    nothing semantically real was discarded. See ADR-016.
-    """
     sorted_dropped = sorted(
         dropped,
         key=lambda d: (d["parent_geometry_id"], d["child_geometry_id"]),
     )
+    fixture_payload = (
+        json.dumps(sorted_kept, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    )
+    audit_payload = (
+        json.dumps(sorted_dropped, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    )
+
     MT_FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
-    tmp_path = DROPPED_AUDIT_PATH.with_name(DROPPED_AUDIT_PATH.name + ".tmp")
-    payload = json.dumps(sorted_dropped, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
-    tmp_path.write_text(payload, encoding="utf-8")
-    tmp_path.replace(DROPPED_AUDIT_PATH)
+    fixture_tmp = OVERLAY_FIXTURE_PATH.with_name(OVERLAY_FIXTURE_PATH.name + ".tmp")
+    audit_tmp = DROPPED_AUDIT_PATH.with_name(DROPPED_AUDIT_PATH.name + ".tmp")
+
+    fixture_tmp.write_text(fixture_payload, encoding="utf-8")
+    try:
+        audit_tmp.write_text(audit_payload, encoding="utf-8")
+    except Exception:
+        fixture_tmp.unlink(missing_ok=True)
+        raise
+
+    fixture_tmp.replace(OVERLAY_FIXTURE_PATH)
+    audit_tmp.replace(DROPPED_AUDIT_PATH)
+
+    _logger.info("wrote %d overlay rows to %s", len(sorted_kept), OVERLAY_FIXTURE_PATH)
     _logger.info("wrote %d dropped-pair audit rows to %s", len(sorted_dropped), DROPPED_AUDIT_PATH)
 
 
@@ -343,8 +384,7 @@ def main(argv: list[str] | None = None) -> int:
     with db.connect() as conn:
         kept, dropped = _collect_overlay_rows(conn)
 
-    _write_fixture(kept)
-    _write_dropped_audit(dropped)
+    _write_outputs(kept, dropped)
     return 0
 
 

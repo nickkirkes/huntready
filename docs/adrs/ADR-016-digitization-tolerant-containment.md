@@ -25,7 +25,7 @@ Spec-faithful implementation cannot satisfy both (1) "portions get covers relati
 
 Replace the binary "covers vs not-covers" PostGIS predicate with a **three-band area-ratio threshold** computed locally in shapely:
 
-```
+```text
 overlap_pct = parent_geom.intersection(child_geom).area / child_geom.area
 
 overlap_pct >= COVER_RELABEL_THRESHOLD (0.99) -> relationship = "covers"
@@ -35,7 +35,12 @@ otherwise                                      -> relationship = "intersects"
 
 The thresholds are constants at the top of `ingestion/states/montana/build_overlay_fixture.py`. Dropped rows are written to `ingestion/states/montana/fixtures/geometry-overlays-dropped.json` (committed) so a future reviewer can verify nothing semantically real was discarded — filtering is one-way.
 
-The coverage invariant is relaxed for `restricted_area` only. Portions and CWD zones must still appear as children of at least one HD (raises `OverlayFixtureError` on orphan); restricted-area orphans are surfaced via INFO log and allowed through. The carve-out is named in code (`_ORPHAN_FAILS_INVARIANT`) and pointed at this ADR.
+The coverage invariant carves out an **explicit allowlist** of restricted-area geometry IDs that are documented no-hunt zones. Portions and CWD zones must still appear as children of at least one HD (raises `OverlayFixtureError` on orphan). Restricted-area orphans split into two cases:
+
+- **On the allowlist** (`EXPECTED_RA_ORPHAN_IDS`): surfaced via INFO log and allowed through. V1 entries: `MT-restricted-bigame-glacier-national-park-geom`, `MT-restricted-bigame-sun-river-game-preserve-geom`, `MT-restricted-bigame-yellowstone-national-park-geom`.
+- **Not on the allowlist**: blocks the build with `OverlayFixtureError`, same as portion/CWD orphans.
+
+The allowlist is a deliberate failure fence: a restricted-area that *should* overlap an HD (e.g., an internal archery-only zone inside HD-450) becoming an orphan is a real data regression worth surfacing loudly. Adding to the allowlist is a code change and gets the same review as any other constant — humans confirm a new entry is genuinely a no-hunt zone, not a regression.
 
 ## Reasoning
 
@@ -57,7 +62,9 @@ The `>= 99%` band cleanly separates the digitization cluster (mostly 99.5–99.9
 
 **Why the audit log is committed alongside the fixture.** Filtering is one-way: dropped pairs are not reachable from `geometry-overlays.json`. A future reviewer asking "why doesn't HD-262 list the bordering portion-X?" needs the answer in source control, not in a rerun. The audit gives them one — `(parent_id, child_id, parent_kind, child_kind, overlap_pct)` per dropped pair, with `overlap_pct` rounded to 6 decimal places for byte-deterministic JSON.
 
-**Why restricted_area orphans are allowed but portion/CWD orphans still raise.** Portions are by definition subdivisions of one HD; an orphan portion is a real data-quality bug worth raising loudly. CWD zones are management areas defined relative to HDs; an orphan CWD is similarly a data error. Restricted areas are a mixed bag — most are HD-internal restrictions (archery-only zones inside a single HD), but a documented subset are "no-hunt" zones (national parks, game preserves) that are *adjacent to* but not *contained within* HDs. Treating all three kinds identically would either tolerate real bugs in the first two (relaxing all) or fail the build on legitimate national-park geometry (raising all). The split keeps fail-loud discipline where it should be loud and information-flow where it should be informational.
+**Why restricted_area orphans use an allowlist instead of blanket tolerance.** Portions are by definition subdivisions of one HD; an orphan portion is a real data-quality bug worth raising loudly. CWD zones are management areas defined relative to HDs; an orphan CWD is similarly a data error. Restricted areas are a mixed bag — most are HD-internal restrictions (archery-only zones inside a single HD), but a documented subset are "no-hunt" zones (national parks, game preserves) that are *adjacent to* but not *contained within* HDs.
+
+A blanket "tolerate any restricted_area orphan" rule was the first implementation and was rejected on review: it silently swallows the case where an internal HD restriction (e.g., the Bitterroot Archery District) loses its parent due to a future data regression, defeating the fail-loud discipline elsewhere in the script. The explicit allowlist (`EXPECTED_RA_ORPHAN_IDS`) inverts the default: orphans block by default, with named exemptions. Adding to the allowlist requires a human to confirm the entry is a no-hunt zone, not a regression — same protection portion/CWD already get.
 
 **Why this decision is load-bearing.** The thresholds, denominator choice, and orphan policy together define how E03 will populate `jurisdiction_binding` rows for V1 and how the MCP server's spatial query results map to regulations. Any future state's overlay computation will face the same digitization-precision question; this ADR is the contract those state adapters either reuse or deliberately diverge from.
 
@@ -86,14 +93,14 @@ The `>= 99%` band cleanly separates the digitization cluster (mostly 99.5–99.9
 - All 55 Montana portions appear as children of an HD via `covers` — the spec's coverage invariant is met by the relaxed-but-not-broken interpretation.
 - Boundary-touching noise is removed from the kept fixture: 967 rows → 586 rows on Montana data, parents-per-child median drops from ~6 to ~3.
 - The audit log gives a future reviewer a complete record of what was filtered and why, with byte-deterministic ordering for diff-friendly review.
-- The `restricted_area`-orphan carve-out has a documented justification (national parks, game preserves) and a code comment pointing here.
+- The `restricted_area`-orphan allowlist has a documented justification (national parks, game preserves) and a code comment pointing here. The allowlist is opt-in: an unrecognized RA orphan blocks the build, preserving fail-loud protection against data regressions.
 - The thresholds are explicit constants, not magic numbers — `COVER_RELABEL_THRESHOLD` and `COVER_DROP_THRESHOLD` are importable for tests and for any future state's overlay computation that wants to reuse the same calibration.
 
 ### Negative
 
 - The kept fixture is no longer a pure derivation from PostGIS predicates: a reader of the fixture cannot reproduce it from `ST_Covers` / `ST_Intersects` alone. They need this ADR plus the threshold constants. The audit log mitigates but does not eliminate this opacity.
 - The 0.99 / 0.01 calibration is empirical — Montana-specific. A future state with a different digitization regime (e.g., sub-meter LiDAR-derived boundaries) might want tighter thresholds; one with coarser source data might want looser. The constants live in the Montana adapter today; lifting them to shared code with per-state overrides is a future tax.
-- The `restricted_area`-orphan carve-out shifts the failure mode from "build fails" to "INFO log + orphan list in the fixture-builder log line". A reviewer who skims past INFO lines could miss a real RA-coverage bug introduced by a future change. Mitigation: the INFO line names the count and the offending IDs explicitly; pre-commit log review remains a human discipline.
+- Adding a new no-hunt zone (e.g., a future Tribal-managed preserve) requires a code change to extend `EXPECTED_RA_ORPHAN_IDS`, not just a data update. This is intentional — the allowlist edit gets the same review process as any other constant — but it imposes a one-commit lag between MT FWP publishing a new restricted-area zone and the build accepting it as an orphan.
 
 ### Neutral
 

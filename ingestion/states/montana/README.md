@@ -368,7 +368,7 @@ Two files, both committed to the repo (not gitignored), both written via atomic 
 ### Coverage invariant
 
 - **Portions** and **CWD zones** must overlap at least one hunting district above the threshold. Orphans cause the script to raise `OverlayFixtureError` with the full violation list — fail loud.
-- **Restricted areas** are *expected* to have HD parents but orphans are tolerated (INFO-logged). Real Montana data includes 3 known no-hunt zones — Glacier National Park, Sun River Game Preserve, Yellowstone National Park — that are adjacent to HDs but geometrically don't overlap them. Per ADR-016, these surface as informational warnings rather than build failures.
+- **Restricted areas** are *expected* to have HD parents. The script's `EXPECTED_RA_ORPHAN_IDS` allowlist exempts 3 known no-hunt zones — Glacier National Park, Sun River Game Preserve, Yellowstone National Park — from the orphan check (INFO-logged). Any other restricted_area orphan blocks the build, same as portion/CWD orphans. Adding a new ID to the allowlist requires a code edit and human review per [ADR-016](../../../docs/adrs/ADR-016-digitization-tolerant-containment.md).
 - Every fixture-referenced `geometry_id` (parent or child) must exist in the loaded geometry list — otherwise `OverlayFixtureError`.
 
 ### Schema
