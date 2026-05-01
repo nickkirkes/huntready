@@ -74,7 +74,13 @@ All rows have `kind='restricted_area'`. Both layers use a slugified `PORTIONNAME
 
 `verbatim_rule` is populated from `REG` and `COMMENTS` per the five-case combination rule in [ADR-015](../../../docs/adrs/ADR-015-geometry-verbatim-rule.md): both populated and differ → `f"{REG}\n\n--- COMMENTS ---\n\n{COMMENTS}"`; both populated and identical (after strip) → original `REG`; one populated → that one; both empty → `NULL`.
 
-**S02.5 coordination:** Layer #2 features whose `COMMENTS`, `PORTIONNAME`, or `REG` match the CWD discriminator (`'%CWD%'` / `'%chronic wasting%'`, case-insensitive) are skipped here and ingested by S02.5 as `kind='cwd_zone'`. The discriminator predicate lives in `cwd_discriminator.py` and is shared between the two stories so the partition is exact and re-runnable in any order.
+**S02.5 coordination:** Layer #2 features matching the CWD discriminator are skipped here and ingested by S02.5 as `kind='cwd_zone'`. The predicate is field-specific (case-insensitive substring):
+
+- `COMMENTS ILIKE '%CWD%'`
+- `REG ILIKE '%CWD%'`
+- `PORTIONNAME ILIKE '%chronic wasting%'` *(NOT `'%CWD%'` — `PORTIONNAME` matches the spelled-out form only)*
+
+A row matches the discriminator if any one of those three checks is true. The discriminator predicate lives in `cwd_discriminator.py` and is shared between S02.4 and S02.5 so the partition is exact and re-runnable in any order. The `PORTIONNAME` asymmetry is intentional — see `test_portionname_cwd_alone_returns_false` and `test_portionname_cwd_with_empty_comments_and_reg_returns_false`.
 
 ## Required environment variables
 
@@ -219,10 +225,21 @@ SELECT
   COUNT(*) FILTER (WHERE verbatim_rule LIKE '%--- COMMENTS ---%') AS with_separator
 FROM geometry WHERE kind='restricted_area';
 
--- No CWD rows escaped to S02.4 (sanity check on the discriminator)
+-- No CWD rows escaped to S02.4 (sanity check on the discriminator).
+-- Must scan BOTH verbatim_rule AND id, mirroring the predicate's two channels:
+--   - REG/COMMENTS-driven matches: 'CWD' in REG or COMMENTS surfaces in verbatim_rule.
+--   - PORTIONNAME-driven matches: 'chronic wasting' in PORTIONNAME is baked
+--     into the id slug as 'chronic-wasting' (slugify lowercases + hyphenates).
+-- DO NOT add 'id ILIKE %cwd%': PORTIONNAME containing 'CWD' alone (without
+-- 'chronic wasting') is INTENTIONALLY allowed to stay in S02.4 — see
+-- test_portionname_cwd_with_empty_comments_and_reg_returns_false. Adding
+-- that check would flag the deliberate asymmetry as an escape.
 SELECT id, verbatim_rule FROM geometry
 WHERE kind='restricted_area' AND id LIKE 'MT-restricted-bigame-%'
-  AND (verbatim_rule ILIKE '%CWD%' OR verbatim_rule ILIKE '%chronic wasting%');
+  AND (
+    verbatim_rule ILIKE '%CWD%'         -- REG/COMMENTS branch matched
+    OR id ILIKE '%chronic-wasting%'     -- PORTIONNAME branch matched
+  );
 
 -- Geometry validity
 SELECT id FROM geometry WHERE kind='restricted_area'
