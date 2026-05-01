@@ -1,0 +1,23 @@
+docs/planning/epics/E02-geometry-ingestion.md
+  e92112e13b470cdc 493,563
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b03fc1c41d162095827b640fd5c4b352e4ed3ff6",
+  "prompts": {
+    "e92112e13b470cdc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "462b9120-1a15-4d8b-b4d6-60e60ddb0a86",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 1217,
+      "overriden_lines": 2
+    }
+  }
+}
