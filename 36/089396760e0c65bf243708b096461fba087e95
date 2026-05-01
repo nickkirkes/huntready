@@ -1,0 +1,23 @@
+.ruckus/known-pitfalls.md
+  d8c914b7526d69f7 84-123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "36089396760e0c65bf243708b096461fba087e95",
+  "prompts": {
+    "d8c914b7526d69f7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ddb980e-aa60-4ead-9839-627a744ac938",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 40,
+      "total_deletions": 0,
+      "accepted_lines": 63,
+      "overriden_lines": 0
+    }
+  }
+}
