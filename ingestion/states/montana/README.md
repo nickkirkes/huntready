@@ -212,7 +212,7 @@ All rows: `kind='restricted_area'`, `state='US-MT'`, `source.document_type='gis_
 
 **CWD discriminator finding:** Layer #2's 53 features included **zero CWD-matching rows** — the discriminator filter ran clean. This is significant for [S02.5 planning](../../../docs/planning/epics/E02-geometry-ingestion.md): the exclusion-filter path over layer #2 will not yield any CWD zones. S02.5 must use the standalone-layer discovery path (Hub catalog search) or fall through to the hand-traced GeoJSON fallback.
 
-**Post-load verification SQL** (Supabase-compatible — uses the `ST_GeomFromText(ST_AsText(...))` workaround per [.ruckus/known-pitfalls.md](../../../.ruckus/known-pitfalls.md)):
+**Post-load verification SQL** (Supabase-compatible — uses the `ST_GeomFromText(ST_AsText(...))` workaround per [.roughly/known-pitfalls.md](../../../.roughly/known-pitfalls.md)):
 
 ```sql
 -- Counts by id_prefix
@@ -327,6 +327,40 @@ All 2 rows: `kind='cwd_zone'`, `state='US-MT'`, `license_year=2026`, `source.doc
 - Outside-zone control at `(-106.500, 46.800)` returns 0 rows
 
 **CRS detection:** The shared loader emitted the magnitude-based CRS warning (declared layer CRS is EPSG:3857; `outSR=4326` requested). Coordinates pass the WGS84 range check; bbox is `(-115.80 to -114.15)` lng / `(48.16 to 48.64)` lat — well outside equator/prime-meridian ambiguity. Per [.ruckus/known-pitfalls.md](../../../.ruckus/known-pitfalls.md) the warning is acceptable for this dataset.
+
+## Building the overlay fixture (S02.6)
+
+Builds the geometry-overlay fixture for E03 handoff. The fixture captures every spatial relationship between V1 Montana geometries — HD self-references, HD→Portion containment, HD→CWD-zone overlaps, and HD→Restricted-Area overlaps — so E03 can populate `jurisdiction_binding` rows once `regulation_record` rows exist, without re-running PostGIS spatial computation.
+
+### Running the S02.6 overlay fixture builder
+
+Run from the repo root:
+
+```bash
+ingestion/.venv/bin/python ingestion/states/montana/build_overlay_fixture.py
+```
+
+Same env requirements (`DATABASE_URL`) as the other Montana scripts. No ArcGIS fetch is performed — this script queries only the local Supabase Postgres instance.
+
+**Optional flag:** `--explain` emits `EXPLAIN ANALYZE` plans for each spatial query to stderr. Capture for the S02.7 runbook:
+
+```bash
+ingestion/.venv/bin/python ingestion/states/montana/build_overlay_fixture.py --explain 2>explain.txt
+```
+
+### Output
+
+`ingestion/states/montana/fixtures/geometry-overlays.json` — overwritten in place via atomic tmp+rename. The file is committed to the repo (not gitignored).
+
+**Idempotent:** re-running produces byte-identical output (sorted rows, sorted JSON keys, deterministic serialization).
+
+### Coverage invariant
+
+Every Portion, CWD zone, and Restricted Area in the Montana `geometry` table must overlap at least one hunting district. Any orphan (and any unknown geometry id referenced by the fixture) causes the script to raise `OverlayFixtureError` with the full violation list — fail loud, no silent skips.
+
+### Schema
+
+`ingestion/ingestion/lib/overlays.py` defines `OverlayFixtureRow` (TypedDict), the role enum, and the `ROLE_FOR_E03_BY_CHILD_KIND` mapping that E03 imports to populate `jurisdiction_binding.role`.
 
 ## Related
 
