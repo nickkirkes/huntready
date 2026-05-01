@@ -3,7 +3,7 @@
 **Date:** 2026-05
 **Status:** Accepted
 **Decider:** Nick Kirkes
-**Tags:** ingestion, schema, geometry, e02, e03
+**Tags:** ingestion, schema
 
 ---
 
