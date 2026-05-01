@@ -9,6 +9,18 @@ Pitfalls discovered through development. Updated by `/roughly:build` and `/rough
 
 ## Data & State
 
+### Cross-module `Literal` duplication is sometimes intentional — don't refactor it away
+
+**Symptom:** A static-analysis tool or reviewer flags two modules that define the same `Literal[...]` set as a DRY violation and proposes importing one from the other.
+
+**Cause:** The duplication can be deliberate when the two modules have different dependency weights. Importing the Literal from the heavier module (e.g. `schema.py` with Pydantic models and postgres dependencies) into a lighter module (e.g. `overlays.py` used as a thin type contract by a future consumer) inverts the intended dependency direction.
+
+**Fix:** Before consolidating, check for (a) a docstring in the lighter module saying "kept manually in sync with X" — leave it alone; or (b) a comment naming a specific downstream consumer that imports the lighter module — leave it alone. If neither exists, it may be a genuine DRY violation, but verify import direction first. When the duplication is intentional, the docstring is the contract: both files must be updated whenever the Literal set changes.
+
+Concrete example: `ingestion/ingestion/lib/overlays.py` duplicates `JurisdictionBinding.role` from `schema.py` deliberately so E03 can import only the thin overlay types without pulling in the full schema module. The docstring documents the manual-sync expectation.
+
+Surfaced by S02.6 implementation on 2026-05-01.
+
 ### `verbatim_rule` columns silently accept `""`
 
 Both `JurisdictionBinding.verbatim_rule` and `Geometry.verbatim_rule` are nullable `text` with no SQL CHECK constraint and no Pydantic `@field_validator` to reject empty strings. An ingestion adapter that writes `verbatim_rule=""` will succeed silently, and downstream code using `if x.verbatim_rule:` cannot distinguish "no rule text in source" (intended `NULL`) from "empty rule text in source" (`""`).
@@ -134,6 +146,18 @@ When asked "does MT FWP have a layer for X," check both:
 S02.4's empirical "no CWD rows in layer #2" was correct for the on-prem catalog; S02.5's `ADMBND_HD_CWD` FeatureServer find on the ArcGIS Online org would have been missed if the search had stopped at the on-prem root.
 
 Surfaced by S02.5 investigation on 2026-05-01.
+
+### Read-only scripts must still fail loud on empty source data
+
+**Symptom:** A script that only reads from the database (no upserts, no commits) silently produces empty output — e.g. a 2-byte `[]` fixture — and reports success when its source query returns zero rows.
+
+**Cause:** The fail-loud discipline is typically associated with writers (zero features written = loader bug). Readers feel safe because they can't corrupt data. But a reader that produces empty output on missing prerequisites is equally misleading: downstream consumers see valid-looking empty data instead of an error pointing to the missing loader.
+
+**Fix:** After the first foundational query (e.g. fetching HD IDs), check whether the result is empty. If a non-empty result is required for the script to do meaningful work, raise a script-specific exception with a message naming (a) what was queried, (b) the state/scope filter, and (c) which upstream loader the operator must run first. Do not log-and-continue or produce empty output.
+
+Concrete example: `ingestion/states/montana/build_overlay_fixture.py` lines 166–172 raise `OverlayFixtureError` when `_fetch_hd_ids(conn)` returns empty, naming `load_hds.py` as the prerequisite. Extends the zero-features writer convention (see "Single atomic commit" entry) to the reader side.
+
+Surfaced by S02.6 implementation on 2026-05-01.
 
 ## Conventions — Pre-commit & secrets
 

@@ -212,7 +212,7 @@ All rows: `kind='restricted_area'`, `state='US-MT'`, `source.document_type='gis_
 
 **CWD discriminator finding:** Layer #2's 53 features included **zero CWD-matching rows** — the discriminator filter ran clean. This is significant for [S02.5 planning](../../../docs/planning/epics/E02-geometry-ingestion.md): the exclusion-filter path over layer #2 will not yield any CWD zones. S02.5 must use the standalone-layer discovery path (Hub catalog search) or fall through to the hand-traced GeoJSON fallback.
 
-**Post-load verification SQL** (Supabase-compatible — uses the `ST_GeomFromText(ST_AsText(...))` workaround per [.ruckus/known-pitfalls.md](../../../.ruckus/known-pitfalls.md)):
+**Post-load verification SQL** (Supabase-compatible — uses the `ST_GeomFromText(ST_AsText(...))` workaround per [.roughly/known-pitfalls.md](../../../.roughly/known-pitfalls.md)):
 
 ```sql
 -- Counts by id_prefix
@@ -328,6 +328,60 @@ All 2 rows: `kind='cwd_zone'`, `state='US-MT'`, `license_year=2026`, `source.doc
 
 **CRS detection:** The shared loader emitted the magnitude-based CRS warning (declared layer CRS is EPSG:3857; `outSR=4326` requested). Coordinates pass the WGS84 range check; bbox is `(-115.80 to -114.15)` lng / `(48.16 to 48.64)` lat — well outside equator/prime-meridian ambiguity. Per [.ruckus/known-pitfalls.md](../../../.ruckus/known-pitfalls.md) the warning is acceptable for this dataset.
 
+## Building the overlay fixture (S02.6)
+
+Builds the geometry-overlay fixture for E03 handoff. The fixture captures every spatial relationship between V1 Montana geometries — HD self-references, HD→Portion containment, HD→CWD-zone overlaps, and HD→Restricted-Area overlaps — so E03 can populate `jurisdiction_binding` rows once `regulation_record` rows exist, without re-running PostGIS spatial computation.
+
+### Architecture: local shapely (not cross-join SQL)
+
+The script issues a single bulk query (`SELECT id, kind, ST_AsText(geom) FROM geometry WHERE state = 'US-MT'` — geography-native, no `::geometry` cast) and computes spatial relationships locally with shapely + STRtree. The original epic spec used PostGIS cross-join SQL (`SELECT … FROM geometry a, geometry b WHERE ST_Covers(a.geom, b.geom)`); that approach hits Supabase's role-locked 2-min `statement_timeout` on the live MT dataset (~12k candidate pairs × ~113 KB MultiPolygons). Local shapely completes the same work in ~5 seconds.
+
+The relationship label comes from a three-band area-ratio threshold (see [ADR-016](../../../docs/adrs/ADR-016-digitization-tolerant-containment.md)):
+
+```text
+overlap_pct = parent.intersection(child).area / child.area
+
+overlap_pct >= 0.99   →  relationship = "covers"        (digitization-tolerant containment)
+overlap_pct <  0.01   →  drop, write to audit log       (boundary-touching artifact)
+otherwise              →  relationship = "intersects"    (genuine partial overlap)
+```
+
+### Running the S02.6 overlay fixture builder
+
+Run from the repo root:
+
+```bash
+ingestion/.venv/bin/python ingestion/states/montana/build_overlay_fixture.py
+```
+
+Same env requirements (`DATABASE_URL`) as the other Montana scripts. No ArcGIS fetch is performed — this script queries only the Supabase Postgres instance.
+
+### Output
+
+Two files, both committed to the repo (not gitignored), both written via atomic tmp+rename:
+
+- `ingestion/states/montana/fixtures/geometry-overlays.json` — kept rows. Each entry has `parent_geometry_id`, `child_geometry_id`, `parent_kind`, `child_kind`, `relationship` (one of `self`, `covers`, `intersects`), and `role_for_e03`.
+- `ingestion/states/montana/fixtures/geometry-overlays-dropped.json` — audit log of HD↔child pairs filtered out by the lower threshold. Each entry has `parent_geometry_id`, `child_geometry_id`, `parent_kind`, `child_kind`, and `overlap_pct` (rounded to 6 decimal places). Filtering is one-way; the audit lets a future reviewer verify nothing semantically real was discarded.
+
+**Idempotent:** re-running produces byte-identical output for both files (sorted rows, sorted JSON keys, deterministic serialization, trailing newline).
+
+### Coverage invariant
+
+- **Portions** and **CWD zones** must overlap at least one hunting district above the threshold. Orphans cause the script to raise `OverlayFixtureError` with the full violation list — fail loud.
+- **Restricted areas** are *expected* to have HD parents. The script's `EXPECTED_RA_ORPHAN_IDS` allowlist exempts 3 known no-hunt zones — Glacier National Park, Sun River Game Preserve, Yellowstone National Park — from the orphan check (INFO-logged). Any other restricted_area orphan blocks the build, same as portion/CWD orphans. Adding a new ID to the allowlist requires a code edit and human review per [ADR-016](../../../docs/adrs/ADR-016-digitization-tolerant-containment.md).
+- Every fixture-referenced `geometry_id` (parent or child) must exist in the loaded geometry list — otherwise `OverlayFixtureError`.
+
+### Schema
+
+`ingestion/ingestion/lib/overlays.py` defines:
+
+- `OverlayFixtureRow` (TypedDict) — kept-row shape.
+- `DroppedOverlayPair` (TypedDict) — audit-row shape.
+- `GeometryRoleForE03`, `OverlayRelationship`, `OverlayParentKind`, `OverlayChildKind` (Literal aliases).
+- `ROLE_FOR_E03_BY_CHILD_KIND` — mapping that E03 imports to populate `jurisdiction_binding.role`.
+
+E03 imports these directly to type-check its consumer.
+
 ## Related
 
 - Epic: [`docs/planning/epics/E02-geometry-ingestion.md`](../../../docs/planning/epics/E02-geometry-ingestion.md) — S02.2 starts at line 226
@@ -335,3 +389,4 @@ All 2 rows: `kind='cwd_zone'`, `state='US-MT'`, `license_year=2026`, `source.doc
 - DB writer: [`ingestion/ingestion/lib/db.py`](../../ingestion/lib/db.py)
 - ADR-014: `SourceCitation.document_type='gis_layer'` (type-layer enforcement)
 - ADR-015: `geometry.verbatim_rule` column and REG+COMMENTS handling rule
+- ADR-016: Digitization-tolerant containment for geometry overlays (area-ratio thresholds)

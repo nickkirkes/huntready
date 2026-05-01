@@ -75,6 +75,7 @@ Most ADRs carry one or two tags. If an ADR needs three or more, it may be doing 
 | 013 | Server Returns Structure, Client Composes Presentation | Accepted | mcp, product        |
 | 014 | SourceCitation `gis_layer` Document Type           | Accepted  | schema              |
 | 015 | Geometry Verbatim Rule and REG+COMMENTS Handling   | Accepted  | schema              |
+| 016 | Digitization-Tolerant Geometry Overlay Containment | Accepted  | ingestion, schema   |
 
 ADRs not yet drafted show `—` in the Status column. Once drafted and committed, Status becomes `Accepted` (or `Proposed` if written ahead of implementation).
 
