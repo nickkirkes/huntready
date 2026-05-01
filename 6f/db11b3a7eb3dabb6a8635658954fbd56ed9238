@@ -1,0 +1,35 @@
+ingestion/states/montana/README.md
+  f5ccc477933d5e61 249-330
+.secrets.baseline
+  f5ccc477933d5e61 94-96,129-140
+ingestion/states/montana/load_cwd_zones.py
+  f5ccc477933d5e61 1-214
+docs/plans/S02.5-cwd-zone-discovery-plan.md
+  f5ccc477933d5e61 1-647
+ingestion/states/montana/cwd-source-discovery.md
+  f5ccc477933d5e61 1-189
+ingestion/states/montana/fixtures/ADMBND_HD_CWD-0-metadata-20260501T141952Z.json
+  f5ccc477933d5e61 1-446
+ingestion/tests/test_load_cwd_zones.py
+  f5ccc477933d5e61 1-674
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "6fdb11b3a7eb3dabb6a8635658954fbd56ed9238",
+  "prompts": {
+    "f5ccc477933d5e61": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f40e9ad2-3c9c-4dd4-8c11-1b977b0225b6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 2268,
+      "total_deletions": 2,
+      "accepted_lines": 2906,
+      "overriden_lines": 0
+    }
+  }
+}
