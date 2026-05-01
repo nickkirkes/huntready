@@ -1,0 +1,33 @@
+ingestion/states/montana/cwd_discriminator.py
+  d8c914b7526d69f7 1-38
+ingestion/tests/test_cwd_discriminator.py
+  d8c914b7526d69f7 1-101
+ingestion/tests/test_load_restricted_areas.py
+  d8c914b7526d69f7 1-748
+docs/plans/S02.4-restricted-areas-plan.md
+  d8c914b7526d69f7 1-557
+ingestion/states/montana/load_restricted_areas.py
+  d8c914b7526d69f7 1-277
+ingestion/states/montana/README.md
+  d8c914b7526d69f7 56-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "251d3d1562b3decc135b2243d207a795a1b4b878",
+  "prompts": {
+    "d8c914b7526d69f7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7ddb980e-aa60-4ead-9839-627a744ac938",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1769,
+      "total_deletions": 1367,
+      "accepted_lines": 1767,
+      "overriden_lines": 0
+    }
+  }
+}
