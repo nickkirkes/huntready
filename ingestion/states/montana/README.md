@@ -332,6 +332,20 @@ All 2 rows: `kind='cwd_zone'`, `state='US-MT'`, `license_year=2026`, `source.doc
 
 Builds the geometry-overlay fixture for E03 handoff. The fixture captures every spatial relationship between V1 Montana geometries — HD self-references, HD→Portion containment, HD→CWD-zone overlaps, and HD→Restricted-Area overlaps — so E03 can populate `jurisdiction_binding` rows once `regulation_record` rows exist, without re-running PostGIS spatial computation.
 
+### Architecture: local shapely (not cross-join SQL)
+
+The script issues a single bulk query (`SELECT id, kind, ST_AsText(geom) FROM geometry WHERE state = 'US-MT'` — geography-native, no `::geometry` cast) and computes spatial relationships locally with shapely + STRtree. The original epic spec used PostGIS cross-join SQL (`SELECT … FROM geometry a, geometry b WHERE ST_Covers(a.geom, b.geom)`); that approach hits Supabase's role-locked 2-min `statement_timeout` on the live MT dataset (~12k candidate pairs × ~113 KB MultiPolygons). Local shapely completes the same work in ~5 seconds.
+
+The relationship label comes from a three-band area-ratio threshold (see [ADR-016](../../../docs/adrs/ADR-016-digitization-tolerant-containment.md)):
+
+```text
+overlap_pct = parent.intersection(child).area / child.area
+
+overlap_pct >= 0.99   →  relationship = "covers"        (digitization-tolerant containment)
+overlap_pct <  0.01   →  drop, write to audit log       (boundary-touching artifact)
+otherwise              →  relationship = "intersects"    (genuine partial overlap)
+```
+
 ### Running the S02.6 overlay fixture builder
 
 Run from the repo root:
@@ -340,27 +354,33 @@ Run from the repo root:
 ingestion/.venv/bin/python ingestion/states/montana/build_overlay_fixture.py
 ```
 
-Same env requirements (`DATABASE_URL`) as the other Montana scripts. No ArcGIS fetch is performed — this script queries only the local Supabase Postgres instance.
-
-**Optional flag:** `--explain` emits `EXPLAIN ANALYZE` plans for each spatial query to stderr. Capture for the S02.7 runbook:
-
-```bash
-ingestion/.venv/bin/python ingestion/states/montana/build_overlay_fixture.py --explain 2>explain.txt
-```
+Same env requirements (`DATABASE_URL`) as the other Montana scripts. No ArcGIS fetch is performed — this script queries only the Supabase Postgres instance.
 
 ### Output
 
-`ingestion/states/montana/fixtures/geometry-overlays.json` — overwritten in place via atomic tmp+rename. The file is committed to the repo (not gitignored).
+Two files, both committed to the repo (not gitignored), both written via atomic tmp+rename:
 
-**Idempotent:** re-running produces byte-identical output (sorted rows, sorted JSON keys, deterministic serialization).
+- `ingestion/states/montana/fixtures/geometry-overlays.json` — kept rows. Each entry has `parent_geometry_id`, `child_geometry_id`, `parent_kind`, `child_kind`, `relationship` (one of `self`, `covers`, `intersects`), and `role_for_e03`.
+- `ingestion/states/montana/fixtures/geometry-overlays-dropped.json` — audit log of HD↔child pairs filtered out by the lower threshold. Each entry has `parent_geometry_id`, `child_geometry_id`, `parent_kind`, `child_kind`, and `overlap_pct` (rounded to 6 decimal places). Filtering is one-way; the audit lets a future reviewer verify nothing semantically real was discarded.
+
+**Idempotent:** re-running produces byte-identical output for both files (sorted rows, sorted JSON keys, deterministic serialization, trailing newline).
 
 ### Coverage invariant
 
-Every Portion, CWD zone, and Restricted Area in the Montana `geometry` table must overlap at least one hunting district. Any orphan (and any unknown geometry id referenced by the fixture) causes the script to raise `OverlayFixtureError` with the full violation list — fail loud, no silent skips.
+- **Portions** and **CWD zones** must overlap at least one hunting district above the threshold. Orphans cause the script to raise `OverlayFixtureError` with the full violation list — fail loud.
+- **Restricted areas** are *expected* to have HD parents but orphans are tolerated (INFO-logged). Real Montana data includes 3 known no-hunt zones — Glacier National Park, Sun River Game Preserve, Yellowstone National Park — that are adjacent to HDs but geometrically don't overlap them. Per ADR-016, these surface as informational warnings rather than build failures.
+- Every fixture-referenced `geometry_id` (parent or child) must exist in the loaded geometry list — otherwise `OverlayFixtureError`.
 
 ### Schema
 
-`ingestion/ingestion/lib/overlays.py` defines `OverlayFixtureRow` (TypedDict), the role enum, and the `ROLE_FOR_E03_BY_CHILD_KIND` mapping that E03 imports to populate `jurisdiction_binding.role`.
+`ingestion/ingestion/lib/overlays.py` defines:
+
+- `OverlayFixtureRow` (TypedDict) — kept-row shape.
+- `DroppedOverlayPair` (TypedDict) — audit-row shape.
+- `GeometryRoleForE03`, `OverlayRelationship`, `OverlayParentKind`, `OverlayChildKind` (Literal aliases).
+- `ROLE_FOR_E03_BY_CHILD_KIND` — mapping that E03 imports to populate `jurisdiction_binding.role`.
+
+E03 imports these directly to type-check its consumer.
 
 ## Related
 
@@ -369,3 +389,4 @@ Every Portion, CWD zone, and Restricted Area in the Montana `geometry` table mus
 - DB writer: [`ingestion/ingestion/lib/db.py`](../../ingestion/lib/db.py)
 - ADR-014: `SourceCitation.document_type='gis_layer'` (type-layer enforcement)
 - ADR-015: `geometry.verbatim_rule` column and REG+COMMENTS handling rule
+- ADR-016: Digitization-tolerant containment for geometry overlays (area-ratio thresholds)

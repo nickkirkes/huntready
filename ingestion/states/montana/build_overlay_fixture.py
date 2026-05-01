@@ -1,19 +1,42 @@
 """Montana geometry overlay fixture builder.
 
-Builds the geometry-overlay fixture for E03 handoff per story S02.6.
-The fixture captures four parent→child relationship classes:
-  1. HD → HD self-references (programmatic, not spatial)
-  2. HD → Portion containment (ST_Covers)
-  3. HD → CWD zone containment or intersection
-  4. HD → Restricted Area containment or intersection
+Builds the geometry-overlay fixture for E03 handoff. Computes every spatial
+relationship between V1 Montana geometries (HD self-references, HD↔Portion,
+HD↔CWD-zone, HD↔Restricted-Area) so E03 can populate ``jurisdiction_binding``
+rows once ``regulation_record`` rows exist, without re-running PostGIS spatial
+computation.
 
-Output path:
-    ingestion/states/montana/fixtures/geometry-overlays.json
+Architecture: spatial relationships are computed *locally* with shapely +
+STRtree, not via cross-join SQL. The single SQL query loads all Montana
+geometries (``ST_AsText`` on the geography column — no ``::geometry`` cast,
+per the documented pitfall); shapely parses the WKT and runs the
+covers/intersects discriminator in-process. Rationale: a Supabase
+role-locked 2-min ``statement_timeout`` aborts the cross-join SQL on the
+real Montana dataset (~12k candidate pairs against ~113 KB MultiPolygons);
+local shapely completes the same work in ~5 seconds.
 
-Run from the repo root:
+Discriminator: the relationship label is derived from the child-area
+overlap ratio (``parent.intersection(child).area / child.area``), not from
+shapely's strict ``covers`` predicate. Real-world MT data has portion edges
+that fall fractions of a meter outside their parent HD due to digitization
+precision, breaking strict ``ST_Covers``. The thresholds below are the
+contract documented in ADR-016 (digitization-tolerant containment):
+
+    overlap_pct >= COVER_RELABEL_THRESHOLD (0.99)  -> relationship = "covers"
+    overlap_pct <  COVER_DROP_THRESHOLD    (0.01)  -> drop the row, audit it
+    otherwise                                       -> relationship = "intersects"
+
+Outputs:
+- ``ingestion/states/montana/fixtures/geometry-overlays.json`` — kept rows.
+- ``ingestion/states/montana/fixtures/geometry-overlays-dropped.json`` —
+  audit log of pairs filtered out by the lower threshold. Lets a reviewer
+  verify nothing semantically real was discarded; filtering is one-way.
+
+Run from the repo root::
+
     ingestion/.venv/bin/python ingestion/states/montana/build_overlay_fixture.py
 
-Required env: DATABASE_URL.
+Required env: ``DATABASE_URL``.
 """
 
 from __future__ import annotations
@@ -21,14 +44,17 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import sys
 from pathlib import Path
 
 import psycopg
+from shapely import from_wkt
+from shapely.geometry.base import BaseGeometry
+from shapely.strtree import STRtree
 
 from ingestion.lib import db
 from ingestion.lib.overlays import (
     ROLE_FOR_E03_BY_CHILD_KIND,
+    DroppedOverlayPair,
     OverlayChildKind,
     OverlayFixtureRow,
     OverlayRelationship,
@@ -38,42 +64,48 @@ from ingestion.lib.overlays import (
 MT_STATE_CODE = "US-MT"
 MT_FIXTURE_DIR = Path(__file__).parent / "fixtures"
 OVERLAY_FIXTURE_PATH = MT_FIXTURE_DIR / "geometry-overlays.json"
+DROPPED_AUDIT_PATH = MT_FIXTURE_DIR / "geometry-overlays-dropped.json"
+
+# Digitization-tolerant containment thresholds. See ADR-016.
+COVER_RELABEL_THRESHOLD = 0.99
+COVER_DROP_THRESHOLD = 0.01
+# Round overlap_pct to this many decimal places so the audit JSON is
+# byte-deterministic across runs / shapely builds. Six decimals comfortably
+# resolves both thresholds without exposing trailing-digit float noise.
+_OVERLAP_PCT_PRECISION = 6
+
 
 _logger = logging.getLogger(__name__)
+
 
 class OverlayFixtureError(ValueError):
     """Raised when the overlay fixture violates the S02.6 coverage invariant."""
 
 
-_HD_IDS_SQL = """
-SELECT id FROM geometry
-WHERE kind = 'hunting_district' AND state = %s
+_LOAD_GEOMS_SQL = """
+SELECT id, kind, ST_AsText(geom)
+FROM geometry
+WHERE state = %s
 ORDER BY id
 """
 
-_HD_TO_PORTION_SQL = """
-SELECT a.id AS parent_id, b.id AS child_id
-FROM geometry a, geometry b
-WHERE a.kind = 'hunting_district' AND b.kind = 'portion'
-  AND a.state = %s AND b.state = %s
-  AND ST_Covers(a.geom, b.geom)
-"""
 
-_HD_TO_OVERLAY_SQL = """
-SELECT a.id AS parent_id, b.id AS child_id,
-       ST_Covers(a.geom, b.geom) AS is_covered
-FROM geometry a, geometry b
-WHERE a.kind = 'hunting_district' AND b.kind = %s
-  AND a.state = %s AND b.state = %s
-  AND ST_Intersects(a.geom, b.geom)
-"""
+def _load_geometries(
+    conn: psycopg.Connection[tuple[object, ...]],
+) -> list[tuple[str, str, BaseGeometry]]:
+    """Load all Montana geometries and parse WKT into shapely objects.
 
-
-def _fetch_hd_ids(conn: psycopg.Connection[tuple[object, ...]]) -> list[str]:
-    """Return all hunting district geometry IDs for Montana, ordered by id."""
+    Geography-native: uses ``ST_AsText(geom)`` which works directly on the
+    ``geography(MultiPolygon, 4326)`` column without the disabled
+    ``::geometry`` cast.
+    """
     with conn.cursor() as cur:
-        cur.execute(_HD_IDS_SQL, (MT_STATE_CODE,))
-        return [str(row[0]) for row in cur.fetchall()]
+        cur.execute(_LOAD_GEOMS_SQL, (MT_STATE_CODE,))
+        rows = cur.fetchall()
+    parsed: list[tuple[str, str, BaseGeometry]] = []
+    for geom_id, kind, wkt_text in rows:
+        parsed.append((str(geom_id), str(kind), from_wkt(str(wkt_text))))
+    return parsed
 
 
 def _build_hd_self_rows(hd_ids: list[str]) -> list[OverlayFixtureRow]:
@@ -81,150 +113,175 @@ def _build_hd_self_rows(hd_ids: list[str]) -> list[OverlayFixtureRow]:
     rows: list[OverlayFixtureRow] = []
     for hd_id in hd_ids:
         rows.append(
-            OverlayFixtureRow(
-                parent_geometry_id=hd_id,
-                child_geometry_id=hd_id,
-                parent_kind="hunting_district",
-                child_kind="hunting_district",
-                relationship="self",
-                role_for_e03=ROLE_FOR_E03_BY_CHILD_KIND["hunting_district"],
-            )
+            {
+                "parent_geometry_id": hd_id,
+                "child_geometry_id": hd_id,
+                "parent_kind": "hunting_district",
+                "child_kind": "hunting_district",
+                "relationship": "self",
+                "role_for_e03": ROLE_FOR_E03_BY_CHILD_KIND["hunting_district"],
+            }
         )
     return rows
 
 
-def _build_hd_portion_rows(conn: psycopg.Connection[tuple[object, ...]]) -> list[OverlayFixtureRow]:
-    """Build HD → Portion containment rows via ST_Covers."""
-    rows: list[OverlayFixtureRow] = []
-    with conn.cursor() as cur:
-        cur.execute(_HD_TO_PORTION_SQL, (MT_STATE_CODE, MT_STATE_CODE))
-        for row in cur.fetchall():
-            rows.append(
-                OverlayFixtureRow(
-                    parent_geometry_id=str(row[0]),
-                    child_geometry_id=str(row[1]),
-                    parent_kind="hunting_district",
-                    child_kind="portion",
-                    relationship="covers",
-                    role_for_e03=ROLE_FOR_E03_BY_CHILD_KIND["portion"],
-                )
-            )
-    return rows
-
-
-def _build_hd_overlay_rows(
-    conn: psycopg.Connection[tuple[object, ...]],
+def _build_overlay_pairs(
+    hds: list[tuple[str, BaseGeometry]],
+    children: list[tuple[str, BaseGeometry]],
     child_kind: OverlayChildKind,
-) -> list[OverlayFixtureRow]:
-    """Build HD → overlay rows for a given child kind via ST_Intersects / ST_Covers."""
-    rows: list[OverlayFixtureRow] = []
-    with conn.cursor() as cur:
-        cur.execute(_HD_TO_OVERLAY_SQL, (child_kind, MT_STATE_CODE, MT_STATE_CODE))
-        for row in cur.fetchall():
-            is_covered = bool(row[2])
-            relationship: OverlayRelationship = "covers" if is_covered else "intersects"
-            rows.append(
-                OverlayFixtureRow(
-                    parent_geometry_id=str(row[0]),
-                    child_geometry_id=str(row[1]),
-                    parent_kind="hunting_district",
-                    child_kind=child_kind,
-                    relationship=relationship,
-                    role_for_e03=ROLE_FOR_E03_BY_CHILD_KIND[child_kind],
-                )
+) -> tuple[list[OverlayFixtureRow], list[DroppedOverlayPair]]:
+    """Build HD → child overlay rows + audit log of dropped pairs.
+
+    Returns (kept_rows, dropped_rows). For each HD, query the STRtree for
+    bbox-overlapping child candidates, then compute the area-overlap ratio
+    and apply the thresholds (see ADR-016):
+
+        pct >= COVER_RELABEL_THRESHOLD  ->  kept as "covers"
+        pct <  COVER_DROP_THRESHOLD     ->  dropped (audit log)
+        otherwise                        ->  kept as "intersects"
+
+    Zero-area children cannot produce a meaningful ratio; they are kept as
+    "intersects" without ratio computation (defensive — should not occur
+    with validated MultiPolygons).
+    """
+    if not children:
+        return [], []
+    tree = STRtree([c[1] for c in children])
+    role = ROLE_FOR_E03_BY_CHILD_KIND[child_kind]
+    kept: list[OverlayFixtureRow] = []
+    dropped: list[DroppedOverlayPair] = []
+    for hd_id, hd_geom in hds:
+        for cand_idx in tree.query(hd_geom):
+            child_id, child_geom = children[int(cand_idx)]
+            if not hd_geom.intersects(child_geom):
+                continue
+            relationship: OverlayRelationship
+            if child_geom.area == 0:
+                relationship = "intersects"
+            else:
+                overlap_pct = hd_geom.intersection(child_geom).area / child_geom.area
+                if overlap_pct < COVER_DROP_THRESHOLD:
+                    dropped.append(
+                        {
+                            "parent_geometry_id": hd_id,
+                            "child_geometry_id": child_id,
+                            "parent_kind": "hunting_district",
+                            "child_kind": child_kind,
+                            "overlap_pct": round(overlap_pct, _OVERLAP_PCT_PRECISION),
+                        }
+                    )
+                    continue
+                relationship = "covers" if overlap_pct >= COVER_RELABEL_THRESHOLD else "intersects"
+            kept.append(
+                {
+                    "parent_geometry_id": hd_id,
+                    "child_geometry_id": child_id,
+                    "parent_kind": "hunting_district",
+                    "child_kind": child_kind,
+                    "relationship": relationship,
+                    "role_for_e03": role,
+                }
             )
-    return rows
-
-
-def _emit_explain(
-    conn: psycopg.Connection[tuple[object, ...]],
-    label: str,
-    sql: str,
-    params: tuple[object, ...],
-) -> None:
-    """Run EXPLAIN ANALYZE for a spatial query and emit the plan to stderr."""
-    with conn.cursor() as cur:
-        cur.execute("EXPLAIN (ANALYZE, FORMAT TEXT) " + sql, params)
-        rows = cur.fetchall()
-    print(f"# EXPLAIN ANALYZE: {label}", file=sys.stderr)
-    for row in rows:
-        print(row[0], file=sys.stderr)
-    print("", file=sys.stderr)
+    return kept, dropped
 
 
 def _collect_overlay_rows(
     conn: psycopg.Connection[tuple[object, ...]],
-    *,
-    explain: bool,
-) -> list[OverlayFixtureRow]:
-    """Collect all overlay rows by running spatial queries against the DB."""
-    if explain:
-        _emit_explain(conn, "HD→Portion", _HD_TO_PORTION_SQL, (MT_STATE_CODE, MT_STATE_CODE))
-        _emit_explain(conn, "HD→CWD zone", _HD_TO_OVERLAY_SQL, ("cwd_zone", MT_STATE_CODE, MT_STATE_CODE))
-        _emit_explain(conn, "HD→Restricted Area", _HD_TO_OVERLAY_SQL, ("restricted_area", MT_STATE_CODE, MT_STATE_CODE))
+) -> tuple[list[OverlayFixtureRow], list[DroppedOverlayPair]]:
+    """Load all geometries and compute the kept overlay rows + dropped audit log."""
+    parsed = _load_geometries(conn)
+    _logger.info("loaded %d Montana geometries", len(parsed))
 
-    hd_ids = _fetch_hd_ids(conn)
-    if not hd_ids:
+    hds = [(g[0], g[2]) for g in parsed if g[1] == "hunting_district"]
+    portions = [(g[0], g[2]) for g in parsed if g[1] == "portion"]
+    cwds = [(g[0], g[2]) for g in parsed if g[1] == "cwd_zone"]
+    ras = [(g[0], g[2]) for g in parsed if g[1] == "restricted_area"]
+
+    if not hds:
         msg = (
             f"no hunting_district rows found for state {MT_STATE_CODE!r} — "
             "geometry table unpopulated? Re-run S02.2 loader before building the overlay fixture."
         )
         raise OverlayFixtureError(msg)
-    self_rows = _build_hd_self_rows(hd_ids)
-    portion_rows = _build_hd_portion_rows(conn)
-    cwd_rows = _build_hd_overlay_rows(conn, "cwd_zone")
-    ra_rows = _build_hd_overlay_rows(conn, "restricted_area")
+
+    self_rows = _build_hd_self_rows([h[0] for h in hds])
+    portion_rows, portion_dropped = _build_overlay_pairs(hds, portions, "portion")
+    cwd_rows, cwd_dropped = _build_overlay_pairs(hds, cwds, "cwd_zone")
+    ra_rows, ra_dropped = _build_overlay_pairs(hds, ras, "restricted_area")
 
     _logger.info(
-        "collected %d HD self rows, %d HD→portion, %d HD→cwd_zone, %d HD→restricted_area",
+        "kept %d HD self, %d HD→portion (dropped %d), "
+        "%d HD→cwd_zone (dropped %d), %d HD→restricted_area (dropped %d)",
         len(self_rows),
         len(portion_rows),
+        len(portion_dropped),
         len(cwd_rows),
+        len(cwd_dropped),
         len(ra_rows),
+        len(ra_dropped),
     )
 
-    rows = self_rows + portion_rows + cwd_rows + ra_rows
-    _validate_coverage(conn, rows)
-    return rows
+    kept = self_rows + portion_rows + cwd_rows + ra_rows
+    dropped = portion_dropped + cwd_dropped + ra_dropped
+    _validate_coverage(parsed, kept)
+    return kept, dropped
+
+
+# Child kinds where an orphan (no HD parent passing the area threshold)
+# fails the coverage invariant. ``restricted_area`` is intentionally
+# excluded: real Montana data includes "no-hunt" zones — Glacier National
+# Park, Sun River Game Preserve, Yellowstone National Park — that are
+# adjacent to HDs but not contained within them. These are documented in
+# ADR-016 and surface as INFO-logged orphans rather than build failures.
+_ORPHAN_FAILS_INVARIANT: frozenset[str] = frozenset({"portion", "cwd_zone"})
 
 
 def _validate_coverage(
-    conn: psycopg.Connection[tuple[object, ...]],
+    parsed: list[tuple[str, str, BaseGeometry]],
     rows: list[OverlayFixtureRow],
 ) -> None:
-    """Validate the S02.6 coverage invariant; collect all violations then raise once."""
-    lines: list[str] = []
+    """Validate the S02.6 coverage invariant; collect all violations then raise once.
 
-    # Check A — orphan coverage: every portion / cwd_zone / restricted_area
-    # must appear as a child of at least one hunting_district.
+    Two checks, both run before raising:
+      A. Every ``portion`` / ``cwd_zone`` row in the geometry table appears
+         as ``child_geometry_id`` of some ``hunting_district`` parent
+         (relationship ``covers`` or ``intersects``). Dropped pairs (audit
+         log) are NOT counted toward coverage — only kept rows.
+
+         ``restricted_area`` orphans are reported at INFO level rather than
+         raised: large no-hunt zones (national parks, game preserves) are
+         legitimately adjacent to HDs without overlapping them. See
+         ADR-016 for the semantic justification.
+      B. Every fixture-referenced ``geometry_id`` (parent or child) exists
+         in the loaded geometry list.
+    """
     child_set: set[tuple[str, str]] = {
         (row["child_kind"], row["child_geometry_id"])
         for row in rows
         if row["parent_kind"] == "hunting_district"
         and row["relationship"] in ("covers", "intersects")
     }
-    with conn.cursor() as cur:
-        cur.execute(
-            "SELECT id, kind FROM geometry"
-            " WHERE state = %s AND kind IN ('portion', 'cwd_zone', 'restricted_area')"
-            " ORDER BY kind, id",
-            (MT_STATE_CODE,),
+    orphans_by_kind: dict[str, list[str]] = {}
+    for geom_id, kind, _ in parsed:
+        if kind not in ("portion", "cwd_zone", "restricted_area"):
+            continue
+        if (kind, geom_id) not in child_set:
+            orphans_by_kind.setdefault(kind, []).append(geom_id)
+
+    # Surface non-blocking restricted_area orphans for operator visibility.
+    ra_orphans = orphans_by_kind.get("restricted_area", [])
+    if ra_orphans:
+        _logger.info(
+            "%d restricted_area orphan(s) without HD parent (ADR-016 no-hunt zones, allowed): %s",
+            len(ra_orphans),
+            sorted(ra_orphans),
         )
-        orphans_by_kind: dict[str, list[str]] = {}
-        for db_id, db_kind in cur.fetchall():
-            if (str(db_kind), str(db_id)) not in child_set:
-                orphans_by_kind.setdefault(str(db_kind), []).append(str(db_id))
 
-    for kind in ("portion", "cwd_zone", "restricted_area"):
-        if kind in orphans_by_kind:
-            lines.append(f"  orphan {kind}: {orphans_by_kind[kind]}")
+    blocking_orphans = {
+        kind: ids for kind, ids in orphans_by_kind.items() if kind in _ORPHAN_FAILS_INVARIANT
+    }
 
-    # Check B — unknown geometry id: every parent_geometry_id and
-    # child_geometry_id referenced in the fixture must exist in the DB.
-    with conn.cursor() as cur:
-        cur.execute("SELECT id FROM geometry WHERE state = %s", (MT_STATE_CODE,))
-        id_set: set[str] = {str(row[0]) for row in cur.fetchall()}
-
+    id_set: set[str] = {g[0] for g in parsed}
     unknown_ids: set[str] = set()
     for row in rows:
         if row["parent_geometry_id"] not in id_set:
@@ -232,12 +289,16 @@ def _validate_coverage(
         if row["child_geometry_id"] not in id_set:
             unknown_ids.add(row["child_geometry_id"])
 
-    if unknown_ids:
-        lines.append(f"  unknown geometry ids referenced in fixture: {sorted(unknown_ids)}")
+    if not blocking_orphans and not unknown_ids:
+        return
 
-    if lines:
-        msg = "overlay fixture coverage invariant violated:\n" + "\n".join(lines)
-        raise OverlayFixtureError(msg)
+    lines = ["overlay fixture coverage invariant violated:"]
+    for kind in ("portion", "cwd_zone"):
+        if kind in blocking_orphans:
+            lines.append(f"  orphan {kind}: {sorted(blocking_orphans[kind])!r}")
+    if unknown_ids:
+        lines.append(f"  unknown geometry ids referenced in fixture: {sorted(unknown_ids)!r}")
+    raise OverlayFixtureError("\n".join(lines))
 
 
 def _write_fixture(rows: list[OverlayFixtureRow]) -> None:
@@ -254,28 +315,36 @@ def _write_fixture(rows: list[OverlayFixtureRow]) -> None:
     _logger.info("wrote %d overlay rows to %s", len(sorted_rows), OVERLAY_FIXTURE_PATH)
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Parse CLI args, open DB, collect overlay rows, write fixture."""
-    parser = argparse.ArgumentParser(
-        description="Build the Montana geometry overlay fixture for E03."
-    )
-    parser.add_argument(
-        "--explain",
-        action="store_true",
-        help="Emit EXPLAIN ANALYZE plans for the spatial queries to stderr.",
-    )
-    args = parser.parse_args(argv)
+def _write_dropped_audit(dropped: list[DroppedOverlayPair]) -> None:
+    """Serialize the dropped-pair audit log to its JSON file atomically.
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    Filtering is one-way; the audit lets a future reviewer verify that
+    nothing semantically real was discarded. See ADR-016.
+    """
+    sorted_dropped = sorted(
+        dropped,
+        key=lambda d: (d["parent_geometry_id"], d["child_geometry_id"]),
     )
+    MT_FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
+    tmp_path = DROPPED_AUDIT_PATH.with_name(DROPPED_AUDIT_PATH.name + ".tmp")
+    payload = json.dumps(sorted_dropped, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    tmp_path.write_text(payload, encoding="utf-8")
+    tmp_path.replace(DROPPED_AUDIT_PATH)
+    _logger.info("wrote %d dropped-pair audit rows to %s", len(sorted_dropped), DROPPED_AUDIT_PATH)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Parse CLI args, open DB, collect overlay rows, write fixture + audit."""
+    parser = argparse.ArgumentParser(description="Build the Montana geometry overlay fixture for E03.")
+    parser.parse_args(argv)
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     with db.connect() as conn:
-        rows = _collect_overlay_rows(conn, explain=args.explain)
+        kept, dropped = _collect_overlay_rows(conn)
 
-    _write_fixture(rows)
-
+    _write_fixture(kept)
+    _write_dropped_audit(dropped)
     return 0
 
 

@@ -132,3 +132,44 @@ role mapping so it is not duplicated across multiple query functions.
 
 Spec: E02-geometry-ingestion.md § "Role assignment by child kind".
 """
+
+
+# ---------------------------------------------------------------------------
+# Dropped-pair audit row
+# ---------------------------------------------------------------------------
+
+
+class DroppedOverlayPair(TypedDict):
+    """One audit-log entry for an HD↔child pair dropped by the area-ratio threshold.
+
+    The S02.6 builder filters HD↔child candidate pairs whose child-area
+    overlap ratio falls below the lower threshold (`< COVER_DROP_THRESHOLD`,
+    typically 0.01). Each dropped pair is recorded here so a future reviewer
+    can verify that nothing semantically real was discarded.
+
+    Schema and rationale: see ADR-016 (digitization-tolerant containment).
+
+    Fields:
+        parent_geometry_id:
+            The hunting-district geometry id that was the parent in the
+            dropped candidate pair.
+        child_geometry_id:
+            The child geometry id (portion / cwd_zone / restricted_area).
+        parent_kind:
+            Always ``"hunting_district"`` in V1; included for symmetry with
+            ``OverlayFixtureRow`` and to future-proof against non-HD parents.
+        child_kind:
+            The child geometry's ``kind``. Useful for grouping the audit log
+            by relationship class.
+        overlap_pct:
+            The ratio ``parent.intersection(child).area / child.area``,
+            rounded to 6 decimal places for byte-deterministic output.
+            Range: ``[0.0, 1.0)`` for dropped pairs (covers and near-covers
+            land in the kept fixture, not here).
+    """
+
+    parent_geometry_id: str
+    child_geometry_id: str
+    parent_kind: OverlayParentKind
+    child_kind: OverlayChildKind
+    overlap_pct: float

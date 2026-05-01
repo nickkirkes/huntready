@@ -467,33 +467,32 @@ If the actual CWD zone names have changed by execution time (regulations are bie
 
 This story replaces the PRD's "jurisdiction_binding rows" deliverable. The schema cannot accept binding rows without regulation_records (E03 territory). Instead, E02 produces a JSON fixture capturing the spatial topology that E03 will consume.
 
-**PostGIS operator semantics on `geography` (correction of a common misconception):**
+**Computation pattern: local shapely with area-ratio discriminator.**
 
-PostGIS *does* implement `ST_Contains(geography, geography)` and `ST_Within(geography, geography)` (since 2.4), but their geography support is partial and semantically surprising at boundary-touching cases. The recommended pattern is to use `ST_Covers` and `ST_Intersects` directly on geography — both are well-supported, both are spheroid-correct, and both leverage the `geometry_geom_gix` GiST index that E01 created on the geography column.
+Earlier drafts of this story prescribed a PostGIS cross-join (`SELECT … FROM geometry a, geometry b WHERE ST_Covers(a.geom, b.geom)`) for the spatial work. That approach has two problems on real Montana data, both confirmed during S02.6 implementation:
 
-**Critically: do NOT cast to `::geometry` in the WHERE clause.** A geography GiST index is built on the geography type; casting to geometry at query time forces materialization of the cast and the planner will not use the geography index. Earlier drafts of this epic specified `a.geom::geometry && b.geom::geometry AND ST_Covers(a.geom::geometry, b.geom::geometry)` — that pattern is wrong: `&&` is not a geography operator (so it forces the cast), and the cast loses the index. Use geography operators directly; PostGIS internally optimizes `ST_Intersects(geog, geog)` and `ST_Covers(geog, geog)` to use the geography GiST.
+1. **Supabase's role-locked 2-min `statement_timeout` aborts the cross-join.** Even with the planner correctly using `geometry_geom_gix` (a geography GiST), the per-row detoasting cost on ~113 KB MultiPolygons across ~12,000 candidate pairs exceeds the cap.
+2. **Strict `ST_Covers` orphans portions due to digitization precision.** Real portion edges fall fractions of a meter outside their parent HD boundary; only 23 of 55 Montana portions pass strict containment. The remaining 32 share the edge but extend slightly past it.
 
-**Computation pattern (per relationship type):**
+S02.6 implements the spatial work locally in shapely + STRtree against a single bulk `SELECT id, kind, ST_AsText(geom) FROM geometry WHERE state = 'US-MT'` (geography-native; no `::geometry` cast — see [.roughly/known-pitfalls.md](../../../.roughly/known-pitfalls.md)). Total runtime: ~5 seconds. The relationship label comes from a three-band area-ratio threshold instead of the binary `ST_Covers`:
 
-```sql
--- HD → Portion (containment)
-SELECT a.id AS parent, b.id AS child,
-       a.kind AS parent_kind, b.kind AS child_kind,
-       'covers'::text AS relationship
-FROM geometry a, geometry b
-WHERE a.kind = 'hunting_district' AND b.kind = 'portion'
-  AND ST_Covers(a.geom, b.geom);  -- geography native; uses geometry_geom_gix
+```python
+# For each (HD, child) candidate where parent.intersects(child):
+overlap_pct = parent_geom.intersection(child_geom).area / child_geom.area
 
--- HD → CWD zone (containment OR intersection)
-SELECT a.id, b.id, a.kind, b.kind,
-       CASE WHEN ST_Covers(a.geom, b.geom) THEN 'covers' ELSE 'intersects' END
-FROM geometry a, geometry b
-WHERE a.kind = 'hunting_district' AND b.kind = 'cwd_zone'
-  AND ST_Intersects(a.geom, b.geom);  -- ST_Covers ⊂ ST_Intersects
-
--- HD → Restricted Area (similar to HD → CWD zone)
--- Self-referential: HD → itself (primary_unit role) — generated programmatically, no spatial query needed
+if overlap_pct >= COVER_RELABEL_THRESHOLD (0.99):
+    relationship = "covers"           # digitization-tolerant containment
+elif overlap_pct < COVER_DROP_THRESHOLD (0.01):
+    drop the row, write to audit log  # boundary-touching artifact
+else:
+    relationship = "intersects"       # genuine partial overlap
 ```
+
+The audit log lands at `ingestion/states/montana/fixtures/geometry-overlays-dropped.json` (committed) — filtering is one-way; the audit lets a future reviewer verify nothing semantically real was discarded. The thresholds, denominator choice (`child.area`), and rejected-alternative spaces are documented in [ADR-016](../../adrs/ADR-016-digitization-tolerant-containment.md).
+
+The `restricted_area` coverage invariant is intentionally relaxed: real Montana data includes "no-hunt" zones (Glacier National Park, Sun River Game Preserve, Yellowstone NP) that are adjacent to HDs but not contained within them. Restricted-area orphans surface as INFO-logged warnings rather than build failures. Portions and CWD-zone orphans still fail the build (these are always subdivisions of HD coverage). See ADR-016 for the semantic justification.
+
+Self-relationship rows for each `hunting_district` are generated programmatically; no spatial computation needed.
 
 **Fixture format:** `ingestion/states/montana/fixtures/geometry-overlays.json`
 
@@ -529,44 +528,44 @@ WHERE a.kind = 'hunting_district' AND b.kind = 'cwd_zone'
 | (hunting_district, restricted_area) | restricted_area |
 | (hunting_district, bmu) | bear_management_unit (only if BMUs eventually distinct from HDs; current V1 layer #10 is `hunting_district`) |
 
-**Coverage invariant (strengthened):**
+**Coverage invariant:**
 
-Every `geometry` row must appear in the fixture, but the role placement depends on `kind`:
+Every `geometry` row must appear in the kept fixture (or be explicitly tolerated as a documented edge case), keyed off `kind`:
 
-| `geometry.kind` | Required appearance in fixture |
-|---|---|
-| `hunting_district` | At least one `self`-relationship row with `parent_geometry_id == child_geometry_id` and `role_for_e03='primary_unit'`. Optionally: appears as `parent_geometry_id` in covers/intersects rows toward Portions, CWD zones, Restricted Areas. |
-| `portion` | Appears as `child_geometry_id` in at least one `covers` relationship to a `hunting_district` parent, with `role_for_e03='portion'`. |
-| `cwd_zone` | Appears as `child_geometry_id` in at least one `covers` or `intersects` relationship to a `hunting_district` parent, with `role_for_e03='cwd_management_zone'`. |
-| `restricted_area` | Appears as `child_geometry_id` in at least one `covers` or `intersects` relationship to a `hunting_district` parent, with `role_for_e03='restricted_area'`. |
-| `bmu` (none expected in V1 — layer #10 is `hunting_district`) | n/a |
+| `geometry.kind` | Required appearance in fixture | Orphan behavior |
+| --- | --- | --- |
+| `hunting_district` | At least one `self`-relationship row with `parent_geometry_id == child_geometry_id` and `role_for_e03='primary_unit'`. Optionally: appears as `parent_geometry_id` in covers/intersects rows toward children. | Cannot orphan — every HD gets a self row programmatically. |
+| `portion` | Appears as `child_geometry_id` in at least one `covers` or `intersects` relationship to a `hunting_district` parent, with `role_for_e03='portion'`. | Build fails loudly with offending id surfaced. |
+| `cwd_zone` | Same as `portion`, `role_for_e03='cwd_management_zone'`. | Build fails loudly with offending id surfaced. |
+| `restricted_area` | Same shape, `role_for_e03='restricted_area'`. | **Orphans tolerated** — INFO-logged, not raised. Real MT data contains no-hunt zones (Glacier NP, Sun River Game Preserve, Yellowstone NP) that are adjacent to HDs but geometrically don't overlap them. See [ADR-016](../../adrs/ADR-016-digitization-tolerant-containment.md). |
+| `bmu` (none expected in V1 — layer #10 is `hunting_district`) | n/a | n/a |
 
-A Portion or Restricted Area that doesn't overlap any HD is a data-quality flag worth surfacing — fail loudly during fixture build.
+**Fixture schema documentation:** Python `TypedDict` at `ingestion/ingestion/lib/overlays.py` (`OverlayFixtureRow` + `DroppedOverlayPair` + role mapping). E03 imports this directly. JSON Schema was rejected: codebase has no other JSON Schema usage and Python is the canonical type contract here.
 
-**Fixture schema documentation:** Commit a JSON Schema or TypedDict at `ingestion/states/montana/fixtures/geometry-overlays.schema.json` that types every field, every enum value, and the relationship-to-role mapping. E03 imports this to type-check its consumer rather than reverse-engineering the format from sample rows.
+**Audit log:** `ingestion/states/montana/fixtures/geometry-overlays-dropped.json`. Captures every HD↔child pair filtered out by `COVER_DROP_THRESHOLD` with `(parent_geometry_id, child_geometry_id, parent_kind, child_kind, overlap_pct)` per row. Sorted, deterministic, committed alongside the kept fixture.
 
-**Performance check (softened from earlier draft):** Run `EXPLAIN ANALYZE` on the overlay-detection queries and document the chosen plan in the runbook. With ~200 HDs × ~50 Portions ≈ 10K candidate pairs, sequential scan would still complete in well under a second — performance is not a V1 blocker. The point of the EXPLAIN check is to confirm the geography GiST index is reachable from `ST_Covers(geog, geog)` / `ST_Intersects(geog, geog)`, not to demand an index scan. If PostgreSQL chooses a sequential scan because the dataset is small, that is acceptable; document the choice.
+**Performance:** Local shapely runs the spatial work in ~5 seconds end-to-end (load WKT + parse + STRtree + threshold check) for the full Montana dataset (349 geometries, ~26,000 candidate pairs across all three relationship types). Earlier drafts of this story prescribed a PostGIS cross-join; that approach hits Supabase's role-locked 2-min `statement_timeout` on real data. The S02.7 runbook documents this finding and the local-shapely architecture rather than an `EXPLAIN ANALYZE` plan.
 
-**Relevant ADRs:** [ADR-004](../../adrs/ADR-004-supabase-postgres-postgis.md), [ADR-010](../../adrs/ADR-010-decomposed-entity-model.md).
+**Relevant ADRs:** [ADR-004](../../adrs/ADR-004-supabase-postgres-postgis.md), [ADR-010](../../adrs/ADR-010-decomposed-entity-model.md), [ADR-016](../../adrs/ADR-016-digitization-tolerant-containment.md).
 
 **Depends on:** S02.2, S02.3, S02.4, S02.5. **Note: S02.5 may produce zero `cwd_zone` rows under the hand-traced fallback path or if the discriminator returns no matches.** S02.6 still works in that case — it produces fixture rows for HD↔HD self-references, HD→Portion, and HD→Restricted Area, with no HD→CWD entries. The coverage invariant accommodates this (CWD zones only need a binding-row "if any exist").
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/montana/fixtures/geometry-overlays.json` exists with at least: HD→HD self-references for every `hunting_district` row, HD→Portion containment, HD→Restricted Area, HD→CWD (if S02.5 produced any)
-- [ ] Every relationship has `parent_geometry_id`, `child_geometry_id`, `parent_kind`, `child_kind`, `relationship` (one of: `self`, `covers`, `intersects`), and `role_for_e03` (one of the seven `GeometryRole` enum values)
-- [ ] **Fixture schema:** `ingestion/states/montana/fixtures/geometry-overlays.schema.json` (JSON Schema) committed and validates the fixture; alternatively, a TypedDict in `ingestion/ingestion/lib/overlays.py` typed for E03 import
-- [ ] **Strengthened coverage invariant:**
-  - Every `hunting_district` row has a self-relationship with `role_for_e03='primary_unit'`
-  - Every `portion` row appears as `child_geometry_id` in ≥1 relationship to a `hunting_district` parent with `role_for_e03='portion'`
-  - Every `cwd_zone` row appears as `child_geometry_id` in ≥1 relationship to a `hunting_district` parent with `role_for_e03='cwd_management_zone'`
-  - Every `restricted_area` row appears as `child_geometry_id` in ≥1 relationship to a `hunting_district` parent with `role_for_e03='restricted_area'`
-  - Any Portion / CWD / Restricted Area not overlapping any HD fails the build with the offending id surfaced
-- [ ] Every fixture-referenced `geometry_id` exists in the `geometry` table (FK-equivalent JSON-level validation)
-- [ ] **EXPLAIN ANALYZE plan documented in the runbook** (S02.7's runbook). The point is to verify the geography GiST index is reachable; an Index Scan is preferred but a Seq Scan on this small dataset is acceptable if documented. Sequential scan is NOT automatically a bug.
-- [ ] **UAT:** human spot-check that known relationships appear correctly (e.g., HD-262 contains its expected Elk Portion, if data supports it)
-- [ ] Generation script committed at `ingestion/states/montana/build_overlay_fixture.py`
-- [ ] Fixture is reproducible — running the script produces identical JSON (sorted keys, deterministic ordering)
+- [ ] `ingestion/states/montana/fixtures/geometry-overlays.json` exists with: HD→HD self-references for every `hunting_district` row, plus HD→Portion / HD→CWD / HD→Restricted-Area covers/intersects relationships per the area-ratio thresholds in [ADR-016](../../adrs/ADR-016-digitization-tolerant-containment.md).
+- [ ] Every relationship row has `parent_geometry_id`, `child_geometry_id`, `parent_kind`, `child_kind`, `relationship` (one of: `self`, `covers`, `intersects`), and `role_for_e03` (one of the seven `JurisdictionBinding.role` Literal values).
+- [ ] **Audit log** at `ingestion/states/montana/fixtures/geometry-overlays-dropped.json` committed alongside the kept fixture, capturing every HD↔child pair filtered out by `COVER_DROP_THRESHOLD` with `(parent_geometry_id, child_geometry_id, parent_kind, child_kind, overlap_pct)` per row. Sorted, deterministic.
+- [ ] **Fixture schema:** Python `TypedDict` at `ingestion/ingestion/lib/overlays.py` — `OverlayFixtureRow` + `DroppedOverlayPair` + `ROLE_FOR_E03_BY_CHILD_KIND` mapping. E03 imports these directly.
+- [ ] **Coverage invariant** (per the table above):
+  - Every `hunting_district` row has a self-relationship with `role_for_e03='primary_unit'`.
+  - Every `portion` row appears as `child_geometry_id` in ≥1 covers/intersects relationship to an HD parent with `role_for_e03='portion'`. Orphans fail the build loudly.
+  - Every `cwd_zone` row appears as `child_geometry_id` in ≥1 covers/intersects relationship to an HD parent with `role_for_e03='cwd_management_zone'`. Orphans fail the build loudly.
+  - `restricted_area` rows are *expected* to have HD parents but orphans are tolerated (INFO-logged) per ADR-016 — real MT data has 3 known no-hunt zones (national parks, game preserves) that legitimately don't overlap HDs.
+- [ ] Every fixture-referenced `geometry_id` (parent or child) exists in the loaded geometry list (JSON-level FK check).
+- [ ] **Threshold edge tests** in `tests/test_build_overlay_fixture.py` lock in the contract: `overlap_pct = 0.989 → "intersects"`, `0.990 → "covers"`, `0.011 → "intersects"`, `0.009 → dropped`.
+- [ ] **UAT:** human spot-check that known relationships appear correctly (e.g., HD-262 has only its self-row plus any genuinely contained portions/RAs, not boundary-edge noise).
+- [ ] Generation script committed at `ingestion/states/montana/build_overlay_fixture.py`.
+- [ ] Both fixture files are reproducible — running the script produces byte-identical JSON across runs (sorted rows, sort_keys=True, indent=2, trailing newline, atomic tmp+rename, `overlap_pct` rounded to 6 decimals).
 
 ---
 

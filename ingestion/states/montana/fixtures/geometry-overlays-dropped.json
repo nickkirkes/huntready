@@ -1,0 +1,2669 @@
+[
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-215-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-215-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-215-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1.5e-05,
+    "parent_geometry_id": "MT-HD-antelope-291-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-291-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-291-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-311-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-313-portion-elPt2-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-313-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.002481,
+    "parent_geometry_id": "MT-HD-antelope-313-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-elk-deckard-flats-to-trail-creek-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 2.9e-05,
+    "parent_geometry_id": "MT-HD-antelope-313-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-317-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt23-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-318-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3.4e-05,
+    "parent_geometry_id": "MT-HD-antelope-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3.4e-05,
+    "parent_geometry_id": "MT-HD-antelope-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 4e-06,
+    "parent_geometry_id": "MT-HD-antelope-338-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-340-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-350-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-muskrat-valley-near-boulder-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000802,
+    "parent_geometry_id": "MT-HD-antelope-350-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt5-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000452,
+    "parent_geometry_id": "MT-HD-antelope-371-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000181,
+    "parent_geometry_id": "MT-HD-antelope-371-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 5.1e-05,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-outside-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-05,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt5-geom",
+    "child_kind": "portion",
+    "overlap_pct": 5.1e-05,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-391-portion-wtPt1-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-limestone-hills-training-range-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-prickly-pear-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-antelope-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000206,
+    "parent_geometry_id": "MT-HD-antelope-381-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-fort-harrison-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.001473,
+    "parent_geometry_id": "MT-HD-antelope-388-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.001364,
+    "parent_geometry_id": "MT-HD-antelope-390-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-380-portion-wtPt2-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-390-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000128,
+    "parent_geometry_id": "MT-HD-antelope-413-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 2e-06,
+    "parent_geometry_id": "MT-HD-antelope-420-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+    "child_kind": "portion",
+    "overlap_pct": 6.9e-05,
+    "parent_geometry_id": "MT-HD-antelope-471-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 4.3e-05,
+    "parent_geometry_id": "MT-HD-antelope-480-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-417-portion-elPt417-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000286,
+    "parent_geometry_id": "MT-HD-antelope-480-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-481-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-417-portion-elPt417-geom",
+    "child_kind": "portion",
+    "overlap_pct": 6.8e-05,
+    "parent_geometry_id": "MT-HD-antelope-481-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-slippery-ann-elk-viewing-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.007857,
+    "parent_geometry_id": "MT-HD-antelope-481-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-05,
+    "parent_geometry_id": "MT-HD-antelope-485-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.00012,
+    "parent_geometry_id": "MT-HD-antelope-490-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000175,
+    "parent_geometry_id": "MT-HD-antelope-490-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-526-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-536-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-antelope-536-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-701-portion-elPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1.3e-05,
+    "parent_geometry_id": "MT-HD-antelope-536-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-596-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-596-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-701-portion-elPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.00042,
+    "parent_geometry_id": "MT-HD-antelope-596-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-650-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-650-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000735,
+    "parent_geometry_id": "MT-HD-antelope-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-632-the-charles-m-russell-national-wildlife-refuge-cmr-in-valley-county-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.006127,
+    "parent_geometry_id": "MT-HD-antelope-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-650-on-the-cmr-refuge-at-the-fort-peck-dam-site-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.008467,
+    "parent_geometry_id": "MT-HD-antelope-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-the-pines-recreation-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0031,
+    "parent_geometry_id": "MT-HD-antelope-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-701-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt17-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-701-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-701-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-702-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-703-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-703-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-704-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt17-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-704-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt17-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-antelope-705-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-103-portion-portion-of-hd-103-north-fisher-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-100-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-103-portion-wtPt10-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-100-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-104-portion-wtPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-100-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-elk-portion-of-hd-101-north-tobacco-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-100-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-103-portion-portion-of-hd-103-north-fisher-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-101-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-CWD-zone-kalispell-cwd-management-zone-geom",
+    "child_kind": "cwd_zone",
+    "overlap_pct": 0.000126,
+    "parent_geometry_id": "MT-HD-bear-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-100-portion-wtPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-bear-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-104-portion-wtPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-120-north-between-smith-lake-road-and-us-route-2-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.001428,
+    "parent_geometry_id": "MT-HD-bear-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-100-portion-wtPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-104-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-103-portion-wtPt10-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-104-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-libby-big-game-archery-only-hunting-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000813,
+    "parent_geometry_id": "MT-HD-bear-104-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-CWD-zone-kalispell-cwd-management-zone-geom",
+    "child_kind": "cwd_zone",
+    "overlap_pct": 7e-06,
+    "parent_geometry_id": "MT-HD-bear-110-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000489,
+    "parent_geometry_id": "MT-HD-bear-110-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-flathead-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000127,
+    "parent_geometry_id": "MT-HD-bear-110-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-glacier-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-110-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-120-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-flathead-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-120-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-CWD-zone-libby-cwd-management-zone-geom",
+    "child_kind": "cwd_zone",
+    "overlap_pct": 6e-05,
+    "parent_geometry_id": "MT-HD-bear-121-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-104-portion-wtPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-121-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-130-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000342,
+    "parent_geometry_id": "MT-HD-bear-140-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-glacier-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-140-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-glacier-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 5.6e-05,
+    "parent_geometry_id": "MT-HD-bear-141-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-441-portion-elPt16-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000163,
+    "parent_geometry_id": "MT-HD-bear-150-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-441-portion-portion-of-hd-441-within-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000114,
+    "parent_geometry_id": "MT-HD-bear-150-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sun-river-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-150-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-201-portion-wtPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 4.4e-05,
+    "parent_geometry_id": "MT-HD-bear-200-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-bitterroot-clark-fork-archery-district-portion-of-hd-260-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000751,
+    "parent_geometry_id": "MT-HD-bear-200-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-240-portion-elPt18-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.003032,
+    "parent_geometry_id": "MT-HD-bear-216-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-292-portion-elPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 5.2e-05,
+    "parent_geometry_id": "MT-HD-bear-216-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-201-portion-wtPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.002442,
+    "parent_geometry_id": "MT-HD-bear-216-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-292-portion-wtPt3-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3e-06,
+    "parent_geometry_id": "MT-HD-bear-216-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt19-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3e-06,
+    "parent_geometry_id": "MT-HD-bear-240-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-292-portion-elPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 2.4e-05,
+    "parent_geometry_id": "MT-HD-bear-280-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-292-portion-wtPt3-geom",
+    "child_kind": "portion",
+    "overlap_pct": 2.4e-05,
+    "parent_geometry_id": "MT-HD-bear-280-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-helmville-ovando-archery-district-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.003844,
+    "parent_geometry_id": "MT-HD-bear-280-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-seeley-lake-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.002347,
+    "parent_geometry_id": "MT-HD-bear-280-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sun-river-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-280-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt29-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.003031,
+    "parent_geometry_id": "MT-HD-bear-290-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000104,
+    "parent_geometry_id": "MT-HD-bear-290-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-130-portion-portion-of-hd-130-mission-mtns-wilderness-portion-of-flathead-natl-forest-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1.1e-05,
+    "parent_geometry_id": "MT-HD-bear-290-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.002239,
+    "parent_geometry_id": "MT-HD-bear-290-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.002239,
+    "parent_geometry_id": "MT-HD-bear-290-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-bitterroot-clark-fork-archery-district-portion-of-hd-260-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000139,
+    "parent_geometry_id": "MT-HD-bear-290-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-300-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 7.1e-05,
+    "parent_geometry_id": "MT-HD-bear-301-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.00746,
+    "parent_geometry_id": "MT-HD-bear-301-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 6.3e-05,
+    "parent_geometry_id": "MT-HD-bear-301-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.00746,
+    "parent_geometry_id": "MT-HD-bear-301-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-east-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-309-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-bear-309-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000144,
+    "parent_geometry_id": "MT-HD-bear-316-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt23-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000321,
+    "parent_geometry_id": "MT-HD-bear-316-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3.4e-05,
+    "parent_geometry_id": "MT-HD-bear-316-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3.4e-05,
+    "parent_geometry_id": "MT-HD-bear-316-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.001822,
+    "parent_geometry_id": "MT-HD-bear-317-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-ennis-airport-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.001338,
+    "parent_geometry_id": "MT-HD-bear-317-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-jeffers-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.009896,
+    "parent_geometry_id": "MT-HD-bear-317-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.001594,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.003202,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.004188,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-outside-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.003202,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.004188,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.004188,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt5-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.003202,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-gallatin-valley-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 2.7e-05,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-prickly-pear-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.004188,
+    "parent_geometry_id": "MT-HD-bear-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000884,
+    "parent_geometry_id": "MT-HD-bear-341-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-blackwood-exclusion-zone-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-341-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-gallatin-valley-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-341-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sourdough-exclusion-zone-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-341-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.009951,
+    "parent_geometry_id": "MT-HD-bear-341-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-411-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-slippery-ann-elk-viewing-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.009029,
+    "parent_geometry_id": "MT-HD-bear-411-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000342,
+    "parent_geometry_id": "MT-HD-bear-440-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-glacier-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000443,
+    "parent_geometry_id": "MT-HD-bear-450-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sun-river-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-450-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1.2e-05,
+    "parent_geometry_id": "MT-HD-bear-580-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000379,
+    "parent_geometry_id": "MT-HD-bear-580-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-bear-580-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-701-portion-elPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.000445,
+    "parent_geometry_id": "MT-HD-bear-580-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-bear-600-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 2.9e-05,
+    "parent_geometry_id": "MT-HD-bear-600-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 4.2e-05,
+    "parent_geometry_id": "MT-HD-bear-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-fort-peck-dam-site-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.005878,
+    "parent_geometry_id": "MT-HD-bear-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-632-the-charles-m-russell-national-wildlife-refuge-cmr-in-valley-county-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 3e-06,
+    "parent_geometry_id": "MT-HD-bear-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-650-on-the-cmr-refuge-at-the-fort-peck-dam-site-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-bear-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-the-pines-recreation-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 2e-06,
+    "parent_geometry_id": "MT-HD-bear-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-103-portion-portion-of-hd-103-north-fisher-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-100-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-103-portion-wtPt10-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-100-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-104-portion-wtPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-100-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-elk-portion-of-hd-101-north-tobacco-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-100-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-103-portion-portion-of-hd-103-north-fisher-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-101-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-CWD-zone-kalispell-cwd-management-zone-geom",
+    "child_kind": "cwd_zone",
+    "overlap_pct": 0.000126,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-100-portion-wtPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-104-portion-wtPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-120-north-between-smith-lake-road-and-us-route-2-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.001428,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-103-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-100-portion-wtPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-104-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-103-portion-wtPt10-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-104-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-libby-big-game-archery-only-hunting-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000813,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-104-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-CWD-zone-kalispell-cwd-management-zone-geom",
+    "child_kind": "cwd_zone",
+    "overlap_pct": 7e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-110-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-110-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-flathead-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000127,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-110-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-glacier-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-110-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-120-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-flathead-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-120-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-CWD-zone-libby-cwd-management-zone-geom",
+    "child_kind": "cwd_zone",
+    "overlap_pct": 6e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-121-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-104-portion-wtPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-121-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-130-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-140-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-glacier-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-140-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-glacier-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 5.7e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-141-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-441-portion-elPt16-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-150-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-441-portion-portion-of-hd-441-within-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-150-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sun-river-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-150-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-202-portion-elPt8-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-201-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-204-portion-elPt28-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-201-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-240-portion-elPt18-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-201-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-292-portion-elPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-201-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-240-portion-portion-of-hd-240-inside-wilderness-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-201-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-292-portion-wtPt3-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-201-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-bitterroot-clark-fork-archery-district-portion-of-hd-260-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-201-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-200-portion-elPt7-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-202-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt29-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-204-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-292-portion-elPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-204-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-261-portion-portion-of-hd-261-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-204-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-201-portion-wtPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-204-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-bitterroot-clark-fork-archery-district-portion-of-hd-260-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-204-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt30-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-211-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt19-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-211-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt23-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-211-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt30-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-212-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-214-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-214-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-215-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-215-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-215-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt29-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-216-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt30-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-216-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt19-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-216-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt29-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-217-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt30-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-217-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-217-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-217-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt19-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-240-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt23-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-240-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-bitterroot-clark-fork-archery-district-portion-of-hd-260-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-240-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt23-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-250-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-240-portion-portion-of-hd-240-inside-wilderness-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-250-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-204-portion-elPt28-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-260-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-240-portion-elPt18-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-260-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt19-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-260-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-201-portion-wtPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-260-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt19-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-261-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-204-portion-elPt28-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-262-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt19-geom",
+    "child_kind": "portion",
+    "overlap_pct": 2e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-262-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-261-portion-portion-of-hd-261-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-262-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-bitterroot-clark-fork-archery-district-portion-of-hd-260-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-262-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-240-portion-elPt18-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-270-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-261-portion-portion-of-hd-261-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-270-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-bitterroot-clark-fork-archery-district-portion-of-hd-260-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-270-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sun-river-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-280-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-east-ovando-archery-only-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-281-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-helmville-ovando-archery-district-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-281-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-lincoln-archery-district-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-281-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-292-portion-elPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-282-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-292-portion-wtPt3-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-282-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-292-portion-elPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-285-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-130-portion-portion-of-hd-130-mission-mtns-wilderness-portion-of-flathead-natl-forest-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1.1e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-285-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-201-portion-wtPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-285-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-292-portion-wtPt3-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-285-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-291-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-291-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-291-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-204-portion-elPt28-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-292-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-210-portion-elPt29-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-292-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-201-portion-wtPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-292-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-lincoln-archery-district-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.003392,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-293-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-292-portion-elPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-298-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-298-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-292-portion-wtPt3-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-298-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-east-ovando-archery-only-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-298-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-helmville-ovando-archery-district-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-298-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-301-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-blackwood-exclusion-zone-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-301-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-gallatin-valley-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-301-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sourdough-exclusion-zone-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-301-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-gallatin-valley-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-304-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-east-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-309-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-309-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt5-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-310-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-310-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000176,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-310-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-gallatin-valley-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-311-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-gallatin-valley-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 4e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-312-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt5-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-313-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-313-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-313-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-314-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-elk-deckard-flats-to-trail-creek-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-314-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-316-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-313-portion-elPt2-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1.9e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-317-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 6.7e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-317-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-318-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-muskrat-valley-near-boulder-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-318-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt23-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-319-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-270-portion-elPt23-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-321-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-jeffers-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 9.1e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-323-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-335-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-335-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-335-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-335-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-prickly-pear-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-335-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-339-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-339-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-339-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-prickly-pear-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-339-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-340-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-343-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-343-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-343-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-343-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-fort-harrison-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-343-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-prickly-pear-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-343-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-350-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-muskrat-valley-near-boulder-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000462,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-350-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-310-portion-elPt1-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-323-portion-elPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-310-portion-gallatin-special-management-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-310-portion-wtPt7-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.000274,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-elk-gallatin-special-management-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-elk-wall-creek-wma-and-adjacent-land-as-posted-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-360-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-yellowstone-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0002,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-361-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 5.1e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-388-portion-elPt13-geom",
+    "child_kind": "portion",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-outside-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-weapons-restriction-area-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt4-geom",
+    "child_kind": "portion",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-388-portion-wtPt5-geom",
+    "child_kind": "portion",
+    "overlap_pct": 5.1e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-391-portion-wtPt1-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-prickly-pear-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 8e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-380-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-390-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-390-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-whitetail-380-portion-wtPt2-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-391-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.001508,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-393-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-east-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-393-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-393-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-gallatin-valley-weapons-restriction-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-393-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-410-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-417-portion-elPt417-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-410-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-slippery-ann-elk-viewing-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.004264,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-410-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-411-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-412-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-417-portion-elPt417-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-412-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-413-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-441-portion-portion-of-hd-441-within-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-415-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-glacier-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-415-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-416-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-417-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-419-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-425-portion-elPt24-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-422-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sun-river-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-422-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-425-portion-elPt24-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-424-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sun-river-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-424-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-417-portion-elPt417-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-426-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-425-portion-elPt24-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-442-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-441-portion-elPt16-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-442-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-mule-deer-441-portion-portion-of-hd-441-within-the-national-forest-boundary-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-442-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-sun-river-game-preserve-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-442-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-425-portion-elPt24-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-444-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-446-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-447-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-448-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-425-portion-elPt24-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-450-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-451-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 4.6e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-535-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-535-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-701-portion-elPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-535-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-590-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.00041,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-590-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-701-portion-elPt9-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-590-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-650-on-the-cmr-refuge-at-the-fort-peck-dam-site-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 1e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-630-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 4e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-650-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 2.9e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-650-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-charles-m-russell-national-wildlife-refuge-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.006988,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-650-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 3e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-652-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 1.3e-05,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-fort-peck-dam-site-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.005878,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-632-the-charles-m-russell-national-wildlife-refuge-cmr-in-valley-county-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 2e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-hd-650-on-the-cmr-refuge-at-the-fort-peck-dam-site-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-restricted-bigame-the-pines-recreation-area-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 2e-06,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-700-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt12-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-701-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt17-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-701-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-701-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-702-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-703-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-703-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-704-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt17-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-704-geom",
+    "parent_kind": "hunting_district"
+  },
+  {
+    "child_geometry_id": "MT-HD-antelope-703-portion-antPt17-geom",
+    "child_kind": "portion",
+    "overlap_pct": 0.0,
+    "parent_geometry_id": "MT-HD-deer-elk-lion-705-geom",
+    "parent_kind": "hunting_district"
+  }
+]

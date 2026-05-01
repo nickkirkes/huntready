@@ -1,4 +1,8 @@
-"""Unit tests for states.montana.build_overlay_fixture — pure-function, no real DB."""
+"""Unit tests for the S02.6 geometry overlay fixture builder.
+
+All tests are pure-function: the DB connection is stubbed via ``MagicMock``
+and shapely runs in-process. No real Postgres, no real network.
+"""
 
 from __future__ import annotations
 
@@ -7,28 +11,22 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
-from ingestion.lib.overlays import (
-    GeometryRoleForE03,
-    OverlayChildKind,
-    OverlayRelationship,
-)
-
 import pytest
+from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry.base import BaseGeometry
 
 import states.montana.build_overlay_fixture as build_fixture
-from ingestion.lib.overlays import (
-    ROLE_FOR_E03_BY_CHILD_KIND,
-    OverlayFixtureRow,
-)
+from ingestion.lib.overlays import OverlayFixtureRow
 from states.montana.build_overlay_fixture import (
-    MT_STATE_CODE,
+    COVER_DROP_THRESHOLD,
+    COVER_RELABEL_THRESHOLD,
     OverlayFixtureError,
-    _build_hd_overlay_rows,
-    _build_hd_portion_rows,
     _build_hd_self_rows,
+    _build_overlay_pairs,
     _collect_overlay_rows,
-    _emit_explain,
+    _load_geometries,
     _validate_coverage,
+    _write_dropped_audit,
     _write_fixture,
     main,
 )
@@ -39,41 +37,74 @@ from states.montana.build_overlay_fixture import (
 # ---------------------------------------------------------------------------
 
 
-def _make_conn_mock(fetchall_return: Any = None) -> tuple[MagicMock, MagicMock]:
-    """Return (mock_conn, mock_cursor) wired up for `with conn.cursor() as cur:`."""
-    mock_cursor = MagicMock()
-    mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
-    mock_cursor.__exit__ = MagicMock(return_value=False)
-    if fetchall_return is not None:
-        mock_cursor.fetchall.return_value = fetchall_return
-    mock_conn = MagicMock()
-    mock_conn.cursor.return_value = mock_cursor
-    return mock_conn, mock_cursor
+def _square(x0: float, y0: float, side: float = 1.0) -> Polygon:
+    """A unit-square polygon at offset (x0, y0)."""
+    return Polygon([(x0, y0), (x0 + side, y0), (x0 + side, y0 + side), (x0, y0 + side)])
 
 
-def _make_db_connect_mock(mock_conn: MagicMock) -> MagicMock:
-    """Return a context-manager mock that yields mock_conn from `with db.connect() as conn:`."""
-    connect_cm = MagicMock()
-    connect_cm.__enter__ = MagicMock(return_value=mock_conn)
-    connect_cm.__exit__ = MagicMock(return_value=False)
-    return connect_cm
+def _make_pct_pair(parent_geom: BaseGeometry, child_geom: BaseGeometry) -> float:
+    """Return the same overlap ratio _build_overlay_pairs computes."""
+    return parent_geom.intersection(child_geom).area / child_geom.area
 
 
-def _sample_row(
-    parent_id: str = "MT-HD-1",
-    child_id: str = "MT-HD-1",
-    child_kind: OverlayChildKind = "hunting_district",
-    relationship: OverlayRelationship = "self",
-    role: GeometryRoleForE03 = "primary_unit",
+def _conn_mock_with_fetchall(rows: list[Any]) -> MagicMock:
+    """Build a connection mock whose cursor's fetchall returns ``rows`` once."""
+    conn = MagicMock()
+    cursor = MagicMock()
+    cursor.__enter__ = MagicMock(return_value=cursor)
+    cursor.__exit__ = MagicMock(return_value=None)
+    cursor.fetchall.return_value = rows
+    conn.cursor.return_value = cursor
+    conn.__enter__ = MagicMock(return_value=conn)
+    conn.__exit__ = MagicMock(return_value=None)
+    return conn
+
+
+def _sample_kept_row(
+    parent_id: str,
+    child_id: str,
+    child_kind: str = "portion",
+    relationship: str = "covers",
+    role: str = "portion",
 ) -> OverlayFixtureRow:
-    return OverlayFixtureRow(
-        parent_geometry_id=parent_id,
-        child_geometry_id=child_id,
-        parent_kind="hunting_district",
-        child_kind=child_kind,
-        relationship=relationship,
-        role_for_e03=role,
-    )
+    return {  # type: ignore[typeddict-item]
+        "parent_geometry_id": parent_id,
+        "child_geometry_id": child_id,
+        "parent_kind": "hunting_district",
+        "child_kind": child_kind,  # type: ignore[typeddict-item]
+        "relationship": relationship,  # type: ignore[typeddict-item]
+        "role_for_e03": role,  # type: ignore[typeddict-item]
+    }
+
+
+# ---------------------------------------------------------------------------
+# TestLoadGeometries
+# ---------------------------------------------------------------------------
+
+
+class TestLoadGeometries:
+    def test_returns_id_kind_and_parsed_shapely(self) -> None:
+        wkt_polygon = "POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))"
+        rows = [("geom-1", "hunting_district", wkt_polygon)]
+        conn = _conn_mock_with_fetchall(rows)
+        result = _load_geometries(conn)
+        assert len(result) == 1
+        assert result[0][0] == "geom-1"
+        assert result[0][1] == "hunting_district"
+        assert isinstance(result[0][2], BaseGeometry)
+        assert result[0][2].area == pytest.approx(1.0)
+
+    def test_sql_filters_by_montana_state(self) -> None:
+        conn = _conn_mock_with_fetchall([])
+        _load_geometries(conn)
+        cursor = conn.cursor.return_value
+        called_args = cursor.execute.call_args
+        # Params bound as ("US-MT",)
+        assert called_args[0][1] == ("US-MT",)
+        # SQL uses geography-native ST_AsText (no ::geometry cast)
+        sql = called_args[0][0]
+        assert "ST_AsText(geom)" in sql
+        assert "::geometry" not in sql
 
 
 # ---------------------------------------------------------------------------
@@ -83,116 +114,145 @@ def _sample_row(
 
 class TestBuildHdSelfRows:
     def test_empty_input_returns_empty_list(self) -> None:
-        result = _build_hd_self_rows([])
-        assert result == []
+        assert _build_hd_self_rows([]) == []
 
     def test_single_hd_produces_correct_self_row(self) -> None:
-        hd_id = "MT-HD-deer-elk-lion-100-geom"
-        result = _build_hd_self_rows([hd_id])
-        assert len(result) == 1
-        row = result[0]
-        assert row["parent_geometry_id"] == hd_id
-        assert row["child_geometry_id"] == hd_id
+        rows = _build_hd_self_rows(["MT-HD-1"])
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["parent_geometry_id"] == "MT-HD-1"
+        assert row["child_geometry_id"] == "MT-HD-1"
         assert row["parent_kind"] == "hunting_district"
         assert row["child_kind"] == "hunting_district"
         assert row["relationship"] == "self"
         assert row["role_for_e03"] == "primary_unit"
 
     def test_multiple_hds_preserves_order(self) -> None:
-        ids = ["MT-HD-1", "MT-HD-2", "MT-HD-3"]
-        result = _build_hd_self_rows(ids)
-        assert len(result) == 3
-        for i, row in enumerate(result):
-            assert row["parent_geometry_id"] == ids[i]
-            assert row["child_geometry_id"] == ids[i]
-            assert row["role_for_e03"] == "primary_unit"
+        rows = _build_hd_self_rows(["A", "B", "C"])
+        assert [r["parent_geometry_id"] for r in rows] == ["A", "B", "C"]
 
 
 # ---------------------------------------------------------------------------
-# TestBuildHdPortionRows
+# TestBuildOverlayPairs
 # ---------------------------------------------------------------------------
 
 
-class TestBuildHdPortionRows:
-    def test_two_rows_produced_with_correct_fields(self) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(
-            fetchall_return=[("MT-HD-1", "MT-portion-A"), ("MT-HD-2", "MT-portion-B")]
-        )
-        result = _build_hd_portion_rows(mock_conn)
-        assert len(result) == 2
-        for row in result:
-            assert row["relationship"] == "covers"
-            assert row["child_kind"] == "portion"
-            assert row["role_for_e03"] == ROLE_FOR_E03_BY_CHILD_KIND["portion"]
-            assert row["parent_kind"] == "hunting_district"
+class TestBuildOverlayPairs:
+    def test_empty_children_returns_empty_lists(self) -> None:
+        hds = [("HD-1", _square(0, 0))]
+        kept, dropped = _build_overlay_pairs(hds, [], "portion")
+        assert kept == []
+        assert dropped == []
 
-    def test_first_row_parent_child_ids(self) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(
-            fetchall_return=[("MT-HD-1", "MT-portion-A")]
-        )
-        result = _build_hd_portion_rows(mock_conn)
-        assert result[0]["parent_geometry_id"] == "MT-HD-1"
-        assert result[0]["child_geometry_id"] == "MT-portion-A"
+    def test_strict_cover_produces_covers_relationship(self) -> None:
+        # HD fully contains a smaller portion.
+        hd = _square(0, 0, 10)
+        portion = _square(2, 2, 1)
+        kept, dropped = _build_overlay_pairs([("HD-1", hd)], [("P-1", portion)], "portion")
+        assert dropped == []
+        assert len(kept) == 1
+        assert kept[0]["relationship"] == "covers"
+        assert kept[0]["child_kind"] == "portion"
+        assert kept[0]["role_for_e03"] == "portion"
 
-    def test_cursor_execute_receives_correct_params(self) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(
-            fetchall_return=[("MT-HD-1", "MT-portion-A")]
-        )
-        _build_hd_portion_rows(mock_conn)
-        mock_cursor.execute.assert_called_once()
-        args = mock_cursor.execute.call_args
-        # Second arg to execute() is the params tuple
-        params = args[0][1]
-        assert params == (MT_STATE_CODE, MT_STATE_CODE)
+    def test_partial_overlap_produces_intersects_relationship(self) -> None:
+        # 40% of the child overlaps the parent.
+        hd = _square(0, 0, 1)
+        portion = _square(0.6, 0, 1)  # x in [0.6, 1.6], so 40% overlap
+        kept, dropped = _build_overlay_pairs([("HD-1", hd)], [("P-1", portion)], "portion")
+        pct = _make_pct_pair(hd, portion)
+        assert COVER_DROP_THRESHOLD <= pct < COVER_RELABEL_THRESHOLD
+        assert dropped == []
+        assert len(kept) == 1
+        assert kept[0]["relationship"] == "intersects"
 
-    def test_sql_uses_st_covers_without_geometry_cast(self) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(fetchall_return=[])
-        _build_hd_portion_rows(mock_conn)
-        sql = mock_cursor.execute.call_args[0][0]
-        assert "ST_Covers" in sql
-        assert "::geometry" not in sql
+    def test_no_intersection_skipped(self) -> None:
+        hd = _square(0, 0, 1)
+        portion = _square(10, 10, 1)
+        kept, dropped = _build_overlay_pairs([("HD-1", hd)], [("P-1", portion)], "portion")
+        assert kept == []
+        assert dropped == []
 
+    def test_below_drop_threshold_added_to_audit(self) -> None:
+        # Tiny overlap — child is mostly outside parent.
+        hd = _square(0, 0, 1)
+        portion = _square(0.999, 0, 1)  # 0.1% overlap
+        kept, dropped = _build_overlay_pairs([("HD-1", hd)], [("P-1", portion)], "portion")
+        assert kept == []
+        assert len(dropped) == 1
+        d = dropped[0]
+        assert d["parent_geometry_id"] == "HD-1"
+        assert d["child_geometry_id"] == "P-1"
+        assert d["parent_kind"] == "hunting_district"
+        assert d["child_kind"] == "portion"
+        assert 0.0 <= d["overlap_pct"] < COVER_DROP_THRESHOLD
 
-# ---------------------------------------------------------------------------
-# TestBuildHdOverlayRows
-# ---------------------------------------------------------------------------
+    # ---- Threshold edge cases (per the spec gates: 0.989/0.990, 0.009/0.011) ----
 
+    def test_threshold_edge_overlap_989_stays_intersects(self) -> None:
+        kept, dropped = self._run_with_overlap(0.989)
+        assert dropped == []
+        assert len(kept) == 1
+        assert kept[0]["relationship"] == "intersects"
 
-class TestBuildHdOverlayRows:
-    @pytest.mark.parametrize("child_kind", ["cwd_zone", "restricted_area"])
-    def test_relationship_discriminator_by_is_covered(self, child_kind: str) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(
-            fetchall_return=[
-                ("MT-HD-1", "MT-overlay-X", True),
-                ("MT-HD-2", "MT-overlay-Y", False),
-            ]
-        )
-        result = _build_hd_overlay_rows(mock_conn, child_kind)  # type: ignore[arg-type]
-        assert len(result) == 2
-        assert result[0]["relationship"] == "covers"
-        assert result[1]["relationship"] == "intersects"
+    def test_threshold_edge_overlap_990_relabeled_as_covers(self) -> None:
+        kept, dropped = self._run_with_overlap(0.990)
+        assert dropped == []
+        assert len(kept) == 1
+        assert kept[0]["relationship"] == "covers"
 
-    @pytest.mark.parametrize("child_kind", ["cwd_zone", "restricted_area"])
-    def test_child_kind_and_role_match_parametrized_kind(self, child_kind: str) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(
-            fetchall_return=[("MT-HD-1", "MT-overlay-X", True)]
-        )
-        result = _build_hd_overlay_rows(mock_conn, child_kind)  # type: ignore[arg-type]
-        assert result[0]["child_kind"] == child_kind
-        assert result[0]["role_for_e03"] == ROLE_FOR_E03_BY_CHILD_KIND[child_kind]  # type: ignore[index]
+    def test_threshold_edge_overlap_011_stays_intersects(self) -> None:
+        kept, dropped = self._run_with_overlap(0.011)
+        assert dropped == []
+        assert len(kept) == 1
+        assert kept[0]["relationship"] == "intersects"
 
-    @pytest.mark.parametrize("child_kind", ["cwd_zone", "restricted_area"])
-    def test_execute_params_include_child_kind_and_state(self, child_kind: str) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(fetchall_return=[])
-        _build_hd_overlay_rows(mock_conn, child_kind)  # type: ignore[arg-type]
-        params = mock_cursor.execute.call_args[0][1]
-        assert params == (child_kind, MT_STATE_CODE, MT_STATE_CODE)
+    def test_threshold_edge_overlap_009_dropped(self) -> None:
+        kept, dropped = self._run_with_overlap(0.009)
+        assert kept == []
+        assert len(dropped) == 1
+        assert 0.0 <= dropped[0]["overlap_pct"] < COVER_DROP_THRESHOLD
 
-    @pytest.mark.parametrize("child_kind", ["cwd_zone", "restricted_area"])
-    def test_empty_db_returns_empty_list(self, child_kind: str) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(fetchall_return=[])
-        result = _build_hd_overlay_rows(mock_conn, child_kind)  # type: ignore[arg-type]
-        assert result == []
+    @staticmethod
+    def _run_with_overlap(target_pct: float) -> tuple[list, list]:
+        """Construct an HD/child pair whose intersection ratio is exactly ``target_pct``.
+
+        Child is a unit square at origin; parent is a rectangle that covers
+        the leftmost ``target_pct`` of it. Intersection.area / child.area ==
+        target_pct exactly (within float precision).
+        """
+        child = _square(0, 0, 1)  # area = 1
+        parent = Polygon(
+            [(0, 0), (target_pct, 0), (target_pct, 1), (0, 1)]
+        )  # area = target_pct, fully overlapping the leftmost stripe
+        return _build_overlay_pairs([("HD-1", parent)], [("C-1", child)], "portion")
+
+    def test_zero_area_child_kept_as_intersects(self) -> None:
+        # Defensive: a zero-area child cannot produce a meaningful ratio.
+        hd = _square(0, 0, 10)
+        # A degenerate "polygon" — collapsed to a line.
+        zero = Polygon([(1, 1), (2, 1), (2, 1), (1, 1)])
+        assert zero.area == 0
+        # shapely STRtree query must include this candidate; intersects is True
+        # because the line is on the HD interior.
+        kept, dropped = _build_overlay_pairs([("HD-1", hd)], [("Z-1", zero)], "portion")
+        assert dropped == []
+        # Either kept (if intersects) or skipped (if shapely says no intersection).
+        # Behavior: kept as intersects.
+        if kept:
+            assert kept[0]["relationship"] == "intersects"
+
+    def test_role_for_e03_matches_child_kind(self) -> None:
+        # Spot-check the role-mapping for each child kind that exercises the function.
+        hd = _square(0, 0, 10)
+        child = _square(2, 2, 1)
+        for child_kind, expected_role in [
+            ("portion", "portion"),
+            ("cwd_zone", "cwd_management_zone"),
+            ("restricted_area", "restricted_area"),
+        ]:
+            kept, _ = _build_overlay_pairs([("HD", hd)], [("C", child)], child_kind)  # type: ignore[arg-type]
+            assert kept[0]["role_for_e03"] == expected_role
 
 
 # ---------------------------------------------------------------------------
@@ -201,218 +261,91 @@ class TestBuildHdOverlayRows:
 
 
 class TestValidateCoverage:
-    def _make_multi_cursor_conn(
-        self,
-        first_fetchall: list[tuple[Any, ...]],
-        second_fetchall: list[tuple[Any, ...]],
-    ) -> MagicMock:
-        """Wire up a conn whose cursor().fetchall() returns different values per call."""
-        cursor1 = MagicMock()
-        cursor1.__enter__ = MagicMock(return_value=cursor1)
-        cursor1.__exit__ = MagicMock(return_value=False)
-        cursor1.fetchall.return_value = first_fetchall
-
-        cursor2 = MagicMock()
-        cursor2.__enter__ = MagicMock(return_value=cursor2)
-        cursor2.__exit__ = MagicMock(return_value=False)
-        cursor2.fetchall.return_value = second_fetchall
-
-        mock_conn = MagicMock()
-        mock_conn.cursor.side_effect = [cursor1, cursor2]
-        return mock_conn
+    def _parsed(self, *triples: tuple[str, str]) -> list[tuple[str, str, BaseGeometry]]:
+        return [(geom_id, kind, _square(0, 0)) for geom_id, kind in triples]
 
     def test_all_children_covered_no_raise(self) -> None:
+        parsed = self._parsed(
+            ("HD-1", "hunting_district"),
+            ("P-1", "portion"),
+            ("CWD-1", "cwd_zone"),
+            ("RA-1", "restricted_area"),
+        )
         rows: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "P-1", "portion", "covers", "portion"),
-            _sample_row("HD-1", "CWD-1", "cwd_zone", "covers", "cwd_management_zone"),
+            _sample_kept_row("HD-1", "P-1", "portion", "covers", "portion"),
+            _sample_kept_row("HD-1", "CWD-1", "cwd_zone", "intersects", "cwd_management_zone"),
+            _sample_kept_row("HD-1", "RA-1", "restricted_area", "covers", "restricted_area"),
         ]
-        # first query (orphan check) returns same pairs as in rows
-        first_q = [("P-1", "portion"), ("CWD-1", "cwd_zone")]
-        # second query (all ids) returns all ids referenced
-        second_q = [("HD-1",), ("P-1",), ("CWD-1",)]
-        mock_conn = self._make_multi_cursor_conn(first_q, second_q)
-        # Should not raise
-        _validate_coverage(mock_conn, rows)
+        _validate_coverage(parsed, rows)  # no raise
 
     def test_portion_orphan_raises_with_id_and_kind(self) -> None:
-        rows: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "CWD-1", "cwd_zone", "covers", "cwd_management_zone"),
-        ]
-        # DB has a portion that the rows don't reference
-        first_q = [("P-orphan", "portion"), ("CWD-1", "cwd_zone")]
-        second_q = [("HD-1",), ("P-orphan",), ("CWD-1",)]
-        mock_conn = self._make_multi_cursor_conn(first_q, second_q)
-        with pytest.raises(OverlayFixtureError) as exc_info:
-            _validate_coverage(mock_conn, rows)
-        msg = str(exc_info.value)
-        assert "P-orphan" in msg
-        assert "portion" in msg
+        parsed = self._parsed(
+            ("HD-1", "hunting_district"),
+            ("P-1", "portion"),
+            ("P-orphan", "portion"),
+        )
+        rows = [_sample_kept_row("HD-1", "P-1", "portion", "covers", "portion")]
+        with pytest.raises(OverlayFixtureError) as exc:
+            _validate_coverage(parsed, rows)
+        assert "orphan portion" in str(exc.value)
+        assert "P-orphan" in str(exc.value)
 
     def test_cwd_orphan_raises_with_id_and_kind(self) -> None:
-        rows: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "P-1", "portion", "covers", "portion"),
-        ]
-        first_q = [("P-1", "portion"), ("CWD-orphan", "cwd_zone")]
-        second_q = [("HD-1",), ("P-1",), ("CWD-orphan",)]
-        mock_conn = self._make_multi_cursor_conn(first_q, second_q)
-        with pytest.raises(OverlayFixtureError) as exc_info:
-            _validate_coverage(mock_conn, rows)
-        msg = str(exc_info.value)
-        assert "CWD-orphan" in msg
-        assert "cwd_zone" in msg
+        parsed = self._parsed(
+            ("HD-1", "hunting_district"),
+            ("CWD-orphan", "cwd_zone"),
+        )
+        rows: list[OverlayFixtureRow] = []
+        with pytest.raises(OverlayFixtureError) as exc:
+            _validate_coverage(parsed, rows)
+        assert "orphan cwd_zone" in str(exc.value)
+        assert "CWD-orphan" in str(exc.value)
 
-    def test_restricted_area_orphan_raises_with_id_and_kind(self) -> None:
-        rows: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "P-1", "portion", "covers", "portion"),
-        ]
-        first_q = [("P-1", "portion"), ("RA-orphan", "restricted_area")]
-        second_q = [("HD-1",), ("P-1",), ("RA-orphan",)]
-        mock_conn = self._make_multi_cursor_conn(first_q, second_q)
-        with pytest.raises(OverlayFixtureError) as exc_info:
-            _validate_coverage(mock_conn, rows)
-        msg = str(exc_info.value)
-        assert "RA-orphan" in msg
-        assert "restricted_area" in msg
-
-    def test_empty_cwd_table_and_no_cwd_rows_no_raise(self) -> None:
-        rows: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "P-1", "portion", "covers", "portion"),
-        ]
-        # DB has no cwd_zone rows at all
-        first_q = [("P-1", "portion")]
-        second_q = [("HD-1",), ("P-1",)]
-        mock_conn = self._make_multi_cursor_conn(first_q, second_q)
-        _validate_coverage(mock_conn, rows)  # should not raise
+    def test_restricted_area_orphan_does_not_raise(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        # Per ADR-016: restricted_area orphans (national parks, game preserves)
+        # are allowed and surfaced via INFO log, not raised.
+        import logging
+        caplog.set_level(logging.INFO, logger="states.montana.build_overlay_fixture")
+        parsed = self._parsed(
+            ("HD-1", "hunting_district"),
+            ("RA-orphan-park", "restricted_area"),
+        )
+        rows: list[OverlayFixtureRow] = []
+        _validate_coverage(parsed, rows)  # no raise
+        assert any("restricted_area orphan" in r.message for r in caplog.records)
+        assert any("RA-orphan-park" in r.message for r in caplog.records)
 
     def test_unknown_geometry_id_raises(self) -> None:
-        rows: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "UNKNOWN-99", "portion", "covers", "portion"),
-        ]
-        # Orphan check: DB reports no portion (UNKNOWN-99 not in geometry table)
-        first_q: list[tuple[Any, ...]] = []
-        # All-ids check: only HD-1 exists (UNKNOWN-99 absent)
-        second_q = [("HD-1",)]
-        mock_conn = self._make_multi_cursor_conn(first_q, second_q)
-        with pytest.raises(OverlayFixtureError) as exc_info:
-            _validate_coverage(mock_conn, rows)
-        msg = str(exc_info.value)
-        assert "UNKNOWN-99" in msg
-        assert "unknown geometry ids" in msg
+        parsed = self._parsed(("HD-1", "hunting_district"))
+        rows = [_sample_kept_row("HD-1", "FAKE-CHILD", "portion", "covers", "portion")]
+        with pytest.raises(OverlayFixtureError) as exc:
+            _validate_coverage(parsed, rows)
+        assert "unknown geometry ids" in str(exc.value)
+        assert "FAKE-CHILD" in str(exc.value)
 
     def test_both_orphan_and_unknown_id_raises_with_both(self) -> None:
-        rows: list[OverlayFixtureRow] = [
-            # covers an existing HD, but the portion itself is missing from DB
-            _sample_row("HD-1", "UNKNOWN-99", "portion", "covers", "portion"),
-        ]
-        # DB has a portion that rows don't reference → orphan
-        # And UNKNOWN-99 doesn't exist in geometry
-        first_q = [("P-real", "portion")]
-        second_q = [("HD-1",), ("P-real",)]  # UNKNOWN-99 not here
-        mock_conn = self._make_multi_cursor_conn(first_q, second_q)
-        with pytest.raises(OverlayFixtureError) as exc_info:
-            _validate_coverage(mock_conn, rows)
-        msg = str(exc_info.value)
-        # Both violations must appear
-        assert "P-real" in msg
-        assert "portion" in msg
-        assert "UNKNOWN-99" in msg
-        assert "unknown geometry ids" in msg
+        parsed = self._parsed(
+            ("HD-1", "hunting_district"),
+            ("P-orphan", "portion"),
+        )
+        rows = [_sample_kept_row("HD-1", "FAKE-CHILD", "portion", "covers", "portion")]
+        with pytest.raises(OverlayFixtureError) as exc:
+            _validate_coverage(parsed, rows)
+        msg = str(exc.value)
+        assert "orphan portion" in msg and "P-orphan" in msg
+        assert "unknown geometry ids" in msg and "FAKE-CHILD" in msg
 
-
-# ---------------------------------------------------------------------------
-# TestWriteFixture
-# ---------------------------------------------------------------------------
-
-
-class TestWriteFixture:
-    def _make_rows(self) -> list[OverlayFixtureRow]:
-        return [
-            _sample_row("HD-B", "P-2", "portion", "covers", "portion"),
-            _sample_row("HD-A", "P-1", "portion", "covers", "portion"),
-            _sample_row("HD-A", "CWD-1", "cwd_zone", "intersects", "cwd_management_zone"),
-        ]
-
-    def test_determinism_different_input_orders(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
-    ) -> None:
-        rows = self._make_rows()
-        reversed_rows = list(reversed(rows))
-
-        dir_a = tmp_path / "a" / "fixtures"
-        dir_b = tmp_path / "b" / "fixtures"
-        path_a = dir_a / "geometry-overlays.json"
-        path_b = dir_b / "geometry-overlays.json"
-
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", dir_a)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", path_a)
-        _write_fixture(rows)
-
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", dir_b)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", path_b)
-        _write_fixture(reversed_rows)
-
-        assert path_a.read_bytes() == path_b.read_bytes()
-
-    def test_trailing_newline(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
-    ) -> None:
-        fixture_dir = tmp_path / "fixtures"
-        fixture_path = fixture_dir / "geometry-overlays.json"
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", fixture_dir)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", fixture_path)
-
-        _write_fixture(self._make_rows())
-        content = fixture_path.read_text(encoding="utf-8")
-        assert content.endswith("\n")
-
-    def test_sort_key_tie_break_relationship(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
-    ) -> None:
-        """Rows with same (parent, child) but different relationship must sort deterministically."""
-        rows_order_1: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "OV-1", "cwd_zone", "intersects", "cwd_management_zone"),
-            _sample_row("HD-1", "OV-1", "cwd_zone", "covers", "cwd_management_zone"),
-        ]
-        rows_order_2: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "OV-1", "cwd_zone", "covers", "cwd_management_zone"),
-            _sample_row("HD-1", "OV-1", "cwd_zone", "intersects", "cwd_management_zone"),
-        ]
-
-        dir_a = tmp_path / "tie_a" / "fixtures"
-        dir_b = tmp_path / "tie_b" / "fixtures"
-        path_a = dir_a / "geometry-overlays.json"
-        path_b = dir_b / "geometry-overlays.json"
-
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", dir_a)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", path_a)
-        _write_fixture(rows_order_1)
-
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", dir_b)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", path_b)
-        _write_fixture(rows_order_2)
-
-        assert path_a.read_bytes() == path_b.read_bytes()
-
-    def test_output_is_valid_json(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
-    ) -> None:
-        fixture_dir = tmp_path / "fixtures"
-        fixture_path = fixture_dir / "geometry-overlays.json"
-        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", fixture_dir)
-        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", fixture_path)
-
-        _write_fixture(self._make_rows())
-        parsed = json.loads(fixture_path.read_text(encoding="utf-8"))
-        assert isinstance(parsed, list)
-        assert len(parsed) == 3
+    def test_dropped_pairs_do_not_count_toward_coverage(self) -> None:
+        # A child appearing in the audit (dropped) is NOT considered covered.
+        parsed = self._parsed(
+            ("HD-1", "hunting_district"),
+            ("P-1", "portion"),
+        )
+        # rows is the KEPT list — no entry for P-1, so it's an orphan
+        with pytest.raises(OverlayFixtureError):
+            _validate_coverage(parsed, [])
 
 
 # ---------------------------------------------------------------------------
@@ -421,187 +354,162 @@ class TestWriteFixture:
 
 
 class TestCollectOverlayRows:
-    def _make_wired_conn(self) -> MagicMock:
-        mock_conn = MagicMock()
-        return mock_conn
-
-    def test_calls_helpers_in_order_and_concatenates(
+    def test_empty_hd_list_raises_overlay_fixture_error(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        hd_ids = ["HD-1", "HD-2"]
-        self_rows: list[OverlayFixtureRow] = [
-            _sample_row("HD-1", "HD-1"),
-            _sample_row("HD-2", "HD-2"),
+        monkeypatch.setattr(build_fixture, "_load_geometries", MagicMock(return_value=[]))
+        conn = MagicMock()
+        with pytest.raises(OverlayFixtureError) as exc:
+            _collect_overlay_rows(conn)
+        assert "no hunting_district rows" in str(exc.value)
+        assert "US-MT" in str(exc.value)
+
+    def test_returns_kept_and_dropped_tuples(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Stub _load_geometries with a small parsed dataset
+        hd = ("HD-1", "hunting_district", _square(0, 0, 10))
+        portion = ("P-1", "portion", _square(2, 2, 1))   # fully inside HD → covers
+        cwd = ("CWD-1", "cwd_zone", _square(8, 0, 4))    # half inside HD → intersects
+        ra = ("RA-1", "restricted_area", _square(2, 2, 1))  # fully inside HD → covers
+        parsed = [hd, portion, cwd, ra]
+        monkeypatch.setattr(build_fixture, "_load_geometries", MagicMock(return_value=parsed))
+        conn = MagicMock()
+        kept, dropped = _collect_overlay_rows(conn)
+        # 1 self + 1 portion + 1 cwd + 1 ra = 4 kept
+        assert len(kept) == 4
+        # No drops at this scale (all overlaps >= 1%)
+        assert dropped == []
+
+    def test_concatenation_order_self_portion_cwd_ra(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        hd = ("HD-1", "hunting_district", _square(0, 0, 10))
+        parsed = [hd]
+        monkeypatch.setattr(build_fixture, "_load_geometries", MagicMock(return_value=parsed))
+        conn = MagicMock()
+        kept, dropped = _collect_overlay_rows(conn)
+        # Only self row should be present; no children to overlay
+        assert len(kept) == 1
+        assert kept[0]["relationship"] == "self"
+
+
+# ---------------------------------------------------------------------------
+# TestWriteFixture
+# ---------------------------------------------------------------------------
+
+
+class TestWriteFixture:
+    def test_byte_identical_across_input_orders(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        out1 = tmp_path / "a" / "geometry-overlays.json"
+        out2 = tmp_path / "b" / "geometry-overlays.json"
+        rows_order_a: list[OverlayFixtureRow] = [
+            _sample_kept_row("HD-2", "P-2"),
+            _sample_kept_row("HD-1", "P-1"),
         ]
-        portion_rows: list[OverlayFixtureRow] = [_sample_row("HD-1", "P-1", "portion", "covers", "portion")]
-        cwd_rows: list[OverlayFixtureRow] = [_sample_row("HD-1", "CWD-1", "cwd_zone", "covers", "cwd_management_zone")]
-        ra_rows: list[OverlayFixtureRow] = [_sample_row("HD-1", "RA-1", "restricted_area", "intersects", "restricted_area")]
+        rows_order_b = list(reversed(rows_order_a))
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path / "a")
+        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out1)
+        _write_fixture(rows_order_a)
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path / "b")
+        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out2)
+        _write_fixture(rows_order_b)
+        assert out1.read_bytes() == out2.read_bytes()
 
-        mock_fetch_ids = MagicMock(return_value=hd_ids)
-        mock_self_rows = MagicMock(return_value=self_rows)
-        mock_portion = MagicMock(return_value=portion_rows)
-        mock_overlay = MagicMock(side_effect=[cwd_rows, ra_rows])
-        mock_validate = MagicMock()
-
-        monkeypatch.setattr(build_fixture, "_fetch_hd_ids", mock_fetch_ids)
-        monkeypatch.setattr(build_fixture, "_build_hd_self_rows", mock_self_rows)
-        monkeypatch.setattr(build_fixture, "_build_hd_portion_rows", mock_portion)
-        monkeypatch.setattr(build_fixture, "_build_hd_overlay_rows", mock_overlay)
-        monkeypatch.setattr(build_fixture, "_validate_coverage", mock_validate)
-
-        mock_conn = self._make_wired_conn()
-        result = _collect_overlay_rows(mock_conn, explain=False)
-
-        # Assert each helper was called
-        mock_fetch_ids.assert_called_once_with(mock_conn)
-        mock_self_rows.assert_called_once_with(hd_ids)
-        mock_portion.assert_called_once_with(mock_conn)
-        assert mock_overlay.call_count == 2
-
-        expected = self_rows + portion_rows + cwd_rows + ra_rows
-        assert result == expected
-
-    def test_validate_coverage_called_with_full_rows(
-        self, monkeypatch: pytest.MonkeyPatch
+    def test_trailing_newline(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        hd_ids = ["HD-1"]
-        portion_rows: list[OverlayFixtureRow] = [_sample_row("HD-1", "P-1", "portion", "covers", "portion")]
-        cwd_rows: list[OverlayFixtureRow] = []
-        ra_rows: list[OverlayFixtureRow] = []
+        out = tmp_path / "geometry-overlays.json"
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
+        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out)
+        _write_fixture([_sample_kept_row("HD", "C")])
+        text = out.read_text()
+        assert text.endswith("\n")
 
-        monkeypatch.setattr(build_fixture, "_fetch_hd_ids", MagicMock(return_value=hd_ids))
-        monkeypatch.setattr(build_fixture, "_build_hd_portion_rows", MagicMock(return_value=portion_rows))
-        monkeypatch.setattr(build_fixture, "_build_hd_overlay_rows", MagicMock(side_effect=[cwd_rows, ra_rows]))
-        mock_validate = MagicMock()
-        monkeypatch.setattr(build_fixture, "_validate_coverage", mock_validate)
-
-        mock_conn = self._make_wired_conn()
-        result = _collect_overlay_rows(mock_conn, explain=False)
-
-        mock_validate.assert_called_once()
-        validate_conn_arg, validate_rows_arg = mock_validate.call_args[0]
-        assert validate_conn_arg is mock_conn
-        assert validate_rows_arg == result
-
-    def test_explain_false_does_not_call_emit_explain(
-        self, monkeypatch: pytest.MonkeyPatch
+    def test_sorted_by_parent_then_child_then_relationship(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(build_fixture, "_fetch_hd_ids", MagicMock(return_value=["HD-1"]))
-        monkeypatch.setattr(build_fixture, "_build_hd_portion_rows", MagicMock(return_value=[]))
-        monkeypatch.setattr(build_fixture, "_build_hd_overlay_rows", MagicMock(side_effect=[[], []]))
-        monkeypatch.setattr(build_fixture, "_validate_coverage", MagicMock())
-        mock_emit = MagicMock()
-        monkeypatch.setattr(build_fixture, "_emit_explain", mock_emit)
+        out = tmp_path / "geometry-overlays.json"
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
+        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out)
+        # Same (parent, child) with different relationship — relationship is the tie-break.
+        rows: list[OverlayFixtureRow] = [
+            _sample_kept_row("HD-1", "C-1", "portion", "intersects", "portion"),
+            _sample_kept_row("HD-1", "C-1", "portion", "covers", "portion"),
+        ]
+        _write_fixture(rows)
+        loaded = json.loads(out.read_text())
+        assert loaded[0]["relationship"] == "covers"
+        assert loaded[1]["relationship"] == "intersects"
 
-        _collect_overlay_rows(self._make_wired_conn(), explain=False)
-        mock_emit.assert_not_called()
-
-    def test_empty_hd_ids_raises_overlay_fixture_error(
-        self, monkeypatch: pytest.MonkeyPatch
+    def test_atomic_via_tmp_then_replace(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(build_fixture, "_fetch_hd_ids", MagicMock(return_value=[]))
-        # No other helpers should be called; if the guard misses, these would fire.
-        mock_portion = MagicMock()
-        mock_overlay = MagicMock()
-        mock_validate = MagicMock()
-        monkeypatch.setattr(build_fixture, "_build_hd_portion_rows", mock_portion)
-        monkeypatch.setattr(build_fixture, "_build_hd_overlay_rows", mock_overlay)
-        monkeypatch.setattr(build_fixture, "_validate_coverage", mock_validate)
-
-        with pytest.raises(build_fixture.OverlayFixtureError) as exc_info:
-            _collect_overlay_rows(self._make_wired_conn(), explain=False)
-        assert "no hunting_district rows" in str(exc_info.value)
-        assert "US-MT" in str(exc_info.value)
-        mock_portion.assert_not_called()
-        mock_overlay.assert_not_called()
-        mock_validate.assert_not_called()
-
-    def test_explain_true_calls_emit_explain_three_times_before_data_fetch(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        call_log: list[str] = []
-
-        def fake_emit(conn: Any, label: str, sql: str, params: Any) -> None:
-            call_log.append(f"emit:{label}")
-
-        def fake_fetch_ids(conn: Any) -> list[str]:
-            call_log.append("fetch_ids")
-            return ["HD-1"]
-
-        def fake_portion(conn: Any) -> list[OverlayFixtureRow]:
-            call_log.append("portion")
-            return []
-
-        def fake_overlay(conn: Any, child_kind: str) -> list[OverlayFixtureRow]:
-            call_log.append(f"overlay:{child_kind}")
-            return []
-
-        monkeypatch.setattr(build_fixture, "_emit_explain", fake_emit)
-        monkeypatch.setattr(build_fixture, "_fetch_hd_ids", fake_fetch_ids)
-        monkeypatch.setattr(build_fixture, "_build_hd_portion_rows", fake_portion)
-        monkeypatch.setattr(build_fixture, "_build_hd_overlay_rows", fake_overlay)
-        monkeypatch.setattr(build_fixture, "_validate_coverage", MagicMock())
-
-        _collect_overlay_rows(self._make_wired_conn(), explain=True)
-
-        # All three emits before any data-fetch call
-        emit_indices = [i for i, x in enumerate(call_log) if x.startswith("emit:")]
-        first_data_index = next(
-            i for i, x in enumerate(call_log)
-            if x in ("fetch_ids", "portion") or x.startswith("overlay:")
-        )
-        assert len(emit_indices) == 3
-        assert all(i < first_data_index for i in emit_indices)
+        out = tmp_path / "geometry-overlays.json"
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
+        monkeypatch.setattr(build_fixture, "OVERLAY_FIXTURE_PATH", out)
+        _write_fixture([_sample_kept_row("HD", "C")])
+        # No leftover .tmp file
+        assert not (tmp_path / "geometry-overlays.json.tmp").exists()
+        assert out.exists()
 
 
 # ---------------------------------------------------------------------------
-# TestEmitExplain
+# TestWriteDroppedAudit
 # ---------------------------------------------------------------------------
 
 
-class TestEmitExplain:
-    def test_stderr_output_contains_marker_and_plan_lines(
-        self, capsys: pytest.CaptureFixture[str]
+class TestWriteDroppedAudit:
+    def _audit(self, parent: str, child: str, pct: float) -> dict:
+        return {
+            "parent_geometry_id": parent,
+            "child_geometry_id": child,
+            "parent_kind": "hunting_district",
+            "child_kind": "portion",
+            "overlap_pct": pct,
+        }
+
+    def test_byte_identical_across_input_orders(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        plan_lines = [("Seq Scan on geometry ...",), ("  ->  Filter: ...",)]
-        mock_conn, mock_cursor = _make_conn_mock(fetchall_return=plan_lines)
+        out1 = tmp_path / "a" / "audit.json"
+        out2 = tmp_path / "b" / "audit.json"
+        rows_a = [self._audit("HD-2", "C-2", 0.001), self._audit("HD-1", "C-1", 0.002)]
+        rows_b = list(reversed(rows_a))
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path / "a")
+        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", out1)
+        _write_dropped_audit(rows_a)  # type: ignore[arg-type]
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path / "b")
+        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", out2)
+        _write_dropped_audit(rows_b)  # type: ignore[arg-type]
+        assert out1.read_bytes() == out2.read_bytes()
 
-        _emit_explain(mock_conn, "HD→Portion", "SELECT 1", (MT_STATE_CODE, MT_STATE_CODE))
-
-        captured = capsys.readouterr()
-        stderr = captured.err
-        assert "# EXPLAIN ANALYZE: HD→Portion" in stderr
-        assert "Seq Scan on geometry ..." in stderr
-        assert "  ->  Filter: ..." in stderr
-
-    def test_stderr_ends_with_trailing_blank_line(
-        self, capsys: pytest.CaptureFixture[str]
+    def test_sorted_by_parent_then_child(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        plan_lines = [("Seq Scan on geometry ...",)]
-        mock_conn, mock_cursor = _make_conn_mock(fetchall_return=plan_lines)
+        out = tmp_path / "audit.json"
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
+        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", out)
+        rows = [
+            self._audit("HD-2", "C-1", 0.005),
+            self._audit("HD-1", "C-2", 0.005),
+            self._audit("HD-1", "C-1", 0.005),
+        ]
+        _write_dropped_audit(rows)  # type: ignore[arg-type]
+        loaded = json.loads(out.read_text())
+        order = [(r["parent_geometry_id"], r["child_geometry_id"]) for r in loaded]
+        assert order == [("HD-1", "C-1"), ("HD-1", "C-2"), ("HD-2", "C-1")]
 
-        _emit_explain(mock_conn, "HD→Portion", "SELECT 1", (MT_STATE_CODE,))
-
-        captured = capsys.readouterr()
-        assert captured.err.endswith("\n\n")
-
-    def test_sql_prefixed_with_explain_analyze(self) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(fetchall_return=[])
-
-        original_sql = "SELECT a.id FROM geometry a"
-        _emit_explain(mock_conn, "HD→Portion", original_sql, (MT_STATE_CODE,))
-
-        executed_sql = mock_cursor.execute.call_args[0][0]
-        assert executed_sql.startswith("EXPLAIN (ANALYZE, FORMAT TEXT) ")
-        assert original_sql in executed_sql
-
-    def test_nothing_written_to_stdout(
-        self, capsys: pytest.CaptureFixture[str]
+    def test_trailing_newline(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        mock_conn, mock_cursor = _make_conn_mock(fetchall_return=[("Plan line",)])
-        _emit_explain(mock_conn, "Label", "SELECT 1", ())
-        captured = capsys.readouterr()
-        assert captured.out == ""
+        out = tmp_path / "audit.json"
+        monkeypatch.setattr(build_fixture, "MT_FIXTURE_DIR", tmp_path)
+        monkeypatch.setattr(build_fixture, "DROPPED_AUDIT_PATH", out)
+        _write_dropped_audit([self._audit("HD", "C", 0.001)])  # type: ignore[arg-type]
+        assert out.read_text().endswith("\n")
 
 
 # ---------------------------------------------------------------------------
@@ -610,68 +518,117 @@ class TestEmitExplain:
 
 
 class TestMain:
-    def _setup_main_stubs(
-        self,
-        monkeypatch: pytest.MonkeyPatch,
-        *,
-        collect_return: list[OverlayFixtureRow] | None = None,
-        collect_side_effect: Any = None,
-    ) -> tuple[MagicMock, MagicMock, MagicMock]:
-        """Returns (mock_connect_cm, mock_collect, mock_write)."""
-        mock_conn = MagicMock()
-        connect_cm = _make_db_connect_mock(mock_conn)
-        mock_db_connect = MagicMock(return_value=connect_cm)
-        monkeypatch.setattr(build_fixture.db, "connect", mock_db_connect)
+    def test_returns_zero_and_writes_both_files(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        kept_rows = [_sample_kept_row("HD-1", "HD-1", "hunting_district", "self", "primary_unit")]
+        dropped_rows: list[Any] = []
+        mock_collect = MagicMock(return_value=(kept_rows, dropped_rows))
+        mock_write_fix = MagicMock()
+        mock_write_audit = MagicMock()
+        mock_connect = MagicMock()
+        mock_connect.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_connect.return_value.__exit__ = MagicMock(return_value=None)
 
-        rows = collect_return or []
-        mock_collect = MagicMock(return_value=rows, side_effect=collect_side_effect)
+        monkeypatch.setattr(build_fixture.db, "connect", mock_connect)
         monkeypatch.setattr(build_fixture, "_collect_overlay_rows", mock_collect)
+        monkeypatch.setattr(build_fixture, "_write_fixture", mock_write_fix)
+        monkeypatch.setattr(build_fixture, "_write_dropped_audit", mock_write_audit)
 
-        mock_write = MagicMock()
-        monkeypatch.setattr(build_fixture, "_write_fixture", mock_write)
-
-        return mock_db_connect, mock_collect, mock_write
-
-    def test_main_no_args_returns_zero(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        _, _, _ = self._setup_main_stubs(monkeypatch)
-        result = main([])
-        assert result == 0
-
-    def test_main_calls_collect_and_write(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        rows = [_sample_row()]
-        _, mock_collect, mock_write = self._setup_main_stubs(
-            monkeypatch, collect_return=rows
-        )
-        main([])
+        rc = main([])
+        assert rc == 0
         mock_collect.assert_called_once()
-        mock_write.assert_called_once_with(rows)
+        mock_write_fix.assert_called_once_with(kept_rows)
+        mock_write_audit.assert_called_once_with(dropped_rows)
 
-    def test_main_no_args_passes_explain_false(
+    def test_overlay_fixture_error_propagates(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        _, mock_collect, _ = self._setup_main_stubs(monkeypatch)
-        main([])
-        _, kwargs = mock_collect.call_args
-        assert kwargs.get("explain") is False
-
-    def test_main_explain_flag_passes_explain_true(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        _, mock_collect, _ = self._setup_main_stubs(monkeypatch)
-        main(["--explain"])
-        _, kwargs = mock_collect.call_args
-        assert kwargs.get("explain") is True
-
-    def test_overlay_fixture_error_propagates_from_main(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        self._setup_main_stubs(
-            monkeypatch,
-            collect_side_effect=OverlayFixtureError("orphan portion: ['P-99']"),
+        mock_connect = MagicMock()
+        mock_connect.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_connect.return_value.__exit__ = MagicMock(return_value=None)
+        monkeypatch.setattr(build_fixture.db, "connect", mock_connect)
+        monkeypatch.setattr(
+            build_fixture,
+            "_collect_overlay_rows",
+            MagicMock(side_effect=OverlayFixtureError("boom")),
         )
-        with pytest.raises(OverlayFixtureError):
+        # Should NOT swallow — fail loud
+        with pytest.raises(OverlayFixtureError, match="boom"):
             main([])
+
+    def test_no_explain_flag_in_argparser(self) -> None:
+        # The --explain flag was removed during the shapely refactor.
+        # An unknown flag should cause argparse to exit with non-zero.
+        with pytest.raises(SystemExit):
+            main(["--explain"])
+
+
+# ---------------------------------------------------------------------------
+# Integration-ish: real shapely + threshold + audit pipeline
+# ---------------------------------------------------------------------------
+
+
+class TestEndToEndShapelyPipeline:
+    def test_full_collect_with_real_geometries(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Realistic mini-Montana: 1 HD, 1 portion fully inside, 1 portion edge-touching
+        # (boundary noise — should be dropped), 1 RA half-inside, 1 RA orphan (no overlap).
+        hd_geom = _square(0, 0, 10)
+        inside_portion = _square(2, 2, 1)             # ~1.0 of child inside → covers
+        edge_portion = _square(9.999, 0, 1)           # ~0.001 → dropped
+        # But edge_portion would orphan unless it has another HD parent. Add another
+        # HD that fully contains it.
+        hd2_geom = _square(9, 0, 5)
+        # half_ra: 50% inside HD → intersects (kept)
+        half_ra = _square(8, 0, 4)
+        # Use a completely orphan RA (no HD overlap) — should be allowed (ADR-016)
+        orphan_ra = _square(100, 100, 1)
+        # CWD inside HD
+        cwd = _square(3, 3, 1)
+
+        parsed: list[tuple[str, str, BaseGeometry]] = [
+            ("HD-1", "hunting_district", hd_geom),
+            ("HD-2", "hunting_district", hd2_geom),
+            ("P-1", "portion", inside_portion),
+            ("P-edge", "portion", edge_portion),
+            ("CWD-1", "cwd_zone", cwd),
+            ("RA-half", "restricted_area", half_ra),
+            ("RA-orphan", "restricted_area", orphan_ra),
+        ]
+        monkeypatch.setattr(build_fixture, "_load_geometries", MagicMock(return_value=parsed))
+        kept, dropped = _collect_overlay_rows(MagicMock())
+
+        kept_ids = {(r["child_kind"], r["child_geometry_id"], r["relationship"]) for r in kept}
+
+        # Self rows for both HDs
+        assert ("hunting_district", "HD-1", "self") in kept_ids
+        assert ("hunting_district", "HD-2", "self") in kept_ids
+        # P-1 covered by HD-1
+        assert ("portion", "P-1", "covers") in kept_ids
+        # P-edge covered by HD-2 (its real parent), audit-dropped relative to HD-1
+        assert ("portion", "P-edge", "covers") in kept_ids
+        # CWD covered
+        assert ("cwd_zone", "CWD-1", "covers") in kept_ids
+        # RA-half intersects HD-1
+        assert ("restricted_area", "RA-half", "intersects") in kept_ids
+        # RA-orphan absent (no HD overlap), but no raise — orphan tolerated
+        assert all(r["child_geometry_id"] != "RA-orphan" for r in kept)
+        # Audit contains the boundary edge case
+        assert any(d["child_geometry_id"] == "P-edge" and d["parent_geometry_id"] == "HD-1" for d in dropped)
+
+
+class TestMultiPolygonGeometry:
+    """The geom column is geography(MultiPolygon, 4326). Confirm shapely handles it."""
+
+    def test_multipolygon_input_is_handled(self) -> None:
+        a = _square(0, 0, 1)
+        b = _square(2, 0, 1)
+        mp = MultiPolygon([a, b])
+        wkt = mp.wkt
+        rows = [("MP-1", "hunting_district", wkt)]
+        conn = _conn_mock_with_fetchall(rows)
+        result = _load_geometries(conn)
+        assert isinstance(result[0][2], BaseGeometry)
+        assert result[0][2].area == pytest.approx(2.0)

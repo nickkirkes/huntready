@@ -129,7 +129,7 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
 - [docs/architecture.md](docs/architecture.md) — system design, schema types, response shapes
 - [docs/roadmap.md](docs/roadmap.md) — milestones M0-M5
 - [docs/open-questions.md](docs/open-questions.md) — unresolved decisions (check before making architectural calls)
-- [docs/adrs/](docs/adrs/) — 15 architecture decision records:
+- [docs/adrs/](docs/adrs/) — 16 architecture decision records:
   - ADR-001: Authority preserved, not replaced
   - ADR-002: MCP server as canonical interface
   - ADR-003: Ingestion upstream and offline
@@ -145,6 +145,7 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
   - ADR-013: Server returns structure, client composes presentation
   - ADR-014: `SourceCitation.document_type='gis_layer'` (type-layer enforcement)
   - ADR-015: `geometry.verbatim_rule` column + REG+COMMENTS handling rule
+  - ADR-016: Digitization-tolerant containment for geometry overlays (area-ratio thresholds)
 
 ## Environment variables
 
