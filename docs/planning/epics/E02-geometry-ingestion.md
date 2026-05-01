@@ -445,13 +445,13 @@ If the actual CWD zone names have changed by execution time (regulations are bie
 
 **Acceptance Criteria:**
 
-- [ ] Investigation report committed to `ingestion/states/montana/cwd-source-discovery.md` documenting which path was taken (standalone GIS / exclusion-filter / hand-traced) and the discriminator predicate used
-- [ ] Discriminator predicate (if exclusion-filter path) lives in shared `cwd_discriminator.py` and is imported by both S02.4 and S02.5 — verified by grep that there is exactly one definition
-- [ ] At least one row in `geometry` with `kind='cwd_zone'` (one of: standalone GIS layer, exclusion-filtered layer #2, or hand-traced GeoJSON)
-- [ ] **UAT — three named zones must resolve correctly via `ST_Covers`:** Libby CWD Management Zone, South-Central Montana CWD Zone, and Northeast Montana CWD Zone (or current equivalents per the live FWP booklet — document any substitution and the test points used)
-- [ ] If hand-traced fallback used: `ingestion/states/montana/cwd-zones-manual.geojson` exists; each feature has `name`, `regulation_year`, `source_pdf_page`; the load path tags `source` jsonb with `manually_traced: true` and a note in `cwd-source-discovery.md` describes who validated the polygons
-- [ ] If GIS source found: layer metadata fixture committed
-- [ ] If hand-tracing is blocked (e.g., PDF unavailable): escalate to PM as a blocker on M1 success criterion 3, NOT silent defer to E03
+- [x] Investigation report committed to `ingestion/states/montana/cwd-source-discovery.md` (189 lines) — Path A (standalone GIS layer) taken. All four investigation paths exercised and documented: root catalog scan of every fwp-gis.mt.gov folder confirmed zero CWD services there; Hub catalog query on arcgis.com/sharing/rest/search surfaced the `Chronic Wasting Disease Hunt Areas` Feature Service (ArcGIS Online item `8837c07298054f5e8be2e072681d870c`) at `https://services3.arcgis.com/Cdxz8r11hT0MGzg1/arcgis/rest/services/ADMBND_HD_CWD/FeatureServer`.
+- [x] Discriminator predicate path NOT taken (Path A made it unnecessary), but the shared `ingestion/states/montana/cwd_discriminator.py::is_cwd_feature` from S02.4 is still the single definition (`grep -r "def is_cwd_feature" ingestion/` returns exactly one line).
+- [x] 2 rows in `geometry` with `kind='cwd_zone'` — Libby CWD Management Zone (OBJECTID 967) and Kalispell CWD Management Zone (OBJECTID 970). Live load 2026-05-01 (`6fdb11b`); idempotency confirmed by 2nd run with identical row counts.
+- [x] **UAT — named zones resolve correctly via `ST_Covers`:** **Spec substitution acknowledged and documented** in `cwd-source-discovery.md`. The 2026 FWP CWD layer publishes only 2 zones, not 3. Per the story spec's explicit permission ("substitute current names and document the substitution"), UAT covers: Libby CWD Management Zone (positive at `-115.555, 48.388` → PASS); Kalispell CWD Management Zone (positive); and an outside-zone negative-control point in eastern Montana (`-106.500, 46.800` → 0 features returned, PASS). The principle "named zones with assigned test coordinates" is preserved with positive + negative `ST_Covers` semantics exercised on the same dataset.
+- [x] Hand-traced fallback NOT used — N/A (Path A succeeded; no `cwd-zones-manual.geojson` written)
+- [x] **GIS source found — layer metadata fixture committed** at `ingestion/states/montana/fixtures/ADMBND_HD_CWD-0-metadata-20260501T141952Z.json`
+- [x] Hand-tracing not blocked — N/A
 
 ---
 
