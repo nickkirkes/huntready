@@ -369,14 +369,14 @@ Layers to ingest (all `kind = 'restricted_area'`):
 
 **Acceptance Criteria:**
 
-- [ ] Both layers (#2, #15) ingest without errors
-- [ ] Every row's `kind = 'restricted_area'`
-- [ ] `verbatim_rule` populated per the five-case combination rule above (REG only / COMMENTS only / both differ / both identical / both empty → NULL)
-- [ ] When both REG and COMMENTS are populated and differ, `verbatim_rule` contains the literal separator `\n\n--- COMMENTS ---\n\n` between them
-- [ ] No `AREA_*` fields stored as columns; areas computed via `ST_Area` on demand
-- [ ] All geometries are MultiPolygon, valid, in WGS84
-- [ ] Layer metadata fixtures committed for #2, #15
-- [ ] **S02.5 coordination:** if S02.5 is using the layer-#2 exclusion-filter pattern for CWD zones, this story's load step applies the inverse (CWD-excluding) filter — see S02.5 for the exact discriminator predicate
+- [x] Both layers (#2, #15) ingest without errors — 53 + 4 = 57 rows loaded 2026-04-30 (live load `b1646db`)
+- [x] Every row's `kind = 'restricted_area'`
+- [x] `verbatim_rule` populated per the five-case combination rule above (REG only / COMMENTS only / both differ / both identical / both empty → NULL) — implemented in `_extract_verbatim_rule_combined` in `load_restricted_areas.py`
+- [x] When both REG and COMMENTS are populated and differ, `verbatim_rule` contains the literal separator `\n\n--- COMMENTS ---\n\n` between them — 55 of 57 rows exercise this branch
+- [x] No `AREA_*` fields stored as columns; areas computed via `ST_Area` on demand
+- [x] All geometries are MultiPolygon, valid, in WGS84 — 100% geometry validity confirmed during live load
+- [x] Layer metadata fixtures committed for #2, #15 at `ingestion/states/montana/fixtures/huntingDistricts-{2,15}-metadata-*.json`
+- [x] **S02.5 coordination:** shared discriminator predicate at `ingestion/states/montana/cwd_discriminator.py::is_cwd_feature` — imported by both stories; S02.4 applies `not is_cwd_feature(...)` over layer #2's features. **Empirical finding from live load:** layer #2 carries 0 CWD-matching rows; S02.5 cannot derive CWD zones from layer #2 and must fall back to the Hub-catalog or hand-traced paths described in S02.5's investigation tree.
 
 ---
 

@@ -1,0 +1,284 @@
+{
+  "advancedQueryCapabilities": {
+    "supportsAdvancedQueryRelated": true,
+    "supportsCountDistinct": true,
+    "supportsCurrentUserQueries": true,
+    "supportsDistinct": true,
+    "supportsHavingClause": true,
+    "supportsLod": false,
+    "supportsOrderBy": true,
+    "supportsPagination": true,
+    "supportsPercentileStatistics": true,
+    "supportsQueryAnalytic": false,
+    "supportsQueryRelatedPagination": true,
+    "supportsQueryWithDatumTransformation": true,
+    "supportsQueryWithDistance": true,
+    "supportsQueryWithLodSR": false,
+    "supportsReturningQueryExtent": true,
+    "supportsSqlExpression": true,
+    "supportsSqlFormat": false,
+    "supportsStatistics": true,
+    "supportsTimeRelation": true,
+    "supportsTrueCurve": true,
+    "useStandardizedQueries": true
+  },
+  "archivingInfo": {
+    "startArchivingMoment": -1,
+    "supportsQueryWithHistoricMoment": false
+  },
+  "canModifyLayer": false,
+  "canScaleSymbols": false,
+  "capabilities": "Map,Query,Data",
+  "cimVersion": "3.3.0",
+  "copyrightText": "",
+  "currentVersion": 11.3,
+  "dateFieldsTimeReference": null,
+  "datesInUnknownTimezone": false,
+  "defaultSubtypeCode": null,
+  "defaultVisibility": false,
+  "description": "This layer depicts areas with harvest limitations.  Restrictions may include complete or partial closures, or weapon restrictions. See printed regulations for details.",
+  "displayField": "PORTIONNAME",
+  "drawingInfo": {
+    "labelingInfo": [
+      {
+        "allowOverrun": true,
+        "deconflictionStrategy": "static",
+        "labelExpression": "[PORTIONNAME]",
+        "labelPlacement": "esriServerPolygonPlacementAlwaysHorizontal",
+        "maxScale": 0,
+        "minScale": 1000000,
+        "multiPart": "labelLargest",
+        "name": "Default",
+        "priority": 33,
+        "removeDuplicates": "all",
+        "removeDuplicatesDistance": 0,
+        "repeatLabel": false,
+        "stackLabel": false,
+        "symbol": {
+          "angle": 0,
+          "backgroundColor": null,
+          "borderLineColor": null,
+          "borderLineSize": null,
+          "color": [
+            230,
+            0,
+            0,
+            255
+          ],
+          "font": {
+            "decoration": "none",
+            "family": "Arial",
+            "size": 8,
+            "style": "normal",
+            "weight": "bold"
+          },
+          "haloColor": [
+            225,
+            225,
+            225,
+            255
+          ],
+          "haloSize": 2,
+          "horizontalAlignment": "center",
+          "kerning": true,
+          "rightToLeft": false,
+          "type": "esriTS",
+          "verticalAlignment": "bottom",
+          "xoffset": 0,
+          "yoffset": 0
+        },
+        "useCodedValues": true
+      }
+    ],
+    "renderer": {
+      "symbol": {
+        "color": [
+          230,
+          0,
+          0,
+          255
+        ],
+        "outline": {
+          "color": [
+            230,
+            0,
+            0,
+            255
+          ],
+          "style": "esriSLSSolid",
+          "type": "esriSLS",
+          "width": 4
+        },
+        "style": "esriSFSBackwardDiagonal",
+        "type": "esriSFS"
+      },
+      "type": "simple"
+    },
+    "scaleSymbols": true,
+    "transparency": 0
+  },
+  "extent": {
+    "spatialReference": {
+      "falseM": -100000,
+      "falseX": -20037700,
+      "falseY": -30241100,
+      "falseZ": 0,
+      "latestWkid": 3857,
+      "mTolerance": 2,
+      "mUnits": 10000,
+      "wkid": 102100,
+      "xyTolerance": 0.001,
+      "xyUnits": 148923141.92838538,
+      "zTolerance": 2,
+      "zUnits": 1
+    },
+    "xmax": -11596442.8667,
+    "xmin": -12862772.3994,
+    "ymax": 6274859.860299997,
+    "ymin": 5539101.602799997
+  },
+  "fields": [
+    {
+      "alias": "Name",
+      "domain": null,
+      "length": 150,
+      "name": "PORTIONNAME",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Region",
+      "domain": null,
+      "length": 15,
+      "name": "REG",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Comments",
+      "domain": null,
+      "length": 150,
+      "name": "COMMENTS",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Acres",
+      "domain": null,
+      "name": "AREA_AC",
+      "type": "esriFieldTypeInteger"
+    },
+    {
+      "alias": "Sq Km",
+      "domain": null,
+      "name": "AREA_KM",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "Sq Mi",
+      "domain": null,
+      "name": "AREA_MI",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "OBJECTID",
+      "domain": null,
+      "name": "OBJECTID",
+      "type": "esriFieldTypeOID"
+    },
+    {
+      "alias": "Shape",
+      "domain": null,
+      "name": "SHAPE",
+      "type": "esriFieldTypeGeometry"
+    }
+  ],
+  "geometryField": {
+    "alias": "Shape",
+    "name": "SHAPE",
+    "type": "esriFieldTypeGeometry"
+  },
+  "geometryProperties": {
+    "mapUnits": {
+      "uwkid": 9001
+    },
+    "shapeAreaFieldName": "SHAPE_Area",
+    "shapeLengthFieldName": "SHAPE_Length",
+    "units": "esriMeters"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "hasAttachments": false,
+  "hasGeometryProperties": true,
+  "hasLabels": true,
+  "hasMetadata": true,
+  "htmlPopupType": "esriServerHTMLPopupTypeAsHTMLText",
+  "id": 2,
+  "indexes": [
+    {
+      "description": "",
+      "fields": "OBJECTID",
+      "isAscending": true,
+      "isUnique": true,
+      "name": "FDO_OBJECTID"
+    },
+    {
+      "description": "",
+      "fields": "SHAPE",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "FDO_SHAPE"
+    }
+  ],
+  "isDataArchived": false,
+  "isDataVersioned": false,
+  "maxRecordCount": 2000,
+  "maxScale": 0,
+  "minScale": 0,
+  "name": "Big Game Restricted Areas",
+  "ownershipBasedAccessControlForFeatures": {
+    "allowOthersToQuery": true
+  },
+  "parentLayer": {
+    "id": 1,
+    "name": "Big Game Districts"
+  },
+  "preferredTimeReference": null,
+  "referenceScale": 0.0,
+  "relationships": [],
+  "sourceSpatialReference": {
+    "falseM": -100000,
+    "falseX": -20037700,
+    "falseY": -30241100,
+    "falseZ": -100000,
+    "latestWkid": 3857,
+    "mTolerance": 0.001,
+    "mUnits": 10000,
+    "wkid": 102100,
+    "xyTolerance": 0.001,
+    "xyUnits": 10000,
+    "zTolerance": 0.001,
+    "zUnits": 10000
+  },
+  "subLayers": [],
+  "subtypeField": null,
+  "subtypeFieldName": null,
+  "subtypes": [],
+  "supportedQueryFormats": "JSON, geoJSON, PBF",
+  "supportedSpatialRelationships": [
+    "esriSpatialRelIntersects",
+    "esriSpatialRelContains",
+    "esriSpatialRelCrosses",
+    "esriSpatialRelEnvelopeIntersects",
+    "esriSpatialRelIndexIntersects",
+    "esriSpatialRelOverlaps",
+    "esriSpatialRelTouches",
+    "esriSpatialRelWithin",
+    "esriSpatialRelRelation"
+  ],
+  "supportsAdvancedQueries": true,
+  "supportsCoordinatesQuantization": true,
+  "supportsDatumTransformation": true,
+  "supportsDynamicLegends": true,
+  "supportsExceedsLimitStatistics": true,
+  "supportsStatistics": true,
+  "type": "Feature Layer",
+  "typeIdField": null,
+  "useStandardizedQueries": true
+}
