@@ -53,6 +53,29 @@ All rows have `kind='portion'`. The `slug` is the `SHAPECODE` value verbatim whe
 
 Layer #14 fields are pre-verified in the epic spec (`DISTRICT`, `PORTIONNAME`, `PORTIONTYPE`, `SHAPECODE`, `REG`, `REGYEAR`). Field names for layers #4, #12, #13 are confirmed against committed metadata fixtures during the first live load.
 
+## Running the S02.4 restricted-areas loader
+
+Run from the repo root:
+
+```bash
+ingestion/.venv/bin/python ingestion/states/montana/load_restricted_areas.py
+```
+
+Same CLI flags (`--service-url`, `--fetch-year`) and same env requirements (`DATABASE_URL`, optional `HUNTREADY_INGESTION_CONTACT`) as the other Montana loaders. Hits the same `admbnd/huntingDistricts` MapServer at layers #2 and #15.
+
+### Layers loaded by `load_restricted_areas.py`
+
+| Layer ID | Name | `id` prefix |
+|----------|------|-------------|
+| #2 | Big Game Restricted Areas | `MT-restricted-bigame-{PORTIONNAME_slug}-geom` |
+| #15 | Elk Restricted Areas | `MT-restricted-elk-{PORTIONNAME_slug}-geom` |
+
+All rows have `kind='restricted_area'`. Both layers use a slugified `PORTIONNAME` as the identity component (layer #2 carries no `SHAPECODE`; layer #15 carries one but `PORTIONNAME` is used uniformly so the ID grammar is consistent across the story's output).
+
+`verbatim_rule` is populated from `REG` and `COMMENTS` per the five-case combination rule in [ADR-015](../../../docs/adrs/ADR-015-geometry-verbatim-rule.md): both populated and differ → `f"{REG}\n\n--- COMMENTS ---\n\n{COMMENTS}"`; both populated and identical (after strip) → original `REG`; one populated → that one; both empty → `NULL`.
+
+**S02.5 coordination:** Layer #2 features whose `COMMENTS`, `PORTIONNAME`, or `REG` match the CWD discriminator (`'%CWD%'` / `'%chronic wasting%'`, case-insensitive) are skipped here and ingested by S02.5 as `kind='cwd_zone'`. The discriminator predicate lives in `cwd_discriminator.py` and is shared between the two stories so the partition is exact and re-runnable in any order.
+
 ## Required environment variables
 
 **Required:**
