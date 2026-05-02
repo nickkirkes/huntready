@@ -63,20 +63,37 @@ LAYER_TABLE: list[tuple[str, str, int]] = [
 _TS_RE = re.compile(r"(\d{8}T\d{6}Z)")
 
 
-def _latest_by_filename_ts(paths: list[Path]) -> Path | None:
-    """Return the path whose embedded timestamp is lexicographically latest.
+def _ts_key(p: Path) -> str:
+    """Extract the ``%Y%m%dT%H%M%SZ`` timestamp segment from a filename, or ``""``.
 
-    Timestamps are in ``%Y%m%dT%H%M%SZ`` form, so lexicographic order equals
-    chronological order.
+    Timestamps in this form sort lexicographically the same as chronologically.
     """
-    def _key(p: Path) -> str:
-        m = _TS_RE.search(p.name)
-        return m.group(1) if m else ""
+    m = _TS_RE.search(p.name)
+    return m.group(1) if m else ""
 
+
+def _latest_by_filename_ts(paths: list[Path]) -> Path | None:
+    """Return the path whose embedded timestamp is lexicographically latest."""
     dated = [p for p in paths if _TS_RE.search(p.name)]
     if not dated:
         return None
-    return max(dated, key=lambda p: (_key(p), p.name))
+    return max(dated, key=lambda p: (_ts_key(p), p.name))
+
+
+def _latest_at_or_before(paths: list[Path], cutoff_ts: str) -> Path | None:
+    """Return the path whose timestamp is the latest at-or-before ``cutoff_ts``.
+
+    Used to pair a metadata fixture with a features fixture: loaders capture
+    metadata first, then features, in a single fetch run — so the metadata
+    paired with a given features file is the latest metadata captured at-or-
+    before the features timestamp. Picking the unconditionally-latest metadata
+    risks combining a recent metadata snapshot with an older features snapshot
+    (or vice versa) and misrepresenting which fetch run the manifest documents.
+    """
+    candidates = [p for p in paths if _TS_RE.search(p.name) and _ts_key(p) <= cutoff_ts]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: (_ts_key(p), p.name))
 
 
 def _parse_ts(path: Path) -> str:
@@ -117,15 +134,21 @@ def _process_layer(
 
     ts = _parse_ts(features_path)
 
-    # --- Locate metadata file ---
+    # --- Locate metadata file paired with this features fixture ---
+    # Pair by latest-metadata-at-or-before-features-timestamp: loaders capture
+    # metadata immediately before features in a single fetch run, so the
+    # metadata that pairs with a given features file is the latest metadata
+    # captured at-or-before the features timestamp. Picking the
+    # unconditionally-latest metadata risks combining mismatched snapshots and
+    # misrepresenting the manifest's source_layer_* fields.
     meta_candidates = list(
         fixture_dir.glob(f"{layer_slug}-{layer_id}-metadata-*.json")
     )
-    meta_path = _latest_by_filename_ts(meta_candidates)
+    meta_path = _latest_at_or_before(meta_candidates, ts)
     if meta_path is None:
         msg = (
-            f"no metadata fixture found for {layer_slug}-{layer_id} "
-            f"in {fixture_dir}"
+            f"no metadata fixture at-or-before features timestamp {ts} "
+            f"for {layer_slug}-{layer_id} in {fixture_dir}"
         )
         raise FileNotFoundError(msg)
 

@@ -110,12 +110,18 @@ CREATE TABLE geometry_snapshot AS SELECT * FROM geometry WHERE state = 'US-MT';
 -- Or save to CSV: \COPY geometry TO '/tmp/geometry_snapshot.csv' CSV HEADER;
 ```
 
-**Wipe:**
+**Wipe (scoped to Montana — matches the snapshot above):**
 
 ```sql
-TRUNCATE geometry;
--- Note: safe in E02 because nothing yet FK-references geometry.id.
--- See the E02-only caveat below before running against a future schema.
+DELETE FROM geometry WHERE state = 'US-MT';
+-- Note: scoped to state = 'US-MT' so re-ingest does not destroy other states'
+-- rows. The snapshot above is also Montana-scoped; the two MUST agree.
+-- DO NOT use TRUNCATE: it wipes every state and breaks reproducibility for
+-- any other state already loaded.
+-- E02-only caveat: this DELETE is safe today because nothing yet FK-references
+-- geometry.id. Once E03 lands, jurisdiction_binding.geometry_id will reference
+-- it; the DELETE will then require a coordinated DELETE from jurisdiction_binding
+-- first (or ON DELETE CASCADE).
 ```
 
 **Re-ingest** (run from repo root):
@@ -165,7 +171,7 @@ ORDER BY id;
 -- Compare output against the same query run on geometry_snapshot.
 ```
 
-> **E02-only:** This wipe-and-re-ingest pattern works in E02 because nothing yet FK-references `geometry.id`. Once E03 lands and `jurisdiction_binding.geometry_id` references it, the wipe step requires a coordinated DELETE from `jurisdiction_binding` first (or `ON DELETE CASCADE`). Do not run a bare `TRUNCATE geometry` against a post-E03 database.
+> **E02-only:** This scoped-DELETE-and-re-ingest pattern works in E02 because nothing yet FK-references `geometry.id`. Once E03 lands and `jurisdiction_binding.geometry_id` references it, the DELETE step requires a coordinated DELETE from `jurisdiction_binding` first (or `ON DELETE CASCADE`). Always scope the DELETE by `state` — never `TRUNCATE geometry` (it would wipe every state's rows).
 
 ## 6. Manifest-diff workflow (cross-operator drift signal)
 
