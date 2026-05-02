@@ -1,0 +1,25 @@
+.roughly/known-pitfalls.md
+  22a199aa0aec5de0 24-38,197-214
+.secrets.baseline
+  22a199aa0aec5de0 94-96,136,239
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ab25ccdeac7f8ef4de14d33a0382a715336c0b04",
+  "prompts": {
+    "22a199aa0aec5de0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d5e73b8-ec36-4a27-9a1a-222eae911197",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 39,
+      "total_deletions": 2,
+      "accepted_lines": 3219,
+      "overriden_lines": 0
+    }
+  }
+}
