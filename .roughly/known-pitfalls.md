@@ -21,6 +21,21 @@ Concrete example: `ingestion/ingestion/lib/overlays.py` duplicates `Jurisdiction
 
 Surfaced by S02.6 implementation on 2026-05-01.
 
+### Drift-signal artifacts must write a marker for the empty case
+
+**Symptom:** A reviewer flags that an artifact-writing code path (e.g., `_write_manifest_fixture`, an audit log writer, a fixture builder) skips the write entirely when the input is empty. Operators relying on `git diff` to spot upstream drift see no diff for an N→0 source change — silence looks identical to "no drift, source unchanged."
+
+**Cause:** The natural code path for an empty input is to skip the artifact write ("nothing to record"), but for any artifact whose primary purpose is drift detection or reproducibility verification, that breaks the contract. The artifact must distinguish "source was empty this run" from "this run never happened."
+
+**Fix:** When the artifact's purpose is drift/audit/reproducibility, always write — use a sentinel for the empty case:
+
+- `features_count=0`, `layer_hash=sha256(b"").hexdigest()`, fully-keyed empty histogram (256 zero buckets), other fields populated normally.
+- Add a regression test pinning the empty-input behavior so a future refactor doesn't quietly bring back the skip.
+
+The S02.7 manifest writer at `ingestion/ingestion/lib/arcgis.py:780-805` is the canonical example.
+
+Surfaced by S02.7 review on 2026-05-02.
+
 ### `verbatim_rule` columns silently accept `""`
 
 Both `JurisdictionBinding.verbatim_rule` and `Geometry.verbatim_rule` are nullable `text` with no SQL CHECK constraint and no Pydantic `@field_validator` to reject empty strings. An ingestion adapter that writes `verbatim_rule=""` will succeed silently, and downstream code using `if x.verbatim_rule:` cannot distinguish "no rule text in source" (intended `NULL`) from "empty rule text in source" (`""`).
@@ -179,3 +194,21 @@ The new finding lands in `results` with `is_verified: false`. That is fine — `
 Do NOT use `git commit --no-verify` to bypass the hook. The system instructions forbid it, and it would defeat the hook's purpose for genuine secrets.
 
 Surfaced by S02.5 commit on 2026-05-01.
+
+### `detect-secrets scan` baseline refresh ignores untracked files
+
+**Symptom:** Refreshing `.secrets.baseline` for newly-created files (e.g., S02.7 manifest files) using `detect-secrets scan > .secrets.baseline` produces a baseline that does NOT include the new files. The pre-commit hook then trips on commit because the new file's hex strings (e.g., a 64-char `layer_hash` field) aren't in the baseline.
+
+**Cause:** `detect-secrets scan` (no positional args) walks `git ls-files` by default — it sees only tracked files. New files are invisible to the rescan even if they're staged with `git add` (the path index may or may not include them depending on operation order).
+
+**Fix:** Mark new files as intent-to-add first, then rescan:
+
+```bash
+git add --intent-to-add <new-files>
+detect-secrets scan > .secrets.baseline
+git add .secrets.baseline <new-files>
+```
+
+Or pass file paths directly: `detect-secrets scan <file1> <file2> ... > .secrets.baseline` (loses the existing baseline content — typically merge manually or stick with the `--intent-to-add` flow). The `--all-files` flag scans EVERY file including `.git/`, `.venv/`, `node_modules/` — slow and rarely what you want.
+
+Surfaced by S02.7 manifest backfill on 2026-05-02.
