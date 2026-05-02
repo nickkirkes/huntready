@@ -9,3 +9,14 @@
 # Metadata files (~7KB each) ARE committed for drift detection on field
 # names, OID columns, and spatialReference.
 *-features-*.geojson
+
+# Manifests (S02.7) — *-manifest-*.json
+# Per-fetch checksum manifests (~5KB each) ARE committed for cross-operator
+# drift detection. Format: {features_count, layer_hash, hash_distribution,
+# fetched_at, source_url, source_layer_max_record_count, source_layer_object_id_field}.
+# See docs/runbooks/E02-geometry-verification.md for the manifest-diff workflow.
+# No glob rule is needed here since manifests don't match *-features-*.geojson —
+# this comment exists to anchor the policy.
+
+# Atomic-write tmp files orphaned by interrupted writes (rare).
+*.tmp

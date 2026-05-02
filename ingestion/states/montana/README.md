@@ -110,12 +110,16 @@ All writes are UPSERT on `id`. Re-running the loader picks up upstream geometry 
 
 ## Fixtures
 
-Each run writes two fixture files per layer into `ingestion/states/montana/fixtures/`:
+Each run writes fixture files into `ingestion/states/montana/fixtures/`:
 
-- `huntingDistricts-{layer_id}-metadata-{ts}.json` — ArcGIS layer metadata response (~7KB each)
-- `huntingDistricts-{layer_id}-features-{ts}.geojson` — full feature collection (~38–90 MB per layer)
-
-**Metadata fixtures are committed** for drift detection on field names, OID columns, and spatial reference. **Feature fixtures are gitignored** at `fixtures/.gitignore` — committing them would add ~180 MB per run to the repo. The S02.1 spec called for both, but assumed "small"; a follow-up ADR will choose the storage policy (git-lfs, manifest + object store, or sampling).
+- `huntingDistricts-{layer_id}-metadata-{ts}.json` — ArcGIS layer metadata response (~7KB each). **Committed** for drift detection on field names, OID columns, and spatial reference.
+- `huntingDistricts-{layer_id}-features-{ts}.geojson` — full feature collection (~38–90 MB per layer). **Gitignored** — committing them would add ~180 MB per run to the repo.
+- `*-manifest-*.json` — per-fetch drift signal (~5 KB each). **Committed.** Contains `features_count`, `layer_hash`, and a 256-bucket hash distribution for content-level drift detection without storing raw features.
+- `ADMBND_HD_CWD-{layer_id}-metadata-{ts}.json` — CWD FeatureServer layer metadata. **Committed** for drift detection.
+- `ADMBND_HD_CWD-{layer_id}-features-{ts}.geojson` — CWD zone feature collection. **Gitignored.**
+- `geometry-overlays.json` — kept overlay rows (HD self-references, HD→Portion containment, HD→CWD-zone/Restricted-Area overlaps). **Committed.** Built by `build_overlay_fixture.py` (S02.6).
+- `geometry-overlays-dropped.json` — audit log of pairs dropped by the area-ratio lower threshold. **Committed.** One-way filter; lets a future reviewer verify nothing real was discarded.
+- `spatial-test-points.json` — spot-check fixture for ST_Covers verification (~3 KB). **Committed.** At least one named test point per geometry kind; used by S02.7 spatial verification suite.
 
 ## Post-load verification
 
@@ -381,6 +385,18 @@ Two files, both committed to the repo (not gitignored), both written via atomic 
 - `ROLE_FOR_E03_BY_CHILD_KIND` — mapping that E03 imports to populate `jurisdiction_binding.role`.
 
 E03 imports these directly to type-check its consumer.
+
+## S02.7 — spatial verification
+
+See [`docs/runbooks/E02-geometry-verification.md`](../../../docs/runbooks/E02-geometry-verification.md) for the full verification protocol. The runbook covers: spatial spot-checks via `ST_Covers` against named test points in `spatial-test-points.json`, the `ST_IsValid` topology check (using the `ST_GeomFromText(ST_AsText(...))` workaround per [.roughly/known-pitfalls.md](../../../.roughly/known-pitfalls.md)), named multi-part HD verification (`MT-HD-deer-elk-lion-690-geom`, 12 parts), `EXPLAIN ANALYZE` plan documentation for the spatial query path, reproducibility via wipe + re-ingest, manifest-diff drift workflow, and an architecture summary of the S02.6 overlay fixture (local shapely + STRtree, three-band area-ratio discriminator, `EXPECTED_RA_ORPHAN_IDS` allowlist).
+
+### Backfill manifests
+
+`backfill_manifests.py` regenerates manifests from local `*-features-*.geojson` files for layers ingested in S02.2–S02.5 (before manifests were introduced). Re-running is idempotent — manifests are byte-identical when the source file is unchanged because `fetched_at` is parsed from the filename, not regenerated at runtime.
+
+```bash
+cd ingestion && .venv/bin/python -m states.montana.backfill_manifests
+```
 
 ## Related
 

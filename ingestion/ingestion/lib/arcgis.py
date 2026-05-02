@@ -787,6 +787,20 @@ def fetch_features(
         _write_features_fixture(
             fixture_dir, layer_slug, layer_id, timestamp, []
         )
+        # Empty-layer manifest: a feature_count=0 manifest preserves the drift
+        # signal across N->0 and 0->N transitions (otherwise the manifest would
+        # silently appear/disappear and `git diff` couldn't catch the change).
+        empty_layer_hash = hashlib.sha256(b"").hexdigest()
+        empty_manifest: dict[str, Any] = {
+            "features_count": 0,
+            "fetched_at": datetime.strptime(timestamp, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).isoformat(),
+            "hash_distribution": {f"{i:02x}": 0 for i in range(256)},
+            "layer_hash": empty_layer_hash,
+            "source_layer_max_record_count": metadata.max_record_count,
+            "source_layer_object_id_field": metadata.object_id_field,
+            "source_url": f"{service_url}/{layer_id}",
+        }
+        _write_manifest_fixture(fixture_dir, layer_slug, layer_id, timestamp, empty_manifest)
         return []
 
     # Projection guard
@@ -797,6 +811,35 @@ def fetch_features(
 
     # Fixture write
     _write_features_fixture(fixture_dir, layer_slug, layer_id, timestamp, checked)
+
+    # Manifest computation
+    # Per-feature hashes use "properties" (GeoJSON key) not "attributes" (ArcGIS key).
+    per_feature_hashes = sorted(
+        compute_feature_hash(
+            objectid=feature["properties"][metadata.object_id_field],
+            geometry_wkt=geojson_to_multipolygon_wkt(feature),
+            attributes=feature["properties"],
+        )
+        for feature in checked
+    )
+    # Layer hash: sha256 over sorted per-feature hashes joined by "\n".
+    # "\n" is safe as the separator because SHA-256 hex strings never contain it;
+    # lexicographic sort + fixed separator guarantee external reproducibility.
+    layer_hash = hashlib.sha256("\n".join(per_feature_hashes).encode("utf-8")).hexdigest()
+    # Always-present 256-bucket histogram (zeros included) avoids spurious fixture diffs.
+    hash_distribution: dict[str, int] = {f"{i:02x}": 0 for i in range(256)}
+    for h in per_feature_hashes:
+        hash_distribution[h[:2]] += 1
+    manifest: dict[str, Any] = {
+        "features_count": len(checked),
+        "fetched_at": datetime.strptime(timestamp, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).isoformat(),
+        "hash_distribution": hash_distribution,
+        "layer_hash": layer_hash,
+        "source_layer_max_record_count": metadata.max_record_count,
+        "source_layer_object_id_field": metadata.object_id_field,
+        "source_url": f"{service_url}/{layer_id}",
+    }
+    _write_manifest_fixture(fixture_dir, layer_slug, layer_id, timestamp, manifest)
 
     return checked
 
@@ -820,6 +863,23 @@ def _write_features_fixture(
         json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False),
         encoding="utf-8",
     )
+
+
+def _write_manifest_fixture(
+    fixture_dir: Path,
+    layer_slug: str,
+    layer_id: int,
+    timestamp: str,
+    manifest: dict[str, Any],
+) -> None:
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+    path = fixture_dir / f"{layer_slug}-{layer_id}-manifest-{timestamp}.json"
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    tmp.replace(path)
 
 
 def _build_session(user_agent: str | None = None) -> requests.Session:
@@ -908,40 +968,18 @@ def build_source_citation(
     )
 
 
-def fetch_layer_metadata(
-    service_url: str,
-    layer_id: int,
-    fixture_dir: Path,
-    *,
-    layer_slug: str,
-    timestamp: str | None = None,
-    session: requests.Session | None = None,
-) -> LayerMetadata:
-    """GET ?f=json for an ArcGIS MapServer layer; capture as fixture; parse to LayerMetadata.
+def _layer_metadata_from_raw_json(data: dict[str, Any], *, url: str) -> LayerMetadata:
+    """Parse a raw ArcGIS layer metadata JSON dict into a LayerMetadata.
 
-    The library is host-agnostic but state adapters (e.g. ingestion/states/montana/)
-    MUST pass `fixture_dir = Path("ingestion/states/<state>/fixtures/")` so the
-    epic E02 source-fixture-capture AC ("fixtures committed; no symlinks") is
-    met. The MT path is `ingestion/states/montana/fixtures/`.
+    Extracted from `fetch_layer_metadata` so that the backfill script
+    (`ingestion/states/montana/backfill_manifests.py`) can reconstruct
+    LayerMetadata from on-disk fixture files without making a network request.
 
-    Drops fields with `excludeFromAllRequest: true` from `out_fields` so that
-    callers using `outFields=<list>` do not request fields the server has marked
-    excluded.
+    The `url` parameter is passed through to error messages and the WARNING
+    log emitted when the fallback OID-field scan fires — it must be the
+    canonical ``f"{service_url}/{layer_id}"`` form so messages remain
+    consistent whether the call comes from a live fetch or a backfill.
     """
-    timestamp = timestamp or _utc_timestamp()
-    session = session if session is not None else _build_session()
-    host = urlparse(service_url).hostname or ""
-
-    url = f"{service_url}/{layer_id}"
-    data = _request_with_retry(session, url, params={"f": "json"}, host=host)
-
-    fixture_dir.mkdir(parents=True, exist_ok=True)
-    fixture_path = fixture_dir / f"{layer_slug}-{layer_id}-metadata-{timestamp}.json"
-    fixture_path.write_text(
-        json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False),
-        encoding="utf-8",
-    )
-
     fields = data.get("fields") or []
     out_fields = tuple(
         f["name"] for f in fields
@@ -1006,3 +1044,40 @@ def fetch_layer_metadata(
             f"missing key {exc!s}; available keys: {sorted(data.keys())}"
         )
         raise ArcGISError(msg) from exc
+
+
+def fetch_layer_metadata(
+    service_url: str,
+    layer_id: int,
+    fixture_dir: Path,
+    *,
+    layer_slug: str,
+    timestamp: str | None = None,
+    session: requests.Session | None = None,
+) -> LayerMetadata:
+    """GET ?f=json for an ArcGIS MapServer layer; capture as fixture; parse to LayerMetadata.
+
+    The library is host-agnostic but state adapters (e.g. ingestion/states/montana/)
+    MUST pass `fixture_dir = Path("ingestion/states/<state>/fixtures/")` so the
+    epic E02 source-fixture-capture AC ("fixtures committed; no symlinks") is
+    met. The MT path is `ingestion/states/montana/fixtures/`.
+
+    Drops fields with `excludeFromAllRequest: true` from `out_fields` so that
+    callers using `outFields=<list>` do not request fields the server has marked
+    excluded.
+    """
+    timestamp = timestamp or _utc_timestamp()
+    session = session if session is not None else _build_session()
+    host = urlparse(service_url).hostname or ""
+
+    url = f"{service_url}/{layer_id}"
+    data = _request_with_retry(session, url, params={"f": "json"}, host=host)
+
+    fixture_dir.mkdir(parents=True, exist_ok=True)
+    fixture_path = fixture_dir / f"{layer_slug}-{layer_id}-metadata-{timestamp}.json"
+    fixture_path.write_text(
+        json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    return _layer_metadata_from_raw_json(data, url=url)
