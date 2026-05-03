@@ -278,7 +278,7 @@ def _request_with_retry(
 
 def compute_feature_hash(
     *,
-    objectid: int,
+    objectid: int | str,
     geometry_wkt: str,
     attributes: dict[str, Any],
 ) -> str:
@@ -812,16 +812,39 @@ def fetch_features(
     # Fixture write
     _write_features_fixture(fixture_dir, layer_slug, layer_id, timestamp, checked)
 
-    # Manifest computation
-    # Per-feature hashes use "properties" (GeoJSON key) not "attributes" (ArcGIS key).
-    per_feature_hashes = sorted(
-        compute_feature_hash(
-            objectid=feature["properties"][metadata.object_id_field],
-            geometry_wkt=geojson_to_multipolygon_wkt(feature),
-            attributes=feature["properties"],
+    # Manifest computation.
+    # Use _read_objectid (the same resilient extractor the dedup loop above
+    # uses) so a feature with the OID under "attributes" or via the FID
+    # fallback still hashes cleanly. A direct subscript would raise bare
+    # KeyError mid-stream after the features fixture has already been written
+    # — leaving an inconsistent fixture/manifest pair and a confusing
+    # traceback. Surface "no resolvable OID" as a controlled ArcGISError so
+    # callers (live loaders + backfill) can categorize and report it.
+    per_feature_hashes_unsorted: list[str] = []
+    for feature in checked:
+        oid = _read_objectid(feature, oid_field=metadata.object_id_field)
+        if oid is None:
+            msg = (
+                f"feature in layer {layer_id} ({layer_slug}) has no resolvable "
+                f"OBJECTID for manifest hash "
+                f"(metadata.object_id_field={metadata.object_id_field!r})"
+            )
+            raise ArcGISError(msg)
+        properties = feature.get("properties")
+        if not isinstance(properties, dict):
+            msg = (
+                f"feature OID={oid} in layer {layer_id} ({layer_slug}) "
+                f"has no 'properties' dict for manifest hash"
+            )
+            raise ArcGISError(msg)
+        per_feature_hashes_unsorted.append(
+            compute_feature_hash(
+                objectid=oid,
+                geometry_wkt=geojson_to_multipolygon_wkt(feature),
+                attributes=properties,
+            )
         )
-        for feature in checked
-    )
+    per_feature_hashes = sorted(per_feature_hashes_unsorted)
     # Layer hash: sha256 over sorted per-feature hashes joined by "\n".
     # "\n" is safe as the separator because SHA-256 hex strings never contain it;
     # lexicographic sort + fixed separator guarantee external reproducibility.

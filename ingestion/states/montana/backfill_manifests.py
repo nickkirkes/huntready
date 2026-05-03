@@ -26,8 +26,10 @@ from pathlib import Path
 from typing import Any
 
 from ingestion.lib.arcgis import (
+    ArcGISError,
     LayerMetadata,
     _layer_metadata_from_raw_json,
+    _read_objectid,
     _write_manifest_fixture,
     compute_feature_hash,
     geojson_to_multipolygon_wkt,
@@ -170,18 +172,33 @@ def _process_layer(
         msg = f"metadata for {layer_slug}-{layer_id} has no object_id_field"
         raise ValueError(msg)
 
+    # Mirror the OID-extraction strategy used by `fetch_features`'s manifest
+    # path: _read_objectid handles the OID-under-attributes / FID-fallback
+    # cases. None is a hard error (cannot fingerprint a feature without a
+    # stable identifier); we surface it as ArcGISError with feature index
+    # context so the main loop can categorize and continue past one bad layer.
     per_feature_hashes: list[str] = []
     for index, feature in enumerate(features):
-        properties = feature.get("properties") if isinstance(feature, dict) else None
-        if not isinstance(properties, dict) or oid_field not in properties:
-            msg = (
-                f"feature index {index} in {features_path.name} missing "
-                f"properties.{oid_field!r}"
-            )
+        if not isinstance(feature, dict):
+            msg = f"feature index {index} in {features_path.name} is not a dict"
             raise ValueError(msg)
+        oid = _read_objectid(feature, oid_field=oid_field)
+        if oid is None:
+            msg = (
+                f"feature index {index} in {features_path.name} has no "
+                f"resolvable OBJECTID (oid_field={oid_field!r})"
+            )
+            raise ArcGISError(msg)
+        properties = feature.get("properties")
+        if not isinstance(properties, dict):
+            msg = (
+                f"feature OID={oid} (index {index}) in {features_path.name} "
+                f"has no 'properties' dict"
+            )
+            raise ArcGISError(msg)
         per_feature_hashes.append(
             compute_feature_hash(
-                objectid=properties[oid_field],
+                objectid=oid,
                 geometry_wkt=geojson_to_multipolygon_wkt(feature),
                 attributes=properties,
             )
@@ -271,7 +288,7 @@ def main() -> None:
         except FileNotFoundError as exc:
             print(f"[MISSING] {exc}", file=sys.stderr)
             missing.append(f"{layer_slug}-{layer_id}")
-        except (ValueError, json.JSONDecodeError) as exc:
+        except (ValueError, json.JSONDecodeError, ArcGISError) as exc:
             print(f"[INVALID] {layer_slug}-{layer_id}: {exc}", file=sys.stderr)
             invalid.append(f"{layer_slug}-{layer_id}")
 
