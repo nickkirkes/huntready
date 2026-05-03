@@ -45,9 +45,6 @@ from shapely.validation import make_valid
 
 from ingestion.lib.schema import SourceCitation
 
-# fwp-gis.mt.gov constants — used as defaults; functions accept overrides
-MT_FWP_HOST = "fwp-gis.mt.gov"
-
 # Base User-Agent value (no contact info — see _default_user_agent below for the
 # full string). Operators MAY set HUNTREADY_INGESTION_CONTACT in the environment
 # to append a `(contact: <value>)` suffix per the operational hygiene convention
@@ -882,10 +879,16 @@ def _write_features_fixture(
         "features": features,
     }
     fixture_path = fixture_dir / f"{layer_slug}-{layer_id}-features-{timestamp}.geojson"
-    fixture_path.write_text(
-        json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    tmp = fixture_path.with_suffix(fixture_path.suffix + ".tmp")
+    try:
+        tmp.write_text(
+            json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+    tmp.replace(fixture_path)
 
 
 def _write_manifest_fixture(
@@ -898,10 +901,14 @@ def _write_manifest_fixture(
     fixture_dir.mkdir(parents=True, exist_ok=True)
     path = fixture_dir / f"{layer_slug}-{layer_id}-manifest-{timestamp}.json"
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
-        encoding="utf-8",
-    )
+    try:
+        tmp.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
     tmp.replace(path)
 
 
