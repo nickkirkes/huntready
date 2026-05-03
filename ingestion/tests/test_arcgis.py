@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from typing import Any
@@ -1422,3 +1423,320 @@ class TestErrorHandlingAndLogging:
                 layer_slug="svc", timestamp="20260101T000000Z",
             )
         assert any("returned 0 features" in record.message for record in caplog.records)
+
+
+class TestFetchFeaturesManifest:
+    """Manifest file written by fetch_features: existence, shape, hash properties."""
+
+    # ------------------------------------------------------------------
+    # Shared stub builders
+    # ------------------------------------------------------------------
+
+    def _responses_for_two_features(self) -> list[dict]:
+        """Standard stub: count=2, one page of 2 features, empty terminator."""
+        return [
+            {"count": 2},
+            {
+                "features": [_make_polygon_feature(1), _make_polygon_feature(2)],
+                "exceededTransferLimit": False,
+            },
+            {"features": [], "exceededTransferLimit": False},
+        ]
+
+    # ------------------------------------------------------------------
+    # Tests
+    # ------------------------------------------------------------------
+
+    def test_manifest_file_written(self, monkeypatch, tmp_fixture_dir) -> None:
+        """After a successful fetch, the manifest file exists with the expected name."""
+        meta = _make_layer_metadata(max_record_count=2000)
+        responses = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+
+        manifest_path = tmp_fixture_dir / "svc-1-manifest-20260101T000000Z.json"
+        assert manifest_path.exists()
+        assert responses == []
+
+    def test_manifest_required_fields(self, monkeypatch, tmp_fixture_dir) -> None:
+        """Manifest contains all 7 required fields with correct types."""
+        meta = _make_layer_metadata(max_record_count=2000)
+        responses = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+
+        manifest = json.loads(
+            (tmp_fixture_dir / "svc-1-manifest-20260101T000000Z.json").read_text()
+        )
+        assert isinstance(manifest["features_count"], int)
+        assert isinstance(manifest["fetched_at"], str)
+        assert isinstance(manifest["hash_distribution"], dict)
+        assert isinstance(manifest["layer_hash"], str)
+        assert isinstance(manifest["source_layer_max_record_count"], int)
+        assert isinstance(manifest["source_layer_object_id_field"], str)
+        assert isinstance(manifest["source_url"], str)
+        assert responses == []
+
+    def test_manifest_features_count_matches_return(self, monkeypatch, tmp_fixture_dir) -> None:
+        """manifest['features_count'] equals the number of features returned."""
+        meta = _make_layer_metadata(max_record_count=2000)
+        responses = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+
+        returned = fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+
+        manifest = json.loads(
+            (tmp_fixture_dir / "svc-1-manifest-20260101T000000Z.json").read_text()
+        )
+        assert manifest["features_count"] == len(returned)
+        assert responses == []
+
+    def test_manifest_hash_distribution_keys(self, monkeypatch, tmp_fixture_dir) -> None:
+        """hash_distribution has exactly 256 keys covering '00'..'ff'."""
+        meta = _make_layer_metadata(max_record_count=2000)
+        responses = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+
+        manifest = json.loads(
+            (tmp_fixture_dir / "svc-1-manifest-20260101T000000Z.json").read_text()
+        )
+        dist = manifest["hash_distribution"]
+        assert len(dist) == 256
+        expected_keys = {f"{i:02x}" for i in range(256)}
+        assert set(dist.keys()) == expected_keys
+        assert responses == []
+
+    def test_manifest_hash_distribution_sums(self, monkeypatch, tmp_fixture_dir) -> None:
+        """sum of hash_distribution values equals features_count."""
+        meta = _make_layer_metadata(max_record_count=2000)
+        responses = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+
+        manifest = json.loads(
+            (tmp_fixture_dir / "svc-1-manifest-20260101T000000Z.json").read_text()
+        )
+        assert sum(manifest["hash_distribution"].values()) == manifest["features_count"]
+        assert responses == []
+
+    def test_manifest_layer_hash_deterministic(self, monkeypatch, tmp_path) -> None:
+        """Two runs with identical features and timestamp produce byte-identical manifests."""
+        meta = _make_layer_metadata(max_record_count=2000)
+        timestamp = "20260101T000000Z"
+        slug = "svc"
+        layer_id = 1
+
+        run1_dir = tmp_path / "run1"
+        run1_dir.mkdir()
+        responses1 = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses1.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        fetch_features(
+            "https://example.com/svc/MapServer", layer_id, meta, run1_dir,
+            layer_slug=slug, timestamp=timestamp,
+        )
+
+        run2_dir = tmp_path / "run2"
+        run2_dir.mkdir()
+        responses2 = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses2.pop(0),
+        )
+        fetch_features(
+            "https://example.com/svc/MapServer", layer_id, meta, run2_dir,
+            layer_slug=slug, timestamp=timestamp,
+        )
+
+        manifest_name = f"{slug}-{layer_id}-manifest-{timestamp}.json"
+        bytes1 = (run1_dir / manifest_name).read_bytes()
+        bytes2 = (run2_dir / manifest_name).read_bytes()
+        assert bytes1 == bytes2
+        assert responses1 == []
+        assert responses2 == []
+
+    def test_manifest_layer_hash_changes_when_features_change(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        """Changing a feature attribute changes the layer_hash."""
+        meta = _make_layer_metadata(max_record_count=2000)
+        timestamp = "20260101T000000Z"
+
+        # Run 1: features with DISTRICT "1" and "2"
+        run1_dir = tmp_path / "run1"
+        run1_dir.mkdir()
+        feat_a1 = _make_polygon_feature(1)
+        feat_a2 = _make_polygon_feature(2)
+        responses1 = [
+            {"count": 2},
+            {"features": [feat_a1, feat_a2], "exceededTransferLimit": False},
+            {"features": [], "exceededTransferLimit": False},
+        ]
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses1.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, run1_dir,
+            layer_slug="svc", timestamp=timestamp,
+        )
+
+        # Run 2: modify one feature's attribute
+        run2_dir = tmp_path / "run2"
+        run2_dir.mkdir()
+        feat_b1 = _make_polygon_feature(1)
+        feat_b1["properties"]["DISTRICT"] = "CHANGED"
+        feat_b2 = _make_polygon_feature(2)
+        responses2 = [
+            {"count": 2},
+            {"features": [feat_b1, feat_b2], "exceededTransferLimit": False},
+            {"features": [], "exceededTransferLimit": False},
+        ]
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses2.pop(0),
+        )
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, run2_dir,
+            layer_slug="svc", timestamp=timestamp,
+        )
+
+        manifest1 = json.loads((run1_dir / "svc-1-manifest-20260101T000000Z.json").read_text())
+        manifest2 = json.loads((run2_dir / "svc-1-manifest-20260101T000000Z.json").read_text())
+        assert manifest1["layer_hash"] != manifest2["layer_hash"]
+        assert responses1 == []
+        assert responses2 == []
+
+    def test_manifest_object_id_field_uses_parsed_value(
+        self, monkeypatch, tmp_fixture_dir
+    ) -> None:
+        """source_layer_object_id_field reflects the value from LayerMetadata.
+
+        When fetch_layer_metadata's field-scan fallback resolves objectIdField to
+        "OBJECTID" (because the top-level key was missing), that resolved value
+        is stored on LayerMetadata.object_id_field and written into the manifest.
+        """
+        # Simulate the resolved metadata where objectIdField was absent at the
+        # top level but discovered via field scan (field type esriFieldTypeOID).
+        meta = LayerMetadata(
+            name="Test Layer",
+            object_id_field="OBJECTID",  # what the field-scan fallback would yield
+            max_record_count=2000,
+            out_fields=("OBJECTID", "DISTRICT"),
+            geometry_type="esriGeometryPolygon",
+            last_edit_date_ms=None,
+            raw={},
+        )
+        responses = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+
+        manifest = json.loads(
+            (tmp_fixture_dir / "svc-1-manifest-20260101T000000Z.json").read_text()
+        )
+        assert manifest["source_layer_object_id_field"] == "OBJECTID"
+        assert responses == []
+
+    def test_manifest_source_url_includes_layer_id(self, monkeypatch, tmp_fixture_dir) -> None:
+        """manifest['source_url'] ends with '/{layer_id}'."""
+        meta = _make_layer_metadata(max_record_count=2000)
+        responses = self._responses_for_two_features()
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+
+        manifest = json.loads(
+            (tmp_fixture_dir / "svc-1-manifest-20260101T000000Z.json").read_text()
+        )
+        assert manifest["source_url"].endswith("/1")
+        assert responses == []
+
+    def test_manifest_written_for_empty_layer(self, monkeypatch, tmp_fixture_dir) -> None:
+        """A layer that returns 0 features still writes a manifest with features_count=0,
+        so that N->0 transitions show up in `git diff` rather than silently removing the file.
+        """
+        meta = _make_layer_metadata(max_record_count=2000)
+        # count=0 + one empty page (the pagination loop runs at least once until it sees []).
+        responses: list[dict] = [
+            {"count": 0},
+            {"features": [], "exceededTransferLimit": False},
+        ]
+        monkeypatch.setattr(
+            "ingestion.lib.arcgis._request_with_retry",
+            lambda *a, **kw: responses.pop(0),
+        )
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+
+        fetch_features(
+            "https://example.com/svc/MapServer", 1, meta, tmp_fixture_dir,
+            layer_slug="svc", timestamp="20260101T000000Z",
+        )
+
+        manifest_path = tmp_fixture_dir / "svc-1-manifest-20260101T000000Z.json"
+        assert manifest_path.exists()
+        manifest = json.loads(manifest_path.read_text())
+        assert manifest["features_count"] == 0
+        # Empty-input sha256 is a known constant: the hash signals "no features".
+        assert manifest["layer_hash"] == hashlib.sha256(b"").hexdigest()
+        assert sum(manifest["hash_distribution"].values()) == 0
+        assert len(manifest["hash_distribution"]) == 256
+        assert responses == []

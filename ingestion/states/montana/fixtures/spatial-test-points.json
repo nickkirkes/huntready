@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "points": [
+    {
+      "name": "HD 215 — Dillon area antelope district",
+      "lat": 46.2891,
+      "lng": -112.6556,
+      "expected_kind": "hunting_district",
+      "expected_id_pattern": "MT-HD-antelope-215-geom",
+      "expected_role_for_e03": null,
+      "notes": null
+    },
+    {
+      "name": "HD 262 — central Montana deer/elk/lion",
+      "lat": 46.4281,
+      "lng": -114.0608,
+      "expected_kind": "hunting_district",
+      "expected_id_pattern": "MT-HD-deer-elk-lion-262-geom",
+      "expected_role_for_e03": null,
+      "notes": null
+    },
+    {
+      "name": "HD 690 multi-part anchor (deer/elk/lion)",
+      "lat": 48.1494,
+      "lng": -110.2297,
+      "expected_kind": "hunting_district",
+      "expected_id_pattern": "MT-HD-deer-elk-lion-690-geom",
+      "expected_role_for_e03": null,
+      "notes": "named multi-part HD reference for runbook step 3 (ST_NumGeometries > 1 verification)"
+    },
+    {
+      "name": "Elk portion elPt21 within HD 215",
+      "lat": 46.0823,
+      "lng": -112.5451,
+      "expected_kind": "portion",
+      "expected_id_pattern": "MT-HD-elk-215-portion-elPt21-geom",
+      "expected_role_for_e03": "hd_subdivision",
+      "notes": null
+    },
+    {
+      "name": "Warm Springs WMA restriction inside HD antelope-215",
+      "lat": 46.2019,
+      "lng": -112.7751,
+      "expected_kind": "restricted_area",
+      "expected_id_pattern": "MT-restricted-bigame-warm-springs-wildlife-management-area-geom",
+      "expected_role_for_e03": "hd_overlay_restriction",
+      "notes": null
+    },
+    {
+      "name": "Glacier NP no-hunt zone (orphan)",
+      "lat": 48.6169,
+      "lng": -113.7609,
+      "expected_kind": "restricted_area",
+      "expected_id_pattern": "MT-restricted-bigame-glacier-national-park-geom",
+      "expected_role_for_e03": "no_hunt_zone",
+      "notes": "orphan no-hunt zone — no parent HD by design (ADR-016, EXPECTED_RA_ORPHAN_IDS)"
+    },
+    {
+      "name": "Sun River Game Preserve no-hunt zone (orphan)",
+      "lat": 47.6425,
+      "lng": -112.9979,
+      "expected_kind": "restricted_area",
+      "expected_id_pattern": "MT-restricted-bigame-sun-river-game-preserve-geom",
+      "expected_role_for_e03": "no_hunt_zone",
+      "notes": "orphan no-hunt zone — no parent HD by design (ADR-016, EXPECTED_RA_ORPHAN_IDS)"
+    },
+    {
+      "name": "Yellowstone NP no-hunt zone (orphan)",
+      "lat": 44.7907,
+      "lng": -111.077,
+      "expected_kind": "restricted_area",
+      "expected_id_pattern": "MT-restricted-bigame-yellowstone-national-park-geom",
+      "expected_role_for_e03": "no_hunt_zone",
+      "notes": "orphan no-hunt zone — no parent HD by design (ADR-016, EXPECTED_RA_ORPHAN_IDS)"
+    },
+    {
+      "name": "Libby CWD management zone",
+      "lat": 48.388,
+      "lng": -115.555,
+      "expected_kind": "cwd_zone",
+      "expected_id_pattern": "MT-CWD-zone-libby-cwd-management-zone-geom",
+      "expected_role_for_e03": "cwd_overlay",
+      "notes": null
+    },
+    {
+      "name": "Kalispell CWD management zone",
+      "lat": 48.31,
+      "lng": -114.32,
+      "expected_kind": "cwd_zone",
+      "expected_id_pattern": "MT-CWD-zone-kalispell-cwd-management-zone-geom",
+      "expected_role_for_e03": "cwd_overlay",
+      "notes": null
+    },
+    {
+      "name": "Eastern Montana plains control",
+      "lat": 46.8,
+      "lng": -106.5,
+      "expected_kind": "none",
+      "expected_id_pattern": "",
+      "expected_role_for_e03": null,
+      "notes": "control point — should return 0 rows from any kind-bound ST_Covers query"
+    }
+  ]
+}

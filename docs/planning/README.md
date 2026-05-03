@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-05-01
-**Current Milestone:** M1 — Montana Ingestion (E01 complete, E02 active — S02.0–S02.6 complete, S02.7 next)
+**Last Updated:** 2026-05-03
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 next — run `/plan-next-epic`)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -28,8 +28,8 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
-| E02 | Montana Geometry Ingestion | In Progress (7/8 stories complete) | 2026-04-28 | — | 8 |
-| E03 | Montana Regulation Text Ingestion | Not Started — planned when E02 completes | — | — | TBD |
+| E02 | Montana Geometry Ingestion | Complete | 2026-04-28 | 2026-05-03 | 8 |
+| E03 | Montana Regulation Text Ingestion | Not Started — ready to plan | — | — | TBD |
 
 ### E02 Story Status
 
@@ -42,7 +42,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | S02.4 | Restricted Areas with verbatim text (#2, #15) | Complete | Implementation |
 | S02.5 | CWD zone discovery and ingestion | Complete | Implementation (UAT: yes) |
 | S02.6 | Geometry overlay fixture | Complete | Implementation (UAT: yes) |
-| S02.7 | Spatial query verification + epic exit | Not Started | Implementation (UAT: yes) |
+| S02.7 | Spatial query verification + epic exit | Complete | Implementation (UAT: yes) |
 
 ### E01 Story Status
 
@@ -59,9 +59,9 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 ## Active Blockers
 
-None blocking S02.7. S02.6 (Geometry overlay fixture) merged 2026-05-01 (PR #25): the overlay fixture and audit log are committed; ADR-016 codifies the three-band area-ratio discriminator that became necessary when (a) Supabase's role-locked 2-min `statement_timeout` aborted cross-join SQL on real Montana data and (b) strict `ST_Covers` rejected 32 of 55 Montana portions due to digitization precision. Spatial work moved off SQL to local shapely + STRtree (~5 sec). Two new E03 handoff items recorded in the epic's "Known issues to escalate" (`restricted_area` kind conflates internal HD restrictions vs no-hunt zones; jurisdiction_binding fan-out is higher than naive estimates).
+**E02 closed 2026-05-03.** All 8 stories merged, all exit criteria met. S02.7 (Spatial query verification + epic exit) added the per-fetch manifest writer to `arcgis.fetch_features` (resolving the prior known-issue #6 fixture-policy gap), spatial verification suite (11 test points), operator runbook, and 10 backfilled manifests. None blocking E03 planning.
 
-One PRD-reconciliation item remains, but it does **not** block S02.7:
+One PRD-reconciliation item remains, but it does **not** block E03:
 
 - **PRD 001 jurisdiction_binding sequencing** — PRD says E02 writes binding rows; schema FK to regulation_record makes that impossible until E03. E02 produces a geometry overlay fixture instead. Proposed PRD wording in [E02 epic](epics/E02-geometry-ingestion.md) § "Known issues to escalate". PM does not modify PRDs.
 
@@ -71,8 +71,8 @@ Documentation-debt items (non-blocking):
 
 ---
 
-- Begin S02.7 (Spatial query verification + epic exit). Final E02 story — verifies `ST_Covers` spot-checks against named test points per `kind`, topology validity, named multi-part HD assertion, reproducibility via `ST_Equals`, and the small `arcgis.fetch_features` manifest extension that resolves the feature-fixture commit policy gap. Runbook at `docs/runbooks/E02-geometry-verification.md` documents the local-shapely overlay architecture (S02.6 finding), threshold calibration per ADR-016, audit-log review process, and the manifest-diff drift-detection workflow.
-- E03 epic file will be drafted when E02 completes (run `/plan-next-epic`)
+- **Run `/plan-next-epic`** to begin E03 (Montana Regulation Text Ingestion) — PM will draft 8-12 stories, run the E03 validation triad (Source Faithfulness Reviewer, Confidence Calibration Reviewer, Schema Stress-Test Reviewer), write the epic file, and update this index. E03 depends on E02's `geometry-overlays.json` fixture (consumed when generating `jurisdiction_binding` rows) and inherits two flagged handoff items in the E02 epic § "Known issues to escalate": (a) `kind='restricted_area'` discriminator question for no-hunt zones, (b) jurisdiction_binding fan-out sizing (~3 parents per child median).
+- Q11 (confidence calibration) resolves during E03 per the M1 PM prompt — plan a story that explicitly produces the resolving ADR.
 
 ---
 
@@ -80,3 +80,4 @@ Documentation-debt items (non-blocking):
 
 - [M0 — Scaffold](epics/completed/M0-scaffold.md)
 - [E01 — Schema Migrations, RLS, and Quality Gates](epics/E01-schema-migrations.md)
+- [E02 — Montana Geometry Ingestion](epics/E02-geometry-ingestion.md)
