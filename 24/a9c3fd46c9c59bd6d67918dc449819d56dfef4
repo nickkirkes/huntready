@@ -1,0 +1,25 @@
+docs/runbooks/E02-geometry-verification.md
+  22a199aa0aec5de0 162-170
+ingestion/states/montana/backfill_manifests.py
+  22a199aa0aec5de0 280-281
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "24a9c3fd46c9c59bd6d67918dc449819d56dfef4",
+  "prompts": {
+    "22a199aa0aec5de0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d5e73b8-ec36-4a27-9a1a-222eae911197",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 307,
+      "total_deletions": 1,
+      "accepted_lines": 3199,
+      "overriden_lines": 0
+    }
+  }
+}
