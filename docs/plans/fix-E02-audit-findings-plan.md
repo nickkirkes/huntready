@@ -90,5 +90,13 @@ grep -n "OBJECTID 970" docs/planning/epics/E02-geometry-ingestion.md || echo "st
   - T2 atomic write: ensure `tmp.replace(fixture_path)` (not `tmp.rename(...)`) is used, since `replace` is the cross-platform overwrite-safe method (matches `_write_manifest_fixture`).
   - T1 must not also delete the surrounding `# Base User-Agent value` comment block at line 51+ — that comment governs a real, used constant block.
 
-## Verification at end
-After all tasks: `cd ingestion && .venv/bin/pytest tests/` should pass with the same green count as before. `ruff check ingestion/` and `mypy ingestion/ingestion/lib/arcgis.py` should be clean.
+## Verification at end (run from repo root)
+
+```bash
+cd ingestion && \
+  .venv/bin/ruff check ingestion/ tests/ && \
+  .venv/bin/mypy ingestion/lib/ && \
+  .venv/bin/pytest tests/
+```
+
+Pytest should pass with the same green count as before; ruff and mypy clean. Mirrors the project convention in `CLAUDE.md` § "Verification commands".
