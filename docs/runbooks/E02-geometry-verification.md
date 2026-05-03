@@ -139,10 +139,16 @@ Or via the unified make target if available: `make ingest STATE=montana STAGE=ge
 
 ```sql
 -- Topological inequality check — expected zero rows.
--- ST_Equals accepts geography directly — no cast needed.
+-- Note: ST_Equals is geometry-only in PostGIS. Calling it on geography
+-- forces an implicit ::geometry cast, which Supabase rejects with
+-- "cannot cast type geography to geometry" (same pitfall as ST_IsValid;
+-- see .roughly/known-pitfalls.md). Round-trip via WKT on both sides.
 SELECT a.id FROM geometry_snapshot a
   JOIN geometry b USING (id)
-  WHERE NOT ST_Equals(a.geom, b.geom);
+  WHERE NOT ST_Equals(
+    ST_GeomFromText(ST_AsText(a.geom), 4326),
+    ST_GeomFromText(ST_AsText(b.geom), 4326)
+  );
 -- Expected: zero rows.
 ```
 
@@ -193,7 +199,7 @@ Each ArcGIS fetch via `fetch_features` writes a paired `*-manifest-*.json` (~5 K
 git diff ingestion/states/montana/fixtures/*-manifest-*.json
 ```
 
-A re-fetch against an unchanged upstream source produces a byte-identical manifest (modulo `fetched_at` for live re-fetches). Any change in `features_count`, `layer_hash`, or `hash_distribution` indicates upstream drift — feature counts, geometry shapes, or attribute values changed in the source layer.
+A re-fetch against an unchanged upstream source produces a manifest where every content field (`features_count`, `layer_hash`, `hash_distribution`, `source_url`, `source_layer_*`) is identical to the prior manifest. Only `fetched_at` advances, reflecting the new fetch instant. Any diff in the content fields indicates real upstream drift — feature counts, geometry shapes, or attribute values changed in the source layer. (Backfill re-runs are stricter still: `fetched_at` is parsed from the filename timestamp rather than sampled at runtime, so backfill output is fully byte-identical when source is unchanged.)
 
 **What to look for:**
 
