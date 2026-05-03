@@ -53,7 +53,7 @@ pts = json.loads(pathlib.Path("states/montana/fixtures/spatial-test-points.json"
 for p in pts:
     sql = f"SELECT id,kind FROM geometry WHERE ST_Covers(geom,ST_GeogFromText('SRID=4326;POINT({p[\"lng\"]} {p[\"lat\"]})'))"
     print(f"\n=== {p['name']} ===")
-    subprocess.run(["psql", os.environ["DATABASE_URL"], "-c", sql])
+    subprocess.run(["psql", os.environ["DATABASE_URL"], "-c", sql], check=True)
 EOF
 ```
 
