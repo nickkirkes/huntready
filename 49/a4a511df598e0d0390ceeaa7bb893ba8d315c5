@@ -1,0 +1,25 @@
+ingestion/states/montana/backfill_manifests.py
+  22a199aa0aec5de0 29,32,175-179,182-186,188-189,191-198,201,291
+ingestion/ingestion/lib/arcgis.py
+  22a199aa0aec5de0 281,815-845,847
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "49a4a511df598e0d0390ceeaa7bb893ba8d315c5",
+  "prompts": {
+    "22a199aa0aec5de0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d5e73b8-ec36-4a27-9a1a-222eae911197",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 3238,
+      "total_deletions": 17,
+      "accepted_lines": 3260,
+      "overriden_lines": 0
+    }
+  }
+}
