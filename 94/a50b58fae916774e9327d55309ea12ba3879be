@@ -1,0 +1,42 @@
+CLAUDE.md
+  9a9554132d1ded94 11
+docs/planning/README.md
+  9a9554132d1ded94 31,62
+CHANGELOG.md
+  9a9554132d1ded94 9-10
+docs/planning/epics/E02-geometry-ingestion.md
+  9a9554132d1ded94 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "94a50b58fae916774e9327d55309ea12ba3879be",
+  "prompts": {
+    "3487caff9f5b4722": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "66d3d41c-4c5f-4d6a-bad4-5b9427e3f6c5",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 102,
+      "total_deletions": 0,
+      "accepted_lines": 104,
+      "overriden_lines": 0
+    },
+    "9a9554132d1ded94": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 3,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
