@@ -277,7 +277,8 @@ def main() -> None:
 
     if missing:
         print(
-            f"\nERROR: {len(missing)} layer(s) missing features files: "
+            f"\nERROR: {len(missing)} layer(s) missing required fixture file(s) "
+            f"(features or metadata — see [MISSING] lines above for which): "
             + ", ".join(missing),
             file=sys.stderr,
         )

@@ -159,6 +159,15 @@ SELECT id FROM geometry_snapshot
 EXCEPT
 SELECT id FROM geometry WHERE state = 'US-MT';
 -- Expected: zero rows.
+
+-- ID-set parity, reverse direction (unexpected extras introduced by re-ingest):
+SELECT id FROM geometry WHERE state = 'US-MT'
+EXCEPT
+SELECT id FROM geometry_snapshot;
+-- Expected: zero rows. Both directions must be checked — passing only the
+-- forward direction would miss cases where re-ingest added an ID the snapshot
+-- did not have (e.g. a renamed feature deleted+added, or a partial earlier
+-- run that left state inconsistent).
 ```
 
 **Hash variant** (if preferred for byte-level audit):
