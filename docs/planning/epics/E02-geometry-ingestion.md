@@ -5,6 +5,7 @@
 **Dependencies:** E01 (complete, merged 2026-04-28)
 **Validated:** 2026-04-28
 **Completed:** 2026-05-03 (all 8 stories merged S02.0 → S02.7; Montana geometry layer fully ingested at 349 rows; overlay fixture + audit log + spatial verification suite + drift-detection manifests in place; runbook at `docs/runbooks/E02-geometry-verification.md`)
+**Audited:** 2026-05-03 — see [E02-audit.md](E02-audit.md). 89 ACs total: **86 MET, 3 PARTIAL, 0 NOT MET.** All 3 partials were P3 cosmetic findings (dead `MT_FWP_HOST` constant in shared library, asymmetric atomic-write between fixture writers, stale Kalispell OBJECTID); all addressed in commit `0093e88`. Epic ships clean.
 **Estimated Stories:** 8
 **UAT Gating:** S02.5, S02.6, S02.7 (spot-checks of CWD zones, geometry overlays, and spatial queries)
 

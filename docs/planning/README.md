@@ -28,7 +28,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
-| E02 | Montana Geometry Ingestion | Complete | 2026-04-28 | 2026-05-03 | 8 |
+| E02 | Montana Geometry Ingestion | Complete (audited) | 2026-04-28 | 2026-05-03 | 8 |
 | E03 | Montana Regulation Text Ingestion | Not Started — ready to plan | — | — | TBD |
 
 ### E02 Story Status
@@ -59,7 +59,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 ## Active Blockers
 
-**E02 closed 2026-05-03.** All 8 stories merged, all exit criteria met. S02.7 (Spatial query verification + epic exit) added the per-fetch manifest writer to `arcgis.fetch_features` (resolving the prior known-issue #6 fixture-policy gap), spatial verification suite (11 test points), operator runbook, and 10 backfilled manifests. None blocking E03 planning.
+**E02 closed 2026-05-03 and audited.** All 8 stories merged, all exit criteria met. Post-implementation audit ([`E02-audit.md`](epics/E02-audit.md)) found 86/89 ACs MET, 0 NOT MET; the 3 PARTIAL findings were P3 cosmetic (dead constant, asymmetric atomic write, one stale OBJECTID) and all fixed in commit `0093e88`. Two flagged E03 handoff items remain in the epic's "Known issues to escalate" — these are inputs to E03 planning, not blockers. None blocking E03 planning.
 
 One PRD-reconciliation item remains, but it does **not** block E03:
 
