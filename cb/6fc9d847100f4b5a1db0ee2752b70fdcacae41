@@ -1,0 +1,25 @@
+docs/plans/S02.7-spatial-verification-plan.md
+  22a199aa0aec5de0 115
+docs/runbooks/E02-geometry-verification.md
+  22a199aa0aec5de0 56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "cb6fc9d847100f4b5a1db0ee2752b70fdcacae41",
+  "prompts": {
+    "22a199aa0aec5de0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2d5e73b8-ec36-4a27-9a1a-222eae911197",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 523,
+      "total_deletions": 2,
+      "accepted_lines": 3203,
+      "overriden_lines": 2
+    }
+  }
+}
