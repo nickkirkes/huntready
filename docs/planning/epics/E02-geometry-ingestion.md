@@ -5,6 +5,7 @@
 **Dependencies:** E01 (complete, merged 2026-04-28)
 **Validated:** 2026-04-28
 **Completed:** 2026-05-03 (all 8 stories merged S02.0 → S02.7; Montana geometry layer fully ingested at 349 rows; overlay fixture + audit log + spatial verification suite + drift-detection manifests in place; runbook at `docs/runbooks/E02-geometry-verification.md`)
+**Audited:** 2026-05-03 — see [E02-audit.md](E02-audit.md). 89 ACs total: **86 MET, 3 PARTIAL, 0 NOT MET.** All 3 partials were P3 cosmetic findings (dead `MT_FWP_HOST` constant in shared library, asymmetric atomic-write between fixture writers, stale Kalispell OBJECTID); all addressed in commit `0093e88`. Epic ships clean.
 **Estimated Stories:** 8
 **UAT Gating:** S02.5, S02.6, S02.7 (spot-checks of CWD zones, geometry overlays, and spatial queries)
 
@@ -448,7 +449,7 @@ If the actual CWD zone names have changed by execution time (regulations are bie
 
 - [x] Investigation report committed to `ingestion/states/montana/cwd-source-discovery.md` (189 lines) — Path A (standalone GIS layer) taken. All four investigation paths exercised and documented: root catalog scan of every fwp-gis.mt.gov folder confirmed zero CWD services there; Hub catalog query on arcgis.com/sharing/rest/search surfaced the `Chronic Wasting Disease Hunt Areas` Feature Service (ArcGIS Online item `8837c07298054f5e8be2e072681d870c`) at `https://services3.arcgis.com/Cdxz8r11hT0MGzg1/arcgis/rest/services/ADMBND_HD_CWD/FeatureServer`.
 - [x] Discriminator predicate path NOT taken (Path A made it unnecessary), but the shared `ingestion/states/montana/cwd_discriminator.py::is_cwd_feature` from S02.4 is still the single definition (`grep -r "def is_cwd_feature" ingestion/` returns exactly one line).
-- [x] 2 rows in `geometry` with `kind='cwd_zone'` — Libby CWD Management Zone (OBJECTID 967) and Kalispell CWD Management Zone (OBJECTID 970). Live load 2026-05-01 (`6fdb11b`); idempotency confirmed by 2nd run with identical row counts.
+- [x] 2 rows in `geometry` with `kind='cwd_zone'` — Libby CWD Management Zone (OBJECTID 967) and Kalispell CWD Management Zone (OBJECTID 968). Live load 2026-05-01 (`6fdb11b`); idempotency confirmed by 2nd run with identical row counts.
 - [x] **UAT — named zones resolve correctly via `ST_Covers`:** **Spec substitution acknowledged and documented** in `cwd-source-discovery.md`. The 2026 FWP CWD layer publishes only 2 zones, not 3. Per the story spec's explicit permission ("substitute current names and document the substitution"), UAT covers: Libby CWD Management Zone (positive at `-115.555, 48.388` → PASS); Kalispell CWD Management Zone (positive); and an outside-zone negative-control point in eastern Montana (`-106.500, 46.800` → 0 features returned, PASS). The principle "named zones with assigned test coordinates" is preserved with positive + negative `ST_Covers` semantics exercised on the same dataset.
 - [x] Hand-traced fallback NOT used — N/A (Path A succeeded; no `cwd-zones-manual.geojson` written)
 - [x] **GIS source found — layer metadata fixture committed** at `ingestion/states/montana/fixtures/ADMBND_HD_CWD-0-metadata-20260501T141952Z.json`
