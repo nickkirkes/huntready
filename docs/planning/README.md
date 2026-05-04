@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-05-03
-**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 next — run `/plan-next-epic`)
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 planned — S03.0 ready to start)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -29,7 +29,25 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
 | E02 | Montana Geometry Ingestion | Complete (audited) | 2026-04-28 | 2026-05-03 | 8 |
-| E03 | Montana Regulation Text Ingestion | Not Started — ready to plan | — | — | TBD |
+| E03 | Montana Regulation Text Ingestion | In Progress (planned 2026-05-03; S03.0 next) | 2026-05-03 | — | 13 |
+
+### E03 Story Status
+
+| Story | Name | Status | Owner |
+|---|---|---|---|
+| S03.0 | Schema preparation — license_season + geometry.legal_description + geometry.kind='state' + Montana state geometry | Not Started | Implementation |
+| S03.1 | PDF fetch infrastructure | Not Started | Implementation |
+| S03.2 | PDF extraction primitives (shared library) | Not Started | Implementation |
+| S03.3 | DEA booklet extraction (deer, elk, antelope) | Not Started | Implementation (UAT: yes) |
+| S03.4 | Black Bear booklet extraction + correction PDF handling | Not Started | Implementation (UAT: yes) |
+| S03.5 | Legal Descriptions extraction | Not Started | Implementation (UAT: yes) |
+| S03.6 | regulation_record ingestion | Not Started | Implementation |
+| S03.7 | season_definition + license_tag + license_season ingestion | Not Started | Implementation (UAT: yes) |
+| S03.8 | draw_spec ingestion | Not Started | Implementation |
+| S03.9 | reporting_obligation ingestion | Not Started | Implementation |
+| S03.10 | jurisdiction_binding generation | Not Started | Implementation (UAT: yes) |
+| S03.11 | Confidence calibration audit + ADR-017 finalization | Not Started | Implementation + PM |
+| S03.12 | M1 UAT preparation + handoff to M2 | Not Started | Implementation + PM (UAT: yes) |
 
 ### E02 Story Status
 
@@ -59,11 +77,12 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 ## Active Blockers
 
-**E02 closed 2026-05-03 and audited.** All 8 stories merged, all exit criteria met. Post-implementation audit ([`E02-audit.md`](epics/E02-audit.md)) found 86/89 ACs MET, 0 NOT MET; the 3 PARTIAL findings were P3 cosmetic (dead constant, asymmetric atomic write, one stale OBJECTID) and all fixed in commit `0093e88`. Two flagged E03 handoff items remain in the epic's "Known issues to escalate" — these are inputs to E03 planning, not blockers. None blocking E03 planning.
+**E03 planned 2026-05-03.** 13 stories drafted, validated via the E03 triad (Source Faithfulness, Confidence Calibration, Schema Stress-Test), revised against findings. Two new ADRs accepted: **ADR-017** (confidence calibration + parent-inheritance rule, resolves Q11) and **ADR-018** (E03 schema additions: `license_season` link table + `geometry.legal_description` column + `geometry.kind='state'` value). None blocking S03.0.
 
-One PRD-reconciliation item remains, but it does **not** block E03:
+Carry-over items from E02 (non-blocking, addressed within E03):
 
-- **PRD 001 jurisdiction_binding sequencing** — PRD says E02 writes binding rows; schema FK to regulation_record makes that impossible until E03. E02 produces a geometry overlay fixture instead. Proposed PRD wording in [E02 epic](epics/E02-geometry-ingestion.md) § "Known issues to escalate". PM does not modify PRDs.
+- **Restricted-area discriminator question** (E02 handoff #7) — addressed in S03.10 via no-hunt-zone Option A (bind to nearby HDs as `other_overlay`); structural answer deferred to M2 if Option A clumsy.
+- **PRD 001 jurisdiction_binding sequencing** — proposed reconciliation wording in [E02 epic](epics/completed/E02-geometry-ingestion.md) § "Known issues to escalate". PM does not modify PRDs.
 
 Documentation-debt items (non-blocking):
 
@@ -71,8 +90,11 @@ Documentation-debt items (non-blocking):
 
 ---
 
-- **Run `/plan-next-epic`** to begin E03 (Montana Regulation Text Ingestion) — PM will draft 8-12 stories, run the E03 validation triad (Source Faithfulness Reviewer, Confidence Calibration Reviewer, Schema Stress-Test Reviewer), write the epic file, and update this index. E03 depends on E02's `geometry-overlays.json` fixture (consumed when generating `jurisdiction_binding` rows) and inherits two flagged handoff items in the E02 epic § "Known issues to escalate": (a) `kind='restricted_area'` discriminator question for no-hunt zones, (b) jurisdiction_binding fan-out sizing (~3 parents per child median).
-- Q11 (confidence calibration) resolves during E03 per the M1 PM prompt — plan a story that explicitly produces the resolving ADR.
+## Next Actions
+
+- **Begin S03.0 (Schema preparation)** — applies ADR-018's three additions (license_season + geometry.legal_description + geometry.kind='state') in one migration with three-place sync; writes the Montana state geometry row; creates the two working-artifact directories (`E03-confidence-findings/` for working notes, `E03-deferred-items/` for M2 promises). No regulation data loaded.
+- After S03.0: S03.1 (PDF fetch infrastructure) → S03.2 (extraction primitives) → per-booklet extraction in S03.3-S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12.
+- The `m1` tag pushes at S03.12's final commit, alongside `git rm -r docs/planning/epics/E03-confidence-findings/` per ADR-017's working-notes deletion policy.
 
 ---
 
@@ -80,4 +102,5 @@ Documentation-debt items (non-blocking):
 
 - [M0 — Scaffold](epics/completed/M0-scaffold.md)
 - [E01 — Schema Migrations, RLS, and Quality Gates](epics/E01-schema-migrations.md)
-- [E02 — Montana Geometry Ingestion](epics/E02-geometry-ingestion.md)
+- [E02 — Montana Geometry Ingestion](epics/completed/E02-geometry-ingestion.md)
+- [E03 — Montana Regulation Text Ingestion](epics/E03-regulation-text-ingestion.md)
