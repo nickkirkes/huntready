@@ -134,6 +134,16 @@ class TestParseToMultipolygonWkt:
         with pytest.raises(RuntimeError):
             _parse_to_multipolygon_wkt(payload)
 
+    def test_raises_on_non_json_payload(self) -> None:
+        """HTTP 200 with non-JSON body (e.g., HTML captive portal) → RuntimeError citing source."""
+        payload = b"<!DOCTYPE html><html><body>Captive portal - please sign in</body></html>"
+        with pytest.raises(RuntimeError) as exc_info:
+            _parse_to_multipolygon_wkt(payload)
+        message = str(exc_info.value)
+        assert "non-JSON" in message
+        # Operator should be able to see the start of the payload to diagnose.
+        assert "DOCTYPE html" in message or "Captive portal" in message
+
     def test_raises_on_arcgis_error_envelope(self) -> None:
         """HTTP 200 with `{"error": {...}}` envelope → RuntimeError citing the server code+message."""
         envelope: dict[str, Any] = {

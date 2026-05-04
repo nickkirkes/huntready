@@ -113,7 +113,22 @@ def _parse_to_multipolygon_wkt(payload: bytes) -> str:
     Delegates geometry repair (``shapely.make_valid``) and Polygon →
     MultiPolygon coercion to ``arcgis.geojson_to_multipolygon_wkt``.
     """
-    data = json.loads(payload)
+    # An HTTP 200 response is not a guarantee that the body is JSON — captive
+    # portals, CDN error pages, and upstream proxies can return HTML or plain
+    # text with a 200 status. Wrap the decode so the operator gets a
+    # source-tagged diagnostic instead of a bare JSONDecodeError that doesn't
+    # name what was being parsed.
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        preview = payload[:120].decode("utf-8", errors="replace")
+        msg = (
+            f"Montana state boundary source returned non-JSON content "
+            f"({len(payload)} bytes; starts with {preview!r}). "
+            f"The MSDI endpoint may be returning an HTML error page or a "
+            f"captive-portal interception."
+        )
+        raise RuntimeError(msg) from exc
 
     # ArcGIS / MapServer error envelopes come back with HTTP 200 and shape
     # `{"error": {"code": ..., "message": ..., "details": [...]}}`. Detect
