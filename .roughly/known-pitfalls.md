@@ -137,6 +137,22 @@ Verification when cubic flags this: run the script directly via `ingestion/.venv
 
 Surfaced by S02.4 cubic review on 2026-04-30.
 
+### `supabase db push` against a project bootstrapped via dashboard fails with "relation already exists"
+
+When a Supabase project's schema was originally created via the dashboard SQL editor — or via `supabase db push` from a different machine with a different local migration history — the remote `supabase_migrations.schema_migrations` tracker can be empty even though the schema is fully populated. The next `supabase db push` then attempts to replay all migrations from scratch and dies on the first `CREATE TABLE` with `relation already exists` (SQLSTATE 42P07).
+
+**Diagnose:** `SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;` — if the result is empty or missing entries that should be there, the tracker is out of sync.
+
+**Fix:** mark each pre-existing migration as applied without re-running its SQL:
+
+```sh
+supabase migration repair --status applied <timestamp>
+```
+
+Run once per migration that's already reflected in the schema, then `supabase db push` will only apply what's actually pending. **Verify the schema state matches the migration first** (e.g., check `information_schema.columns` for the columns each migration adds) before running repair — `repair` is a meta-state lie if the schema and migration history have actually diverged.
+
+Surfaced by S03.0 deployment on 2026-05-04.
+
 ## Conventions — Ingestion adapters
 
 ### Shared predicate module when two stories partition a single source layer

@@ -35,7 +35,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 | Story | Name | Status | Owner |
 |---|---|---|---|
-| S03.0 | Schema preparation — license_season + geometry.legal_description + geometry.kind='state' + Montana state geometry | Complete (schema landed; MT-STATEWIDE-geom load operator-pending) | Implementation |
+| S03.0 | Schema preparation — license_season + geometry.legal_description + geometry.kind='state' + Montana state geometry | Complete | Implementation |
 | S03.1 | PDF fetch infrastructure | Not Started | Implementation |
 | S03.2 | PDF extraction primitives (shared library) | Not Started | Implementation |
 | S03.3 | DEA booklet extraction (deer, elk, antelope) | Not Started | Implementation (UAT: yes) |
@@ -92,7 +92,6 @@ Documentation-debt items (non-blocking):
 
 ## Next Actions
 
-- **Operator step to close S03.0 AC #5:** run `cd ingestion && DATABASE_URL=... .venv/bin/python states/montana/load_state_boundary.py` to write `MT-STATEWIDE-geom`. Idempotent UPSERT. Required for E03 binding work in S03.10.
 - **Begin S03.1 (PDF fetch infrastructure)** — shared `ingestion/ingestion/lib/pdf_fetch.py` library + `sources.yaml` registry for the four V1 PDFs (DEA, Black Bear, Legal Descriptions, Black Bear correction); per-PDF manifest writers mirroring S02.7's pattern; SHA drift hardened to fail-loud per the ADR-001 discipline that S03.0 just exercised.
 - After S03.1: S03.2 (extraction primitives) → per-booklet extraction in S03.3-S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12.
 - The `m1` tag pushes at S03.12's final commit, alongside `git rm -r docs/planning/epics/E03-confidence-findings/` per ADR-017's working-notes deletion policy.
