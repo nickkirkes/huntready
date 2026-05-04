@@ -134,6 +134,23 @@ class TestParseToMultipolygonWkt:
         with pytest.raises(RuntimeError):
             _parse_to_multipolygon_wkt(payload)
 
+    def test_raises_on_invalid_utf8_bytes(self) -> None:
+        """Non-decodable bytes (UnicodeDecodeError path) → source-tagged RuntimeError."""
+        # \x80 alone is a continuation byte with no leading byte — invalid UTF-8.
+        payload = b"\x80\x81\x82\x83 not valid utf-8 bytes"
+        with pytest.raises(RuntimeError) as exc_info:
+            _parse_to_multipolygon_wkt(payload)
+        message = str(exc_info.value)
+        assert "non-JSON" in message
+
+    def test_raises_on_non_object_json(self) -> None:
+        """Top-level JSON that isn't a dict (e.g., null, list, number) → source-tagged RuntimeError."""
+        for payload in (b"null", b"[]", b"42", b'"a string"'):
+            with pytest.raises(RuntimeError) as exc_info:
+                _parse_to_multipolygon_wkt(payload)
+            message = str(exc_info.value)
+            assert "unexpected JSON shape" in message
+
     def test_raises_on_non_json_payload(self) -> None:
         """HTTP 200 with non-JSON body (e.g., HTML captive portal) → RuntimeError citing source."""
         payload = b"<!DOCTYPE html><html><body>Captive portal - please sign in</body></html>"

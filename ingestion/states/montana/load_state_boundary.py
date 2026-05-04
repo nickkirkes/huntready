@@ -114,13 +114,15 @@ def _parse_to_multipolygon_wkt(payload: bytes) -> str:
     MultiPolygon coercion to ``arcgis.geojson_to_multipolygon_wkt``.
     """
     # An HTTP 200 response is not a guarantee that the body is JSON — captive
-    # portals, CDN error pages, and upstream proxies can return HTML or plain
-    # text with a 200 status. Wrap the decode so the operator gets a
-    # source-tagged diagnostic instead of a bare JSONDecodeError that doesn't
-    # name what was being parsed.
+    # portals, CDN error pages, and upstream proxies can return HTML, plain
+    # text, or even non-UTF-8 bytes with a 200 status. Wrap the decode so the
+    # operator gets a source-tagged diagnostic. `json.loads(bytes)` internally
+    # calls `bytes.decode()` for encoding detection, so it can raise
+    # `UnicodeDecodeError` (not just `JSONDecodeError`) on malformed bytes —
+    # catch both so the same wrapper handles all decode-time failures.
     try:
         data = json.loads(payload)
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         preview = payload[:120].decode("utf-8", errors="replace")
         msg = (
             f"Montana state boundary source returned non-JSON content "
@@ -129,6 +131,19 @@ def _parse_to_multipolygon_wkt(payload: bytes) -> str:
             f"captive-portal interception."
         )
         raise RuntimeError(msg) from exc
+
+    # `json.loads` is happy to parse a JSON null, list, number, or string.
+    # `.get(...)` only works on dicts — guard before assuming the canonical
+    # FeatureCollection shape so the operator gets a clear diagnostic instead
+    # of an `AttributeError` traceback when upstream returns an unexpected
+    # JSON top-level type.
+    if not isinstance(data, dict):
+        msg = (
+            f"Montana state boundary source returned unexpected JSON shape: "
+            f"top-level type is {type(data).__name__} (expected dict / "
+            f"FeatureCollection or ArcGIS error envelope)."
+        )
+        raise RuntimeError(msg)
 
     # ArcGIS / MapServer error envelopes come back with HTTP 200 and shape
     # `{"error": {"code": ..., "message": ..., "details": [...]}}`. Detect
