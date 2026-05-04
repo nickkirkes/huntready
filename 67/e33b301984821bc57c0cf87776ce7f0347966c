@@ -1,0 +1,25 @@
+docs/planning/epics/E03-regulation-text-ingestion-review.md
+  36a17f5fe4ac0d38 1-239
+docs/planning/epics/E03-regulation-text-ingestion.md
+  36a17f5fe4ac0d38 40,215-216,225,276-278,303-309,331,378-382,409-410,415-416,456-457,460-461,476,481,560,610-613,642,648,697,704,800-834,836,838-845,847,857,865-871,873,879-880,895,898,929,969,1103-1123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "67e33b301984821bc57c0cf87776ce7f0347966c",
+  "prompts": {
+    "36a17f5fe4ac0d38": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2508caf9-d002-4363-9296-90bc8f5280c3",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1714,
+      "total_deletions": 25,
+      "accepted_lines": 1709,
+      "overriden_lines": 3
+    }
+  }
+}
