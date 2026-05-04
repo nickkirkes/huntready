@@ -1,0 +1,25 @@
+ingestion/tests/test_load_state_boundary.py
+  e92fa5d0fd682a5f 137-153
+ingestion/states/montana/load_state_boundary.py
+  e92fa5d0fd682a5f 117-122,125,135-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "0e64750043635094cdb442411798f708139887fa",
+  "prompts": {
+    "e92fa5d0fd682a5f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a7adff3-408d-4b35-986e-86616950b57e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 608,
+      "total_deletions": 5,
+      "accepted_lines": 122,
+      "overriden_lines": 0
+    }
+  }
+}
