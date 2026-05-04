@@ -236,11 +236,13 @@ export interface Geometry {
     | "cwd_zone"
     | "restricted_area"
     | "bma"
+    | "state"
     | "other";
   geom: string; // WKT MultiPolygon; PostGIS geography(MultiPolygon, 4326)
   state: string;
   license_year: number | null;
   verbatim_rule: string | null; // verbatim regulatory text from source attributes (e.g., ArcGIS REG/COMMENTS); null when source has none
+  legal_description: string | null; // FWP-published prose boundary description; null when source has none
   source: SourceCitation;
 }
 
@@ -256,4 +258,15 @@ export interface JurisdictionBinding {
   role: GeometryRole;
   verbatim_rule: string | null;
   source: SourceCitation;
+}
+
+/**
+ * Link: license_tag <-> season_definition (per-license season coverage).
+ *
+ * Per ADR-018 §1: distinct from the regulation_season link (per-regulation
+ * coverage). Both coexist; each answers a different join question.
+ */
+export interface LicenseSeason {
+  license_tag_id: string;
+  season_definition_id: string;
 }
