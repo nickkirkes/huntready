@@ -114,17 +114,17 @@ S03.0 creates:
 
 **Acceptance Criteria:**
 
-- [ ] New migration `supabase/migrations/<timestamp>_e03_schema_additions.sql` creates `license_season` table (composite PK + index per ADR-018 §1), adds `geometry.legal_description text NULL`, and updates `geometry.kind` CHECK constraint to include `'state'`
-- [ ] Pydantic update (`ingestion/ingestion/lib/schema.py`): new `LicenseSeason` `BaseModel`; `Geometry.legal_description: str | None`; `Geometry.kind` Literal extended with `"state"`
-- [ ] TypeScript update (`mcp-server/src/types/schema.ts`): matching changes; `tsc --noEmit` clean
-- [ ] architecture.md §"Schema types": `LicenseSeason` interface + `Geometry.legal_description` + `kind='state'` documented (per ADR-018 §"Three-place sync" — pre-approved by the ADR sign-off, no separate human gate)
-- [ ] One `geometry` row written: `MT-STATEWIDE-geom`, `kind='state'`, valid MultiPolygon, `license_year=NULL`, `source` populated per the source-priority rule
-- [ ] Source choice + SHA recorded in `docs/planning/epics/E03-confidence-findings/S03.0.md`
-- [ ] `docs/planning/epics/E03-confidence-findings/README.md` exists explaining deletion policy
-- [ ] `docs/planning/epics/E03-deferred-items/README.md` exists explaining survival policy
-- [ ] Migration applies cleanly to a fresh Supabase project after E01's + E02's migrations
-- [ ] `ruff check`, `mypy`, `tsc --noEmit` all clean
-- [ ] No regulation data loaded — schema-prep only
+- [x] New migration `supabase/migrations/20260504032424_e03_schema_additions.sql` creates `license_season` table (composite PK + index per ADR-018 §1), adds `geometry.legal_description text NULL`, and updates `geometry.kind` CHECK constraint to include `'state'`
+- [x] Pydantic update (`ingestion/ingestion/lib/schema.py`): new `LicenseSeason` `BaseModel`; `Geometry.legal_description: str | None`; `Geometry.kind` Literal extended with `"state"`
+- [x] TypeScript update (`mcp-server/src/types/schema.ts`): matching changes; `tsc --noEmit` clean
+- [x] architecture.md §"Schema types" + supporting prose updated (per ADR-018 §"Three-place sync"); also absorbed in `615120c` ahead of S03.0's PR with the broader M1-reality alignment pass — T4 verified during S03.0 implementation
+- [ ] One `geometry` row written: `MT-STATEWIDE-geom`, `kind='state'`, valid MultiPolygon, `license_year=NULL`, `source` populated per the source-priority rule — **operator-pending** (load script `ingestion/states/montana/load_state_boundary.py` ready; closes via `cd ingestion && DATABASE_URL=... .venv/bin/python states/montana/load_state_boundary.py`; idempotent UPSERT)
+- [x] Source choice + SHA recorded in `docs/planning/epics/E03-confidence-findings/S03.0.md` — **chose Montana State Library MSDI Framework Boundaries layer 9** (gisservicemt.gov), a third option that strictly dominates ADR-018's two listed options (state-published + GCDB-aligned at 1:24,000; still fits `document_type='gis_layer'` so no `'reference_boundary'` Literal extension needed). Verified empty: no state-boundary layer on FWP on-prem (`fwp-gis.mt.gov`) or AGOL `MtFishWildlifeParks` org. Pinned URL + SHA-256 + `2026-01-01` publication date in load script + working note.
+- [x] `docs/planning/epics/E03-confidence-findings/README.md` exists explaining deletion policy
+- [x] `docs/planning/epics/E03-deferred-items/README.md` exists explaining survival policy
+- [x] Migration applies cleanly to a fresh Supabase project after E01's + E02's migrations
+- [x] `ruff check`, `mypy`, `tsc --noEmit` all clean — 332/332 ingestion tests green
+- [x] No regulation data loaded — schema-prep only
 
 ---
 
