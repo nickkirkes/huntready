@@ -37,7 +37,7 @@ When a story spec says "flag X for PM review" or "flag-and-defer," the implement
 
 1. **Structured anomaly artifact:** add an entry under the relevant filename in `docs/planning/epics/E03-confidence-findings/<story>.md` (working note for ADR-017 audit, deleted at `m1` tag) OR `docs/planning/epics/E03-deferred-items/<topic>.md` (durable; survives past M1; promise to M2). Calibration vs. deferred is the distinction — see "Working artifacts and deferred items" below.
 2. **WARN log** at ingestion time with sufficient context (row id, source span, pattern matched).
-3. **Open-questions entry** in `docs/open-questions.md` if the flag identifies a recurring decision class (PM authors after review, not the implementer).
+3. **Open-questions entry** in `docs/open-questions.md`. **Mechanical trigger (replaces the prior "only when recurring" rule):** an entry is required whenever the matching `E03-deferred-items/<topic>.md` file accumulates 2+ entries (one entry alone may be a one-off; two becomes a class). When the second entry lands in any deferred-items file, the implementer adds a one-line `open-questions.md` pointer at the same time. PM (with user) consolidates and authors the actual question after review. This is mechanical, not judgment-dependent — the trigger is a file-size check.
 4. **Non-silent commit:** the run summary surfaces the flagged count; the story PR description lists the flagged items by category. CI does not pass if a story-spec'd hard-flag fires without an artifact entry.
 
 A "flag" is never silently dropped, silently special-cased, or silently committed. The whole point of the operational definition is that flagging produces a durable record at multiple layers.
@@ -212,6 +212,8 @@ Per PRD 001 R1: start with `pdfplumber` for primary extraction; use `unstructure
 
 **Confidence calibration framework:** ADR-017 codifies the three-tier framework (`high` / `medium` / `low`) and the correction-touched demote rule. S03.2 implements the framework as enum values and helper functions; per-story confidence assignments follow the framework's signal definitions. Working notes for any framework-edge cases go in `docs/planning/epics/E03-confidence-findings/<story>.md` per the artifact policy.
 
+**Tier-rank MIN, NOT lexicographic MIN:** the helper `ConfidenceTier.min_tier(rows: Iterable[ConfidenceTier]) -> ConfidenceTier` MUST implement most-uncertain-wins semantics with explicit rank ordering: `high(rank=2) > medium(rank=1) > low(rank=0)`, MIN = lowest rank. The naive Python idiom `min(["high", "medium", "low"])` returns `"high"` lexicographically (h < l < m) — that's the wrong answer. Implement as a proper enum with `__lt__` comparing the rank field, OR as a helper function with an explicit rank dict. Unit tests must cover the trap case directly so a future refactor can't silently regress to lexicographic semantics.
+
 **Relevant ADRs:** [ADR-001](../../adrs/ADR-001-authority-preserved.md), [ADR-005](../../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md), [ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md), [ADR-017](../../adrs/ADR-017-confidence-calibration.md).
 
 **Acceptance Criteria:**
@@ -220,6 +222,7 @@ Per PRD 001 R1: start with `pdfplumber` for primary extraction; use `unstructure
 - [ ] `extract_text` returns source string with no normalization (verified by unit test on a known-whitespace fixture)
 - [ ] `PageReference` TypedDict exposed for downstream callers; `page_reference_to_str` collapse helper produces deterministic strings
 - [ ] Confidence framework helpers reference ADR-017 (signal definitions, MIN aggregation, correction-touched demote-one-tier rule)
+- [ ] **MIN aggregation helper unit-tested with explicit tier-rank trap cases:** `min_tier(['high', 'low']) == 'low'`, `min_tier(['medium', 'high']) == 'medium'`, `min_tier(['high', 'high', 'high']) == 'high'`, `min_tier(['low']) == 'low'`. Tests fail loudly if a refactor regresses to lexicographic `min()`.
 - [ ] `ruff check`, `mypy ingestion/lib/pdf.py` clean
 - [ ] Unit tests cover: table extraction on a fixture, prose extraction with bbox crop, page-reference round-trip (rich form ↔ collapsed str), whitespace preservation
 - [ ] No Montana-specific code; no imports from state adapters
@@ -270,9 +273,9 @@ DEA booklet structure per research (2026/2027 cycle, 141 pages):
           "late": false
         },
         "season_windows": {
-          "archery_only": "9/7-10/20",
-          "general": "10/26-12/1",
-          "heritage_muzzleloader": "12/2-12/15"
+          "archery_only": {"window": "9/7-10/20", "weapon_type_override": "archery"},
+          "general": {"window": "10/26-12/1", "weapon_type_override": null},
+          "heritage_muzzleloader": {"window": "12/2-12/15", "weapon_type_override": "muzzleloader"}
         },
         "weapon_types": ["any_legal_weapon"],
         "extras": "<verbatim opportunity-specific-details cell text>",
@@ -297,7 +300,13 @@ DEA booklet structure per research (2026/2027 cycle, 141 pages):
 ]
 ```
 
-`season_coverage` is the per-license coverage truth that S03.7 reads to write `license_season` rows. `season_windows` is the union across all licenses (same window structure shared per HD).
+`season_coverage` is the per-license coverage truth that S03.7 reads to write `license_season` rows. `season_windows` is the union across all licenses (same window structure shared per HD), with each window carrying both the date span and a `weapon_type_override` derived from the source's column-header semantics:
+
+- `ARCHERY ONLY` column → `weapon_type_override="archery"`
+- `HERITAGE MUZZLELOADER` column → `weapon_type_override="muzzleloader"`
+- `GENERAL`, `LATE`, `EARLY SEASON` columns → `weapon_type_override=null` (no season-level weapon restriction)
+
+S03.7 reads `weapon_type_override` directly to populate `season_definition.weapon_type` — no string-matching on the season name. This avoids the "what weapon does the 'Archery Only' season impose" inference becoming a magic-string convention.
 
 **Cleanup rules (documented exceptions to verbatim pass-through):**
 - **Cell padding:** "padding" is leading/trailing whitespace **and** internal runs of 3+ consecutive spaces (which pdfplumber sometimes inserts at column edges). Definition: `re.sub(r'\s{3,}', ' ', cell.strip())`. Documented in `extract_dea.py` docstring with the exact regex.
@@ -319,6 +328,7 @@ DEA booklet structure per research (2026/2027 cycle, 141 pages):
 
 - [ ] `ingestion/states/montana/extract_dea.py` exists with `main(argv) -> int` CLI and produces deterministic `dea-2026.json`
 - [ ] All deer/elk HD subsections (pp. 48-123) extracted with `verbatim_text` and structured `rows` (each row carrying `season_coverage`)
+- [ ] **`season_windows[<key>]` carries both `window` (date span string) and `weapon_type_override`** (`"archery"` for the ARCHERY ONLY column, `"muzzleloader"` for HERITAGE MUZZLELOADER, `null` for GENERAL/LATE/EARLY SEASON); derived from source column header, not from the season name; unit test asserts the mapping for all DEA column headers
 - [ ] All antelope HD subsections (pp. 136-142) extracted, plus the `900-20` statewide overlay row (with `hd_number="STATEWIDE"`)
 - [ ] Every extracted row carries a `PageReference` and an `extraction_confidence` value drawn from ADR-017's three-tier framework
 - [ ] Cleanup rules documented in module docstring with exact regexes; whitespace + hyphenated-rejoin tests in `tests/test_extract_dea.py` lock in the contract (incl. counter-examples that the date-range regex does NOT rejoin `9/7-10/20`)
@@ -365,6 +375,11 @@ The merged output `extracted/black-bear-2026.json` is what S03.6-S03.9 consume. 
 
 **Per-cell date-arbitration is the rule, not per-row.** If the correction modifies a single cell of a row, only that cell takes the correction's source. Other cells of the same row keep the booklet's source. This is what distinguishes a correction (cell-level patch) from a full-record amendment.
 
+**Date-collision tiebreaker and missing-date handling (V1 contract):**
+
+- **Equal `publication_date` across two operations targeting the same cell:** the loader raises `CorrectionConflictError` with both `source_id`s in the message. The 2026-03-18 correction is the only one in V1 so this never fires in M1, but the contract is locked in now to prevent silent ordering-of-iteration resolution if M2 surfaces a second correction.
+- **Unparseable or missing `publication_date` on any source:** fail-loud at `sources.yaml` load time (in S03.1's `pdf_fetch.py` or wherever the citation set is parsed). Missing/unparseable dates never reach the merge stage. ISO-8601 date string required; reject everything else.
+
 **Closure-prose handling:** The quota-closure list and female-sub-quota list from p. 7 become structured `ClosurePredicate` jsonb values on the corresponding `season_definition` rows in S03.7. Each closure has a `kind` (`quota_threshold` or `sex_threshold`), `notification_channel`, `verbatim_rule` (the source sentence from p. 7), and where applicable `threshold_percent` (e.g., 37% for the female sub-quota) and `threshold_sex='female'`.
 
 **Closure temporal-anchor handling (per Schema validator SF2):** the female-sub-quota text says "at any point after May 31 if the cumulative spring harvest exceeds 37%." The temporal anchor ("after May 31") has no structured field in `ClosurePredicate` (which is `kind / threshold_percent / threshold_sex / notification_channel / observation_channel / verbatim_rule`). **For V1: keep the temporal anchor in `verbatim_rule` only; do NOT invent a structured field.** Flag for a future ADR (potentially adding `effective_after: date | null` to `ClosurePredicate`) per the operational definition. Add an entry to `docs/planning/epics/E03-deferred-items/closure-temporal-anchors.md` if this pattern recurs in future sources.
@@ -391,11 +406,14 @@ These become **two distinct** `reporting_obligation` rows in S03.9 (R1 case beco
 
 - [ ] `ingestion/states/montana/extract_black_bear.py` exists with the date-arbitrated three-pass architecture; deterministic outputs
 - [ ] `extracted/black-bear-2026-base.json`, `extracted/corrections-2026-03-18.json`, and `extracted/black-bear-2026.json` (merged) all committed
-- [ ] All 35 BMU rows extracted with verbatim_text, page_reference, and the structured row payload (each row carrying `hd_region` per N2)
+- [ ] All 35 BMU rows extracted with verbatim_text, page_reference, and the structured row payload (each row carrying `hd_region` per rule N2)
+- [ ] **Fail-loud guard:** if extracted BMU count < 30 (out of expected 35), `extract_black_bear.py` exits non-zero with a clear error message. This catches catastrophic regressions (e.g., FWP changes the table format and pdfplumber loses most rows) before downstream stories silently load incomplete data. Threshold rationale: 35 expected, ~85% lower bound = 30; tighten if M1 reality shows the floor should be higher.
 - [ ] Closure-prose extracted into structured `ClosurePredicate` candidates: 9 quota-closure BMUs and 4 female-sub-quota BMUs; verbatim source sentence preserved per row; temporal anchors stay in `verbatim_rule` (V1 deferral noted in `docs/planning/epics/E03-deferred-items/closure-temporal-anchors.md` if not already)
 - [ ] Region-specific reporting prose extracted into 2 candidate `reporting_obligation` records (R1 vs R2-7) with verbatim source text — S03.9 does the row decomposition
 - [ ] Correction PDF parsed; **per-cell date-arbitration** applied; affected cells reflect the correction's value; affected rows tagged `applied_correction: true` and carry `supersedes: <booklet_citation_id>`
 - [ ] **Latest-publication-date-wins verified** by a unit test: a row touched by the correction has `source.publication_date == 2026-03-18` (not the booklet date) for the touched cells
+- [ ] **Date-collision tiebreaker:** unit test confirms two operations targeting the same cell with equal `publication_date` raise `CorrectionConflictError` with both source_ids surfaced in the exception message
+- [ ] **Missing/unparseable `publication_date`** in any source raises at load time (during `sources.yaml` parsing in S03.1 or earlier); never reaches the merge stage; unit test exercises with a malformed date
 - [ ] **Correction-touched rows demoted one tier** per ADR-017: a unit test confirms a base-`high` row becomes `medium` post-merge if the correction touched any of its cells; a base-`medium` becomes `low`
 - [ ] Citation IDs read from `sources.yaml` (per S03.1) — both for the correction's `id` and its `supersedes` reference
 - [ ] Working note `docs/planning/epics/E03-confidence-findings/S03.4.md` records confidence-assignment patterns + correction-demote interactions
@@ -435,7 +453,11 @@ Legal Descriptions PDF structure per research (2026/2027, 56 pages):
 
 **Linkage strategy:** Heading-to-geometry-id matching is heuristic. Document the matching rule (e.g., "extract HD number from heading regex `HD\s+(\d+)`; species class from preceding section context; combine into `MT-HD-{species}-{number}-geom`"). Mismatches (heading present in PDF but no matching geometry, or geometry present in DB but no heading in PDF) are flagged in the output's `unmatched` and `unlinked` arrays for human review — do not silently drop or invent.
 
+**Unmatched-rate fail-loud threshold:** if `unmatched_count / (matched_count + unmatched_count) > 0.10` (10% unmatched), `extract_legal_descriptions.py` exits non-zero with a clear error message naming the threshold and the actual rate. This catches a regressed PDF parser (e.g., FWP's 2027 update changes heading format) that would otherwise produce a 90%-empty extraction and look "successful." The 10% threshold is the V1 first-cut; tighten or loosen during S03.5 implementation if reality shows it should be different. Below the threshold: the WARN-log + working-note flag continues per the operational definition.
+
 **Where this text goes in the database (per ADR-018):** S03.6 writes `verbatim_description` into **`geometry.legal_description`** (the new column added by ADR-018 §2). **No separator extension on `verbatim_rule`.** The two fields are independent: `verbatim_rule` carries layer-#2 REG/COMMENTS regulatory text (per ADR-015); `legal_description` carries this story's prose boundary description. Both are queryable; neither overloads the other.
+
+**Single-writer contract (avoids dual-writer ambiguity):** S03.5 produces ONLY the JSON extraction artifact at `extracted/legal-descriptions-2026.json`. **S03.5 does NOT write to `geometry.legal_description`.** The database write is exclusively S03.6's responsibility. This prevents two implementers (or one implementer reading the spec independently in two sessions) from both writing the column.
 
 **No regulation_record / season_definition / license_tag / reporting_obligation rows are produced from this booklet** — it's geometry-text-only enrichment.
 
@@ -451,11 +473,12 @@ Legal Descriptions PDF structure per research (2026/2027, 56 pages):
 **Acceptance Criteria:**
 
 - [ ] `ingestion/states/montana/extract_legal_descriptions.py` exists; deterministic output
+- [ ] **S03.5 produces only the JSON artifact;** the database write to `geometry.legal_description` is S03.6's responsibility (no SQL writes in S03.5)
 - [ ] Every prose description matched to an existing `geometry_id` (or surfaced in `unmatched`/`unlinked` arrays for human review)
 - [ ] Heading-to-geometry-id matching rule documented in module docstring
 - [ ] Working note `docs/planning/epics/E03-confidence-findings/S03.5.md` records matching-rule edge cases + any fuzzy-match `low`-confidence rows
 - [ ] **UAT (faithfulness):** Human reviews ≥2 descriptions (one HD, one CWD or restricted area) against source PDF
-- [ ] `unmatched` array flagged via the operational definition (WARN log + working-note entry)
+- [ ] `unmatched` array flagged via the operational definition (WARN log + working-note entry) below the 10% threshold; **above the 10% threshold the script exits non-zero** with a clear error message; unit test exercises both branches with synthetic match/unmatch counts
 - [ ] `ruff check`, `mypy` clean
 - [ ] Unit tests cover: heading regex, prose extraction, unmatched-handling, matched-id round-trip
 
@@ -534,7 +557,7 @@ This story writes `geometry.legal_description` (the column added by S03.0/ADR-01
 
 - [ ] `ingestion/states/montana/load_regulation_records.py` exists; reads the three extraction artifacts; deterministic load order
 - [ ] Approximately 514 `regulation_record` rows written (verify exact count from extraction; may differ if DEA HD count is not exactly 139 in the actual data)
-- [ ] Every row has `state='US-MT'`, `license_year=2026`, `schema_version=2`, populated `verbatim_rule`, populated `source` (jsonb SourceCitation), populated `confidence` per ADR-017's MIN aggregation
+- [ ] Every row has `state='US-MT'`, `license_year=2026`, `schema_version=2`, populated `verbatim_rule`, populated `source` (jsonb SourceCitation), populated `confidence` per ADR-017's MIN aggregation **using S03.2's `ConfidenceTier.min_tier` helper** (NOT lexicographic `min()` over strings — see S03.2's tier-rank trap-case AC)
 - [ ] `MT-STATEWIDE-antelope` regulation_record exists (anchor for `900-20`); any additional statewide candidates surfaced via working note, NOT autonomously added
 - [ ] DEA-sourced rows use `document_type='annual_regulations'`; Black-Bear-correction-touched rows use `document_type='correction'` with `supersedes` populated; citation IDs match `sources.yaml`
 - [ ] NOTE-style lines in DEA HD subsections written to `regulation_record.additional_rules` as `VerbatimRule[]` jsonb
@@ -584,6 +607,10 @@ For each HD's DEA subsection:
 - `int4range` with **inclusive bounds on both sides: `[lower, upper]`**. Postgres syntax: `int4range(lower, upper, '[]')`.
 - Application-code validation: `lower <= quota <= upper` whenever both `quota` and `quota_range` are non-null. Unit tests assert.
 
+**`license_tag.draw_spec_key` left NULL by S03.7 — backfilled by S03.8:**
+
+S03.7 does NOT populate `license_tag.draw_spec_key`. The schema permits NULL because `draw_spec_key` is a soft FK per ADR-012 (validated in application code, not DB). S03.8 backfills `draw_spec_key` for limited-draw license_tag rows after writing the corresponding `draw_spec` rows, via `UPDATE license_tag SET draw_spec_key = ? WHERE id = ?`. This breaks the chicken-and-egg between license_tag and draw_spec writes without violating any DB constraint, and keeps each story's load script focused on a single entity.
+
 **Statewide antelope `900-20`:** the DEA extraction emits this as a separate row. It maps to a single `regulation_record` (`MT-STATEWIDE-antelope`, `species_group='pronghorn'`) and a single `license_tag` with:
 - `kind='statewide'`
 - `weapon_types=['archery']` (the source says "archery only")
@@ -612,12 +639,13 @@ Order-of-magnitude verification against the extraction artifacts is part of the 
 - [ ] `ingestion/states/montana/load_seasons_and_licenses.py` exists; deterministic load order
 - [ ] `season_definition` rows written; per-HD unique-window deduplication confirmed (e.g., `name='General'` count is near-1:1 with HD count, not multiplied by license-variant count)
 - [ ] `license_tag` rows written; multiple license_tag rows per HD where DEA shows A + B variants
+- [ ] **`license_tag.draw_spec_key` is NULL on every row written by S03.7** (backfilled later by S03.8); SQL spot-check confirms `SELECT count(*) FROM license_tag WHERE draw_spec_key IS NOT NULL` returns 0 immediately after S03.7's load completes
 - [ ] **`license_season` rows written per S03.3's `season_coverage` truth values**; per-license season selection is explicit; SQL spot-check on HD 262 elk shows A's `license_season` set differs from B's (asymmetric coverage)
 - [ ] `regulation_season` link table populated for every (regulation_record, season_definition) pair (HD-level: every season the HD has); `regulation_license` link table populated for every (regulation_record, license_tag) pair
 - [ ] Bear `season_definition` rows with `closure_predicate` jsonb populated for the 9 quota-closure BMUs and 4 female-sub-quota BMUs; temporal anchors preserved in `verbatim_rule` only
 - [ ] Statewide antelope `900-20` license_tag row exists with `kind='statewide'`, `verbatim_rule` carrying the full "first and only choice" text; **no `draw_spec_key`** (S03.8 doesn't write one)
 - [ ] `quota_range` uses `[]` inclusive bounds; application-code validation confirms `lower <= quota <= upper` for non-null quota
-- [ ] `season_definition.weapon_type` is NULL where the season has no season-level restriction (most cases); `license_tag.weapon_types` carries the per-license constraint
+- [ ] `season_definition.weapon_type` is **populated directly from S03.3's `season_windows[<key>].weapon_type_override`** — no name-based string matching; NULL where the source column header has no weapon constraint (most cases, e.g., GENERAL); `"archery"` for ARCHERY ONLY; `"muzzleloader"` for HERITAGE MUZZLELOADER; `license_tag.weapon_types` separately carries the per-license constraint
 - [ ] **UAT (M1 success criterion 2):** query HD 262 elk → returns archery, general, heritage muzzleloader as separate `season_definition` rows; `license_season` join shows A covers a different set of seasons than B (asymmetric coverage explicitly verified)
 - [ ] If extraction surfaces a license/season pattern that doesn't fit the model: flagged via the operational definition (working note + WARN log + run-summary count)
 - [ ] UPSERT idempotency confirmed
@@ -666,13 +694,14 @@ This file **survives past M1 close** — it's a promise to M2.
 
 **Relevant ADRs:** [ADR-012](../../adrs/ADR-012-draw-mechanics-sibling-entity.md), [ADR-006](../../adrs/ADR-006-schema-versioned-from-day-one.md).
 
-**Depends on:** S03.7 (license_tag rows with `draw_spec_key` populated).
+**Depends on:** S03.7 (limited-draw `license_tag` rows exist with `draw_spec_key=NULL` ready for backfill — see S03.7 § "`license_tag.draw_spec_key` left NULL by S03.7 — backfilled by S03.8" for the handoff contract).
 
 **Acceptance Criteria:**
 
 - [ ] `ingestion/states/montana/load_draw_specs.py` exists; deterministic load order
 - [ ] `draw_spec` rows written for every limited-draw `license_tag` from S03.7 **except `900-20`**
 - [ ] `pools` AllocationPool array shares sum to 1.0 per row (application-code validation enforced)
+- [ ] **S03.8 backfills `license_tag.draw_spec_key`** for every limited-draw `license_tag` via `UPDATE license_tag SET draw_spec_key = ? WHERE id = ?` AFTER the `draw_spec` rows are written; the loader is idempotent against re-runs (re-running S03.8 against an already-backfilled DB is a no-op for unchanged rows)
 - [ ] `license_tag.draw_spec_key` jsonb correctly references the `draw_spec` composite PK for every draw-eligible license_tag (cross-check via SQL: every `license_tag` with `kind='limited_draw'` has a non-null `draw_spec_key` resolving to an existing `draw_spec` row)
 - [ ] **`900-20` has NO `draw_spec` row;** `license_tag.draw_spec_key` is NULL; `verbatim_rule` carries the full "first and only choice" text; entry exists in `docs/planning/epics/E03-deferred-items/draw-mechanics.md` documenting the deferral
 - [ ] `parameters` field is `null` on every draw_spec row written (per Q12 deferral)
@@ -768,16 +797,54 @@ For each `regulation_record` row:
 2. Find every overlay-fixture relationship row where `parent_geometry_id == <that geometry id>` (for HDs, includes the self-row → primary_unit role) — apply the cross-species filter (next paragraph)
 3. Write one `jurisdiction_binding` row per qualified relationship
 
-**Cross-species portion filter (per Schema validator B1):**
+**Cross-species portion filter (rule B1 — see "Validator rule glossary" at end of epic):**
 
-The overlay fixture contains pairings like `parent=MT-HD-antelope-311-geom` + `child=MT-HD-mule-deer-312-portion-...-geom` (cross-species — spatial intersection but no regulatory binding). When binding for an antelope regulation_record, **only consume overlay rows where the child's species namespace matches the regulation_record's species** (or the child is `kind ∈ {restricted_area, cwd_zone, bma}` which are species-agnostic overlays).
+The overlay fixture contains pairings like `parent=MT-HD-antelope-311-geom` + `child=MT-HD-mule-deer-312-portion-...-geom` (cross-species — spatial intersection but no regulatory binding). When binding for an antelope regulation_record, **only consume overlay rows where the child's namespace matches the regulation_record's species axis** (or the child is a species-agnostic overlay).
 
-Concretely:
-- For an `species_group='pronghorn'` regulation_record with `jurisdiction_code='MT-HD-antelope-311'`, accept overlay rows where `child_geometry_id` starts with `MT-HD-antelope-` (same-species portions) OR `child_kind ∈ {restricted_area, cwd_zone, bma}`. Reject overlay rows where the child is a different species' portion.
-- For `species_group ∈ {elk, mule_deer, whitetail}` with `jurisdiction_code='MT-HD-deer-elk-lion-N'`, accept children starting with `MT-HD-deer-elk-lion-` (which captures all three deer/elk/whitetail portions since they share that namespace from layer #11) OR species-agnostic overlay kinds.
-- For `species_group='bear'` with `jurisdiction_code='MT-HD-bear-N'`, accept children starting with `MT-HD-bear-` OR species-agnostic overlay kinds.
+**Fixture-derived namespace inventory** — empirically derived from the committed `ingestion/states/montana/fixtures/geometry-overlays.json` on 2026-05-03 (the file E03 consumes verbatim) by enumerating distinct `child_geometry_id` and `parent_geometry_id` prefixes. This is the basis for the per-species filter table below. Re-walk the fixture before S03.10 ships to confirm namespaces haven't drifted; if they have, this section and the table need a corresponding update.
 
-The filter is implemented as a function `is_binding_eligible(regulation_record, overlay_row) -> bool` with explicit unit tests for each species pair.
+Namespaces present in the fixture as of 2026-05-03:
+
+- Parent geometries (HDs themselves): `MT-HD-antelope-`, `MT-HD-bear-`, `MT-HD-deer-elk-lion-`
+- Portion namespaces (per-species, not shared): `MT-HD-elk-` (e.g., `MT-HD-elk-215-portion-elPt21-geom`), `MT-HD-mule-deer-` (e.g., `MT-HD-mule-deer-312-portion-...-geom`), `MT-HD-whitetail-` (e.g., `MT-HD-whitetail-310-portion-wtPt7-geom` — confirmed present in the live fixture), `MT-HD-antelope-` (HDs and portions share the antelope prefix; disambiguate via the geometry's `kind` field)
+- Restricted-area namespaces: `MT-restricted-bigame-` (species-agnostic — applies to all big-game species) and `MT-restricted-elk-` (elk-specific)
+- CWD-zone namespaces: `MT-CWD-zone-...` (species-agnostic — CWD applies to deer/elk family but the zone overlays are not species-keyed in the fixture)
+
+Verification command (Python one-liner) that the S03.10 implementer SHOULD re-run before locking the filter table — surfaces any namespace drift since 2026-05-03:
+
+```bash
+python3 -c "
+import json, collections
+with open('ingestion/states/montana/fixtures/geometry-overlays.json') as f:
+    data = json.load(f)
+prefixes = collections.Counter()
+for r in (data if isinstance(data, list) else data.get('relationships', [])):
+    for k in ('parent_geometry_id', 'child_geometry_id'):
+        cid = r.get(k, '')
+        parts = cid.split('-')
+        prefix = []
+        for p in parts:
+            if p.isdigit(): break
+            prefix.append(p)
+        if prefix: prefixes[(k, '-'.join(prefix) + '-')] += 1
+for (k, p), n in sorted(prefixes.items()): print(f'{k:24s} {p:50s} {n}')
+"
+```
+
+If the output names a namespace not in the inventory above, S03.10's filter table is stale — update before merging the load script.
+
+**Filter rule by species_group** (each rule below = "accept the overlay row, write a binding"):
+
+| `species_group` | Accept self-row primary_unit | Accept portions where child_geom_id starts with | Accept restricted_area children | Accept cwd_zone children |
+|---|---|---|---|---|
+| `elk` | `MT-HD-deer-elk-lion-N-geom` | `MT-HD-elk-` | `MT-restricted-bigame-` OR `MT-restricted-elk-` | yes |
+| `mule_deer` | `MT-HD-deer-elk-lion-N-geom` | `MT-HD-mule-deer-` | `MT-restricted-bigame-` (NOT `MT-restricted-elk-`) | yes |
+| `whitetail` | `MT-HD-deer-elk-lion-N-geom` | `MT-HD-whitetail-` | `MT-restricted-bigame-` (NOT `MT-restricted-elk-`) | yes |
+| `pronghorn` | `MT-HD-antelope-N-geom` | `MT-HD-antelope-` (portions; disambiguate from HD self-row by `kind='portion'`) | `MT-restricted-bigame-` (NOT `MT-restricted-elk-`) | no (CWD doesn't apply to antelope) |
+| `bear` | `MT-HD-bear-N-geom` | `MT-HD-bear-` (no V1 portions exist for bear in the fixture; rule is forward-compatible) | `MT-restricted-bigame-` (NOT `MT-restricted-elk-`) | no (CWD doesn't apply to bear) |
+| `pronghorn` (statewide `MT-STATEWIDE-antelope`) | `MT-STATEWIDE-geom` | n/a (statewide reg_record gets exactly one binding) | n/a | n/a |
+
+The filter is implemented as a function `is_binding_eligible(regulation_record, overlay_row) -> bool` with explicit unit tests for each row of the table above (one positive case + one negative case per species — e.g., a `mule_deer` regulation_record correctly REJECTS a child starting with `MT-restricted-elk-` and correctly REJECTS a child starting with `MT-HD-elk-` portion). **Whitetail portion handling is NOT a gap** — `MT-HD-whitetail-` portions exist in the fixture (e.g., `MT-HD-whitetail-310-portion-wtPt7-geom`).
 
 **Binding row construction:**
 
@@ -787,7 +854,7 @@ For each accepted (regulation_record, overlay_row) pair, write `jurisdiction_bin
 - `role` from `role_for_e03` (mapped per ADR-016's overlay fixture)
 - `verbatim_rule` typically null (the source text is on the geometry's `verbatim_rule` from S02.4 layer-#2 REG/COMMENTS, on `geometry.legal_description` from S03.5/S03.6, or on the regulation_record's `verbatim_rule` — not duplicated here)
 - `source` from a synthesized SourceCitation **referencing the original ArcGIS layer that produced the geometry** (per Source-Faithfulness validator F10): `document_type='gis_layer'` per ADR-014, citing the source layer (not the overlay fixture file). The overlay fixture is derived; the source-of-record is the layer.
-- `id` constructed deterministically per N4: `f"{state}-{jurisdiction_code}-{species_group}-{license_year}-binding-{geometry_id}-{role}"`. All five tuple components plus `geometry_id` and `role` are participants because (regulation_record, geometry, role) triples are unique by construction. The format is verbose but produces stable IDs across re-ingestions: same regulation_record + same overlay_row + same role → same id, so UPSERT semantics work cleanly. Verify ID stability by running the loader twice with no data changes and confirming zero ID drift.
+- `id` constructed deterministically per rule N4: `f"{state}-{jurisdiction_code}-{species_group}-{license_year}-binding-{geometry_id}-{role}"`. All five tuple components plus `geometry_id` and `role` are participants because (regulation_record, geometry, role) triples are unique by construction. The format is verbose but produces stable IDs across re-ingestions: same regulation_record + same overlay_row + same role → same id, so UPSERT semantics work cleanly. Verify ID stability by running the loader twice with no data changes and confirming zero ID drift. **The id is opaque-but-deterministic: downstream code MUST NOT parse it** (the format embeds hyphenated `jurisdiction_code` and `geometry_id` so naive `id.split('-')` is ambiguous and not round-trippable). Code commenting must include a one-line "DO NOT PARSE" directive on the id-construction site.
 
 **Statewide regulation_records bind to `MT-STATEWIDE-geom`** (per ADR-018):
 
@@ -795,13 +862,21 @@ Each statewide `regulation_record` (e.g., `MT-STATEWIDE-antelope`) gets exactly 
 
 **No-hunt-zone handling (E02 handoff item #7):**
 
-The 3 `EXPECTED_RA_ORPHAN_IDS` (Glacier NP, Sun River Game Preserve, Yellowstone NP) have no parent HD in the overlay fixture. **V1 default: Option A — bind to "nearby" HDs as `role='other_overlay'`.**
+The 3 `EXPECTED_RA_ORPHAN_IDS` (canonical literal IDs from `ingestion/states/montana/build_overlay_fixture.py`):
 
-**Deterministic "nearby" definition** (per Schema validator S5):
+- `MT-restricted-bigame-glacier-national-park-geom`
+- `MT-restricted-bigame-sun-river-game-preserve-geom`
+- `MT-restricted-bigame-yellowstone-national-park-geom`
+
+These have no parent HD in the overlay fixture. **V1 default: Option A — bind to "nearby" HDs as `role='other_overlay'`.**
+
+**Deterministic "nearby" definition** (rule S5):
 - "Nearby" means: any HD whose geometry **shares an edge** with the no-hunt zone (`ST_Touches`) OR whose **centroid is within 5km** of the no-hunt zone's centroid (`ST_DWithin(geog::geometry, geog::geometry, 5000)`)
 - Exact thresholds locked in code as constants `NO_HUNT_ZONE_NEARBY_TOUCHES` and `NO_HUNT_ZONE_NEARBY_CENTROID_DISTANCE_M = 5000`
 - Adds ~30-100 jurisdiction_binding rows total. Documented in load script + working note `docs/planning/epics/E03-confidence-findings/S03.10.md`.
 - If during implementation this proves clumsy or surfaces edge cases, escalate to PM for Option B (schema discriminator) or C (defer) consideration.
+
+**Zero-binding fail-loud (per-zone):** if any of the 3 `EXPECTED_RA_ORPHAN_IDS` produces zero binding rows under the nearby-rule, `load_jurisdiction_bindings.py` exits non-zero with a clear error message naming the zone. The most-likely candidate for this failure is Yellowstone NP (centroid is ~30km deep in the park, far from any HD boundary). Producing zero bindings would silently make the zone invisible to spatial queries — same effect as if E02 had dropped it. A real zero-match is an escalation signal (likely needs Option B/C), not a soft warning.
 
 **Filter scope (per N5):** the no-hunt-zone selector filters on `geometry.kind = 'restricted_area' AND id IN EXPECTED_RA_ORPHAN_IDS`. **Both predicates are required.** The `kind='restricted_area'` filter is the load-bearing structural one — it ensures `MT-STATEWIDE-geom` (`kind='state'`), portions, CWD zones, BMUs, etc. are NOT eligible for Option A binding even if their spatial relationships satisfy the "nearby" rule. The `id IN allowlist` predicate is a secondary safety belt — restricted_area rows that have parent HDs in the overlay fixture are also not no-hunt zones, so the allowlist filters them out too. **If implementation reveals the kind filter alone is sufficient (i.e., every kind='restricted_area' row that lacks an overlay-fixture parent is in fact a no-hunt zone), the allowlist can be removed in a follow-up — the structural kind filter is the real protection.**
 
@@ -817,9 +892,10 @@ The 3 `EXPECTED_RA_ORPHAN_IDS` (Glacier NP, Sun River Game Preserve, Yellowstone
 
 - [ ] `ingestion/states/montana/load_jurisdiction_bindings.py` exists; reads overlay fixture + queries regulation_record table; deterministic load order
 - [ ] **Per-regulation_record traversal:** each regulation_record produces its own set of binding rows; no shortcut "for every overlay row, find a regulation"
-- [ ] **Cross-species filter:** `is_binding_eligible(regulation_record, overlay_row)` function with explicit unit tests per species pair; SQL spot-check confirms an antelope regulation_record has no binding to a `MT-HD-mule-deer-*-portion-*-geom` child
+- [ ] **Cross-species filter:** `is_binding_eligible(regulation_record, overlay_row)` function implements the per-species table in the spec above; explicit unit tests cover (a) one positive case and one negative case per species_group row, (b) the `MT-restricted-elk-` accept-only-for-elk discriminator (mule_deer/whitetail/pronghorn/bear all reject), (c) the `MT-HD-whitetail-` portion accept-only-for-whitetail discriminator, (d) statewide-pronghorn binding to `MT-STATEWIDE-geom`. SQL spot-check confirms an antelope regulation_record has no binding to a `MT-HD-mule-deer-*-portion-*-geom` child AND a mule_deer regulation_record has no binding to any `MT-restricted-elk-*` child.
 - [ ] Statewide regulation_records bind to `MT-STATEWIDE-geom` with `role='primary_unit'`; no other `role` values used for statewide
 - [ ] No-hunt-zone Option A applied: each of the 3 zones binds to nearby HDs per the deterministic `ST_Touches` OR `ST_DWithin(5000)` rule; binding count documented in working note
+- [ ] **Per-zone zero-binding fail-loud:** if any of the 3 `EXPECTED_RA_ORPHAN_IDS` produces zero binding rows, the loader exits non-zero with the zone's id surfaced; unit test exercises this with a synthetic zone whose centroid is 100km from any HD
 - [ ] Estimated row count is order-of-magnitude verified: SQL `SELECT count(*) FROM jurisdiction_binding` returns 1,500-3,500 for V1 Montana
 - [ ] `source` jsonb on every binding row references the **original ArcGIS layer** that produced the child geometry, with `document_type='gis_layer'` (NOT the overlay fixture file)
 - [ ] `geometry-overlays-dropped.json` is NOT consumed (per ADR-016)
@@ -850,7 +926,7 @@ ADR-017 was drafted during E03 planning (before S03.0). This story finalizes:
 
 **Stratified audit:**
 
-For each documented edge case in ADR-017 (closure-prose extraction, region split, correction PDF, legal-description cross-ref, statewide overlay, NOTE lines, etc.), sample **at least 5 rows per edge case** from the corresponding entity table (or all rows if fewer than 5 exist). After per-edge-case sampling, fill the audit with random rows up to a total of 50.
+For each documented edge case in ADR-017 (closure-prose extraction, region split, correction PDF, legal-description cross-ref, statewide overlay, NOTE lines, etc.), sample **at least 5 rows per edge case** from the corresponding entity table (or all rows if fewer than 5 exist). **Audit total = `max(50, stratified_count)`:** stratified samples are never trimmed; random fill brings the audit up to 50 only if stratified count is below 50. If stratified count alone exceeds 50, that's the audit — random fill is skipped. Worked example: 6 documented edge cases → 30 stratified + 20 random = 50 total. 12 edge cases → 60 stratified + 0 random = 60 total. 4 edge cases → 20 stratified + 30 random = 50 total.
 
 For each sampled row, verify the assigned `confidence` matches what ADR-017's framework would assign given the row's source signals (which are persisted per AC below — the inputs to the assignment are recorded so the auditor can reproduce the framework's logic without re-extracting).
 
@@ -890,7 +966,7 @@ Per ADR-017 §6: at the `m1` tag commit (in S03.12), the entire `docs/planning/e
 **Acceptance Criteria:**
 
 - [ ] Synthesis report `docs/planning/epics/E03-confidence-calibration-synthesis.md` exists; consolidates all per-story working notes
-- [ ] Stratified audit performed: ≥5 rows per documented edge case + random fill to 50 total; all sampled rows' assigned `confidence` verified against ADR-017's framework
+- [ ] Stratified audit performed: ≥5 rows per documented edge case; total audit size = `max(50, stratified_count)` (random fill skipped when stratified ≥ 50); all sampled rows' assigned `confidence` verified against ADR-017's framework
 - [ ] **Confidence-assignment inputs persisted** in each story's working note (source format, extraction op, transformation steps, correction-touched flag) — auditor can reproduce the framework's logic without re-extracting
 - [ ] If no defer-trigger fires: ADR-017 stands as-is; audit summary recorded; Q11 marked resolved
 - [ ] If any defer-trigger fires: PM drafts ADR-017 amendment for user review; **does NOT commit autonomously**; the affected sections move to "deferred to M2" status; this status is recorded in S03.12's M1→M2 handoff document
@@ -1021,6 +1097,27 @@ PRD 001 § "Success criteria for the milestone" lists the 8 UAT-level criteria f
 3. **ADR-017 user-review gate** for any S03.11 amendment. PM does not commit autonomously per explicit user instruction. S03.12 has auto-defer fallback to prevent milestone block.
 
 4. **`ClosurePredicate` temporal anchor** (#7 above) — flagged for potential future ADR if pattern recurs.
+
+---
+
+## Validator rule glossary
+
+The epic references rule codes (B1, B2, F10, F12, N2-N5, S5, SF2, SF5, SF6) inline. Each came from a schema-/source-faithfulness/confidence-validation pass during E03 planning. The prefixes are origin labels — `B*` = binding, `F*` / `SF*` = source-faithfulness, `S*` = spatial, `N*` = naming/numbering, `Conf` = confidence — but for implementation purposes the rule body is what matters. Inlined here so the epic is self-contained and durable past the validator artifact's lifecycle.
+
+| Code | Subject | Rule |
+|---|---|---|
+| **B1** | Binding — cross-species portion filter | When binding for a regulation_record, only consume overlay rows whose child namespace matches the regulation_record's species axis (or is a documented species-agnostic overlay). See S03.10 § "Cross-species portion filter" for the per-species table. |
+| **B2** | Binding — per-regulation_record overlay traversal | Each regulation_record gets its own pass through the overlay fixture, keyed by its own derived geometry_id. Species-axis multiplication happens in the binding loader, not in the fixture. |
+| **F10** | Source-faithfulness — binding's source citation | `jurisdiction_binding.source` references the **original ArcGIS layer that produced the child geometry** with `document_type='gis_layer'`, NOT the derived overlay fixture file. The overlay fixture is derived; the source-of-record is the layer. |
+| **F12** (Conf) | Confidence — assignment inputs persisted | Each ingestion story's working note records the inputs that drove every (entity_id, assigned_confidence) pair: source format, extraction operation, transformation steps, correction-touched flag. Lets the audit reproduce framework logic without re-extracting. |
+| **N2** | Naming — per-BMU `hd_region` field | S03.4's extraction artifact carries `hd_region: 'R1'..'R7'` per BMU row, sourced from the regional map in the Black Bear PDF. Drives the R1 vs R2-7 reporting_obligation linkage in S03.9. |
+| **N3** | Naming — `season_definition.verbatim_rule` source rule | Source from the General (A) license's opportunity-specific-details cell when an A license covers the season; if the season is B-only, source from the B license's cell. Per-license cell differences inform `license_tag.verbatim_rule`, NOT `season_definition.verbatim_rule` (which is single-source-of-record). |
+| **N4** | Naming — `jurisdiction_binding.id` format | `f"{state}-{jurisdiction_code}-{species_group}-{license_year}-binding-{geometry_id}-{role}"`. Opaque-but-deterministic; downstream code MUST NOT parse the id. |
+| **N5** | Naming — no-hunt-zone selector | Filter on `geometry.kind = 'restricted_area' AND id IN EXPECTED_RA_ORPHAN_IDS`. Both predicates required — kind is the structural protection; allowlist is the safety belt. |
+| **S5** | Spatial — deterministic "nearby" definition | "Nearby" = HD geometry shares an edge with the no-hunt zone (`ST_Touches`) OR HD centroid within 5km of zone centroid (`ST_DWithin(geog::geometry, geog::geometry, 5000)`). Constants `NO_HUNT_ZONE_NEARBY_TOUCHES` and `NO_HUNT_ZONE_NEARBY_CENTROID_DISTANCE_M = 5000` locked in code. |
+| **SF2** | Source-faithfulness — closure temporal anchors | For V1, keep temporal anchors (e.g., "after May 31") in `ClosurePredicate.verbatim_rule` only. Do NOT invent a structured `effective_after` field. Flag for future ADR if the pattern recurs. |
+| **SF5** | Source-faithfulness — weapon convention | `season_definition.weapon_type` is nullable (NULL = no season-level restriction); `license_tag.weapon_types` is required array (the license is the source-of-truth for "what weapons can this hunter use"). MCP server (M3) renders the intersection. |
+| **SF6** | Source-faithfulness — `quota_range` bounds | `int4range` with **inclusive bounds on both sides: `[lower, upper]`**. Postgres syntax: `int4range(lower, upper, '[]')`. Application-code validation: `lower <= quota <= upper` whenever both are non-null. |
 
 ---
 
