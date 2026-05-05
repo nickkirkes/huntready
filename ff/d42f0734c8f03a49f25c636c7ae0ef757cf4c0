@@ -1,0 +1,23 @@
+docs/plans/S03.1-pdf-fetch-infrastructure-plan.md
+  a17b48b9eabd4419 287
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ffd42f0734c8f03a49f25c636c7ae0ef757cf4c0",
+  "prompts": {
+    "a17b48b9eabd4419": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df6d2b87-2518-41b6-85d2-abd9dc5178ac",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 809,
+      "overriden_lines": 1
+    }
+  }
+}
