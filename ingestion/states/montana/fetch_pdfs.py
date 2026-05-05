@@ -35,6 +35,12 @@ _REQUIRED_FIELDS: frozenset[str] = frozenset({
     "expected_page_count", "document_type", "publication_date",
 })
 
+# String fields validated for non-empty content (excludes url, which has its
+# own pending-flag-aware guard further down the loop).
+_STRING_FIELDS: tuple[str, ...] = (
+    "id", "agency", "title", "document_type", "publication_date",
+)
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
@@ -102,6 +108,34 @@ def main(argv: list[str] | None = None) -> int:
             failures.append((
                 entry_id,
                 PdfFetchError(f"missing required fields: {sorted(missing)}"),
+            ))
+            continue
+        # Empty-value / wrong-type guard: keys present but values that are
+        # empty, null, or the wrong type will cause confusing downstream errors
+        # (wrong manifests for agency/title; failed fetch_pdf calls for
+        # document_type/publication_date). Catch them here with a message that
+        # names the YAML entry and each offending field. url is intentionally
+        # excluded — empty urls are handled by the pending-flag branch and the
+        # existing empty-url guard immediately below.
+        invalid_fields: list[str] = []
+        for field in _STRING_FIELDS:
+            val = entry.get(field)
+            if not isinstance(val, str) or not val.strip():
+                invalid_fields.append(f"  {field}: {val!r}")
+        page_count_val = entry.get("expected_page_count")
+        if (
+            isinstance(page_count_val, bool)
+            or not isinstance(page_count_val, int)
+            or page_count_val <= 0
+        ):
+            invalid_fields.append(f"  expected_page_count: {page_count_val!r}")
+        if invalid_fields:
+            failures.append((
+                entry_id,
+                PdfFetchError(
+                    f"empty or invalid field values in entry {entry_id!r}:\n"
+                    + "\n".join(invalid_fields)
+                ),
             ))
             continue
         # An entry can declare itself intentionally not-yet-fetchable via

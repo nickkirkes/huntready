@@ -342,6 +342,211 @@ pdfs:
         stub.assert_not_called()
 
 
+class TestEmptyOrInvalidFieldValuesFailLoud:
+    """Fields that are present but empty, null, or the wrong type must be
+    caught early with a clear message naming the entry and each offending
+    field — not flow silently into downstream stories or surface as cryptic
+    errors inside fetch_pdf."""
+
+    def _write_sources_yaml(self, path: Path, **overrides: object) -> None:
+        """Write a single-entry sources.yaml with valid defaults, applying
+        any per-field overrides supplied as keyword arguments."""
+        entry: dict[str, object] = {
+            "id": "test-doc",
+            "agency": "Test Agency",
+            "title": "Test Document",
+            "url": "https://example.com/x.pdf",
+            "expected_page_count": 10,
+            "expected_sha256": "unknown",
+            "document_type": "annual_regulations",
+            "publication_date": "2026-01-01",
+        }
+        entry.update(overrides)
+
+        def _yaml_scalar(v: object) -> str:
+            if v is None:
+                return "null"
+            if isinstance(v, bool):
+                return "true" if v else "false"
+            if isinstance(v, int):
+                return str(v)
+            return f'"{v}"'
+
+        lines = ["pdfs:", "  - id: test-doc"]
+        for k, v in entry.items():
+            if k == "id":
+                continue
+            lines.append(f"    {k}: {_yaml_scalar(v)}")
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def test_empty_string_agency_aggregated_as_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        self._write_sources_yaml(sources_path, agency="")
+
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError) as exc_info:
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        msg = str(exc_info.value)
+        assert "agency" in msg
+        assert "''" in msg
+        stub.assert_not_called()
+
+    def test_null_title_aggregated_as_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        self._write_sources_yaml(sources_path, title=None)
+
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError) as exc_info:
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        msg = str(exc_info.value)
+        assert "title" in msg
+        assert "None" in msg
+        stub.assert_not_called()
+
+    def test_zero_expected_page_count_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        self._write_sources_yaml(sources_path, expected_page_count=0)
+
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError) as exc_info:
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        msg = str(exc_info.value)
+        assert "expected_page_count" in msg
+        stub.assert_not_called()
+
+    def test_string_expected_page_count_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        # YAML: write the value unquoted as a bare string "ten" — safe_load
+        # will parse it as a string since it's not a valid YAML integer.
+        sources_path.write_text(
+            """\
+pdfs:
+  - id: test-doc
+    agency: Test Agency
+    title: "Test Document"
+    url: "https://example.com/x.pdf"
+    expected_page_count: ten
+    expected_sha256: unknown
+    document_type: annual_regulations
+    publication_date: "2026-01-01"
+""",
+            encoding="utf-8",
+        )
+
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError) as exc_info:
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        msg = str(exc_info.value)
+        assert "expected_page_count" in msg
+        stub.assert_not_called()
+
+    def test_multiple_empty_fields_all_reported_in_one_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        self._write_sources_yaml(
+            sources_path, agency="", title=None, expected_page_count=0
+        )
+
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError) as exc_info:
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        msg = str(exc_info.value)
+        assert "agency" in msg
+        assert "title" in msg
+        assert "expected_page_count" in msg
+        # All three must appear in a single aggregated error, not separate ones.
+        # Count distinct "1 failed" — there is exactly one failure entry.
+        assert "1 failed" in msg
+        stub.assert_not_called()
+
+    def test_empty_url_with_pending_true_still_passes_validation(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """url is intentionally excluded from the empty-value check so the
+        pending flow still works: pending: true + empty url must NOT fire the
+        new validation error; it should be reported in the 'pending' bucket."""
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        sources_path.write_text(
+            """\
+pdfs:
+  - id: pending-doc
+    agency: Test Agency
+    title: "Pending Document"
+    url: ""
+    expected_page_count: 1
+    expected_sha256: unknown
+    document_type: correction
+    publication_date: "2026-03-18"
+    pending: true
+""",
+            encoding="utf-8",
+        )
+
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError) as exc_info:
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        msg = str(exc_info.value)
+        # Must appear in the pending bucket, NOT the failures bucket.
+        assert "1 pending" in msg
+        assert "pending-doc" in msg
+        # The new empty-value validation must not have fired — no "invalid
+        # field values" text, and no failure count line.
+        assert "invalid field values" not in msg
+        assert "0 failed" not in msg  # zero-failures bucket is omitted
+        stub.assert_not_called()
+
+
 class TestEmptyUrlEntryFailsLoud:
     """An entry with an empty url must produce an aggregated failure rather
     than being silently skipped."""
