@@ -420,11 +420,54 @@ class TestFetchPdfCitationRoundTrip:
 
 
 class TestFetchPdfNoStateAdapterImports:
-    """The shared library must not import from ingestion.states.* per ADR-005."""
+    """The shared library must remain state-agnostic per ADR-005 — no imports
+    from any state adapter and no state-specific identifiers in the source.
+
+    State adapters live at `states/<slug>/` and are imported as
+    `from states.<slug>.X import Y` (the actual project form per the
+    namespace-package layout documented in `.roughly/known-pitfalls.md`).
+    The legacy `from ingestion.states.X import Y` form is also blocked
+    because it neither resolves at runtime nor would be acceptable if it did.
+    """
+
+    # ADR-007 V1 seed states. Add new state slugs here as they are introduced
+    # — the test will then guard the shared library against accidental
+    # state-specific identifiers for the new state.
+    _KNOWN_STATE_SLUGS: tuple[str, ...] = ("montana", "colorado")
 
     def test_no_state_adapter_imports_in_pdf_fetch(self) -> None:
+        import ast
+
         source = Path(pdf_fetch.__file__).read_text()
-        assert "from ingestion.states" not in source
-        assert "import ingestion.states" not in source
-        assert "Montana" not in source  # case-sensitive guard against state-specific text
-        assert "montana" not in source
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                assert not module.startswith("states."), (
+                    f"pdf_fetch.py imports from a state adapter: "
+                    f"`from {module} import ...` at line {node.lineno}"
+                )
+                assert not module.startswith("ingestion.states."), (
+                    f"pdf_fetch.py imports from a state adapter: "
+                    f"`from {module} import ...` at line {node.lineno}"
+                )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    name = alias.name
+                    assert name != "states" and not name.startswith("states."), (
+                        f"pdf_fetch.py imports a state adapter: "
+                        f"`import {name}` at line {node.lineno}"
+                    )
+                    assert not name.startswith("ingestion.states."), (
+                        f"pdf_fetch.py imports a state adapter: "
+                        f"`import {name}` at line {node.lineno}"
+                    )
+
+    def test_no_state_specific_identifiers_in_pdf_fetch(self) -> None:
+        source_lower = Path(pdf_fetch.__file__).read_text().lower()
+        for slug in self._KNOWN_STATE_SLUGS:
+            assert slug not in source_lower, (
+                f"pdf_fetch.py contains the state slug {slug!r} — "
+                f"state-specific code belongs in states/{slug}/, not in the "
+                f"shared library (ADR-005)."
+            )
