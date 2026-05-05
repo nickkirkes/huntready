@@ -1,0 +1,37 @@
+docs/plans/S03.1-pdf-fetch-infrastructure-plan.md
+  a17b48b9eabd4419 1-809
+ingestion/states/montana/fixtures/.gitignore
+  a17b48b9eabd4419 23-45
+ingestion/tests/test_pdf_fetch.py
+  a17b48b9eabd4419 1-430
+ingestion/tests/test_fetch_pdfs.py
+  a17b48b9eabd4419 1-155
+ingestion/states/montana/sources.yaml
+  a17b48b9eabd4419 1-49
+ingestion/ingestion/lib/pdf_fetch.py
+  a17b48b9eabd4419 1-304
+ingestion/states/montana/fetch_pdfs.py
+  a17b48b9eabd4419 1-179
+ingestion/pyproject.toml
+  a17b48b9eabd4419 17,26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b16dc9d4398582dad22178c54e482f0917809f65",
+  "prompts": {
+    "a17b48b9eabd4419": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df6d2b87-2518-41b6-85d2-abd9dc5178ac",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 2874,
+      "total_deletions": 18,
+      "accepted_lines": 2760,
+      "overriden_lines": 0
+    }
+  }
+}
