@@ -51,6 +51,7 @@ def _make_geometry(
     *,
     license_year: int | None = 2026,
     verbatim_rule: str | None = "Elk hunting district 262.",
+    legal_description: str | None = None,
 ) -> Geometry:
     return Geometry(
         id=geom_id,
@@ -60,6 +61,7 @@ def _make_geometry(
         state="MT",
         license_year=license_year,
         verbatim_rule=verbatim_rule,
+        legal_description=legal_description,
         source=_make_source(),
     )
 
@@ -108,6 +110,7 @@ def test_upsert_geometry_sql_contains_on_conflict_update() -> None:
     assert "source" in sql
     assert "license_year" in sql
     assert "verbatim_rule" in sql
+    assert "legal_description" in sql
 
 
 # ---------------------------------------------------------------------------
@@ -116,13 +119,13 @@ def test_upsert_geometry_sql_contains_on_conflict_update() -> None:
 
 
 def test_upsert_geometry_correct_param_order() -> None:
-    """Parameters tuple must be (id, name, kind, geom_wkt, state, license_year, source, verbatim_rule)."""
+    """Parameters tuple must be (id, name, kind, geom_wkt, state, license_year, source, verbatim_rule, legal_description)."""
     geom = _make_geometry(geom_id="mt-hd-262", license_year=2026, verbatim_rule="Rule text.")
     mock_conn, mock_cursor = _make_mock_conn()
     upsert_geometry(mock_conn, geom)
     params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
 
-    assert len(params) == 8
+    assert len(params) == 9
     assert params[0] == geom.id
     assert params[1] == geom.name
     assert params[2] == geom.kind
@@ -131,6 +134,7 @@ def test_upsert_geometry_correct_param_order() -> None:
     assert params[5] == geom.license_year
     # params[6] is the Json-wrapped source (asserted separately)
     assert params[7] == geom.verbatim_rule
+    assert params[8] == geom.legal_description  # None → SQL NULL (added by T5)
 
 
 def test_upsert_geometry_source_wrapped_in_json() -> None:
@@ -155,6 +159,40 @@ def test_upsert_geometry_none_verbatim_rule_passed_through() -> None:
     upsert_geometry(mock_conn, _make_geometry(verbatim_rule=None))
     params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
     assert params[7] is None
+
+
+def test_upsert_geometry_legal_description_in_param_position() -> None:
+    """legal_description must occupy index 8 (0-indexed) in the params tuple."""
+    geom = _make_geometry(legal_description="HD-262 boundary: starting at the intersection of...")
+    mock_conn, mock_cursor = _make_mock_conn()
+    upsert_geometry(mock_conn, geom)
+    params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+    assert params[8] == geom.legal_description
+
+
+def test_upsert_geometry_none_legal_description_passed_through() -> None:
+    """legal_description=None must be passed through to SQL params as None (→ SQL NULL)."""
+    mock_conn, mock_cursor = _make_mock_conn()
+    upsert_geometry(mock_conn, _make_geometry(legal_description=None))
+    params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+    assert params[8] is None
+
+
+def test_upsert_geometry_string_legal_description_passed_through() -> None:
+    """A non-None legal_description string must be passed through verbatim."""
+    description = "HD-262 boundary: starting at the intersection of..."
+    mock_conn, mock_cursor = _make_mock_conn()
+    upsert_geometry(mock_conn, _make_geometry(legal_description=description))
+    params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+    assert params[8] == description
+
+
+def test_upsert_sql_contains_legal_description_column() -> None:
+    """_UPSERT_SQL must declare legal_description in both the INSERT list and UPDATE SET."""
+    from ingestion.lib.db import _UPSERT_SQL
+
+    assert "legal_description" in _UPSERT_SQL
+    assert "legal_description = EXCLUDED.legal_description" in _UPSERT_SQL
 
 
 # ---------------------------------------------------------------------------

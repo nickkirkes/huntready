@@ -74,6 +74,26 @@ Raising on every GC would block valid loads. Silently filtering would lose data 
 
 Surfaced by S02.2 live load on 2026-04-30.
 
+### One-off ArcGIS scripts must detect `{"error": {...}}` envelopes before parsing
+
+The shared `arcgis.fetch_features` (via `_request_with_retry`) detects ArcGIS error envelopes — bodies of shape `{"error": {"code": ..., "message": ..., "details": [...]}}` returned with HTTP 200 — and raises `ArcGISError` with the server's code+message. A one-off script that does its own `requests.get()` against an ArcGIS or MapServer endpoint (rather than going through the shared library) bypasses this detection. The script then parses the body as the expected shape (e.g. a GeoJSON `FeatureCollection`), gets `features=[]` from `data.get("features", [])`, and raises a misleading "zero features" diagnostic when the real cause is auth failure, layer removal, or a malformed query.
+
+The fix in any custom-fetch path: before reading `features` (or the equivalent shape-specific key), check `data.get("error")` and raise with the server's `code` + `message` if present. Example pattern in `ingestion/states/montana/load_state_boundary.py:_parse_to_multipolygon_wkt`:
+
+```python
+data = json.loads(payload)
+error = data.get("error")
+if isinstance(error, dict):
+    code = error.get("code", "?")
+    message = error.get("message", "<no message>")
+    raise RuntimeError(f"... (code={code}): {message}")
+features = data.get("features", [])
+```
+
+Lock it in with a test that feeds an envelope payload and asserts the raise carries the server code+message. Without this defense, an upstream auth-token-required error returns `{"error": {"code": 499, "message": "Token Required"}}` with HTTP 200 and the operator's first diagnostic is "source geometry changed" rather than "credentials expired."
+
+Surfaced by S03.0 silent-failure-hunter review on 2026-05-04.
+
 ## Integration — Supabase / PostGIS
 
 ### `geom::geometry` direct cast not enabled
@@ -117,6 +137,22 @@ Verification when cubic flags this: run the script directly via `ingestion/.venv
 
 Surfaced by S02.4 cubic review on 2026-04-30.
 
+### `supabase db push` against a project bootstrapped via dashboard fails with "relation already exists"
+
+When a Supabase project's schema was originally created via the dashboard SQL editor — or via `supabase db push` from a different machine with a different local migration history — the remote `supabase_migrations.schema_migrations` tracker can be empty even though the schema is fully populated. The next `supabase db push` then attempts to replay all migrations from scratch and dies on the first `CREATE TABLE` with `relation already exists` (SQLSTATE 42P07).
+
+**Diagnose:** `SELECT version FROM supabase_migrations.schema_migrations ORDER BY version;` — if the result is empty or missing entries that should be there, the tracker is out of sync.
+
+**Fix:** mark each pre-existing migration as applied without re-running its SQL:
+
+```sh
+supabase migration repair --status applied <timestamp>
+```
+
+Run once per migration that's already reflected in the schema, then `supabase db push` will only apply what's actually pending. **Verify the schema state matches the migration first** (e.g., check `information_schema.columns` for the columns each migration adds) before running repair — `repair` is a meta-state lie if the schema and migration history have actually diverged.
+
+Surfaced by S03.0 deployment on 2026-05-04.
+
 ## Conventions — Ingestion adapters
 
 ### Shared predicate module when two stories partition a single source layer
@@ -149,18 +185,22 @@ Example: `ingestion/states/montana/load_restricted_areas.py:main()` and the `Tes
 
 Surfaced by silent-failure-hunter on S02.4 review on 2026-04-30.
 
-### "MT FWP services" can mean either the on-prem MapServer or the ArcGIS Online org
+### "MT GIS layers" can live on FWP on-prem, FWP AGOL org, OR the Montana State Library MSDI catalog
 
-Montana FWP publishes GIS data through two distinct hosts: the on-prem `https://fwp-gis.mt.gov/arcgis/rest/services` MapServer (where `admbnd/huntingDistricts` lives) AND the public ArcGIS Online organization `MtFishWildlifeParks` (where `https://services3.arcgis.com/Cdxz8r11hT0MGzg1/...` services live, including the `ADMBND_HD_CWD` FeatureServer used by S02.5). Discovery work that enumerates only the on-prem catalog will miss layers that only exist on ArcGIS Online — and vice versa.
+Montana state-published GIS data lives on **three** distinct hosts, not just two. Discovery work that enumerates only one or two will miss layers that exist on the third.
 
-When asked "does MT FWP have a layer for X," check both:
+1. **MT FWP on-prem MapServer** — `https://fwp-gis.mt.gov/arcgis/rest/services?f=json` (every folder, every service). Where `admbnd/huntingDistricts` lives.
+2. **MT FWP ArcGIS Online org** — sharing search `https://www.arcgis.com/sharing/rest/search?q=<keyword>+montana&f=json`, filter by `owner=MtFishWildlifeParks` afterward (the Hub v3 API is unreliable: 502/504 on multiple endpoints during S02.5 investigation; the sharing REST API is the dependable fallback). Where the `ADMBND_HD_CWD` FeatureServer lives.
+3. **Montana State Library MSDI Framework catalog** — `https://gisservicemt.gov/arcgis/rest/services?f=json`. Hosts state-published reference layers (boundaries, hydrography, transportation) NOT visible from the FWP catalogs. The state boundary lives at `MSDI_Framework/Boundaries/MapServer/9` (used by S03.0 for `MT-STATEWIDE-geom`).
 
-1. `https://fwp-gis.mt.gov/arcgis/rest/services?f=json` (every folder, every service)
-2. ArcGIS Online sharing search: `https://www.arcgis.com/sharing/rest/search?q=<keyword>+montana&f=json` — filter results by `owner=MtFishWildlifeParks` afterward (the Hub v3 API is unreliable: 502/504 on multiple endpoints during S02.5 investigation; the sharing REST API is the dependable fallback)
+Empirical pattern from across S02 + S03:
 
-S02.4's empirical "no CWD rows in layer #2" was correct for the on-prem catalog; S02.5's `ADMBND_HD_CWD` FeatureServer find on the ArcGIS Online org would have been missed if the search had stopped at the on-prem root.
+- S02.4's "no CWD rows in layer #2" was correct for the on-prem catalog; S02.5's `ADMBND_HD_CWD` find on the AGOL org would have been missed if discovery stopped at on-prem.
+- S03.0's "no FWP state-boundary layer" was correct for both FWP catalogs (on-prem AND AGOL); the MSDI Framework Boundaries layer would have been missed if discovery stopped at FWP.
 
-Surfaced by S02.5 investigation on 2026-05-01.
+When asked "does MT have a layer for X," check all three hosts before concluding "no published source exists." Document which host the layer was found on in the SourceCitation `agency` field (e.g., `"Montana State Library"` for MSDI vs. `"Montana Fish, Wildlife & Parks"` for FWP) — both qualify as `document_type='gis_layer'` per ADR-014, but agency provenance still matters for citation accuracy.
+
+Surfaced by S02.5 investigation on 2026-05-01; extended to MSDI by S03.0 source investigation on 2026-05-04.
 
 ### Read-only scripts must still fail loud on empty source data
 

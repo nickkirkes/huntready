@@ -38,14 +38,15 @@ from ingestion.lib.schema import Geometry
 _logger = logging.getLogger(__name__)
 
 _UPSERT_SQL = """
-INSERT INTO geometry (id, name, kind, geom, state, license_year, source, verbatim_rule)
-VALUES (%s, %s, %s, ST_GeomFromText(%s, 4326)::geography, %s, %s, %s, %s)
+INSERT INTO geometry (id, name, kind, geom, state, license_year, source, verbatim_rule, legal_description)
+VALUES (%s, %s, %s, ST_GeomFromText(%s, 4326)::geography, %s, %s, %s, %s, %s)
 ON CONFLICT (id) DO UPDATE SET
     geom = EXCLUDED.geom,
     name = EXCLUDED.name,
     source = EXCLUDED.source,
     license_year = EXCLUDED.license_year,
-    verbatim_rule = EXCLUDED.verbatim_rule
+    verbatim_rule = EXCLUDED.verbatim_rule,
+    legal_description = EXCLUDED.legal_description
 -- kind and state are intentionally NOT in the UPDATE clause: both are
 -- structural identity, not data. Reclassifying a row across kinds (e.g.
 -- 'hunting_district' to 'cwd_zone') means the ID's identity has changed
@@ -81,11 +82,12 @@ def upsert_geometry(conn: psycopg.Connection[tuple[object, ...]], geom: Geometry
         geom.id,
         geom.name,
         geom.kind,
-        geom.geom,          # WKT — passed to ST_GeomFromText(%s, 4326)::geography
+        geom.geom,              # WKT — passed to ST_GeomFromText(%s, 4326)::geography
         geom.state,
-        geom.license_year,  # None → SQL NULL (nullable column)
+        geom.license_year,      # None → SQL NULL (nullable column)
         source_json,
-        geom.verbatim_rule, # None → SQL NULL; empty-string guard is caller's responsibility
+        geom.verbatim_rule,     # None → SQL NULL; empty-string guard is caller's responsibility
+        geom.legal_description, # None → SQL NULL
     )
     with conn.cursor() as cur:
         cur.execute(_UPSERT_SQL, params)

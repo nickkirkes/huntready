@@ -384,12 +384,14 @@ class Geometry(BaseModel):
         "cwd_zone",
         "restricted_area",
         "bma",
+        "state",
         "other",
     ]
     geom: str  # WKT representation; validated below
     state: str
     license_year: int | None = None
     verbatim_rule: str | None = None
+    legal_description: str | None = None
     source: SourceCitation
 
     @field_validator("geom")
@@ -473,3 +475,18 @@ class RegulationReporting(BaseModel):
     species_group: str
     license_year: int
     reporting_obligation_id: str
+
+
+class LicenseSeason(BaseModel):
+    """Link: license_tag <-> season_definition (per-license season coverage).
+
+    DDL table: license_season
+    Per ADR-018 §1: this is *per-license* season coverage, distinct from
+    RegulationSeason (which is per-regulation_record season coverage).
+    Both link tables coexist; each answers a different join question.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    license_tag_id: str
+    season_definition_id: str
