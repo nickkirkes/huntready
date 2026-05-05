@@ -1,0 +1,49 @@
+# Montana FWP regulation PDFs (S03.1)
+#
+# Each entry carries the full SourceCitation field set used by downstream
+# stories (S03.3-S03.5 extraction; S03.6+ ingestion). The `expected_sha256`
+# field is documentation/intent — drift detection at runtime compares the
+# observed SHA against the prior committed *-pdf-manifest.json, NOT against
+# this field. Update `expected_sha256` here after a known-good first fetch
+# so reviewers can spot intent drift in `git diff`.
+#
+# URL `binaries` paths are MT FWP CDN-hosted and are typically stable across
+# the cycle but should be re-verified at execution time. The black bear
+# correction URL is TBD as of 2026-05-04 — populate before running fetch_pdfs.
+
+pdfs:
+  - id: mt-fwp-dea-2026-2027-booklet
+    agency: Montana Fish, Wildlife & Parks
+    title: "Deer, Elk, Antelope Hunting Regulations 2026-2027"
+    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/deer-elk-antelope-regulations-2026-2027.pdf"
+    expected_page_count: 141
+    expected_sha256: unknown
+    document_type: annual_regulations
+    publication_date: "2026-01-01"
+
+  - id: mt-fwp-black-bear-2026-booklet
+    agency: Montana Fish, Wildlife & Parks
+    title: "Black Bear Hunting Regulations 2026"
+    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/black-bear-regulations-2026.pdf"
+    expected_page_count: 16
+    expected_sha256: unknown
+    document_type: annual_regulations
+    publication_date: "2026-01-01"
+
+  - id: mt-fwp-legal-descriptions-2026-2027
+    agency: Montana Fish, Wildlife & Parks
+    title: "Hunting District Legal Descriptions 2026-2027"
+    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/legal-descriptions-2026-2027.pdf"
+    expected_page_count: 56
+    expected_sha256: unknown
+    document_type: annual_regulations
+    publication_date: "2026-01-01"
+
+  - id: mt-fwp-black-bear-2026-correction-2026-03-18
+    agency: Montana Fish, Wildlife & Parks
+    title: "Black Bear Hunting Regulations 2026 — Correction (2026-03-18)"
+    url: ""  # TBD — locate via FWP corrections/errata page; raise on empty url
+    expected_page_count: 1
+    expected_sha256: unknown
+    document_type: correction
+    publication_date: "2026-03-18"
