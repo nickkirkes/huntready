@@ -170,17 +170,19 @@ Mirrors E02's S02.1 (ArcGIS fetch infrastructure) for PDFs. Three biennial/annua
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/ingestion/lib/pdf_fetch.py` exists with documented public API
-- [ ] `ingestion/states/montana/sources.yaml` exists with all four PDF entries; each entry carries the full SourceCitation field set per spec
-- [ ] `ingestion/states/montana/fetch_pdfs.py` orchestrates the four fetches via the shared library
-- [ ] Per-PDF manifest written at `<slug>-<date>-manifest.json` with all 8 fields; ~1 KB each; committed to repo
-- [ ] Raw `.pdf` files stay local-only — gitignored at `ingestion/states/montana/fixtures/.gitignore` with anchor comment documenting the ~10MB-per-fetch policy
-- [ ] Re-fetch against unchanged source produces identical manifest content (modulo `fetched_at`)
-- [ ] **SHA-256 drift on re-fetch raises `PdfFetchError` AND writes `<slug>-pending-reextraction.flag` marker file.** Downstream stories check for the marker and refuse to proceed. Operator acknowledges → deletes marker → re-runs.
-- [ ] `pdf_fetch.py` honors the same throttling + User-Agent conventions as `arcgis.py` (no PII baked into source; `HUNTREADY_INGESTION_CONTACT` env var)
-- [ ] `ruff check`, `mypy ingestion/lib/pdf_fetch.py` clean
-- [ ] Unit tests cover: happy path, 404, SHA-256 drift (raises + marker created), polite throttling, manifest determinism, full-citation-field round-trip
-- [ ] No imports from state adapters; no Montana-specific code in the shared lib
+- [x] `ingestion/ingestion/lib/pdf_fetch.py` exists with documented public API (`fetch_pdf`, `PdfMetadata`, `PdfFetchError`); module docstring cites ADR-001/003/005/014
+- [x] `ingestion/states/montana/sources.yaml` exists with all four PDF entries; each entry carries the full SourceCitation field set per spec. **Schema extended with `pending: true` flag** — used on the Black Bear correction entry whose URL is genuinely TBD (operator-known-incomplete vs. configuration error). Pending entries still cause non-zero exit so downstream stories cannot run against an incomplete fixture set.
+- [x] `ingestion/states/montana/fetch_pdfs.py` orchestrates the four fetches via the shared library; aggregated fail-loud (every entry attempted; failures and pending entries reported in distinct buckets in one `PdfFetchError`)
+- [x] Per-PDF manifest written at `<id>-<publication_date>-pdf-manifest.json` with all 8 fields; ~1 KB each. **Infrastructure-met; first real manifests land at first ops-run** against live MT FWP URLs — same fixture-deferred posture as E02 S02.1.
+- [x] Raw `.pdf` files stay local-only — gitignored at `ingestion/states/montana/fixtures/.gitignore` with anchor comment documenting the ~10MB-per-fetch policy; `*-pending-reextraction.flag` and `*.tmp` also excluded
+- [x] Re-fetch against unchanged source produces identical manifest content (modulo `fetched_at`) — covered by `test_re_fetch_with_same_sha_preserves_manifest_modulo_fetched_at`
+- [x] **SHA-256 drift on re-fetch raises `PdfFetchError` AND writes `<id>-<publication_date>-pending-reextraction.flag` marker file.** Marker write is itself wrapped in an `OSError` guard so the primary drift error is not masked by an FS failure. Downstream stories (S03.3-S03.5) check for the marker and refuse to proceed.
+- [x] `pdf_fetch.py` honors the same throttling + User-Agent conventions as `arcgis.py` — reuses `arcgis._build_session` / `arcgis._throttle` so a single fetch script that hits both ArcGIS and PDF endpoints honors a unified per-host rate limit (documented in module docstring; refactor path to `lib/http.py` if a third HTTP consumer arrives)
+- [x] `ruff check`, `mypy ingestion/lib/pdf_fetch.py` clean
+- [x] Unit tests cover happy path, 404, network errors (Connection/Timeout), corrupt prior manifest, SHA drift (3 cases including marker-file write), polite throttling, manifest determinism, citation-field round-trip — **17 tests in `test_pdf_fetch.py` + 16 tests in `test_fetch_pdfs.py` = 33 new tests** (332 → 365 suite total)
+- [x] No imports from state adapters; no Montana-specific code in the shared lib — enforced by AST-based test (`TestFetchPdfNoStateAdapterImports`) plus state-slug substring scan; AST guard prevents drift even if a future contributor hides an import behind aliasing
+
+**Closure note (2026-05-04):** Branch `feat/S03.1-pdf-fetch-infrastructure`, 8 commits (`b16dc9d..ef3f467`). Net: 1,310 LOC of source/test + 860 LOC plan. Two ADR-adjacent design choices baked in: (a) `pending: true` YAML semantics for operator-visible incomplete intent that still blocks exit-0; (b) drift-marker convention (`*-pending-reextraction.flag`) as the canonical fail-loud-and-block-downstream signal, generalizable beyond PDFs. Both flagged for PM judgment in the closure summary; neither escalated to a formal ADR — `pending: true` is adapter-specific (revisit if a second state adopts), and the drift-marker pattern is already encoded in the S03.1 epic prose and ADR-001's parent discipline.
 
 ---
 
@@ -401,6 +403,8 @@ These become **two distinct** `reporting_obligation` rows in S03.9 (R1 case beco
 **Relevant ADRs:** [ADR-001](../../adrs/ADR-001-authority-preserved.md), [ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md), [ADR-014](../../adrs/ADR-014-source-citation-gis-layer-document-type.md), [ADR-017](../../adrs/ADR-017-confidence-calibration.md).
 
 **Depends on:** S03.1, S03.2.
+
+**Precondition (added 2026-05-05 from S03.1 closure):** the Black Bear correction PDF entry in [`ingestion/states/montana/sources.yaml`](../../../ingestion/states/montana/sources.yaml) currently carries `url: ""` and `pending: true` because the FWP errata URL was not located during S03.1 implementation. **Before S03.4 can begin**, an operator must (a) locate the correction PDF on FWP's corrections/errata page (or via direct contact with FWP if not publicly indexed), (b) populate the `url` field, and (c) remove the `pending: true` flag. `fetch_pdfs.py` exits non-zero while any entry is `pending: true`, so this precondition is enforced automatically — S03.4 cannot run a complete fetch until the correction URL is in place.
 
 **Acceptance Criteria:**
 

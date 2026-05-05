@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-05-04
-**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — S03.0 schema landed, S03.1 next)
+**Last Updated:** 2026-05-05
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 2/13 stories complete: S03.0 schema landed; S03.1 PDF fetch infrastructure shipped)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -29,14 +29,14 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
 | E02 | Montana Geometry Ingestion | Complete (audited) | 2026-04-28 | 2026-05-03 | 8 |
-| E03 | Montana Regulation Text Ingestion | In Progress (1/13 stories complete) | 2026-05-03 | — | 13 |
+| E03 | Montana Regulation Text Ingestion | In Progress (2/13 stories complete) | 2026-05-03 | — | 13 |
 
 ### E03 Story Status
 
 | Story | Name | Status | Owner |
 |---|---|---|---|
 | S03.0 | Schema preparation — license_season + geometry.legal_description + geometry.kind='state' + Montana state geometry | Complete | Implementation |
-| S03.1 | PDF fetch infrastructure | Not Started | Implementation |
+| S03.1 | PDF fetch infrastructure | Complete | Implementation |
 | S03.2 | PDF extraction primitives (shared library) | Not Started | Implementation |
 | S03.3 | DEA booklet extraction (deer, elk, antelope) | Not Started | Implementation (UAT: yes) |
 | S03.4 | Black Bear booklet extraction + correction PDF handling | Not Started | Implementation (UAT: yes) |
@@ -92,8 +92,10 @@ Documentation-debt items (non-blocking):
 
 ## Next Actions
 
-- **Begin S03.1 (PDF fetch infrastructure)** — shared `ingestion/ingestion/lib/pdf_fetch.py` library + `sources.yaml` registry for the four V1 PDFs (DEA, Black Bear, Legal Descriptions, Black Bear correction); per-PDF manifest writers mirroring S02.7's pattern; SHA drift hardened to fail-loud per the ADR-001 discipline that S03.0 just exercised.
-- After S03.1: S03.2 (extraction primitives) → per-booklet extraction in S03.3-S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12.
+- **Begin S03.2 (PDF extraction primitives)** — state-agnostic shared library wrapping `pdfplumber` with table-detection, prose-extraction, and page-reference helpers. Consumes from `<id>-<publication_date>.pdf` + manifest pairs already on disk. S03.1 shipped the input bytes path; S03.2 builds the output structure on top.
+- **Operator follow-ups for S03.1** (not stories): (a) live first-fetch + commit of the 3 known manifests (DEA, Black Bear booklet, Legal Descriptions); (b) refresh `.secrets.baseline` if pre-commit `detect-secrets` flags the 64-char `pdf_sha256` field on the first manifest commit.
+- **S03.4 acquired a precondition during S03.1**: locate the Black Bear correction URL on the FWP errata page, populate `sources.yaml`, remove `pending: true`. S03.4 cannot begin until this is done. Surfaced in S03.4's "Inputs" section.
+- After S03.2: per-booklet extraction in S03.3-S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12.
 - The `m1` tag pushes at S03.12's final commit, alongside `git rm -r docs/planning/epics/E03-confidence-findings/` per ADR-017's working-notes deletion policy.
 
 ---

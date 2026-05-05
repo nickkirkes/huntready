@@ -137,6 +137,25 @@ Verification when cubic flags this: run the script directly via `ingestion/.venv
 
 Surfaced by S02.4 cubic review on 2026-04-30.
 
+### Script invocation must use `python <path>`, not `python -m`, for state adapter scripts
+
+The editable install of `ingestion/` (`pip install -e .` with `packages = ["ingestion"]` in `pyproject.toml`) makes the inner `ingestion/ingestion/` directory available as the top-level `ingestion` package. Its `__path__` resolves to `['/<repo>/ingestion/ingestion']` only — the project-root `states/` directory is NOT a subpackage of `ingestion`. As a result:
+
+- `from ingestion.lib.X import ...` works (the inner package exports `lib/`)
+- `from states.montana.X import ...` works in tests because pytest puts the project root (`ingestion/`) on `sys.path`, and `states.montana` is then resolvable as a namespace package
+- `python -m ingestion.states.X.module` **fails** with `ModuleNotFoundError: No module named 'ingestion.states'` — `ingestion` is the inner package, not the project-root namespace
+- `python -m states.montana.X` would only work if `cwd` is the project root AND nothing else interferes — fragile
+
+Always invoke state adapter scripts directly by path (consistent with the docstring on `ingestion/states/montana/load_state_boundary.py`):
+
+```sh
+ingestion/.venv/bin/python ingestion/states/montana/<script>.py
+```
+
+The script's `from ingestion.lib.X import ...` calls at module load resolve via the editable install regardless of cwd. Surfaced during S03.1 implementation when an initial `python -m ingestion.states.montana.fetch_pdfs` invocation example was written into the orchestrator's docstring and tested wrong before commit.
+
+Surfaced by S03.1 implementation on 2026-05-04.
+
 ### `supabase db push` against a project bootstrapped via dashboard fails with "relation already exists"
 
 When a Supabase project's schema was originally created via the dashboard SQL editor — or via `supabase db push` from a different machine with a different local migration history — the remote `supabase_migrations.schema_migrations` tracker can be empty even though the schema is fully populated. The next `supabase db push` then attempts to replay all migrations from scratch and dies on the first `CREATE TABLE` with `relation already exists` (SQLSTATE 42P07).
@@ -201,6 +220,21 @@ Empirical pattern from across S02 + S03:
 When asked "does MT have a layer for X," check all three hosts before concluding "no published source exists." Document which host the layer was found on in the SourceCitation `agency` field (e.g., `"Montana State Library"` for MSDI vs. `"Montana Fish, Wildlife & Parks"` for FWP) — both qualify as `document_type='gis_layer'` per ADR-014, but agency provenance still matters for citation accuracy.
 
 Surfaced by S02.5 investigation on 2026-05-01; extended to MSDI by S03.0 source investigation on 2026-05-04.
+
+### `expected_sha256` in `sources.yaml` is documentation intent, not a runtime gate
+
+`ingestion/states/montana/sources.yaml` carries `expected_sha256: <hex>` (or the literal `unknown`) per entry. The field reads like a runtime check, but it is **not** read by the fetcher. The actual drift-detection comparison in `ingestion/ingestion/lib/pdf_fetch.py` is between the observed SHA from the network fetch and the prior committed `*-pdf-manifest.json` file's `pdf_sha256` field — not against `sources.yaml`.
+
+Two consequences:
+
+1. The first run against a new entry never compares anything (no prior manifest exists). The observed SHA is recorded in the manifest unconditionally; no marker is written.
+2. Updating `sources.yaml` to a new `expected_sha256` value does NOT cause the next fetch to fail or warn. Drift is detected purely from on-disk manifest state.
+
+The field exists so reviewers can see operator intent in `git diff` ("the operator pinned this hash; did it change?") and so a corrupted manifest can be cross-checked against the YAML for forensic purposes. It is documentation, not enforcement.
+
+If a future operator wants `sources.yaml` to actively gate fetches, that is a behavior change — read the field in `fetch_pdf` and compare against the observed SHA. As of S03.1 this is intentionally not wired up to avoid coupling fetch behavior to a hand-edited YAML field.
+
+Surfaced by S03.1 implementation on 2026-05-04.
 
 ### Read-only scripts must still fail loud on empty source data
 
