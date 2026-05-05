@@ -9,10 +9,12 @@
 #
 # URL `binaries` paths are MT FWP CDN-hosted and are typically stable across
 # the cycle but should be re-verified at execution time. The black bear
-# correction URL is TBD as of 2026-05-04 — its entry carries `pending: true`,
-# which causes fetch_pdfs.py to skip it (operator-visible intent), keeping the
-# orchestrator runnable end-to-end against the three known URLs. When the
-# correction URL is located, set `url:` and remove `pending: true`.
+# correction URL is TBD as of 2026-05-04 — its entry carries `pending: true`
+# so fetch_pdfs.py reports it distinctly in the final aggregated error
+# (rather than as a misleading "fetch error"), but the orchestrator still
+# exits non-zero until every canonical entry has been fetched. Exiting 0
+# against an incomplete set would mislead downstream extraction stories.
+# When the correction URL is located, set `url:` and remove `pending: true`.
 
 pdfs:
   - id: mt-fwp-dea-2026-2027-booklet

@@ -74,7 +74,13 @@ def main(argv: list[str] | None = None) -> int:
 
     failures: list[tuple[str, Exception]] = []
     succeeded: list[str] = []
-    skipped: list[str] = []
+    # `pending` is tracked separately from `failures` because its remediation is
+    # different (operator must locate the URL, not debug a fetch error). It is
+    # NOT a success bucket: any pending entries still block the run from exiting
+    # 0 — exiting 0 with a known-unfetched canonical source would let downstream
+    # extraction stories run against an incomplete fixture set. The distinction
+    # is visibility, not severity.
+    pending: list[str] = []
     for index, entry in enumerate(raw_entries):
         # Per-entry shape guard: a non-mapping element (scalar, list, None)
         # would crash `.keys()` / `.get()` below with a bare AttributeError
@@ -101,9 +107,11 @@ def main(argv: list[str] | None = None) -> int:
         # An entry can declare itself intentionally not-yet-fetchable via
         # `pending: true` — used for sources whose URL is known to exist but
         # hasn't been located yet (e.g. the MT FWP black bear correction PDF
-        # whose errata-page location is TBD as of S03.1). Skipping such entries
-        # is operator-visible intent; an empty URL WITHOUT pending=true is
-        # still treated as a configuration error (next branch).
+        # whose errata-page location is TBD as of S03.1). Pending entries are
+        # tracked separately from `failures` for clearer operator messaging
+        # (remediation is "locate the URL", not "debug the fetch error"), but
+        # they still block the run from exiting 0 — see the `pending` list
+        # declaration above for why.
         if entry.get("pending") is True:
             if entry.get("url"):
                 failures.append((
@@ -116,10 +124,10 @@ def main(argv: list[str] | None = None) -> int:
                 ))
                 continue
             logger.info(
-                "skipping pending entry %s (operator marked url as not yet populated)",
+                "entry %s pending (operator marked url as not yet populated)",
                 entry_id,
             )
-            skipped.append(entry_id)
+            pending.append(entry_id)
             continue
         if not entry.get("url"):
             failures.append((
@@ -204,14 +212,30 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     logger.info(
-        "succeeded: %d, skipped: %d, failed: %d",
-        len(succeeded), len(skipped), len(failures),
+        "succeeded: %d, pending: %d, failed: %d",
+        len(succeeded), len(pending), len(failures),
     )
-    if failures:
+    # Pending and failed both block the run from exiting 0 — a "success" exit
+    # against an incomplete canonical source set would mislead downstream
+    # stories (S03.3+) into running against a partial fixture set. The
+    # remediation paths differ (failures need debugging; pending entries need
+    # URL discovery) so we surface the two categories separately in the
+    # raised message rather than collapsing them.
+    blocked_total = len(failures) + len(pending)
+    if blocked_total:
         msg_lines = [
-            f"{len(failures)} of {len(raw_entries)} PDF fetches failed:",
-            *(f"  - {cid}: {exc}" for cid, exc in failures),
+            f"{blocked_total} of {len(raw_entries)} PDF entries are not yet fetched:",
         ]
+        if failures:
+            msg_lines.append(f"  {len(failures)} failed:")
+            msg_lines.extend(f"    - {cid}: {exc}" for cid, exc in failures)
+        if pending:
+            msg_lines.append(
+                f"  {len(pending)} pending "
+                f"(operator-marked intentionally incomplete; locate URL "
+                f"and remove `pending: true` from sources.yaml):"
+            )
+            msg_lines.extend(f"    - {cid}" for cid in pending)
         raise PdfFetchError("\n".join(msg_lines))
     return 0
 
