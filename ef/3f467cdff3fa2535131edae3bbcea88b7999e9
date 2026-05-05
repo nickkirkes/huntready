@@ -1,0 +1,23 @@
+ingestion/tests/test_pdf_fetch.py
+  a17b48b9eabd4419 423-436,439-440,442-473
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ef3f467cdff3fa2535131edae3bbcea88b7999e9",
+  "prompts": {
+    "a17b48b9eabd4419": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df6d2b87-2518-41b6-85d2-abd9dc5178ac",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 521,
+      "total_deletions": 5,
+      "accepted_lines": 857,
+      "overriden_lines": 0
+    }
+  }
+}
