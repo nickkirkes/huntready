@@ -9,7 +9,10 @@
 #
 # URL `binaries` paths are MT FWP CDN-hosted and are typically stable across
 # the cycle but should be re-verified at execution time. The black bear
-# correction URL is TBD as of 2026-05-04 — populate before running fetch_pdfs.
+# correction URL is TBD as of 2026-05-04 — its entry carries `pending: true`,
+# which causes fetch_pdfs.py to skip it (operator-visible intent), keeping the
+# orchestrator runnable end-to-end against the three known URLs. When the
+# correction URL is located, set `url:` and remove `pending: true`.
 
 pdfs:
   - id: mt-fwp-dea-2026-2027-booklet
@@ -42,8 +45,9 @@ pdfs:
   - id: mt-fwp-black-bear-2026-correction-2026-03-18
     agency: Montana Fish, Wildlife & Parks
     title: "Black Bear Hunting Regulations 2026 — Correction (2026-03-18)"
-    url: ""  # TBD — locate via FWP corrections/errata page; raise on empty url
+    url: ""  # TBD — locate via FWP corrections/errata page
     expected_page_count: 1
     expected_sha256: unknown
     document_type: correction
     publication_date: "2026-03-18"
+    pending: true  # Skip until url is populated; remove this flag when the URL is found.

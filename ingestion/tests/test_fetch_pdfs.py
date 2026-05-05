@@ -117,6 +117,173 @@ class TestEmptyYamlFailsLoud:
             ])
 
 
+class TestPendingEntrySkipped:
+    """An entry with `pending: true` is intentionally not-yet-fetchable (URL
+    not yet discovered). The orchestrator must skip it without surfacing a
+    failure, so the workflow can run end-to-end against the populated entries."""
+
+    def test_pending_entry_is_skipped_not_failed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        # Single pending entry — the orchestrator should exit 0 without
+        # calling fetch_pdf.
+        sources_path.write_text(
+            """\
+pdfs:
+  - id: pending-doc
+    agency: Test Agency
+    title: "Pending Document"
+    url: ""
+    expected_page_count: 1
+    expected_sha256: unknown
+    document_type: correction
+    publication_date: "2026-03-18"
+    pending: true
+""",
+            encoding="utf-8",
+        )
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        # No exception, exit 0
+        result = fetch_pdfs.main([
+            "--sources", str(sources_path),
+            "--fixture-dir", str(fixture_dir),
+        ])
+        assert result == 0
+        stub.assert_not_called()
+
+    def test_pending_with_non_empty_url_is_inconsistent_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # `pending: true` AND a real URL is contradictory — the operator
+        # likely meant to remove `pending: true` after discovering the URL.
+        # Surface the inconsistency so it doesn't silently linger.
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        sources_path.write_text(
+            """\
+pdfs:
+  - id: contradictory-doc
+    agency: Test Agency
+    title: "Contradictory Document"
+    url: "https://example.com/x.pdf"
+    expected_page_count: 1
+    expected_sha256: unknown
+    document_type: annual_regulations
+    publication_date: "2026-01-01"
+    pending: true
+""",
+            encoding="utf-8",
+        )
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError, match="mutually exclusive"):
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        stub.assert_not_called()
+
+
+class TestMalformedEntryShape:
+    """A non-mapping entry (scalar, list, None) must be reported as a
+    PdfFetchError — not bubble up as a bare AttributeError that escapes
+    the orchestrator's aggregation loop."""
+
+    def test_string_entry_is_aggregated_as_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        # A scalar entry — would crash on `.keys()` / `.get()` without a guard.
+        sources_path.write_text(
+            """\
+pdfs:
+  - "not a mapping"
+""",
+            encoding="utf-8",
+        )
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError, match="not a YAML mapping"):
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        stub.assert_not_called()
+
+    def test_null_entry_is_aggregated_as_failure(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        sources_path.write_text(
+            """\
+pdfs:
+  - null
+""",
+            encoding="utf-8",
+        )
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError, match="not a YAML mapping"):
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        stub.assert_not_called()
+
+    def test_malformed_entry_does_not_short_circuit_other_entries(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A malformed entry mixed with a well-formed pending entry: the
+        # malformed one fails (aggregated), the pending one is skipped, and
+        # the orchestrator's exception lists the malformed one specifically.
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        sources_path.write_text(
+            """\
+pdfs:
+  - "garbage scalar"
+  - id: pending-doc
+    agency: Test Agency
+    title: "Pending Document"
+    url: ""
+    expected_page_count: 1
+    expected_sha256: unknown
+    document_type: correction
+    publication_date: "2026-03-18"
+    pending: true
+""",
+            encoding="utf-8",
+        )
+        stub = MagicMock()
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        with pytest.raises(PdfFetchError) as exc_info:
+            fetch_pdfs.main([
+                "--sources", str(sources_path),
+                "--fixture-dir", str(fixture_dir),
+            ])
+        # Malformed entry surfaces as the index-named failure
+        assert "<entry-0>" in str(exc_info.value)
+        assert "not a YAML mapping" in str(exc_info.value)
+        # The pending entry is silently skipped (no failure for it)
+        assert "pending-doc" not in str(exc_info.value)
+        stub.assert_not_called()
+
+
 class TestEmptyUrlEntryFailsLoud:
     """An entry with an empty url must produce an aggregated failure rather
     than being silently skipped."""

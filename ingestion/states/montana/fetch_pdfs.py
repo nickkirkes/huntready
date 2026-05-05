@@ -62,10 +62,10 @@ def main(argv: list[str] | None = None) -> int:
     logger = logging.getLogger(__name__)
 
     raw: Any = yaml.safe_load(args.sources.read_text(encoding="utf-8"))
-    entries: list[dict[str, Any]] = (
-        raw.get("pdfs", []) if isinstance(raw, dict) else []
+    raw_entries: list[Any] = (
+        list(raw.get("pdfs", [])) if isinstance(raw, dict) else []
     )
-    if not entries:
+    if not raw_entries:
         msg = (
             f"sources.yaml at {args.sources} contains no entries under top-level "
             "'pdfs' key — refusing to silently no-op."
@@ -74,8 +74,23 @@ def main(argv: list[str] | None = None) -> int:
 
     failures: list[tuple[str, Exception]] = []
     succeeded: list[str] = []
-    for entry in entries:
-        entry_id = str(entry.get("id", "<unknown>"))
+    skipped: list[str] = []
+    for index, entry in enumerate(raw_entries):
+        # Per-entry shape guard: a non-mapping element (scalar, list, None)
+        # would crash `.keys()` / `.get()` below with a bare AttributeError
+        # that escapes our `except PdfFetchError` clauses. Surface it as a
+        # PdfFetchError so the aggregation loop continues and other entries
+        # still get attempted.
+        if not isinstance(entry, dict):
+            failures.append((
+                f"<entry-{index}>",
+                PdfFetchError(
+                    f"entry at index {index} is not a YAML mapping "
+                    f"(got {type(entry).__name__}: {entry!r})"
+                ),
+            ))
+            continue
+        entry_id = str(entry.get("id", f"<entry-{index}>"))
         missing = _REQUIRED_FIELDS - set(entry.keys())
         if missing:
             failures.append((
@@ -83,12 +98,35 @@ def main(argv: list[str] | None = None) -> int:
                 PdfFetchError(f"missing required fields: {sorted(missing)}"),
             ))
             continue
+        # An entry can declare itself intentionally not-yet-fetchable via
+        # `pending: true` — used for sources whose URL is known to exist but
+        # hasn't been located yet (e.g. the MT FWP black bear correction PDF
+        # whose errata-page location is TBD as of S03.1). Skipping such entries
+        # is operator-visible intent; an empty URL WITHOUT pending=true is
+        # still treated as a configuration error (next branch).
+        if entry.get("pending") is True:
+            if entry.get("url"):
+                failures.append((
+                    entry_id,
+                    PdfFetchError(
+                        f"entry {entry_id} has pending: true AND a non-empty "
+                        f"url — the two are mutually exclusive; clear url or "
+                        f"remove pending: true"
+                    ),
+                ))
+                continue
+            logger.info(
+                "skipping pending entry %s (operator marked url as not yet populated)",
+                entry_id,
+            )
+            skipped.append(entry_id)
+            continue
         if not entry.get("url"):
             failures.append((
                 entry_id,
                 PdfFetchError(
                     f"url for {entry_id} is empty or missing — populate "
-                    f"sources.yaml before re-running."
+                    f"sources.yaml (or set pending: true) before re-running."
                 ),
             ))
             continue
@@ -165,10 +203,13 @@ def main(argv: list[str] | None = None) -> int:
             entry_id, metadata.page_count, metadata.pdf_sha256[:12],
         )
 
-    logger.info("succeeded: %d, failed: %d", len(succeeded), len(failures))
+    logger.info(
+        "succeeded: %d, skipped: %d, failed: %d",
+        len(succeeded), len(skipped), len(failures),
+    )
     if failures:
         msg_lines = [
-            f"{len(failures)} of {len(entries)} PDF fetches failed:",
+            f"{len(failures)} of {len(raw_entries)} PDF fetches failed:",
             *(f"  - {cid}: {exc}" for cid, exc in failures),
         ]
         raise PdfFetchError("\n".join(msg_lines))
