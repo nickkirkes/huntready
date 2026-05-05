@@ -1,0 +1,27 @@
+ingestion/states/montana/sources.yaml
+  a17b48b9eabd4419 12-17
+ingestion/tests/test_fetch_pdfs.py
+  a17b48b9eabd4419 120,122-126,128,134-135,154-165,168-210,302-305,333-341
+ingestion/states/montana/fetch_pdfs.py
+  a17b48b9eabd4419 77-83,110-114,127,130,215-216,218-225,227,229-238
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "71f4350e52e2286e6b023eb03abaac907b5aee22",
+  "prompts": {
+    "a17b48b9eabd4419": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "df6d2b87-2518-41b6-85d2-abd9dc5178ac",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 118,
+      "total_deletions": 34,
+      "accepted_lines": 927,
+      "overriden_lines": 0
+    }
+  }
+}
