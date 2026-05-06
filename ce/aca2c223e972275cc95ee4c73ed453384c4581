@@ -1,0 +1,23 @@
+docs/planning/epics/E03-confidence-findings/S03.2.md
+  c1e0f0c06836f125 37-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ceaca2c223e972275cc95ee4c73ed453384c4581",
+  "prompts": {
+    "c1e0f0c06836f125": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf1af207-0722-4d84-9484-4c734aaaaf0e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 26,
+      "total_deletions": 0,
+      "accepted_lines": 792,
+      "overriden_lines": 0
+    }
+  }
+}
