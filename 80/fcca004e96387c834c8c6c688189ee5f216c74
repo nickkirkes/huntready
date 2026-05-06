@@ -1,0 +1,42 @@
+ingestion/tests/test_pdf.py
+  c1e0f0c06836f125 1-576
+ingestion/ingestion/lib/pdf.py
+  c1e0f0c06836f125 1-332
+docs/planning/epics/E03-confidence-findings/S03.2.md
+  c1e0f0c06836f125 1-36
+docs/plans/S03.2-pdf-extraction-primitives-plan.md
+  c1e0f0c06836f125 1-730
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "80fcca004e96387c834c8c6c688189ee5f216c74",
+  "prompts": {
+    "9a9554132d1ded94": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 1410,
+      "total_deletions": 0,
+      "accepted_lines": 1451,
+      "overriden_lines": 0
+    },
+    "c1e0f0c06836f125": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf1af207-0722-4d84-9484-4c734aaaaf0e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes",
+      "messages": [],
+      "total_additions": 2500,
+      "total_deletions": 51,
+      "accepted_lines": 2440,
+      "overriden_lines": 0
+    }
+  }
+}
