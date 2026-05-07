@@ -116,6 +116,38 @@ The cast IS standard PostGIS behavior on most installs; the absence on Supabase 
 
 Surfaced by S02.2 post-load AC verification on 2026-04-30.
 
+## Integration — pdfplumber
+
+### `page.extract_text()` collapses repeated spaces — output is not byte-exact verbatim
+
+pdfplumber 0.11.x reassembles characters into words via its internal word-grouping algorithm and joins them with a single space. A PDF content stream with two literal spaces between words (e.g. `(hello  world) Tj`) is returned as `"hello world"` — one space, not two. Newlines from line-position changes ARE preserved; only intra-word spacing is collapsed.
+
+ADR-008 ("verbatim regulation text") is implemented as "no additional normalization on top of pdfplumber" — pdfplumber's own normalization is the platform baseline. This interpretation is locked into S03.2's tests via `ingestion/ingestion/lib/pdf.py::extract_text`. Consequence: **do not assert byte-exact whitespace preservation against `extract_text` output**; tests that do will pass locally against a specific PDF but misrepresent what the function actually guarantees.
+
+If a future story needs truly byte-exact source text (e.g., forensic comparison), walk `page.chars` directly — `extract_text` is not the right tool:
+
+```python
+# byte-exact path — bypasses pdfplumber's word grouping entirely
+raw = "".join(ch["text"] for ch in page.chars)
+```
+
+Surfaced by S03.2 pre-implementation discovery + implementation on 2026-05-05.
+
+### `page.extract_tables()` drops bounding boxes — use `page.find_tables()` instead
+
+pdfplumber exposes two related table APIs with different return shapes:
+
+- `page.extract_tables()` → `List[List[List[Optional[str]]]]` — cell data only, **no bbox**.
+- `page.find_tables()` → `List[Table]` where each `Table` carries both `.bbox` and `.extract()`.
+
+`TableMatch.bbox` (used for downstream region-cropping and provenance in `ingestion/ingestion/lib/pdf.py`) requires `find_tables()`. The natural-looking `extract_tables()` loses spatial info entirely — using it means calling BOTH methods and manually pairing cell data with bboxes, which is fragile and unnecessary.
+
+The wrapper `ingestion/ingestion/lib/pdf.py::extract_tables` calls `find_tables()` internally despite the wrapper name suggesting otherwise. The docstring explains the choice, but anyone writing ad-hoc pdfplumber code outside the wrapper will reach for `extract_tables()` first and lose bboxes silently.
+
+**Always use `page.find_tables()`** when bbox is needed; call `.extract()` on each returned `Table` object for cell data.
+
+Surfaced by S03.2 implementation on 2026-05-05.
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
