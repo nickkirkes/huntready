@@ -1,0 +1,27 @@
+ingestion/tests/test_extract_dea.py
+  s_b7633879e96af8::t_9e4614c2d43ef5 956-1103
+ingestion/states/montana/extract_dea.py
+  s_b7633879e96af8::t_4fa39f70412fd4 955,959-964,966,979-982
+  s_b7633879e96af8::t_385fac90f960be 938-950
+  s_b7633879e96af8::t_79a6b5411b1763 609-613,623-625,638-639
+docs/planning/epics/E03-confidence-findings/S03.3.md
+  s_b7633879e96af8::t_c70e26768d1821 155-174
+  s_b7633879e96af8::t_a5eacab82949e2 7
+  s_b7633879e96af8::t_79c878fa1f40af 26,28-29,32-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "6703e728f667da38d5a00841d5e8abfe09b18728",
+  "prompts": {},
+  "sessions": {
+    "s_b7633879e96af8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "673c5f41-f87a-47d1-8b78-f7f1628bf6a6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
