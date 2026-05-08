@@ -315,6 +315,42 @@ def _rejoin_hyphenated_linebreaks(text: str) -> str:
     return re.sub(r"(?<=[a-z])-\n(?=[a-z])", "", text)
 
 
+def _is_900_20_overlay_row(row: list[str | None]) -> bool:
+    """Return True if ``row`` is the antelope statewide 900-20 overlay row.
+
+    Matches the literal substring "900-20" anywhere in any cell of the row,
+    not just the first cell. The overlay row is extracted separately via
+    ``_extract_statewide_antelope_overlay`` and must not appear inside per-HD
+    antelope sections; this filter guards against layout drift that would
+    otherwise duplicate the overlay across per-HD sections.
+    """
+    if not row:
+        return False
+    for cell in row:
+        normalized = _normalize_cell(cell)
+        if normalized is not None and "900-20" in normalized:
+            return True
+    return False
+
+
+def _is_region_footer_row(row: list[str | None]) -> bool:
+    """Return True if ``row`` is an FWP "Region N" footer row in the antelope tables.
+
+    The DEA antelope tables include rows whose LICENSE column reads
+    ``"Region 4"``, ``"Region 5"``, ``"Region 6"``, ``"Region 7"`` (the FWP
+    administrative region designators). These are scope footers, not
+    regulation rows, and they have no licensed seasons. They must be filtered
+    at extraction time to keep the intermediate artifact consumer-clean.
+    Match: first cell starts with ``"Region "`` followed by a single digit.
+    """
+    if not row:
+        return False
+    first = _normalize_cell(row[0])
+    if first is None:
+        return False
+    return bool(re.match(r"^Region\s+\d+$", first))
+
+
 # ---------------------------------------------------------------------------
 # T3: Column-header → SeasonCoverage key + weapon_type_override mapping helpers
 # ---------------------------------------------------------------------------
@@ -875,6 +911,22 @@ def _rows_to_license_extractions(
         # Skip rows where every cell is empty/whitespace.
         if all(_normalize_cell(cell) is None for cell in row):
             continue
+        # Skip the 900-20 statewide overlay row (extracted separately by
+        # _extract_statewide_antelope_overlay). Universal filter — guards
+        # against the overlay row appearing in any per-HD section due to
+        # layout drift.
+        if _is_900_20_overlay_row(row):
+            continue
+        # Skip "Region N" footer rows. These are FWP region designators that
+        # appear at the bottom of antelope tables and (rarely) elk tables —
+        # scope footers, not regulation rows. They have no licensed seasons
+        # and would otherwise contaminate the artifact with all-False
+        # season_coverage rows that downstream consumers must each filter.
+        if _is_region_footer_row(row):
+            _logger.debug(
+                "skipping Region footer row: %r", _normalize_cell(row[0])
+            )
+            continue
 
         # Skip species-banner rows (e.g. ['DEER', None, ...], ['ELK', None, ...]).
         if _is_species_banner_row(row):
@@ -1372,12 +1424,20 @@ def extract(pdf_path: Path) -> list["DeaSectionExtraction"]:
                 break
 
             # Antelope tables have no species-banner rows (the whole table is
-            # antelope data). Use data_rows directly; skip the 900-20 statewide
-            # overlay row which is extracted separately by
-            # _extract_statewide_antelope_overlay.
+            # antelope data). Use data_rows directly with two filters applied:
+            #   1. Skip the 900-20 statewide overlay row (extracted separately
+            #      by _extract_statewide_antelope_overlay). Match the literal
+            #      "900-20" anywhere in the row, not just position 0 — guards
+            #      against layout drift moving the LICENSE column.
+            #   2. Skip footer rows whose first cell is a "Region N" tag
+            #      (FWP region designator). These are scope footers, not
+            #      regulation rows, and have no licensed seasons. Filtering
+            #      here keeps the intermediate artifact consumer-clean —
+            #      otherwise every S03.6+ caller would need its own filter.
             sp_rows = [
                 r for r in data_rows
-                if _normalize_cell(r[0] if r else None) != "Antelope License: 900-20"
+                if not _is_900_20_overlay_row(r)
+                and not _is_region_footer_row(r)
             ]
             if not sp_rows:
                 _logger.warning(

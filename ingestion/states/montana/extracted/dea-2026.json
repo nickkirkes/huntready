@@ -36475,26 +36475,6 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "Region 4",
-        "opportunity": "Antlerless Elk",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
       }
     ],
     "species_group": "elk",
@@ -40739,26 +40719,6 @@
             "window": "Dec 12-Dec 20"
           }
         },
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "Region 5",
-        "opportunity": "Antlerless Elk",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
         "weapon_types": [
           "any_legal_weapon"
         ]
@@ -45147,26 +45107,6 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "Region 5",
-        "opportunity": "Doe/Fawn",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
       }
     ],
     "species_group": "antelope",
@@ -45708,26 +45648,6 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "Region 6",
-        "opportunity": "Doe/Fawn",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
       }
     ],
     "species_group": "antelope",
@@ -46236,26 +46156,6 @@
             "window": "Oct. 10-Nov. 08"
           }
         },
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "Region 7",
-        "opportunity": "Doe/Fawn",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
         "weapon_types": [
           "any_legal_weapon"
         ]

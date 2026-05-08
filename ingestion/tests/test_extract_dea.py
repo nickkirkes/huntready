@@ -868,3 +868,88 @@ class TestRowConfidenceProseCodeZeroCoverage:
         assert any("all-False season_coverage" in msg for msg in caplog.messages), (
             f"Expected WARNING about all-False season_coverage; got: {caplog.messages}"
         )
+
+
+class TestSkipFooterAndOverlayRows:
+    """Verify row-level filters: 900-20 overlay and "Region N" footer rows.
+
+    Both filters apply universally inside `_rows_to_license_extractions`,
+    not just in the antelope branch. Cubic flagged these as P2: the overlay
+    filter was previously hardcoded to position 0 (brittle to layout drift),
+    and footer rows were deferred to S03.6 ingestion (which would require
+    every downstream consumer to add its own filter).
+    """
+
+    def test_900_20_overlay_row_filtered_anywhere_in_row(self) -> None:
+        """The overlay row is filtered regardless of which cell holds the code."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        # Two rows: a normal HD row + an overlay row where 900-20 is in cell 0
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless", "Oct 24-Nov 29"],
+            ["Antelope License: 900-20", "Either-sex", "Aug 15-Nov 8"],
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        result = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        assert len(result) == 1
+        assert result[0]["license_code"] == "124-00"
+
+    def test_900_20_overlay_filtered_when_in_non_zero_cell(self) -> None:
+        """Overlay code in a non-zero cell is also filtered (layout-drift guard)."""
+        header_row: list[str | None] = [
+            "OPPORTUNITY", "LICENSE/PERMIT", "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["Either-sex", "Antelope License: 900-20", "Aug 15-Nov 8"],
+            ["Antlerless", "124-00", "Oct 24-Nov 29"],
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        result = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        assert len(result) == 1
+        assert result[0]["license_code"] == "124-00"
+
+    def test_region_footer_row_filtered(self) -> None:
+        """Rows whose first cell is "Region N" are filtered as scope footers."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless", "Oct 24-Nov 29"],
+            ["Region 4", "Antlerless Elk", None],  # footer — must be skipped
+            ["Region 5", "Antlerless Elk", None],  # another footer
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        result = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        assert len(result) == 1
+        assert result[0]["license_code"] == "124-00"
+        assert all(
+            not r["license_code"].startswith("Region ") for r in result
+        )
+
+    def test_region_footer_does_not_match_partial_strings(self) -> None:
+        """The "Region N" filter is anchored — it doesn't match "Regional X" etc."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        # "Regional Park" is not a footer — it's a (hypothetical) license name.
+        data_rows: list[list[str | None]] = [
+            ["Regional Park 5", "Antlerless", "Oct 24-Nov 29"],
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        result = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        # The non-footer row survives — the regex is anchored to ^Region\s+\d+$
+        assert len(result) == 1
+        assert result[0]["license_code"] == "Regional Park 5"
