@@ -564,6 +564,7 @@ class TestRowConfidence:
             weapon_types=["any_legal_weapon"],
             extras=None,
             extraction_confidence=ConfidenceTier.HIGH,
+            page_reference=_make_page_reference(),
         )
 
     def test_table_source_with_hd_code_pattern_high(self) -> None:
@@ -860,6 +861,7 @@ class TestRowConfidenceProseCodeZeroCoverage:
             weapon_types=["any_legal_weapon"],
             extras=None,
             extraction_confidence=ConfidenceTier.MEDIUM,
+            page_reference=_make_page_reference(),
         )
         with caplog.at_level(logging.WARNING, logger="states.montana.extract_dea"):
             result = _assign_row_confidence(row, "table")
@@ -1122,3 +1124,92 @@ class TestOpportunityCarryForwardScope:
         )
         assert result[0]["opportunity"] == "Antlerless WT"
         assert result[1]["opportunity"] == "Antlered Bull"
+
+
+class TestRowPageReference:
+    """AC S03.3 line 337: every extracted row carries a PageReference.
+
+    Per the simple-inheritance rule shipped in this fix: every row in a section
+    inherits the section's page_reference (the section's starting page). For
+    multi-page HDs, continuation rows from page N+1 are tagged with page N's
+    reference — per-row page-accurate provenance is a deferred follow-up.
+    """
+
+    def test_rows_to_license_extractions_populates_page_reference(self) -> None:
+        """_rows_to_license_extractions propagates page_reference to every row."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT",
+            "OPPORTUNITY",
+            "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless WT", "Oct 24-Nov 29"],
+            ["125-00", "Antlered Buck", "Oct 24-Nov 29"],
+        ]
+        page_ref = _make_page_reference(page=7)
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        results = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        assert len(results) == 2
+        for row in results:
+            assert "page_reference" in row
+            assert row["page_reference"]["pdf_filename"] == "test.pdf"
+            assert row["page_reference"]["page_num_1based"] == 7
+
+    def test_all_rows_in_multi_row_section_share_same_page_reference(self) -> None:
+        """Multi-row HD: all rows get the same page_reference (section inheritance rule)."""
+        header_row, data_rows = _simple_dea_table_data()
+        page_ref = _make_page_reference(page=48)
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        results = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        assert len(results) == 3
+        # All rows must have the same page_reference as the section.
+        for row in results:
+            assert row["page_reference"]["page_num_1based"] == 48
+            assert row["page_reference"]["pdf_filename"] == "test.pdf"
+
+    def test_extract_statewide_antelope_overlay_row_has_page_reference(
+        self, tmp_path: Path
+    ) -> None:
+        """_extract_statewide_antelope_overlay's single row carries page_reference."""
+        pdf_bytes = _synthesize_antelope_overlay_pdf(
+            quota=5600, range_low=1, range_high=7500, window="Aug. 15-Nov. 08"
+        )
+        pdf_path = _write_pdf(tmp_path, "antelope-pr-test.pdf", pdf_bytes)
+        extracted_at = "2026-05-07T00:00:00Z"
+        with open_pdf(pdf_path) as pdf:
+            section = _extract_statewide_antelope_overlay(pdf, (1, 1), extracted_at)
+
+        assert len(section["rows"]) == 1
+        row = section["rows"][0]
+        assert "page_reference" in row
+        # Row's page_reference must match the section's page_reference exactly.
+        assert row["page_reference"]["page_num_1based"] == section["page_reference"]["page_num_1based"]
+        assert row["page_reference"]["pdf_filename"] == section["page_reference"]["pdf_filename"]
+        assert row["page_reference"]["extracted_at"] == section["page_reference"]["extracted_at"]
+
+    def test_page_reference_has_required_keys(self) -> None:
+        """Every row's page_reference has all four required keys."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT",
+            "OPPORTUNITY",
+            "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless", "Oct 24-Nov 29"],
+        ]
+        page_ref = _make_page_reference(page=5)
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        results = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        assert len(results) == 1
+        pr = results[0]["page_reference"]
+        # PageReference TypedDict requires these four keys.
+        assert "pdf_filename" in pr
+        assert "page_num_1based" in pr
+        assert "bbox" in pr
+        assert "extracted_at" in pr

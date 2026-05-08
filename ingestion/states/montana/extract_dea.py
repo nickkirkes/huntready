@@ -221,6 +221,11 @@ class DeaRowExtraction(TypedDict):
     ``extras`` captures the OPPORTUNITY SPECIFIC DETAILS cell verbatim.
     ``extraction_confidence`` is a ``ConfidenceTier`` string value assigned by
     ``_assign_row_confidence`` after section assembly.
+    ``page_reference`` anchors the row to its source page in the PDF. Every
+    row inherits the ``page_reference`` of its enclosing section (the section's
+    starting page). For multi-page HDs, continuation rows from page N+1 are
+    tagged with page N's reference — per-row page-accurate provenance is a
+    deferred follow-up (see ``docs/planning/epics/E03-confidence-findings/S03.3.md``).
     """
 
     license_code: str
@@ -233,6 +238,7 @@ class DeaRowExtraction(TypedDict):
     weapon_types: list[str]
     extras: str | None
     extraction_confidence: str  # ConfidenceTier value: "high" | "medium" | "low"
+    page_reference: PageReference  # inherited from enclosing section (section's starting page)
 
 
 class DeaSectionExtraction(TypedDict):
@@ -1022,12 +1028,22 @@ def _rows_to_license_extractions(
         raw_quota = _normalize_cell(_get_cell(row, "QUOTA"))
         quota: int | None = None
         if raw_quota is not None and not _is_season_cell_absent(raw_quota):
-            if raw_quota.isdigit():
-                quota = int(raw_quota)
+            # Strip commas before parsing — DEA tables format thousands as
+            # "5,600" (e.g. the antelope statewide overlay's pool size). The
+            # naive `int(raw_quota)` and `re.match(r"^\d+", ...)` fallback
+            # would silently truncate "5,600" to 5, losing 99.9% of the
+            # quota's value.
+            stripped = raw_quota.replace(",", "")
+            if stripped.isdigit():
+                quota = int(stripped)
             else:
-                m = re.match(r"^\d+", raw_quota)
+                # Match a leading number that may include thousand-separator
+                # commas (e.g. "5,600 (limited entry)" → 5600).
+                m = re.match(r"^[\d,]+", raw_quota)
                 if m:
-                    quota = int(m.group())
+                    digits = m.group().replace(",", "")
+                    if digits.isdigit():
+                        quota = int(digits)
                 # else quota stays None
 
         quota_range_raw = _get_cell(row, "QUOTA RANGE")
@@ -1070,6 +1086,7 @@ def _rows_to_license_extractions(
                 weapon_types=["any_legal_weapon"],
                 extras=extras,
                 extraction_confidence=ConfidenceTier.HIGH,
+                page_reference=page_reference,
             )
         )
 
@@ -1207,6 +1224,13 @@ def _extract_statewide_antelope_overlay(
             )
         }
 
+    section_page_reference = PageReference(
+        pdf_filename=_PDF_FILENAME_FOR_REF,
+        page_num_1based=match_page,
+        bbox=None,
+        extracted_at=extracted_at,
+    )
+
     row = DeaRowExtraction(
         license_code=_STATEWIDE_ANTELOPE_LICENSE,
         opportunity="Statewide (900 series) — archery only",
@@ -1226,6 +1250,7 @@ def _extract_statewide_antelope_overlay(
         # MEDIUM: extracted from structured prose row, not a pdfplumber table cell.
         # T9 will confirm this is MEDIUM (prose-source path).
         extraction_confidence=ConfidenceTier.MEDIUM,
+        page_reference=section_page_reference,
     )
 
     return DeaSectionExtraction(
@@ -1233,12 +1258,7 @@ def _extract_statewide_antelope_overlay(
         hd_name="",
         species_group="antelope",
         license_year=_LICENSE_YEAR,
-        page_reference=PageReference(
-            pdf_filename=_PDF_FILENAME_FOR_REF,
-            page_num_1based=match_page,
-            bbox=None,
-            extracted_at=extracted_at,
-        ),
+        page_reference=section_page_reference,
         verbatim_text=verbatim_text,
         rows=[row],
     )
