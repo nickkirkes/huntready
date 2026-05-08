@@ -666,6 +666,91 @@ class TestDeterministicJsonOutput:
         )
 
 
+def _find_foreign_state_imports(
+    source: str, allowed_state: str
+) -> list[str]:
+    """Walk ``source``'s AST and return human-readable violation strings for any
+    import that references a state adapter other than ``allowed_state``.
+
+    Catches all six grammatical forms an import can take in Python:
+
+      1. ``from states.<other> import X``
+      2. ``from ingestion.states.<other> import X``
+      3. ``from states import <other>`` — `<other>` is a sub-package alias here
+      4. ``from ingestion.states import <other>`` — same
+      5. ``import states.<other>``
+      6. ``import ingestion.states.<other>``
+
+    Forms 3 and 4 are the bypass paths that must be checked against
+    ``node.names`` (the imported aliases), not the ``module`` field.
+
+    Returns a list of violation strings (one per offending import). Empty
+    list means clean.
+    """
+    tree = ast.parse(source)
+    violations: list[str] = []
+
+    def _check_state_slug(state_slug: str, statement: str, lineno: int) -> None:
+        if state_slug != allowed_state:
+            violations.append(
+                f"foreign state adapter import at line {lineno}: "
+                f"`{statement}` (only '{allowed_state}' is permitted)"
+            )
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            # Forms 1 + 2: `from <prefix>.<state>.<sub> import X`
+            if module.startswith("states."):
+                _check_state_slug(
+                    module.split(".")[1],
+                    f"from {module} import ...",
+                    node.lineno,
+                )
+            elif module.startswith("ingestion.states."):
+                _check_state_slug(
+                    module.split(".")[2],
+                    f"from {module} import ...",
+                    node.lineno,
+                )
+            # Forms 3 + 4: `from states import <state>` /
+            # `from ingestion.states import <state>` — `<state>` is in
+            # node.names (the imported aliases), not in node.module.
+            elif module == "states":
+                for alias in node.names:
+                    _check_state_slug(
+                        alias.name,
+                        f"from states import {alias.name}",
+                        node.lineno,
+                    )
+            elif module == "ingestion.states":
+                for alias in node.names:
+                    _check_state_slug(
+                        alias.name,
+                        f"from ingestion.states import {alias.name}",
+                        node.lineno,
+                    )
+
+        elif isinstance(node, ast.Import):
+            # Forms 5 + 6: `import states.<state>` / `import ingestion.states.<state>`
+            for alias in node.names:
+                name = alias.name
+                if name.startswith("states."):
+                    _check_state_slug(
+                        name.split(".")[1],
+                        f"import {name}",
+                        node.lineno,
+                    )
+                elif name.startswith("ingestion.states."):
+                    _check_state_slug(
+                        name.split(".")[2],
+                        f"import {name}",
+                        node.lineno,
+                    )
+
+    return violations
+
+
 class TestNoForeignStateAdapterImports:
     """AST-walk guard: extract_dea.py must not import from other states' adapters.
 
@@ -681,43 +766,90 @@ class TestNoForeignStateAdapterImports:
     def test_no_foreign_state_adapter_imports(self) -> None:
         source_path = Path(extract_dea.__file__)
         source = source_path.read_text(encoding="utf-8")
-        tree = ast.parse(source)
+        violations = _find_foreign_state_imports(source, self._ALLOWED_STATE)
+        assert not violations, (
+            "extract_dea.py contains foreign state adapter imports:\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )
 
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-                # Block any states.<other> import
-                if module.startswith("states."):
-                    state_slug = module.split(".")[1]
-                    assert state_slug == self._ALLOWED_STATE, (
-                        f"extract_dea.py imports from a foreign state adapter: "
-                        f"`from {module} import ...` at line {node.lineno}. "
-                        f"Only 'montana' state imports are permitted."
-                    )
-                # Block ingestion.states.<other> imports
-                if module.startswith("ingestion.states."):
-                    state_slug = module.split(".")[2]
-                    assert state_slug == self._ALLOWED_STATE, (
-                        f"extract_dea.py imports from a foreign state adapter: "
-                        f"`from {module} import ...` at line {node.lineno}. "
-                        f"Only 'montana' state imports are permitted."
-                    )
+    def test_guard_catches_dotted_from_form(self) -> None:
+        # Form 1: `from states.<other> import X`
+        violations = _find_foreign_state_imports(
+            "from states.colorado import load_hds", self._ALLOWED_STATE
+        )
+        assert any("from states.colorado" in v for v in violations), violations
 
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    name = alias.name
-                    if name.startswith("states."):
-                        state_slug = name.split(".")[1]
-                        assert state_slug == self._ALLOWED_STATE, (
-                            f"extract_dea.py imports a foreign state adapter: "
-                            f"`import {name}` at line {node.lineno}"
-                        )
-                    if name.startswith("ingestion.states."):
-                        state_slug = name.split(".")[2]
-                        assert state_slug == self._ALLOWED_STATE, (
-                            f"extract_dea.py imports a foreign state adapter: "
-                            f"`import {name}` at line {node.lineno}"
-                        )
+    def test_guard_catches_dotted_ingestion_from_form(self) -> None:
+        # Form 2: `from ingestion.states.<other> import X`
+        violations = _find_foreign_state_imports(
+            "from ingestion.states.wyoming import load_hds", self._ALLOWED_STATE
+        )
+        assert any("from ingestion.states.wyoming" in v for v in violations), violations
+
+    def test_guard_catches_bare_from_states_import(self) -> None:
+        # Form 3 (was BYPASSING the guard before this fix):
+        # `from states import <other>` — <other> is in node.names, not module.
+        violations = _find_foreign_state_imports(
+            "from states import colorado", self._ALLOWED_STATE
+        )
+        assert any(
+            "from states import colorado" in v for v in violations
+        ), f"BUG: bare `from states import colorado` not caught: {violations}"
+
+    def test_guard_catches_bare_from_ingestion_states_import(self) -> None:
+        # Form 4 (was BYPASSING the guard before this fix):
+        # `from ingestion.states import <other>`
+        violations = _find_foreign_state_imports(
+            "from ingestion.states import wyoming", self._ALLOWED_STATE
+        )
+        assert any(
+            "from ingestion.states import wyoming" in v for v in violations
+        ), f"BUG: bare `from ingestion.states import wyoming` not caught: {violations}"
+
+    def test_guard_catches_dotted_import_form(self) -> None:
+        # Form 5: `import states.<other>`
+        violations = _find_foreign_state_imports(
+            "import states.colorado", self._ALLOWED_STATE
+        )
+        assert any("import states.colorado" in v for v in violations), violations
+
+    def test_guard_catches_dotted_ingestion_import_form(self) -> None:
+        # Form 6: `import ingestion.states.<other>`
+        violations = _find_foreign_state_imports(
+            "import ingestion.states.wyoming", self._ALLOWED_STATE
+        )
+        assert any(
+            "import ingestion.states.wyoming" in v for v in violations
+        ), violations
+
+    def test_guard_allows_montana_imports(self) -> None:
+        # Sanity: the allowed state must not produce violations across all six forms.
+        clean = "\n".join(
+            [
+                "from states.montana import fetch_pdfs",
+                "from ingestion.states.montana import fetch_pdfs",
+                "from states import montana",
+                "from ingestion.states import montana",
+                "import states.montana",
+                "import ingestion.states.montana",
+            ]
+        )
+        violations = _find_foreign_state_imports(clean, self._ALLOWED_STATE)
+        assert violations == [], violations
+
+    def test_guard_allows_unrelated_imports(self) -> None:
+        # Sanity: unrelated imports (stdlib, third-party, ingestion.lib) are not
+        # flagged.
+        clean = "\n".join(
+            [
+                "import re",
+                "from pathlib import Path",
+                "from ingestion.lib.pdf import open_pdf",
+                "import ingestion.lib.pdf as pdf",
+            ]
+        )
+        violations = _find_foreign_state_imports(clean, self._ALLOWED_STATE)
+        assert violations == [], violations
 
 
 # ---------------------------------------------------------------------------
