@@ -15274,26 +15274,6 @@
         ]
       },
       {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "ELK Hunting by Drawing Only",
-        "opportunity": "Antlered Buck Mule Deer",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
         "apply_by": "Jun 1",
         "extraction_confidence": "high",
         "extras": null,
@@ -20074,26 +20054,6 @@
         ]
       },
       {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "ELK hunting by drawing only",
-        "opportunity": "Either-sex White-tailed Deer",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
         "apply_by": "Jun 1",
         "extraction_confidence": "high",
         "extras": "Successful 455-00 license\nholders may use General\nElk License to harvest 2nd\nantlerless elk in HD 455.",
@@ -21437,26 +21397,6 @@
         ]
       },
       {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "ELK Hunting By Drawing Only",
-        "opportunity": "Antlerless Mule Deer",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
         "apply_by": "OTC:\nJun 15",
         "extraction_confidence": "high",
         "extras": "Not Valid on National Forest\nLands.",
@@ -22632,26 +22572,6 @@
         ]
       },
       {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "ELK Hunting by Drawing Only",
-        "opportunity": "Antlerless Mule Deer",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
         "apply_by": "Jun 1",
         "extraction_confidence": "high",
         "extras": "Only valid in HD 620 and HD 621.",
@@ -22943,26 +22863,6 @@
             "window": "Dec 12-Dec 20"
           }
         },
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "ELK Hunting by Drawing Only",
-        "opportunity": "Antlerless White-tailed Deer",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
         "weapon_types": [
           "any_legal_weapon"
         ]
@@ -23435,26 +23335,6 @@
             "window": "Dec 12-Dec 20"
           }
         },
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "ELK Hunting by Drawing Only",
-        "opportunity": "Antlerless Mule Deer",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
         "weapon_types": [
           "any_legal_weapon"
         ]
@@ -24618,26 +24498,6 @@
             "window": "Dec 12-Dec 20"
           }
         },
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "Elk Hunting by Drawing Only",
-        "opportunity": "Antlerless Mule Deer",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
         "weapon_types": [
           "any_legal_weapon"
         ]
@@ -46161,26 +46021,6 @@
         ]
       },
       {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "Portions of HDs 700, 701, and 703 North of the Yellowstone River",
-        "opportunity": "Doe/Fawn",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
         "apply_by": "June 1",
         "extraction_confidence": "high",
         "extras": null,
@@ -46234,26 +46074,6 @@
             "window": "Oct. 10-Nov. 08"
           }
         },
-        "weapon_types": [
-          "any_legal_weapon"
-        ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "license_code": "Portions of HDs 701, 702, 703, 704, and 705 South of the Yellowstone River",
-        "opportunity": "Doe/Fawn",
-        "quota": null,
-        "quota_range": null,
-        "season_coverage": {
-          "archery_only": false,
-          "early_season": false,
-          "general": false,
-          "heritage_muzzleloader": false,
-          "late": false
-        },
-        "season_windows": {},
         "weapon_types": [
           "any_legal_weapon"
         ]

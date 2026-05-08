@@ -953,3 +953,151 @@ class TestSkipFooterAndOverlayRows:
         # The non-footer row survives — the regex is anchored to ^Region\s+\d+$
         assert len(result) == 1
         assert result[0]["license_code"] == "Regional Park 5"
+
+
+class TestLabelOnlyRowFilter:
+    """Verify rows whose only non-None content is in the first cell are filtered.
+
+    These are sub-section headers / scope labels embedded in the multi-HD
+    table (e.g. "ELK Hunting by Drawing Only"). They have a license-like
+    string in column 0 but no opportunity, season data, quota, or extras.
+    Without this filter, they would either:
+      (a) silently inherit the previous opportunity (pre-fix behavior),
+          producing a corrupt regulation row with the wrong opportunity, OR
+      (b) raise PdfExtractionError on missing OPPORTUNITY (post-fix-2 behavior),
+          aborting extraction on a non-data row.
+    Both outcomes are wrong. The filter skips these rows cleanly.
+    """
+
+    def test_label_only_row_is_filtered(self) -> None:
+        """A row with content only in column 0 is skipped without raising."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless", "Oct 24-Nov 29"],
+            ["ELK Hunting by Drawing Only", None, None],  # label row
+            ["125-00", "Antlerless", "Oct 24-Nov 29"],
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        result = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        # The label row is filtered; the two real rows survive.
+        assert len(result) == 2
+        assert {r["license_code"] for r in result} == {"124-00", "125-00"}
+        # Critically: the row AFTER the label is NOT corrupted by inheritance
+        # from the label's first-cell text.
+        assert all(
+            r["opportunity"] == "Antlerless" for r in result
+        )
+
+    def test_label_only_row_does_not_corrupt_opportunity_carryforward(self) -> None:
+        """Filtered label rows do not corrupt the opportunity carry-forward state."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless WT", "Oct 24-Nov 29"],
+            # Sub-row of 124-00 group — opportunity carries forward
+            [None, None, "Nov 16-Nov 29"],
+            ["ELK Hunting by Drawing Only", None, None],  # label row
+            # New license group: must NOT inherit from the label row
+            ["125-00", "Antlered Bull", "Oct 24-Nov 29"],
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        result = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        # 3 rows: 124-00 (Antlerless WT), 124-00 carry-forward, 125-00 (Antlered Bull)
+        assert len(result) == 3
+        assert result[0]["opportunity"] == "Antlerless WT"
+        assert result[1]["opportunity"] == "Antlerless WT"  # carry-forward within group
+        assert result[2]["opportunity"] == "Antlered Bull"  # new group, not corrupted
+
+
+class TestOpportunityCarryForwardScope:
+    """Verify opportunity carry-forward is scoped to the current license group.
+
+    The bug being prevented: when a row introduces a new license_code AND
+    drops the OPPORTUNITY cell, the previous license's last_opportunity
+    must NOT be inherited. Doing so would silently attribute the previous
+    license's opportunity to the new license's first row.
+
+    Fix: when a new license_code is detected, reset last_opportunity = None.
+    The new license's first row must then carry its own opportunity (or fail
+    loud per ADR-001).
+    """
+
+    def test_new_license_with_missing_opportunity_raises(self) -> None:
+        """A new license whose first row drops OPPORTUNITY raises PdfExtractionError.
+
+        Without the fix, the row would silently inherit the previous license's
+        opportunity. With the fix, last_opportunity is reset on the new
+        license, so the missing opportunity is caught fail-loud.
+        """
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless WT", "Oct 24-Nov 29"],
+            # New license, missing OPPORTUNITY, with at least one other column
+            # populated (so the label-only filter doesn't catch it). This is
+            # the actual ADR-001 fail-loud case.
+            ["125-00", None, "Nov 16-Nov 29"],
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        with pytest.raises(PdfExtractionError, match="missing OPPORTUNITY"):
+            _rows_to_license_extractions(
+                header_row, data_rows, page_ref, section_windows
+            )
+
+    def test_carry_forward_within_license_group_still_works(self) -> None:
+        """Sub-rows under the same license still inherit opportunity correctly."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            # First row of license group — establishes the opportunity
+            ["124-00", "Antlerless WT", "Oct 24-Nov 29"],
+            # Sub-row within same license group: missing license + opportunity
+            [None, None, "Nov 16-Nov 29"],
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        result = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        assert len(result) == 2
+        assert result[0]["license_code"] == "124-00"
+        assert result[0]["opportunity"] == "Antlerless WT"
+        # Sub-row inherits both license and opportunity from its group
+        assert result[1]["license_code"] == "124-00"
+        assert result[1]["opportunity"] == "Antlerless WT"
+
+    def test_new_license_with_own_opportunity_does_not_inherit(self) -> None:
+        """A new license whose first row carries its own OPPORTUNITY uses it (not the prior).
+
+        Locks the happy path: if a new license has a fresh opportunity, the
+        previous license's opportunity must not interfere via inheritance
+        (this should never happen because the new opp overwrites
+        last_opportunity, but the test guards against accidental breakage of
+        the reset logic).
+        """
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless WT", "Oct 24-Nov 29"],
+            ["125-00", "Antlered Bull", "Oct 24-Nov 29"],
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        result = _rows_to_license_extractions(
+            header_row, data_rows, page_ref, section_windows
+        )
+        assert result[0]["opportunity"] == "Antlerless WT"
+        assert result[1]["opportunity"] == "Antlered Bull"

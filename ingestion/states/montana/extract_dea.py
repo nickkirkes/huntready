@@ -606,7 +606,11 @@ def _extract_hd_table(
     ]
 
     # Multi-page continuation: if no next-HD header terminated the slice, the
-    # section may continue on the next page(s). Cap at 2 lookahead pages.
+    # section may continue on the next page(s). Cap at 2 lookahead pages — if
+    # an intervening page has no DEA-format table (interstitial blank/footer/
+    # photo page), continue probing rather than aborting the lookahead, since
+    # the docstring's "2-page cap" intent must be honored even when a non-DEA
+    # page sits between the HD's start and continuation.
     if not found_next_hd:
         for lookahead in range(1, 3):
             next_page_1based = start_page_1based + lookahead
@@ -616,7 +620,9 @@ def _extract_hd_table(
                 pdf, next_page_1based, hd_number, start_page_1based
             )
             if cont_tm is None:
-                break
+                # Interstitial page with no DEA table — keep probing within
+                # the lookahead cap; do NOT abort.
+                continue
             cont_found, cont_raw_rows, cont_found_next = _slice_hd_rows(
                 cont_tm["rows"], hd_number
             )
@@ -629,7 +635,8 @@ def _extract_hd_table(
                 if cont_found_next:
                     break
             else:
-                # No continuation for this HD — section ended at prior page.
+                # The page has a DEA table but it belongs to a different HD —
+                # our section ended at the prior page. Stop looking.
                 break
 
     _logger.debug(
@@ -928,16 +935,35 @@ def _rows_to_license_extractions(
             )
             continue
 
+        # Skip label-only rows: any row where the first cell has content but
+        # every other cell is None. These are sub-section headers / scope
+        # labels embedded in the multi-HD table (e.g. "ELK Hunting by Drawing
+        # Only" — a sub-section heading inside the elk regulation pages, not
+        # a license row). The species-banner detector below catches the strict
+        # ['DEER'/'ELK'/'ANTELOPE', None, ...] form; this filter generalizes
+        # to any single-cell label whose remaining cells are empty.
+        if len(row) > 1 and _normalize_cell(row[0]) is not None and all(
+            _normalize_cell(cell) is None for cell in row[1:]
+        ):
+            _logger.debug("skipping label-only row: %r", _normalize_cell(row[0]))
+            continue
+
         # Skip species-banner rows (e.g. ['DEER', None, ...], ['ELK', None, ...]).
         if _is_species_banner_row(row):
             continue
 
-        # --- Required fields (carry-forward on None) ---
+        # --- Required fields (carry-forward on None within a license group) ---
         raw_license = _get_cell(row, "LICENSE/PERMIT")
         license_code = _normalize_cell(raw_license)
         if license_code:
-            # New license code — update carry-forward state.
+            # New license code — update carry-forward state AND reset the
+            # opportunity carry-forward, since opportunity carry-forward is
+            # scoped to a single license group. Without this reset, a new
+            # license whose first row is missing OPPORTUNITY (pdfplumber drop)
+            # would silently inherit the previous license's opportunity and
+            # corrupt the extracted record.
             last_license_code = license_code
+            last_opportunity = None
         elif last_license_code is not None:
             # Inherit from the previous row (sub-opportunity pattern).
             license_code = last_license_code
@@ -950,7 +976,10 @@ def _rows_to_license_extractions(
             # New opportunity — update carry-forward state.
             last_opportunity = opportunity
         elif last_opportunity is not None:
-            # Inherit from the previous row (season-variant sub-row pattern).
+            # Inherit from the previous row in the same license group
+            # (season-variant sub-row pattern). Carry-forward is reset above
+            # whenever a new license_code arrives, so this branch only fires
+            # for legitimate sub-rows under the current license.
             opportunity = last_opportunity
         else:
             raise PdfExtractionError(f"row missing OPPORTUNITY: {row}")
