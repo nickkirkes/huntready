@@ -1,0 +1,22 @@
+docs/planning/README.md
+  s_9a9554132d1ded::t_c03e33530a186b 4
+  s_9a9554132d1ded::t_496587bd76b340 41
+docs/planning/epics/E03-confidence-findings/S03.3-uat-fixes.md
+  s_9a9554132d1ded::t_84023e054b7545 52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "3c58d0e13ce3217cca2d148cbfb7a15cc291be8c",
+  "prompts": {},
+  "sessions": {
+    "s_9a9554132d1ded": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
