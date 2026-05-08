@@ -1,11 +1,11 @@
 # E03: Montana Regulation Text Ingestion
 
-**Status:** Not Started
+**Status:** In Progress (4/13 stories complete; S03.3 UAT pending)
 **Milestone:** M1 — Montana Ingestion
 **Dependencies:** E01 (complete, merged 2026-04-28), E02 (complete and audited 2026-05-03)
 **Validated:** 2026-05-03
 **Estimated Stories:** 13
-**UAT Gating:** S03.3, S03.4, S03.5 (per-booklet faithfulness review), S03.7, S03.10, S03.12 (entity ingestion + binding + milestone exit)
+**UAT Gating:** S03.3 (faithfulness pending operator review as of 2026-05-08), S03.4, S03.5 (per-booklet faithfulness review), S03.7, S03.10, S03.12 (entity ingestion + binding + milestone exit)
 
 ---
 
@@ -330,18 +330,25 @@ S03.7 reads `weapon_type_override` directly to populate `season_definition.weapo
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/montana/extract_dea.py` exists with `main(argv) -> int` CLI and produces deterministic `dea-2026.json`
-- [ ] All deer/elk HD subsections (pp. 48-123) extracted with `verbatim_text` and structured `rows` (each row carrying `season_coverage`)
-- [ ] **`season_windows[<key>]` carries both `window` (date span string) and `weapon_type_override`** (`"archery"` for the ARCHERY ONLY column, `"muzzleloader"` for HERITAGE MUZZLELOADER, `null` for GENERAL/LATE/EARLY SEASON); derived from source column header, not from the season name; unit test asserts the mapping for all DEA column headers
-- [ ] All antelope HD subsections (pp. 136-142) extracted, plus the `900-20` statewide overlay row (with `hd_number="STATEWIDE"`)
-- [ ] Every extracted row carries a `PageReference` and an `extraction_confidence` value drawn from ADR-017's three-tier framework
-- [ ] Cleanup rules documented in module docstring with exact regexes; whitespace + hyphenated-rejoin tests in `tests/test_extract_dea.py` lock in the contract (incl. counter-examples that the date-range regex does NOT rejoin `9/7-10/20`)
-- [ ] **A/B asymmetric coverage verified:** at least one HD in the output has ≥2 license rows where `season_coverage` differs (e.g., A has `heritage_muzzleloader: true`, B has `heritage_muzzleloader: false`); structured field tests assert the difference
-- [ ] Statewide antelope overlay extracted exactly once; emitted row distinct from per-HD antelope rows
-- [ ] Working note `docs/planning/epics/E03-confidence-findings/S03.3.md` records confidence-assignment patterns and any edge cases
-- [ ] **UAT (faithfulness):** Human reviews ≥3 HDs (one per species, one of those an A/B multi-license HD with asymmetric season coverage) against the source PDF. `verbatim_text` matches the source byte-for-byte modulo the documented cleanup rules.
-- [ ] `ruff check`, `mypy` clean for the new module
-- [ ] Unit tests cover: column header detection, A/B-pattern row grouping with per-license `season_coverage`, statewide-overlay handling, hyphenated-line-break cleanup, cell-padding regex with date-range counter-example
+- [x] `ingestion/states/montana/extract_dea.py` exists with `main(argv) -> int` CLI and produces deterministic `dea-2026.json` — byte-identical SHA-256 across re-runs (`extracted_at` sourced from manifest `fetched_at`, not `datetime.now()`)
+- [x] All deer/elk HD subsections (pp. 48-123) extracted with `verbatim_text` and structured `rows` (each row carrying `season_coverage`) — **129 deer + 112 elk sections in artifact**
+- [x] **`season_windows[<key>]` carries both `window` (date span string) and `weapon_type_override`** derived from source column header, not season name; unit-tested for all DEA column headers
+- [x] All antelope HD subsections (pp. 136-141 — actual PDF is 141 pages, not 142 as spec claimed) extracted, plus the `900-20` statewide overlay row (`hd_number="STATEWIDE"`, quota=5600, range="1-7500", archery window Aug 15-Nov 8) — **22 antelope sections + 1 STATEWIDE = 23 antelope sections**
+- [x] Every extracted row carries a `PageReference` and an `extraction_confidence` value (post-review fix added `page_reference` field to `DeaRowExtraction` after AC #337 contract gap caught in code review). Confidence distribution: **589 high + 589 medium + 0 low** (perfect 50/50, prose-only "General Deer License" rows pull MIN down for HD-level aggregation)
+- [x] Cleanup rules documented in module docstring with exact regexes; whitespace + hyphenated-rejoin tests lock the contract incl. date-range counter-example (`9/7-10/20` NOT rejoined; license codes like `262-50` NOT rejoined)
+- [x] **A/B asymmetric coverage verified:** **143 HDs in artifact exhibit the pattern** (well above "at least one"); structured-field test locks the difference
+- [x] Statewide antelope overlay extracted exactly once; emitted row distinct from per-HD antelope rows; cubic-review fix changed the overlay filter from hardcoded position-0 to substring-match across all cells
+- [x] Working note `docs/planning/epics/E03-confidence-findings/S03.3.md` records confidence-assignment patterns + edge cases (~190 lines; deletes at m1 tag per ADR-017 §6)
+- [ ] **UAT (faithfulness, operator-owned):** Human reviews ≥3 HDs against source PDF. **PENDING** — recommended candidates per S03.3.md working note: deer HD 124 Arvilla (p48), elk HD 170 Flathead River (p49), antelope HD 690 South Hill (p138), STATEWIDE 900-20 (p136). Single remaining open AC; does not gate downstream stories.
+- [x] `ruff check`, `mypy` clean for the new module
+- [x] Unit tests cover column header detection, A/B-pattern row grouping with per-license `season_coverage`, statewide-overlay handling, hyphenated-line-break cleanup, cell-padding regex with date-range counter-example — **74 tests in `test_extract_dea.py`**; suite total now ≈478
+
+**Closure note (2026-05-08):** Branch `feat/S03.3-dea-booklet-extraction`, 12 commits (`e1a047f..69d98f7`), cleared PR review. Artifact: 264 sections / 1178 rows / 4 manifests committed. **The S03.3 plan's research notes did not survive contact with the actual PDF** — nine real-PDF discoveries baked into the implementation: (1) one table per page, not per HD; HD-section delimiters are embedded data rows; (2) column headers carry `... SEASON DATES` suffix; (3) `-` is a universal absent-cell sentinel (not just season columns) — **review caught dash leaking into apply_by/quota_range/extras (675/971/521 rows in pre-fix)**; (4) species banners embedded mid-table as `['DEER', None, ...]` rows; (5) license-code carry-forward via `None` in LICENSE/PERMIT (merged-cell artifact); (6) antelope tables use a different column format ("License/Opportunity/Quota/Archery Season Dates/Season Dates"); (7) `_ANTELOPE_PAGES = (136, 141)` not spec's `(136, 142)`; (8) `900-20` is a repeated table row, not a prose paragraph; (9) multi-page HDs repeat heading with ` - Continued` suffix — **first-match-wins dedup added after 20 HDs were duplicated**. Three new pitfalls promoted to `.roughly/known-pitfalls.md` under Integration — pdfplumber: (a) FWP DEA-style tables: one-table-per-page assumption; (b) `-` as universal absence sentinel; (c) merged-cell sub-row license-code carry-forward via `None`. Three deferred follow-ups for downstream stories recorded below.
+
+**Deferred follow-ups (non-blocking; surface to downstream):**
+- **S03.6 review:** per-row page-accurate `page_reference` for multi-page HDs. Current implementation has every row in a section inherit the section's starting page. For multi-page HDs (e.g., HD 240 elk content lives on p59 but is tagged with p58), `row.page_reference.page_num_1based` does not reflect the actual source page. Fix would require `_extract_hd_table` to track per-row page-of-origin.
+- **S03.7 review:** row-level `weapon_types` default. All rows emit `["any_legal_weapon"]` except statewide overlay (`["archery"]`). Per-license weapon eligibility comes from `weapon_type_override` in `season_windows`; the row-level field is operationally correct for V1 but may need refinement.
+- **S03.7 review:** window divergence per row. Section-level `season_windows` uses first-observation-wins with WARNING on divergence. Most-prolific divergence is "Elk B License: 699-01" (Oct 22-Nov 29 vs section's Oct 24-Nov 29) — verify against source if S03.7 needs per-license windows.
 
 ---
 

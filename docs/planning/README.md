@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-05-07
-**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 3/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives; S03.3 unblocked — `sources.yaml` URLs corrected against live FWP CDN)
+**Last Updated:** 2026-05-08
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 4/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives, S03.3 DEA booklet extraction (UAT pending))
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -29,7 +29,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
 | E02 | Montana Geometry Ingestion | Complete (audited) | 2026-04-28 | 2026-05-03 | 8 |
-| E03 | Montana Regulation Text Ingestion | In Progress (3/13 stories complete) | 2026-05-03 | — | 13 |
+| E03 | Montana Regulation Text Ingestion | In Progress (4/13 stories complete; S03.3 UAT pending) | 2026-05-03 | — | 13 |
 
 ### E03 Story Status
 
@@ -38,7 +38,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | S03.0 | Schema preparation — license_season + geometry.legal_description + geometry.kind='state' + Montana state geometry | Complete | Implementation |
 | S03.1 | PDF fetch infrastructure | Complete | Implementation |
 | S03.2 | PDF extraction primitives (shared library) | Complete | Implementation |
-| S03.3 | DEA booklet extraction (deer, elk, antelope) | Not Started | Implementation (UAT: yes) |
+| S03.3 | DEA booklet extraction (deer, elk, antelope) | Complete (code); UAT pending operator review | Implementation (UAT: yes) |
 | S03.4 | Black Bear booklet extraction + correction PDF handling | Not Started | Implementation (UAT: yes) |
 | S03.5 | Legal Descriptions extraction | Not Started | Implementation (UAT: yes) |
 | S03.6 | regulation_record ingestion | Not Started | Implementation |
@@ -92,11 +92,14 @@ Documentation-debt items (non-blocking):
 
 ## Next Actions
 
-- **S03.3 unblocked 2026-05-07.** All four `sources.yaml` URLs were spec-table guesses that did not survive contact with the live FWP CDN (404 across the board). New canonical URLs located, verified live (HEAD → 200 application/pdf), and committed to `sources.yaml`. DEA citation id renamed `mt-fwp-dea-2026-2027-booklet` → `mt-fwp-dea-2026-booklet` to match the URL-truthful annual cadence (cover-page cadence to be confirmed at first extraction). `publication_date` values were revised to each PDF's HTTP `Last-Modified` header. New pitfall recorded: "URL slug ≠ publication cadence — confirm cadence by reading the PDF, not the URL." Side-benefit: the Black Bear correction URL (TBD as of S03.1) was discovered and pinned in the same pass, resolving S03.4's precondition.
-- **Begin S03.3 (DEA booklet extraction — deer, elk, antelope)** — first per-booklet extractor built on the S03.2 primitives. UAT story; faithfulness review against the DEA PDF for ≥3 sampled HDs. Consumes `pdf.open_pdf` / `extract_tables` / `extract_text` / `find_section` / `ConfidenceTier`; emits `extracted/dea-2026.json` (id renamed; downstream artifact slug follows). Should monitor `_logger.warning` output on `extract_tables` for empty-parse signals (S03.2 closure note).
+- **S03.3 code complete 2026-05-08; UAT pending.** Branch `feat/S03.3-dea-booklet-extraction`, 12 commits, cleared PR review. Artifact `dea-2026.json` (264 sections / 1178 rows / perfect 50/50 high-medium confidence split) plus all 4 first-fetch manifests committed in `7b1ec54`. Real-PDF discovery cycle surfaced 9 deviations from spec research notes — see closure note in epic. Three new pitfalls in `.roughly/known-pitfalls.md` under Integration — pdfplumber. **AC #342 (UAT faithfulness) is the single remaining open AC** — operator-owned; does NOT gate downstream stories. Recommended UAT candidates per `S03.3.md` working note: deer HD 124 Arvilla (p48), elk HD 170 Flathead River (p49), antelope HD 690 South Hill (p138), STATEWIDE 900-20 (p136).
+- **PM/operator owns: Run S03.3 UAT** against `ingestion/states/montana/extracted/dea-2026.json` and the source PDF (in `ingestion/states/montana/fixtures/mt-fwp-dea-2026-booklet-2026-04-27.pdf` — gitignored, fetch via `python ingestion/states/montana/fetch_pdfs.py` if not already on disk). Faithfulness check is byte-for-byte modulo documented cleanup rules. Once UAT passes, flip AC #342 in the epic and roll counter from "4/13; UAT pending" to "4/13" plain.
+- **Begin S03.4 (Black Bear booklet extraction + correction PDF handling)** — second per-booklet extractor; precondition (correction URL) was resolved 2026-05-07 in the S03.3-unblock commit, manifests now on disk. UAT story; faithfulness review against the Black Bear PDF + correction PDF for ≥3 sampled BMUs. Date-arbitrated three-pass architecture (base extraction → correction extraction → per-cell merge with MAX `publication_date` wins). The correction-touched-rows demote-one-tier rule from ADR-017 §4 must be unit-tested.
 - **S03.3-S03.5 inherit from S03.2** (recorded in epic): byte-exact text path (`page.chars`) is available as a future helper if needed — to be added as `extract_text_chars_raw(page) -> str` rather than retrofitted onto `extract_text`. ADR-008 boundary defended in `docs/planning/epics/E03-confidence-findings/S03.2.md`.
-- **Operator follow-ups still pending from S03.1** (not stories): (a) live first-fetch + commit of the 4 manifests now that all four URLs are valid (`python ingestion/states/montana/fetch_pdfs.py`); (b) refresh `.secrets.baseline` if pre-commit `detect-secrets` flags the 64-char `pdf_sha256` field on the first manifest commit. **S03.3 cannot run extraction without the DEA PDF on disk** — the live fetch becomes implicitly required when S03.3 starts.
-- After S03.3: S03.4 → S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12. S03.3-S03.5 are nominally parallelizable but the DEA booklet (141 pages claimed; verify) is the natural template — bias toward sequential `S03.3 → S03.4 → S03.5` so patterns transfer.
+- **S03.6+ planning inputs from S03.3 (recorded in epic § S03.3 closure note):** (a) per-row `page_reference` is currently section-starting-page; multi-page HDs need per-row page accuracy if S03.6 cares; (b) row-level `weapon_types` defaults to `["any_legal_weapon"]` — refine after S03.7 review; (c) section-level `season_windows` uses first-observation-wins; "Elk B License: 699-01" exhibits the most-prolific divergence — verify against source if S03.7 needs per-license windows.
+- **S03.7 inputs from S03.3:** A/B asymmetric `season_coverage` is the load-bearing signal for `license_season` link-table writes. **143 HDs in artifact exhibit the pattern** — sample test data is HD 124 Arvilla deer / HD 170 Flathead River elk.
+- **S03.8 inputs from S03.3:** `quota_range` is preserved as a verbatim string ("1-7500"); `quota` is a parsed int (5600). The `900-20` STATEWIDE antelope row is the V1 antelope `draw_spec` input.
+- After S03.4: S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12.
 - The `m1` tag pushes at S03.12's final commit, alongside `git rm -r docs/planning/epics/E03-confidence-findings/` per ADR-017's working-notes deletion policy.
 
 ---
