@@ -1,0 +1,27 @@
+.secrets.baseline
+  s_b7633879e96af8::t_52c8615ffb6ab6 234-269,280
+ingestion/states/montana/fixtures/mt-fwp-black-bear-2026-booklet-2026-04-27-pdf-manifest.json
+  s_b7633879e96af8::t_318a24cdaaf610 1-10
+ingestion/states/montana/fixtures/mt-fwp-legal-descriptions-2026-2027-2026-02-03-pdf-manifest.json
+  s_b7633879e96af8::t_318a24cdaaf610 1-10
+ingestion/states/montana/fixtures/mt-fwp-black-bear-2026-correction-2026-03-18-2026-03-18-pdf-manifest.json
+  s_b7633879e96af8::t_318a24cdaaf610 1-10
+ingestion/states/montana/fixtures/mt-fwp-dea-2026-booklet-2026-04-27-pdf-manifest.json
+  s_b7633879e96af8::t_318a24cdaaf610 1-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "7b1ec5497819a5550a8523d81406c20a1297d9b7",
+  "prompts": {},
+  "sessions": {
+    "s_b7633879e96af8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "673c5f41-f87a-47d1-8b78-f7f1628bf6a6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
