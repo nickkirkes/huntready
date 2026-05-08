@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-05-08
-**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 3/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives. S03.3 RE-OPENED 2026-05-08 after UAT failure — six defects, fix directive at `E03-confidence-findings/S03.3-uat-fixes.md`)
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 3/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives. S03.3 RE-OPENED 2026-05-08 after UAT failure — six defects, fix directive at `epics/E03-confidence-findings/S03.3-uat-fixes.md`)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -38,7 +38,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | S03.0 | Schema preparation — license_season + geometry.legal_description + geometry.kind='state' + Montana state geometry | Complete | Implementation |
 | S03.1 | PDF fetch infrastructure | Complete | Implementation |
 | S03.2 | PDF extraction primitives (shared library) | Complete | Implementation |
-| S03.3 | DEA booklet extraction (deer, elk, antelope) | RE-OPENED 2026-05-08 (UAT failed; 6 defects; see `E03-confidence-findings/S03.3-uat-fixes.md`) | Implementation (UAT: yes) |
+| S03.3 | DEA booklet extraction (deer, elk, antelope) | RE-OPENED 2026-05-08 (UAT failed; 6 defects; see `epics/E03-confidence-findings/S03.3-uat-fixes.md`) | Implementation (UAT: yes) |
 | S03.4 | Black Bear booklet extraction + correction PDF handling | Not Started | Implementation (UAT: yes) |
 | S03.5 | Legal Descriptions extraction | Not Started | Implementation (UAT: yes) |
 | S03.6 | regulation_record ingestion | Not Started | Implementation |
