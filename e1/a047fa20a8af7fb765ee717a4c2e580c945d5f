@@ -1,0 +1,43 @@
+.roughly/known-pitfalls.md
+  s_9a9554132d1ded::t_11200bbea0419e 271-284
+docs/planning/README.md
+  s_9a9554132d1ded::t_acb754724ff28d 95-96,98-99
+  s_9a9554132d1ded::t_d11fba96bdd2a8 3-4
+ingestion/states/montana/sources.yaml
+  s_9a9554132d1ded::t_6d3c39b0f0767c 1,10-19,22,24-26,29,34,38,43,47,52
+CLAUDE.md
+  s_9a9554132d1ded::t_4e41a5e11945a7 11
+docs/plans/S03.3-dea-booklet-extraction-plan.md
+  s_9a9554132d1ded::t_13b4281ee9ea1c 41,43-44
+  s_b7633879e96af8::t_1ac660611bd437 379-388
+  s_b7633879e96af8::t_87108348c2d83a 1-20,23-34,36-40,42,45,47-71,73,75-259,261-378,389-548,550-617
+  s_9a9554132d1ded::t_326fa052e3c3d1 21-22,35,46,72,74
+  s_b7633879e96af8::t_3137947d5b0181 260
+  s_b7633879e96af8::t_ee1d712e02b489 549
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_9a9554132d1ded::t_bfaf5338a19d23 409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "e1a047fa20a8af7fb765ee717a4c2e580c945d5f",
+  "prompts": {},
+  "sessions": {
+    "s_9a9554132d1ded": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    },
+    "s_b7633879e96af8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "673c5f41-f87a-47d1-8b78-f7f1628bf6a6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
