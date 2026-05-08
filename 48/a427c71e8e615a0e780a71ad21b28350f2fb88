@@ -1,0 +1,21 @@
+docs/plans/S03.3-dea-booklet-extraction-plan.md
+  s_b7633879e96af8::t_53027b3697e7d4 160
+  s_b7633879e96af8::t_a02bdd9ce38617 406
+  s_b7633879e96af8::t_4a0b052a297570 140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "48a427c71e8e615a0e780a71ad21b28350f2fb88",
+  "prompts": {},
+  "sessions": {
+    "s_b7633879e96af8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "673c5f41-f87a-47d1-8b78-f7f1628bf6a6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
