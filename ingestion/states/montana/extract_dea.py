@@ -438,13 +438,29 @@ def _iter_hd_sections(
     page only; T5's table extraction reads from that page forward until the next
     HD heading appears, making per-section sub-cropping unnecessary.
 
-    A single HD section can span multiple pages; ``_iter_hd_sections`` only
-    yields the starting page. Multi-page table continuation is handled by T5.
+    Deduplication: each ``hd_number`` is yielded at most once, on the first page
+    where its heading regex matches. Real DEA pages contain three regex-matchable
+    forms of an HD's heading when the section spans pages:
+      1. ``"HD NNN - Name"`` — canonical heading at the section's start.
+      2. ``"HD NNN - Name - Continued on the Next Page"`` — footer annotation
+         on the start page.
+      3. ``"HD NNN - Name - Continued"`` — repeated heading at the top of the
+         continuation page.
+    Yielding all three would produce duplicate ``DeaSectionExtraction`` rows for
+    the same HD/species (observed: 20 deer/elk HDs duplicated across the live
+    DEA PDF before this dedup). T5's ``_extract_hd_table`` already handles
+    multi-page continuation correctly when invoked once per HD, so first-match-
+    wins is sufficient and produces the canonical ``hd_name`` (without any
+    ``- Continued`` suffix) for the artifact.
     """
+    seen: set[str] = set()
     for page_num, page in iter_pages(pdf, *page_range):
         text = extract_text(page)
         for match in _HD_HEADING_REGEX.finditer(text):
             hd_number = match.group("num")
+            if hd_number in seen:
+                continue
+            seen.add(hd_number)
             hd_name = match.group("name").strip()
             yield (hd_number, hd_name, species_group, page_num, None)
 
