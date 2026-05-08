@@ -406,7 +406,7 @@ These become **two distinct** `reporting_obligation` rows in S03.9 (R1 case beco
 
 **Depends on:** S03.1, S03.2.
 
-**Precondition (added 2026-05-05 from S03.1 closure):** the Black Bear correction PDF entry in [`ingestion/states/montana/sources.yaml`](../../../ingestion/states/montana/sources.yaml) currently carries `url: ""` and `pending: true` because the FWP errata URL was not located during S03.1 implementation. **Before S03.4 can begin**, an operator must (a) locate the correction PDF on FWP's corrections/errata page (or via direct contact with FWP if not publicly indexed), (b) populate the `url` field, and (c) remove the `pending: true` flag. `fetch_pdfs.py` exits non-zero while any entry is `pending: true`, so this precondition is enforced automatically — S03.4 cannot run a complete fetch until the correction URL is in place.
+**Precondition (resolved 2026-05-07):** the Black Bear correction URL was located on FWP's regulations page during the S03.3 unblock — the file is at [`https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/corrections-to-the-2026-printed-black-bear-regulations.pdf`](https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/corrections-to-the-2026-printed-black-bear-regulations.pdf) (HTTP `Last-Modified: 2026-03-18`, matching the date in the citation id). [`ingestion/states/montana/sources.yaml`](../../../ingestion/states/montana/sources.yaml) was updated 2026-05-07 with the canonical URL and the `pending: true` flag was removed. S03.4 can now fetch the correction normally; no operator action remains.
 
 **Acceptance Criteria:**
 

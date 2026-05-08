@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-05-06
-**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 3/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives)
+**Last Updated:** 2026-05-07
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 3/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives; S03.3 unblocked — `sources.yaml` URLs corrected against live FWP CDN)
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -92,11 +92,11 @@ Documentation-debt items (non-blocking):
 
 ## Next Actions
 
-- **Begin S03.3 (DEA booklet extraction — deer, elk, antelope)** — first per-booklet extractor built on the S03.2 primitives. UAT story; faithfulness review against the DEA PDF for ≥3 sampled HDs. Consumes `pdf.open_pdf` / `extract_tables` / `extract_text` / `find_section` / `ConfidenceTier`; emits `extracted/dea-2026-2027.json` for S03.6+ ingestion. Should monitor `_logger.warning` output on `extract_tables` for empty-parse signals (S03.2 closure note).
+- **S03.3 unblocked 2026-05-07.** All four `sources.yaml` URLs were spec-table guesses that did not survive contact with the live FWP CDN (404 across the board). New canonical URLs located, verified live (HEAD → 200 application/pdf), and committed to `sources.yaml`. DEA citation id renamed `mt-fwp-dea-2026-2027-booklet` → `mt-fwp-dea-2026-booklet` to match the URL-truthful annual cadence (cover-page cadence to be confirmed at first extraction). `publication_date` values were revised to each PDF's HTTP `Last-Modified` header. New pitfall recorded: "URL slug ≠ publication cadence — confirm cadence by reading the PDF, not the URL." Side-benefit: the Black Bear correction URL (TBD as of S03.1) was discovered and pinned in the same pass, resolving S03.4's precondition.
+- **Begin S03.3 (DEA booklet extraction — deer, elk, antelope)** — first per-booklet extractor built on the S03.2 primitives. UAT story; faithfulness review against the DEA PDF for ≥3 sampled HDs. Consumes `pdf.open_pdf` / `extract_tables` / `extract_text` / `find_section` / `ConfidenceTier`; emits `extracted/dea-2026.json` (id renamed; downstream artifact slug follows). Should monitor `_logger.warning` output on `extract_tables` for empty-parse signals (S03.2 closure note).
 - **S03.3-S03.5 inherit from S03.2** (recorded in epic): byte-exact text path (`page.chars`) is available as a future helper if needed — to be added as `extract_text_chars_raw(page) -> str` rather than retrofitted onto `extract_text`. ADR-008 boundary defended in `docs/planning/epics/E03-confidence-findings/S03.2.md`.
-- **Operator follow-ups still pending from S03.1** (not stories): (a) live first-fetch + commit of the 3 known manifests (DEA, Black Bear booklet, Legal Descriptions); (b) refresh `.secrets.baseline` if pre-commit `detect-secrets` flags the 64-char `pdf_sha256` field on the first manifest commit. **S03.3 cannot run extraction without the DEA PDF on disk** — the live fetch becomes implicitly required when S03.3 starts.
-- **S03.4 still acquires the correction-URL precondition from S03.1**: locate the Black Bear correction URL on the FWP errata page, populate `sources.yaml`, remove `pending: true`. Recorded as an explicit Precondition in S03.4's epic section.
-- After S03.3: S03.4 → S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12. S03.3-S03.5 are nominally parallelizable but the DEA booklet (141 pages, the largest) is the natural template — bias toward sequential `S03.3 → S03.4 → S03.5` so patterns transfer.
+- **Operator follow-ups still pending from S03.1** (not stories): (a) live first-fetch + commit of the 4 manifests now that all four URLs are valid (`python ingestion/states/montana/fetch_pdfs.py`); (b) refresh `.secrets.baseline` if pre-commit `detect-secrets` flags the 64-char `pdf_sha256` field on the first manifest commit. **S03.3 cannot run extraction without the DEA PDF on disk** — the live fetch becomes implicitly required when S03.3 starts.
+- After S03.3: S03.4 → S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12. S03.3-S03.5 are nominally parallelizable but the DEA booklet (141 pages claimed; verify) is the natural template — bias toward sequential `S03.3 → S03.4 → S03.5` so patterns transfer.
 - The `m1` tag pushes at S03.12's final commit, alongside `git rm -r docs/planning/epics/E03-confidence-findings/` per ADR-017's working-notes deletion policy.
 
 ---

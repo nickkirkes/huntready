@@ -268,6 +268,20 @@ If a future operator wants `sources.yaml` to actively gate fetches, that is a be
 
 Surfaced by S03.1 implementation on 2026-05-04.
 
+### `sources.yaml` URL slug ≠ publication cadence — confirm cadence by reading the PDF, not the URL
+
+**Symptom:** A spec table claims a source is "biennial 2026/2027" or "annual 2026", but the actual file on the agency CDN is named in a way that contradicts the spec — e.g. spec says biennial but the URL slug is just `2026-...`.
+
+**Cause:** Spec authors infer cadence from the document's *content* (cover page, internal validity dates), but URL slugs encode whatever filename the agency's CMS chose for the binary. The two are independent. FWP's CDN names the DEA file `2026-dea-regulations-final-with-low-resolution-maps-for-web.pdf` even when (per PRD assumption) it covers the 2026/2027 biennium internally. The slug is not the contract.
+
+**Fix:** Treat the URL slug as opaque. Confirm cadence by reading the PDF cover page — that is the authoritative source for "this document covers years X through Y." If the slug and content disagree, name the citation id after what the document *contains*, not what the URL string says (or rename to match the URL if the content is also single-year — which is what we did for `mt-fwp-dea-2026-booklet`).
+
+Two concrete consequences:
+- `sources.yaml` `id` and `title` should reflect document content, not URL slug verbatim.
+- `expected_page_count` is a sanity-check claim, not a contract. The first live fetch reveals the true page count; pin `expected_sha256` only after the document content has been visually confirmed to match the spec's intent (or the spec has been amended).
+
+**Surfaced 2026-05-07 during S03.3 unblock**: spec table called DEA "Biennial 2026/2027" but the FWP file is named `2026-dea-regulations`. Renamed citation id from `mt-fwp-dea-2026-2027-booklet` → `mt-fwp-dea-2026-booklet` (URL-truthful). Cover-page cadence to be verified at S03.3 first fetch. Three other URL slugs corrected in the same pass — all four were spec-table guesses that didn't survive contact with the live FWP CDN.
+
 ### Read-only scripts must still fail loud on empty source data
 
 **Symptom:** A script that only reads from the database (no upserts, no commits) silently produces empty output — e.g. a 2-byte `[]` fixture — and reports success when its source query returns zero rows.

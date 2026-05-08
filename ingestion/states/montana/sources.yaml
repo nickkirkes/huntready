@@ -1,4 +1,4 @@
-# Montana FWP regulation PDFs (S03.1)
+# Montana FWP regulation PDFs (S03.1; URLs corrected 2026-05-07)
 #
 # Each entry carries the full SourceCitation field set used by downstream
 # stories (S03.3-S03.5 extraction; S03.6+ ingestion). The `expected_sha256`
@@ -7,49 +7,50 @@
 # this field. Update `expected_sha256` here after a known-good first fetch
 # so reviewers can spot intent drift in `git diff`.
 #
-# URL `binaries` paths are MT FWP CDN-hosted and are typically stable across
-# the cycle but should be re-verified at execution time. The black bear
-# correction URL is TBD as of 2026-05-04 — its entry carries `pending: true`
-# so fetch_pdfs.py reports it distinctly in the final aggregated error
-# (rather than as a misleading "fetch error"), but the orchestrator still
-# exits non-zero until every canonical entry has been fetched. Exiting 0
-# against an incomplete set would mislead downstream extraction stories.
-# When the correction URL is located, set `url:` and remove `pending: true`.
+# URLs verified live 2026-05-07 against fwp.mt.gov/hunt/regulations (HEAD →
+# 200 application/pdf for all four entries). FWP's actual file naming did
+# not match the patterns assumed in S03.1's spec table — see commit message
+# for the slug-vs-spec mismatch and the new "URL slug ≠ publication cadence"
+# pitfall in `.roughly/known-pitfalls.md`.
+#
+# `publication_date` values are sourced from each PDF's HTTP `Last-Modified`
+# header at URL-pinning time. The correction's date (2026-03-18) drives
+# S03.4's per-cell date-arbitration; booklet dates (2026-04-27, 2026-02-03)
+# anchor those too in case future M2 corrections collide.
 
 pdfs:
-  - id: mt-fwp-dea-2026-2027-booklet
+  - id: mt-fwp-dea-2026-booklet
     agency: Montana Fish, Wildlife & Parks
-    title: "Deer, Elk, Antelope Hunting Regulations 2026-2027"
-    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/deer-elk-antelope-regulations-2026-2027.pdf"
-    expected_page_count: 141
+    title: "Deer, Elk, Antelope Hunting Regulations 2026"
+    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/2026-dea-regulations-final-with-low-resolution-maps-for-web.pdf"
+    expected_page_count: 141  # Re-verify on first live fetch; spec-table claim only.
     expected_sha256: unknown
     document_type: annual_regulations
-    publication_date: "2026-01-01"
+    publication_date: "2026-04-27"
 
   - id: mt-fwp-black-bear-2026-booklet
     agency: Montana Fish, Wildlife & Parks
     title: "Black Bear Hunting Regulations 2026"
-    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/black-bear-regulations-2026.pdf"
+    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/2026-black-bear-final-for-web.pdf"
     expected_page_count: 16
     expected_sha256: unknown
     document_type: annual_regulations
-    publication_date: "2026-01-01"
+    publication_date: "2026-04-27"
 
   - id: mt-fwp-legal-descriptions-2026-2027
     agency: Montana Fish, Wildlife & Parks
     title: "Hunting District Legal Descriptions 2026-2027"
-    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/legal-descriptions-2026-2027.pdf"
+    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/2026-2027-legal-descriptions-finalfor-web.pdf"
     expected_page_count: 56
     expected_sha256: unknown
     document_type: annual_regulations
-    publication_date: "2026-01-01"
+    publication_date: "2026-02-03"
 
   - id: mt-fwp-black-bear-2026-correction-2026-03-18
     agency: Montana Fish, Wildlife & Parks
     title: "Black Bear Hunting Regulations 2026 — Correction (2026-03-18)"
-    url: ""  # TBD — locate via FWP corrections/errata page
+    url: "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/corrections-to-the-2026-printed-black-bear-regulations.pdf"
     expected_page_count: 1
     expected_sha256: unknown
     document_type: correction
     publication_date: "2026-03-18"
-    pending: true  # Skip until url is populated; remove this flag when the URL is found.
