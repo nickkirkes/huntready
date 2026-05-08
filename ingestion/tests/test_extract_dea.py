@@ -1,13 +1,17 @@
 """Unit tests for `states.montana.extract_dea` — DEA booklet extraction (S03.3 T11 + T12).
 
 Test philosophy:
-- All tests are hermetic: no real DEA PDF required. Tests that need a PDF use
-  synthesized fixtures (``_synthesize_antelope_overlay_pdf``). The full DEA
-  integration run is handled by T13's manual operator step.
-- Only T12.7 (TestStatewideAntelopeOverlay) synthesizes a PDF; all other tests
-  drive the public helpers directly with hand-crafted dict/list inputs.
-- The determinism test is skipped in this unit-test file; it is validated
-  end-to-end by T13's manual run (re-run + diff step).
+- All unit tests are hermetic: no real DEA PDF required. They drive the
+  public helpers directly with hand-crafted dict/list inputs that mirror
+  the real-PDF layout discovered during T13 reconnaissance.
+- Live-PDF integration tests (``TestArtifactRegion7Portions`` and the
+  STATEWIDE artifact-level assertion) load the committed
+  ``dea-2026.json`` artifact and assert end-to-end correctness for the
+  D2 + D3-D6 paths that span the orchestrator's full antelope walk.
+  These tests skip cleanly if the artifact is absent (e.g., a clean
+  checkout that has not run extract_dea.py yet).
+- Determinism is validated end-to-end by T13's manual run (re-run + diff
+  step), not in this test file.
 """
 
 from __future__ import annotations
@@ -15,7 +19,6 @@ from __future__ import annotations
 import ast
 import json
 import logging
-from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -25,20 +28,18 @@ from ingestion.lib.pdf import (
     ConfidenceTier,
     PageReference,
     PdfExtractionError,
-    open_pdf,
 )
 from states.montana.extract_dea import (
     DeaRowExtraction,
     DeaSectionExtraction,
     SeasonCoverage,
     SeasonWindow,
-    _aggregate_section_season_windows,
     _assign_row_confidence,
-    _extract_statewide_antelope_overlay,
+    _is_portions_subsection_row,
     _normalize_cell,
     _normalize_header,
+    _parse_portions_hd_list,
     _rejoin_hyphenated_linebreaks,
-    _row_season_windows,
     _rows_to_license_extractions,
     _season_key_for_column,
     _sort_key,
@@ -118,88 +119,6 @@ def _simple_dea_table_data() -> tuple[list[str | None], list[list[str | None]]]:
         ],
     ]
     return header_row, data_rows
-
-
-def _text_bearing_pdf_bytes(text: str) -> bytes:
-    """Synthesize a minimal single-page PDF containing ``text``.
-
-    Mirrors the identical helper in test_pdf.py — copied here because pytest
-    test files are not import-stable (they are not importable as modules via
-    normal imports).
-    """
-    escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
-    lines = escaped.split("\n")
-    content_ops = ["BT", "/F1 12 Tf", "50 750 Td"]
-    for i, line in enumerate(lines):
-        if i > 0:
-            content_ops.append("0 -14 Td")
-        content_ops.append(f"({line}) Tj")
-    content_ops.append("ET")
-    stream = "\n".join(content_ops).encode("latin-1")
-
-    objs: list[bytes] = []
-    objs.append(b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
-    objs.append(b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-    objs.append(
-        b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-        b"/Resources << /Font << /F1 << /Type /Font /Subtype /Type1 "
-        b"/BaseFont /Helvetica >> >> >> /Contents 4 0 R >>\nendobj\n"
-    )
-    objs.append(
-        b"4 0 obj\n<< /Length "
-        + str(len(stream)).encode("latin-1")
-        + b" >>\nstream\n"
-        + stream
-        + b"\nendstream\nendobj\n"
-    )
-
-    out = BytesIO()
-    out.write(b"%PDF-1.4\n")
-    offsets: list[int] = []
-    for obj in objs:
-        offsets.append(out.tell())
-        out.write(obj)
-    xref_offset = out.tell()
-    out.write(b"xref\n0 5\n")
-    out.write(b"0000000000 65535 f\n")
-    for off in offsets:
-        out.write(f"{off:010d} 00000 n\n".encode("latin-1"))
-    out.write(
-        b"trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n"
-        + str(xref_offset).encode("latin-1")
-        + b"\n%%EOF\n"
-    )
-    return out.getvalue()
-
-
-def _synthesize_antelope_overlay_pdf(
-    quota: int = 5600,
-    range_low: int = 1,
-    range_high: int = 7500,
-    window: str = "Aug. 15-Nov. 08",
-) -> bytes:
-    """Synthesize a single-page PDF containing the 900-20 antelope overlay prose.
-
-    The text must satisfy ``re.search(r"900[-\\s]20", text)`` and contain the
-    structured fields that ``_extract_statewide_antelope_overlay`` parses.
-    The format mirrors the real DEA PDF's two-line block:
-
-        Antelope License: 900-20 Either-sex June 1 {quota} 1-{range_high} - {window}
-        ArchEquip only.
-    """
-    text = (
-        f"Antelope License: 900-20 Either-sex June 1 "
-        f"{quota:,} {range_low}-{range_high:,} - {window}\n"
-        f"ArchEquip only."
-    )
-    return _text_bearing_pdf_bytes(text)
-
-
-def _write_pdf(tmp_path: Path, name: str, data: bytes) -> Path:
-    """Write ``data`` to ``tmp_path / name`` and return the path."""
-    out = tmp_path / name
-    out.write_bytes(data)
-    return out
 
 
 def _make_page_reference(page: int = 1) -> PageReference:
@@ -306,10 +225,8 @@ class TestRowsToLicenseExtractions:
         """
         header_row, data_rows = _simple_dea_table_data()
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(results) == 3
 
         # Row 0: Either-sex WT — archery + general, no heritage
@@ -326,10 +243,8 @@ class TestRowsToLicenseExtractions:
         """Row with None in LICENSE/PERMIT inherits the prior row's license code."""
         header_row, data_rows = _simple_dea_table_data()
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         # Row 0 has "General Deer License"; row 1 has None → inherits
         assert results[0]["license_code"] == "General Deer License"
         assert results[1]["license_code"] == "General Deer License"
@@ -349,10 +264,8 @@ class TestRowsToLicenseExtractions:
             ["124-00", "Antlerless", None, "75 (limited entry)", None, "Oct 24-Nov 29", None],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert results[0]["quota"] == 75
 
     def test_dash_sentinel_yields_false_coverage(self) -> None:
@@ -370,10 +283,8 @@ class TestRowsToLicenseExtractions:
             ["124-00", "Antlerless", "-", "-", "-", "-", "-"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(results) == 1
         cov = results[0]["season_coverage"]
         assert cov["early_season"] is False
@@ -396,18 +307,25 @@ class TestRowsToLicenseExtractions:
             ["124-00", "Antlerless", "Oct 24-Nov 29"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         # Only the real row should be emitted; banner silently skipped
         assert len(results) == 1
         assert results[0]["license_code"] == "124-00"
 
 
-class TestAggregateSeasonWindows:
-    def test_section_windows_carry_weapon_override(self) -> None:
-        """Each season's weapon_type_override must match the column's expected value."""
+class TestPerRowSeasonWindows:
+    """Per-row season_windows are sourced from each row's own column cells.
+
+    UAT-fix D1 (2026-05-08): replaced the section-level first-observation-wins
+    aggregator (``_aggregate_section_season_windows`` + ``_row_season_windows``,
+    both deleted) with per-row extraction inside ``_rows_to_license_extractions``.
+    Per-row windows preserve natural per-license-row date variation that the
+    section-level approach paraphrased away. ADR-008 verbatim.
+    """
+
+    def test_per_row_windows_match_each_row_cells(self) -> None:
+        """Each emitted row's season_windows reflects ITS OWN cells (not section-level)."""
         header_row: list[str | None] = [
             "LICENSE/PERMIT",
             "OPPORTUNITY",
@@ -416,25 +334,103 @@ class TestAggregateSeasonWindows:
             "HERITAGE MUZZLELOADER SEASON DATES",
         ]
         data_rows: list[list[str | None]] = [
+            # Row 1: archery + general
             ["124-00", "Antlerless", "Sep 07-Oct 20", "Oct 26-Dec 01", "-"],
-            ["124-10", "Buck", "-", "Oct 26-Dec 01", "Dec 02-Dec 15"],
+            # Row 2: general (DIFFERENT window) + muzzleloader
+            ["124-10", "Buck", "-", "Oct 26-Nov 30", "Dec 02-Dec 15"],
         ]
-        result = _aggregate_section_season_windows(header_row, data_rows)
+        page_ref = _make_page_reference()
+        result = _rows_to_license_extractions(header_row, data_rows, page_ref)
+        assert len(result) == 2
+        # Row 1: archery + general; row 2: general + muzzleloader.
+        # Row 1's general window is "Oct 26-Dec 01"; row 2's is "Oct 26-Nov 30".
+        assert result[0]["season_windows"]["archery_only"]["window"] == "Sep 07-Oct 20"
+        assert result[0]["season_windows"]["general"]["window"] == "Oct 26-Dec 01"
+        assert "heritage_muzzleloader" not in result[0]["season_windows"]
+        assert "archery_only" not in result[1]["season_windows"]
+        assert result[1]["season_windows"]["general"]["window"] == "Oct 26-Nov 30"
+        assert (
+            result[1]["season_windows"]["heritage_muzzleloader"]["window"]
+            == "Dec 02-Dec 15"
+        )
 
-        assert "archery_only" in result
-        assert result["archery_only"]["window"] == "Sep 07-Oct 20"
-        assert result["archery_only"]["weapon_type_override"] == "archery"
+    def test_per_row_general_window_preserves_divergence_in_hd_124_deer(self) -> None:
+        """Lock against regression to first-observation-wins for HD 124 deer.
 
-        assert "general" in result
-        assert result["general"]["window"] == "Oct 26-Dec 01"
-        assert result["general"]["weapon_type_override"] is None
+        HD 124 deer has FIVE rows on p48 of the live DEA PDF. Pre-fix the
+        artifact carried only "Oct 24-Oct 30" everywhere (first-observed
+        General window). Post-fix each row carries its own General window;
+        three distinct values total. The set-size assertion fails loudly if
+        any future change collapses the windows back to a single value.
 
-        assert "heritage_muzzleloader" in result
-        assert result["heritage_muzzleloader"]["window"] == "Dec 02-Dec 15"
-        assert result["heritage_muzzleloader"]["weapon_type_override"] == "muzzleloader"
+        Source-of-truth row order from the PDF (deer/elk page 48, HD 124 block):
+            Row 1: General Deer License | Either-sex White-tailed Deer | ... general="Oct 24-Oct 30"
+            Row 2: (carry-forward)        | Antlered Buck Mule Deer    | ... general="Oct 24-Nov 29"
+            Row 3: (carry-forward)        | Antlered Buck WT Deer      | ... general="Oct 31-Nov 29"
+            Row 4: (carry-forward)        | Either-sex WT (subseason)  | ... general="Oct 31-Nov 29"
+            Row 5: Deer B License: 124-00 | Antlerless WT              | ... general="Oct 24-Nov 29"
+        Three distinct general windows: Oct 24-Oct 30, Oct 24-Nov 29, Oct 31-Nov 29.
+        """
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT",
+            "OPPORTUNITY",
+            "APPLY BY DATE",
+            "QUOTA",
+            "QUOTA RANGE",
+            "EARLY SEASON DATES",
+            "ARCHERY ONLY SEASON DATES",
+            "GENERAL SEASON DATES",
+            "HERITAGE MUZZLELOADER SEASON DATES",
+            "LATE SEASON DATES",
+            "OPPORTUNITY SPECIFIC DETAILS AND/OR RESTRICTIONS",
+        ]
+        data_rows: list[list[str | None]] = [
+            [
+                "General Deer License", "Either-sex White-tailed Deer",
+                None, None, None, "-", "Sep 05-Oct 18", "Oct 24-Oct 30",
+                "-", "-", None,
+            ],
+            [
+                None, "Antlered Buck Mule Deer",
+                None, None, None, "-", "Sep 05-Oct 18", "Oct 24-Nov 29",
+                "Dec 12-Dec 20", "-", None,
+            ],
+            [
+                None, "Antlered Buck White-tailed Deer",
+                None, None, None, "-", "-", "Oct 31-Nov 29",
+                "Dec 12-Dec 20", "-", None,
+            ],
+            [
+                None, "Either-sex White-tailed Deer",
+                None, None, None, "-", "-", "Oct 31-Nov 29",
+                "Dec 12-Dec 20", "-", None,
+            ],
+            [
+                "Deer B License: 124-00", "Antlerless WT",
+                "Jun 1", "25", "25-500", "-", "-", "Oct 24-Nov 29",
+                "-", "-", None,
+            ],
+        ]
+        page_ref = _make_page_reference()
+        result = _rows_to_license_extractions(header_row, data_rows, page_ref)
+        assert len(result) == 5
+        general_windows = [
+            r["season_windows"]["general"]["window"] for r in result
+        ]
+        # Lock the exact value per row.
+        assert general_windows == [
+            "Oct 24-Oct 30",
+            "Oct 24-Nov 29",
+            "Oct 31-Nov 29",
+            "Oct 31-Nov 29",
+            "Oct 24-Nov 29",
+        ]
+        # Lock the divergence: at least 3 distinct values. Any regression to
+        # first-observation-wins collapses this to size 1 and fails loudly.
+        assert len(set(general_windows)) >= 3, general_windows
 
-    def test_dash_sentinels_excluded(self) -> None:
-        """Columns where all rows have "-" do not appear in section_windows."""
+    def test_dash_sentinel_excludes_window_from_row(self) -> None:
+        """A row with "-" in a season column has that key absent from its season_windows."""
         header_row: list[str | None] = [
             "LICENSE/PERMIT",
             "OPPORTUNITY",
@@ -444,93 +440,313 @@ class TestAggregateSeasonWindows:
         data_rows: list[list[str | None]] = [
             ["124-00", "Antlerless", "-", "Oct 24-Nov 29"],
         ]
-        result = _aggregate_section_season_windows(header_row, data_rows)
-        assert "early_season" not in result
-        assert "general" in result
+        page_ref = _make_page_reference()
+        result = _rows_to_license_extractions(header_row, data_rows, page_ref)
+        assert len(result) == 1
+        assert "early_season" not in result[0]["season_windows"]
+        assert result[0]["season_coverage"]["early_season"] is False
+        assert "general" in result[0]["season_windows"]
+        assert result[0]["season_coverage"]["general"] is True
 
-    def test_no_season_columns_yields_empty_dict(self) -> None:
-        """A header_row with no season columns produces an empty dict."""
+    def test_weapon_type_override_per_column(self) -> None:
+        """Archery / muzzleloader overrides reflect each column's header."""
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT",
+            "OPPORTUNITY",
+            "ARCHERY ONLY SEASON DATES",
+            "GENERAL SEASON DATES",
+            "HERITAGE MUZZLELOADER SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["124-00", "Antlerless", "Sep 07-Oct 20", "Oct 26-Dec 01", "Dec 02-Dec 15"],
+        ]
+        page_ref = _make_page_reference()
+        result = _rows_to_license_extractions(header_row, data_rows, page_ref)
+        windows = result[0]["season_windows"]
+        assert windows["archery_only"]["weapon_type_override"] == "archery"
+        assert windows["general"]["weapon_type_override"] is None
+        assert windows["heritage_muzzleloader"]["weapon_type_override"] == "muzzleloader"
+
+    def test_no_season_columns_yields_empty_per_row_windows(self) -> None:
+        """A row with no season columns produces empty per-row season_windows."""
         header_row: list[str | None] = ["LICENSE/PERMIT", "OPPORTUNITY", "QUOTA"]
         data_rows: list[list[str | None]] = [
             ["124-00", "Antlerless", "25"],
         ]
-        result = _aggregate_section_season_windows(header_row, data_rows)
-        assert result == {}
+        page_ref = _make_page_reference()
+        result = _rows_to_license_extractions(header_row, data_rows, page_ref)
+        assert result[0]["season_windows"] == {}
 
 
-class TestRowSeasonWindows:
-    def test_only_true_coverage_keys_returned(self) -> None:
-        """season_windows contains only keys where coverage=True."""
-        coverage = SeasonCoverage(
-            early_season=False,
-            archery_only=True,
-            general=False,
-            heritage_muzzleloader=False,
-            late=False,
+class TestStatewideOverlayColumnFaithful:
+    """STATEWIDE 900-20 row goes through the same _rows_to_license_extractions
+    machinery as any other antelope row (UAT-fix D3+D4+D5+D6, 2026-05-08).
+
+    The legacy ``_extract_statewide_antelope_overlay`` was a hand-rolled regex
+    parser that synthesized a STATEWIDE row with column-position remap, prefix
+    stripping, comma stripping, and dropped extras. All four defects vanished
+    when the row was routed through the same extraction path with the
+    ``is_statewide_overlay=True`` flag (which only suppresses the universal
+    900-20 dedup filter — every other column-cell normalization continues to
+    apply uniformly with per-HD antelope rows).
+    """
+
+    @staticmethod
+    def _antelope_headers() -> list[str | None]:
+        return [
+            "License",
+            "Opportunity",
+            "Apply\nby\nDate",
+            "Quota",
+            "Quota\nRange",
+            "Archery\nSeason\nDates",
+            "Season\nDates",
+            "Opportunity Specifc\nInformation/\nRestrictions",
+        ]
+
+    @staticmethod
+    def _statewide_900_20_row() -> list[str | None]:
+        # Mirrors the live antelope-table layout on p138 verbatim.
+        return [
+            "Antelope License: 900-20",
+            "Either-sex",
+            "June 1",
+            "5,600",
+            "1-7,500",
+            "-",  # Archery Season Dates → absent
+            "Aug. 15-Nov. 08",  # Season Dates (general) → present
+            "First and only choice.\nArchEquip only.",
+        ]
+
+    def test_statewide_900_20_extraction_is_column_faithful(self) -> None:
+        """Per directive Fix 3 dict — every field column-faithful from the source row."""
+        page_ref = _make_page_reference()
+        result = _rows_to_license_extractions(
+            self._antelope_headers(),
+            [self._statewide_900_20_row()],
+            page_ref,
+            is_statewide_overlay=True,
         )
-        section_windows: dict[str, SeasonWindow] = {
-            "archery_only": SeasonWindow(window="Sep 07-Oct 20", weapon_type_override="archery"),
-            "general": SeasonWindow(window="Oct 26-Dec 01", weapon_type_override=None),
-        }
-        result = _row_season_windows(coverage, section_windows)
-        assert list(result.keys()) == ["archery_only"]
-        assert result["archery_only"]["window"] == "Sep 07-Oct 20"
-
-    def test_all_false_coverage_yields_empty_dict(self) -> None:
-        """All-False coverage → empty season_windows dict."""
-        coverage = SeasonCoverage(
-            early_season=False,
-            archery_only=False,
-            general=False,
-            heritage_muzzleloader=False,
-            late=False,
-        )
-        section_windows: dict[str, SeasonWindow] = {
-            "general": SeasonWindow(window="Oct 26-Dec 01", weapon_type_override=None),
-        }
-        result = _row_season_windows(coverage, section_windows)
-        assert result == {}
-
-
-class TestStatewideAntelopeOverlay:
-    def test_overlay_extracted_from_synthesized_pdf(self, tmp_path: Path) -> None:
-        """Synthesize a PDF with the 900-20 prose; assert DeaSectionExtraction shape."""
-        pdf_bytes = _synthesize_antelope_overlay_pdf(
-            quota=5600, range_low=1, range_high=7500, window="Aug. 15-Nov. 08"
-        )
-        pdf_path = _write_pdf(tmp_path, "antelope-test.pdf", pdf_bytes)
-
-        extracted_at = "2026-05-07T00:00:00Z"
-        with open_pdf(pdf_path) as pdf:
-            result = _extract_statewide_antelope_overlay(pdf, (1, 1), extracted_at)
-
-        assert result["hd_number"] == "STATEWIDE"
-        assert result["species_group"] == "antelope"
-        assert len(result["rows"]) == 1
-
-        row = result["rows"][0]
-        assert row["license_code"] == "900-20"
-        assert row["weapon_types"] == ["archery"]
-        assert row["season_coverage"]["archery_only"] is True
+        assert len(result) == 1
+        row = result[0]
+        # license_code: prefix preserved (was stripped in legacy path)
+        assert row["license_code"] == "Antelope License: 900-20"
+        # opportunity: verbatim from the cell (was synthesized as
+        # "Statewide (900 series) — archery only" in legacy path)
+        assert row["opportunity"] == "Either-sex"
+        assert row["apply_by"] == "June 1"
+        assert row["quota"] == 5600
+        # quota_range: commas preserved (were stripped in legacy path)
+        assert row["quota_range"] == "1-7,500"
+        # extras: present (was None in legacy path)
+        assert row["extras"] == "First and only choice. ArchEquip only."
+        # season_coverage: column-position-faithful — Aug.15-Nov.08 is in the
+        # Season Dates column = general (was remapped to archery_only in
+        # legacy path because the extras text said "ArchEquip only").
+        assert row["season_coverage"]["archery_only"] is False
+        assert row["season_coverage"]["general"] is True
         assert row["season_coverage"]["early_season"] is False
-        assert row["season_coverage"]["general"] is False
         assert row["season_coverage"]["heritage_muzzleloader"] is False
         assert row["season_coverage"]["late"] is False
+        # season_windows: only general (was archery_only in legacy)
+        assert "archery_only" not in row["season_windows"]
+        assert row["season_windows"]["general"]["window"] == "Aug. 15-Nov. 08"
+        assert row["season_windows"]["general"]["weapon_type_override"] is None
 
-        # extracted_at is threaded through to the PageReference
-        assert result["page_reference"]["extracted_at"] == extracted_at
-        assert result["page_reference"]["page_num_1based"] == 1
+    def test_statewide_overlay_flag_bypasses_900_20_filter(self) -> None:
+        """Without the flag, the 900-20 row is filtered (universal dedup).
 
-    def test_overlay_missing_900_20_raises(self, tmp_path: Path) -> None:
-        """PDF without 900-20 text → PdfExtractionError."""
-        pdf_bytes = _text_bearing_pdf_bytes(
-            "Some antelope content without the statewide overlay code here."
+        With ``is_statewide_overlay=True``, the row is processed normally.
+        """
+        page_ref = _make_page_reference()
+        # Without the flag → row filtered out
+        without_flag = _rows_to_license_extractions(
+            self._antelope_headers(),
+            [self._statewide_900_20_row()],
+            page_ref,
         )
-        pdf_path = _write_pdf(tmp_path, "no-900-20.pdf", pdf_bytes)
+        assert without_flag == []
+        # With the flag → row processed
+        with_flag = _rows_to_license_extractions(
+            self._antelope_headers(),
+            [self._statewide_900_20_row()],
+            page_ref,
+            is_statewide_overlay=True,
+        )
+        assert len(with_flag) == 1
+        assert with_flag[0]["license_code"] == "Antelope License: 900-20"
 
-        with open_pdf(pdf_path) as pdf:
-            with pytest.raises(PdfExtractionError, match="900-20"):
-                _extract_statewide_antelope_overlay(pdf, (1, 1), "2026-05-07T00:00:00Z")
+
+class TestPortionsHelpers:
+    """Unit tests for the Portions sub-section parsing helpers added by D2."""
+
+    def test_parse_north_yellowstone_three_hds(self) -> None:
+        result = _parse_portions_hd_list(
+            "Portions of HDs 700, 701, and 703 North of the Yellowstone River"
+        )
+        assert result == ["700", "701", "703"]
+
+    def test_parse_south_yellowstone_five_hds(self) -> None:
+        result = _parse_portions_hd_list(
+            "Portions of HDs 701, 702, 703, 704, and 705 South of the Yellowstone River"
+        )
+        assert result == ["701", "702", "703", "704", "705"]
+
+    def test_parse_no_qualifier_still_extracts_hds(self) -> None:
+        # Defensive: future variant without a directional qualifier.
+        result = _parse_portions_hd_list("Portions of HDs 100, 101, and 102")
+        assert result == ["100", "101", "102"]
+
+    def test_parse_returns_none_for_non_portions_text(self) -> None:
+        assert _parse_portions_hd_list("HD 124 - Arvilla") is None
+        assert _parse_portions_hd_list("Region 7") is None
+        assert _parse_portions_hd_list("") is None
+        assert _parse_portions_hd_list(None) is None
+
+    def test_is_portions_subsection_row_matches_first_cell(self) -> None:
+        # First cell is the Portions header; other cells empty.
+        row: list[str | None] = [
+            "Portions of HDs 700, 701, and 703 North of the Yellowstone River"
+        ] + [None] * 7
+        assert _is_portions_subsection_row(row) is True
+
+    def test_is_portions_subsection_row_rejects_unrelated(self) -> None:
+        assert _is_portions_subsection_row(["HD 124 - Arvilla"]) is False
+        assert _is_portions_subsection_row(["Region 7"]) is False
+        assert _is_portions_subsection_row([None]) is False
+        assert _is_portions_subsection_row([]) is False
+
+
+# ---------------------------------------------------------------------------
+# Live-PDF artifact integration tests for D2 + STATEWIDE orchestrator paths.
+# These assert against the committed `dea-2026.json` artifact regenerated by
+# the extractor against the real DEA PDF. They skip if the artifact is
+# missing (e.g., a clean checkout without a re-extraction run).
+# ---------------------------------------------------------------------------
+
+_ARTIFACT_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "ingestion"
+    / "states"
+    / "montana"
+    / "extracted"
+    / "dea-2026.json"
+)
+
+
+def _load_artifact() -> list[dict]:
+    if not _ARTIFACT_PATH.exists():
+        pytest.skip(
+            f"dea-2026.json artifact missing at {_ARTIFACT_PATH} — "
+            f"re-run extract_dea.py to regenerate"
+        )
+    with _ARTIFACT_PATH.open() as fh:
+        data = json.load(fh)
+    assert isinstance(data, list)
+    return data
+
+
+class TestArtifactRegion7Portions:
+    """D2 regression: Region 7 / "Portions of HDs ..." sub-sections must be
+    represented in the artifact as one DeaSectionExtraction per listed HD.
+    """
+
+    def test_region_7_portions_north_yellowstone_emits_three_sections(self) -> None:
+        """Three sections for HDs 700, 701, 703 (North of the Yellowstone River)."""
+        data = _load_artifact()
+        # Each emitted antelope section for North Yellowstone has license codes
+        # 007-21 and 007-31 (the "North of the Yellowstone River" portion's
+        # 0-series license codes per the live PDF).
+        north_portion_hd_to_section = {}
+        for s in data:
+            if s["species_group"] != "antelope":
+                continue
+            codes = sorted(r["license_code"] for r in s["rows"])
+            if codes == [
+                "Antelope B License: 007-31",
+                "Antelope License: 007-21",
+            ]:
+                north_portion_hd_to_section[s["hd_number"]] = s
+        assert set(north_portion_hd_to_section.keys()) == {"700", "701", "703"}, (
+            f"Expected three North-Yellowstone sections (HDs 700, 701, 703); "
+            f"got {sorted(north_portion_hd_to_section.keys())}"
+        )
+
+    def test_region_7_portions_south_yellowstone_emits_five_sections(self) -> None:
+        """Five sections for HDs 701, 702, 703, 704, 705 (South of the Yellowstone River)."""
+        data = _load_artifact()
+        south_portion_hds = set()
+        for s in data:
+            if s["species_group"] != "antelope":
+                continue
+            codes = sorted(r["license_code"] for r in s["rows"])
+            if codes == [
+                "Antelope B License: 007-30",
+                "Antelope License: 007-20",
+            ]:
+                south_portion_hds.add(s["hd_number"])
+        assert south_portion_hds == {"701", "702", "703", "704", "705"}, (
+            f"Expected five South-Yellowstone sections; got {sorted(south_portion_hds)}"
+        )
+
+    def test_hd_690_does_not_absorb_007_series_rows(self) -> None:
+        """HD 690 must have exactly 2 rows: 690-20, 690-30. No 007-* phantoms."""
+        data = _load_artifact()
+        hd_690 = [
+            s for s in data
+            if s["species_group"] == "antelope" and s["hd_number"] == "690"
+        ]
+        assert len(hd_690) == 1, f"Expected one HD 690 antelope section; got {len(hd_690)}"
+        rows = hd_690[0]["rows"]
+        codes = sorted(r["license_code"] for r in rows)
+        assert codes == [
+            "Antelope B License: 690-30",
+            "Antelope License: 690-20",
+        ], (
+            f"HD 690 must have exactly 2 rows (690-20, 690-30); got {codes}"
+        )
+
+    def test_portions_section_preserves_directional_qualifier_in_verbatim_text(self) -> None:
+        """At least one Portions section's verbatim_text contains "North of the Yellowstone River"."""
+        data = _load_artifact()
+        north_qualifier_found = any(
+            "North of the Yellowstone River" in s["verbatim_text"]
+            for s in data
+            if s["species_group"] == "antelope" and s["hd_number"] in ("700", "701", "703")
+        )
+        assert north_qualifier_found, (
+            "Portions section verbatim_text must preserve 'North of the Yellowstone "
+            "River' qualifier so S03.10 binding generation can decide whether the "
+            "qualifier matters geometrically."
+        )
+        south_qualifier_found = any(
+            "South of the Yellowstone River" in s["verbatim_text"]
+            for s in data
+            if s["species_group"] == "antelope"
+            and s["hd_number"] in ("702", "703", "704", "705")
+        )
+        assert south_qualifier_found
+
+    def test_artifact_statewide_900_20_row_orchestrator_overrides(self) -> None:
+        """STATEWIDE row's orchestrator-side overrides land in the artifact:
+        weapon_types=['archery'] and extraction_confidence='medium'.
+        """
+        data = _load_artifact()
+        statewide = [s for s in data if s["hd_number"] == "STATEWIDE"]
+        assert len(statewide) == 1
+        row = statewide[0]["rows"][0]
+        assert row["weapon_types"] == ["archery"]
+        assert row["extraction_confidence"] == "medium"
+        # And the column-faithful values per directive Fix 3
+        assert row["license_code"] == "Antelope License: 900-20"
+        assert row["opportunity"] == "Either-sex"
+        assert row["apply_by"] == "June 1"
+        assert row["quota"] == 5600
+        assert row["quota_range"] == "1-7,500"
+        assert row["extras"] == "First and only choice. ArchEquip only."
+        assert row["season_coverage"]["general"] is True
+        assert row["season_coverage"]["archery_only"] is False
+        assert row["season_windows"]["general"]["window"] == "Aug. 15-Nov. 08"
 
 
 class TestRowConfidence:
@@ -981,10 +1197,8 @@ class TestDashSentinelInNullableFields:
             ["124-00", "Antlerless", "-", "25", "-", "Oct 24-Nov 29", "-"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(results) == 1
         row = results[0]
         assert row["apply_by"] is None, "apply_by '-' must become None"
@@ -1131,10 +1345,8 @@ class TestSkipFooterAndOverlayRows:
             ["Antelope License: 900-20", "Either-sex", "Aug 15-Nov 8"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         result = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(result) == 1
         assert result[0]["license_code"] == "124-00"
 
@@ -1148,10 +1360,8 @@ class TestSkipFooterAndOverlayRows:
             ["Antlerless", "124-00", "Oct 24-Nov 29"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         result = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(result) == 1
         assert result[0]["license_code"] == "124-00"
 
@@ -1166,10 +1376,8 @@ class TestSkipFooterAndOverlayRows:
             ["Region 5", "Antlerless Elk", None],  # another footer
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         result = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(result) == 1
         assert result[0]["license_code"] == "124-00"
         assert all(
@@ -1186,10 +1394,8 @@ class TestSkipFooterAndOverlayRows:
             ["Regional Park 5", "Antlerless", "Oct 24-Nov 29"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         result = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         # The non-footer row survives — the regex is anchored to ^Region\s+\d+$
         assert len(result) == 1
         assert result[0]["license_code"] == "Regional Park 5"
@@ -1220,10 +1426,8 @@ class TestLabelOnlyRowFilter:
             ["125-00", "Antlerless", "Oct 24-Nov 29"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         result = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         # The label row is filtered; the two real rows survive.
         assert len(result) == 2
         assert {r["license_code"] for r in result} == {"124-00", "125-00"}
@@ -1248,11 +1452,9 @@ class TestLabelOnlyRowFilter:
             ["Deer B License: 124-00", None, None],  # HD code present, all else None
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         with pytest.raises(PdfExtractionError, match="missing OPPORTUNITY"):
             _rows_to_license_extractions(
-                header_row, data_rows, page_ref, section_windows
-            )
+                header_row, data_rows, page_ref)
 
     def test_label_only_row_does_not_corrupt_opportunity_carryforward(self) -> None:
         """Filtered label rows do not corrupt the opportunity carry-forward state."""
@@ -1268,10 +1470,8 @@ class TestLabelOnlyRowFilter:
             ["125-00", "Antlered Bull", "Oct 24-Nov 29"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         result = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         # 3 rows: 124-00 (Antlerless WT), 124-00 carry-forward, 125-00 (Antlered Bull)
         assert len(result) == 3
         assert result[0]["opportunity"] == "Antlerless WT"
@@ -1310,11 +1510,9 @@ class TestOpportunityCarryForwardScope:
             ["125-00", None, "Nov 16-Nov 29"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         with pytest.raises(PdfExtractionError, match="missing OPPORTUNITY"):
             _rows_to_license_extractions(
-                header_row, data_rows, page_ref, section_windows
-            )
+                header_row, data_rows, page_ref)
 
     def test_carry_forward_within_license_group_still_works(self) -> None:
         """Sub-rows under the same license still inherit opportunity correctly."""
@@ -1328,10 +1526,8 @@ class TestOpportunityCarryForwardScope:
             [None, None, "Nov 16-Nov 29"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         result = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(result) == 2
         assert result[0]["license_code"] == "124-00"
         assert result[0]["opportunity"] == "Antlerless WT"
@@ -1356,10 +1552,8 @@ class TestOpportunityCarryForwardScope:
             ["125-00", "Antlered Bull", "Oct 24-Nov 29"],
         ]
         page_ref = _make_page_reference()
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         result = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert result[0]["opportunity"] == "Antlerless WT"
         assert result[1]["opportunity"] == "Antlered Bull"
 
@@ -1385,10 +1579,8 @@ class TestRowPageReference:
             ["125-00", "Antlered Buck", "Oct 24-Nov 29"],
         ]
         page_ref = _make_page_reference(page=7)
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(results) == 2
         for row in results:
             assert "page_reference" in row
@@ -1399,35 +1591,50 @@ class TestRowPageReference:
         """Multi-row HD: all rows get the same page_reference (section inheritance rule)."""
         header_row, data_rows = _simple_dea_table_data()
         page_ref = _make_page_reference(page=48)
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(results) == 3
         # All rows must have the same page_reference as the section.
         for row in results:
             assert row["page_reference"]["page_num_1based"] == 48
             assert row["page_reference"]["pdf_filename"] == "test.pdf"
 
-    def test_extract_statewide_antelope_overlay_row_has_page_reference(
-        self, tmp_path: Path
-    ) -> None:
-        """_extract_statewide_antelope_overlay's single row carries page_reference."""
-        pdf_bytes = _synthesize_antelope_overlay_pdf(
-            quota=5600, range_low=1, range_high=7500, window="Aug. 15-Nov. 08"
-        )
-        pdf_path = _write_pdf(tmp_path, "antelope-pr-test.pdf", pdf_bytes)
-        extracted_at = "2026-05-07T00:00:00Z"
-        with open_pdf(pdf_path) as pdf:
-            section = _extract_statewide_antelope_overlay(pdf, (1, 1), extracted_at)
+    def test_statewide_overlay_row_has_page_reference(self) -> None:
+        """The STATEWIDE overlay row carries page_reference like any other row.
 
-        assert len(section["rows"]) == 1
-        row = section["rows"][0]
+        Post-UAT-fix (2026-05-08), the STATEWIDE row goes through
+        ``_rows_to_license_extractions(..., is_statewide_overlay=True)``
+        which threads the page_reference parameter directly onto the row,
+        identical to the per-HD antelope rows.
+        """
+        antelope_headers: list[str | None] = [
+            "License", "Opportunity", "Apply\nby\nDate", "Quota", "Quota\nRange",
+            "Archery\nSeason\nDates", "Season\nDates",
+            "Opportunity Specifc\nInformation/\nRestrictions",
+        ]
+        statewide_row: list[str | None] = [
+            "Antelope License: 900-20",
+            "Either-sex",
+            "June 1",
+            "5,600",
+            "1-7,500",
+            "-",
+            "Aug. 15-Nov. 08",
+            "First and only choice.\nArchEquip only.",
+        ]
+        page_ref = _make_page_reference(page=136)
+        result = _rows_to_license_extractions(
+            antelope_headers,
+            [statewide_row],
+            page_ref,
+            is_statewide_overlay=True,
+        )
+        assert len(result) == 1
+        row = result[0]
         assert "page_reference" in row
-        # Row's page_reference must match the section's page_reference exactly.
-        assert row["page_reference"]["page_num_1based"] == section["page_reference"]["page_num_1based"]
-        assert row["page_reference"]["pdf_filename"] == section["page_reference"]["pdf_filename"]
-        assert row["page_reference"]["extracted_at"] == section["page_reference"]["extracted_at"]
+        assert row["page_reference"]["page_num_1based"] == 136
+        assert row["page_reference"]["pdf_filename"] == "test.pdf"
+        assert row["page_reference"]["extracted_at"] == "2026-05-07T00:00:00Z"
 
     def test_page_reference_has_required_keys(self) -> None:
         """Every row's page_reference has all four required keys."""
@@ -1440,10 +1647,8 @@ class TestRowPageReference:
             ["124-00", "Antlerless", "Oct 24-Nov 29"],
         ]
         page_ref = _make_page_reference(page=5)
-        section_windows = _aggregate_section_season_windows(header_row, data_rows)
         results = _rows_to_license_extractions(
-            header_row, data_rows, page_ref, section_windows
-        )
+            header_row, data_rows, page_ref)
         assert len(results) == 1
         pr = results[0]["page_reference"]
         # PageReference TypedDict requires these four keys.

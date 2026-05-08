@@ -178,6 +178,14 @@ The DEA PDF (and likely many state regulation tables) groups multiple opportunit
 
 Reference implementation: `ingestion/states/montana/extract_dea.py::_rows_to_license_extractions` — `last_license_code` and `last_opportunity` carry-forward variables (S03.3, 2026-05-08).
 
+### Section-level "first-observation-wins" for per-row variable fields is interpretive, not faithful
+
+**Symptom:** When a per-row PDF field varies within a section (e.g., season date windows that differ per license/opportunity row), capturing only the first observation and replicating it across rows replaces source data with a paraphrase — violates ADR-008. Per-row divergence collapses to a single value in the artifact, and downstream consumers reading individual rows see incorrect data.
+
+**Fix:** Always extract per-row from each row's column cells; emit warnings only for cases that genuinely cannot be parsed (not for natural divergence). The "section-level windows + per-row filter" pattern is the trap — rebuild as "per-row windows from each row's own cells, no section-level aggregation."
+
+Reference: `ingestion/states/montana/extract_dea.py::_rows_to_license_extractions` — per-row `season_windows` populated inline from each row's column cells. Surfaced by S03.3 UAT failure on 2026-05-08 (HD 124 deer had three distinct General Season windows in the source PDF; the artifact carried only the first observation across all 5 rows).
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column

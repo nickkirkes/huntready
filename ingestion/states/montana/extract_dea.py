@@ -357,6 +357,60 @@ def _is_region_footer_row(row: list[str | None]) -> bool:
     return bool(re.match(r"^Region\s+\d+$", first))
 
 
+# Detects "Portions of HDs A, B, C ... <directional qualifier>" rows in the
+# antelope table. These are sub-section delimiters that follow a Region N
+# row and bind a single set of regulation rows to multiple sibling HDs
+# (e.g., HDs 700, 701, 703 in Region 7). UAT defect D2 (2026-05-08) revealed
+# the prior slicer absorbed the rows under these delimiters into the
+# preceding HD-numbered section. Per directive option (a): emit one
+# ``DeaSectionExtraction`` per listed HD with the same row content; S03.6
+# dedups via license_code at ingestion.
+_PORTIONS_HEADER_RE = re.compile(
+    r"^Portions\s+of\s+HDs?\b", re.IGNORECASE
+)
+
+
+def _parse_portions_hd_list(text: str | None) -> list[str] | None:
+    """Extract the HD numbers from a "Portions of HDs A, B, C ..." header.
+
+    Returns a list of HD numbers as strings (preserving source order), or
+    ``None`` if the text does not match the Portions pattern.
+
+    Observed source forms (live DEA PDF, p138):
+      - ``"Portions of HDs 700, 701, and 703 North of the Yellowstone River"``
+      - ``"Portions of HDs 701, 702, 703, 704, and 705 South of the Yellowstone River"``
+
+    The directional qualifier (``"North of the Yellowstone River"``) is NOT
+    parsed here — it survives in the section's ``verbatim_text`` so S03.10
+    binding generation can decide whether the qualifier matters geometrically.
+    """
+    if text is None:
+        return None
+    norm = _normalize_cell(text)
+    if norm is None:
+        return None
+    m = re.match(r"^Portions\s+of\s+HDs?\b(?P<rest>.*)$", norm, re.IGNORECASE)
+    if m is None:
+        return None
+    rest = m.group("rest")
+    # Stop the digit search at the first directional qualifier word so a future
+    # qualifier containing digits (e.g., "Highway 2") doesn't pollute the list.
+    qualifier = re.search(r"\b(?:North|South|East|West)\b", rest, re.IGNORECASE)
+    list_text = rest[: qualifier.start()] if qualifier else rest
+    hds = re.findall(r"\d+", list_text)
+    return hds if hds else None
+
+
+def _is_portions_subsection_row(row: list[str | None]) -> bool:
+    """Return True if ``row`` is a "Portions of HDs ..." subsection delimiter."""
+    if not row:
+        return False
+    first = _normalize_cell(row[0])
+    if first is None:
+        return False
+    return _PORTIONS_HEADER_RE.match(first) is not None
+
+
 # ---------------------------------------------------------------------------
 # T3: Column-header → SeasonCoverage key + weapon_type_override mapping helpers
 # ---------------------------------------------------------------------------
@@ -734,141 +788,40 @@ def _split_rows_by_species(
 # ---------------------------------------------------------------------------
 
 
-def _first_nonempty_cell_in_column(
-    rows: list[list[str | None]],
-    idx: int,
-) -> str | None:
-    """Return the first non-absent season cell in column ``idx``, or None.
-
-    Treats both ``None`` and the dash sentinel ``"-"`` as absent (the DEA PDF
-    uses ``"-"`` to indicate a season is not available at this HD).
-    Defensive on ``IndexError`` — returns None if a row is shorter than ``idx``.
-    """
-    for row in rows:
-        try:
-            raw = row[idx]
-        except IndexError:
-            continue
-        if not _is_season_cell_absent(raw):
-            return _normalize_cell(raw)
-    return None
-
-
-def _aggregate_section_season_windows(
-    header_row: list[str | None],
-    data_rows: list[list[str | None]],
-) -> dict[str, SeasonWindow]:
-    """Build the section-level season_windows dict for one HD.
-
-    Walks every season column in ``header_row``, finds the first non-empty cell
-    in that column across all data rows, and builds a ``SeasonWindow`` for it.
-    Seasons whose column is absent or entirely empty are excluded from the result.
-
-    Divergence detection: if two rows disagree on the date window for the same
-    season, the first observation wins and a WARNING is emitted — per spec line
-    307 ("same window structure shared per HD").
-    """
-    # Build column-name → index map for season columns only.
-    season_col_indices: dict[str, int] = {}
-    for col_idx, raw_header in enumerate(header_row):
-        norm = _normalize_header(raw_header)
-        if norm in _SEASON_COLUMN_TO_KEY:
-            season_col_indices[norm] = col_idx
-
-    result: dict[str, SeasonWindow] = {}
-
-    for season_col_name, col_idx in season_col_indices.items():
-        # Find the first non-empty window value in this column.
-        first_window = _first_nonempty_cell_in_column(data_rows, col_idx)
-        if first_window is None:
-            # No license at this HD covers this season.
-            continue
-
-        season_key = _SEASON_COLUMN_TO_KEY[season_col_name]
-        result[season_key] = SeasonWindow(
-            window=first_window,
-            weapon_type_override=_WEAPON_TYPE_OVERRIDE_BY_COLUMN[season_col_name],
-        )
-
-        # Divergence detection: check remaining rows for conflicting windows.
-        # We need to walk past the first non-empty row to detect differences.
-        found_first = False
-        for row in data_rows:
-            try:
-                raw = row[col_idx]
-            except IndexError:
-                continue
-            # Skip absent/dash-sentinel values — they are not windows.
-            if _is_season_cell_absent(raw):
-                continue
-            cell = _normalize_cell(raw)
-            if cell is None:
-                continue
-            if not found_first:
-                # This is the row that produced first_window — skip it.
-                found_first = True
-                continue
-            if cell != first_window:
-                # Try to find the license code for context in the warning.
-                license_col_idx: int | None = None
-                for c_idx, rh in enumerate(header_row):
-                    norm_rh = _normalize_header(rh)
-                    if norm_rh in ("LICENSE/PERMIT", "LICENSE"):
-                        license_col_idx = c_idx
-                        break
-                license_code_str: str | None = None
-                if license_col_idx is not None:
-                    try:
-                        license_code_str = _normalize_cell(row[license_col_idx])
-                    except IndexError:
-                        pass
-                if license_code_str is not None:
-                    _logger.warning(
-                        "season %r window divergence: license_code=%r reports %r, expected %r",
-                        season_key,
-                        license_code_str,
-                        cell,
-                        first_window,
-                    )
-                else:
-                    _logger.warning(
-                        "season %r window divergence: reports %r, expected %r",
-                        season_key,
-                        cell,
-                        first_window,
-                    )
-
-    return result
-
-
 # ---------------------------------------------------------------------------
-# T6: Row → license-extraction with per-license season_coverage
+# T6: Row → license-extraction with per-row season_coverage AND per-row windows
 # ---------------------------------------------------------------------------
-
-
-def _row_season_windows(
-    coverage: SeasonCoverage,
-    section_windows: dict[str, SeasonWindow],
-) -> dict[str, SeasonWindow]:
-    """Return only the season windows for which this row has coverage=True.
-
-    Values are copied directly from ``section_windows`` without mutation.
-    """
-    return {key: section_windows[key] for key in coverage if coverage[key] and key in section_windows}  # type: ignore[literal-required]
+#
+# UAT-fix note (2026-05-08, defect D1): we used to compute section-level
+# windows here via ``_aggregate_section_season_windows`` (first-observation-wins
+# across all rows in the section), then filter per-row by ``season_coverage``.
+# That approach replaced source data with a paraphrase: HD 124 deer has three
+# distinct General Season windows (Oct 24-Oct 30, Oct 24-Nov 29, Oct 31-Nov 29)
+# but the artifact carried only the first observation for all rows. ADR-008
+# requires verbatim per-row preservation. Per-row windows now read directly
+# from each row's column cells; the divergence-warning branch was deleted
+# because divergence is the data, not an anomaly.
 
 
 def _rows_to_license_extractions(
     header_row: list[str | None],
     data_rows: list[list[str | None]],
     page_reference: PageReference,
-    section_windows: dict[str, SeasonWindow],
+    *,
+    is_statewide_overlay: bool = False,
 ) -> list[DeaRowExtraction]:
     """Convert raw table rows to a list of ``DeaRowExtraction`` records.
 
     Each row in ``data_rows`` (already cell-normalized by T5) becomes one
-    ``DeaRowExtraction``. The ``section_windows`` dict (produced by T7's
-    ``_aggregate_section_season_windows``) is used to populate per-row
-    ``season_windows`` filtered by that row's ``season_coverage``.
+    ``DeaRowExtraction``. Per-row ``season_coverage`` and ``season_windows``
+    are read directly from each row's own column cells — see the module
+    block comment above for the UAT-fix rationale (D1, 2026-05-08).
+
+    ``is_statewide_overlay``: when True, the universal "900-20 overlay row"
+    filter is bypassed. Used by the orchestrator's STATEWIDE section path
+    where the input row IS the 900-20 row by design (UAT-fix D3+D4+D5+D6,
+    2026-05-08); per-HD paths leave this False so 900-20 rows continue to
+    be filtered from per-HD sections.
 
     Fail-loud cases (ADR-001):
     - A non-empty row missing a ``LICENSE/PERMIT`` value → raises
@@ -940,11 +893,12 @@ def _rows_to_license_extractions(
         # Skip rows where every cell is empty/whitespace.
         if all(_normalize_cell(cell) is None for cell in row):
             continue
-        # Skip the 900-20 statewide overlay row (extracted separately by
-        # _extract_statewide_antelope_overlay). Universal filter — guards
-        # against the overlay row appearing in any per-HD section due to
-        # layout drift.
-        if _is_900_20_overlay_row(row):
+        # Skip the 900-20 statewide overlay row from per-HD sections.
+        # Universal filter — guards against the overlay row appearing in
+        # any per-HD section due to layout drift. Bypassed when this call
+        # is constructing the STATEWIDE section itself, where the 900-20
+        # row IS the intended input (UAT-fix D3+D4+D5+D6, 2026-05-08).
+        if not is_statewide_overlay and _is_900_20_overlay_row(row):
             continue
         # Skip "Region N" footer rows. These are FWP region designators that
         # appear at the bottom of antelope tables and (rarely) elk tables —
@@ -1049,12 +1003,33 @@ def _rows_to_license_extractions(
         quota_range_raw = _get_cell(row, "QUOTA RANGE")
         quota_range = None if _is_season_cell_absent(quota_range_raw) else _normalize_cell(quota_range_raw)
 
+        # Extras: column-cell normalize, then collapse ALL whitespace runs
+        # (including single newlines) to a single space. The DEA antelope
+        # extras column embeds multi-sentence prose with `\n` between
+        # sentences (e.g., the 900-20 row's "First and only
+        # choice.\nArchEquip only."); the natural reading is a single
+        # space-separated paragraph. _normalize_cell intentionally
+        # preserves single newlines (the HD heading detector depends on
+        # that) so this extra collapse is applied only at the extras
+        # write-site.
         extras_raw = _get_cell(row, "OPPORTUNITY SPECIFIC DETAILS AND/OR RESTRICTIONS")
-        extras = None if _is_season_cell_absent(extras_raw) else _normalize_cell(extras_raw)
+        if _is_season_cell_absent(extras_raw):
+            extras: str | None = None
+        else:
+            normalized_extras = _normalize_cell(extras_raw)
+            extras = (
+                re.sub(r"\s+", " ", normalized_extras)
+                if normalized_extras is not None
+                else None
+            )
 
-        # --- season_coverage: True if the cell is a real date window ---
+        # --- season_coverage AND season_windows: read each row's own cells ---
         # The DEA PDF uses "-" as a sentinel for "not applicable" in season
         # columns. Both None and "-" map to coverage=False.
+        # Per-row windows are sourced from each row's own column cells, NOT
+        # from a section-level aggregator (UAT-fix D1, 2026-05-08). This
+        # preserves natural per-license-row date variation that was previously
+        # collapsed by first-observation-wins.
         coverage = SeasonCoverage(
             early_season=False,
             archery_only=False,
@@ -1062,17 +1037,26 @@ def _rows_to_license_extractions(
             heritage_muzzleloader=False,
             late=False,
         )
+        row_windows: dict[str, SeasonWindow] = {}
         for season_col_name, col_idx in season_col_map.items():
             season_key = _SEASON_COLUMN_TO_KEY[season_col_name]
             try:
                 raw_season_cell = row[col_idx]
             except IndexError:
                 raw_season_cell = None
-            # SeasonCoverage keys match the season_key strings exactly.
-            coverage[season_key] = not _is_season_cell_absent(raw_season_cell)  # type: ignore[literal-required]
-
-        # --- per-row season_windows: filtered to True-coverage keys ---
-        row_windows = _row_season_windows(coverage, section_windows)
+            if _is_season_cell_absent(raw_season_cell):
+                # SeasonCoverage keys match the season_key strings exactly.
+                coverage[season_key] = False  # type: ignore[literal-required]
+                continue
+            coverage[season_key] = True  # type: ignore[literal-required]
+            cell_norm = _normalize_cell(raw_season_cell)
+            if cell_norm is not None:
+                row_windows[season_key] = SeasonWindow(
+                    window=cell_norm,
+                    weapon_type_override=_WEAPON_TYPE_OVERRIDE_BY_COLUMN[
+                        season_col_name
+                    ],
+                )
 
         results.append(
             DeaRowExtraction(
@@ -1094,174 +1078,31 @@ def _rows_to_license_extractions(
 
 
 # ---------------------------------------------------------------------------
-# T8: Statewide antelope overlay extraction
+# T8: Statewide antelope overlay handling
 # ---------------------------------------------------------------------------
-
-# Regex that matches a single 900-20 data row in the antelope section.
 #
-# Real-PDF deviation from plan: "900-20" is NOT a standalone prose paragraph —
-# it appears as a repeated data row after every per-HD antelope block:
+# UAT-fix note (2026-05-08, defects D3+D4+D5+D6): the previous implementation
+# was a hand-rolled regex parser (``_ANTELOPE_900_ROW_RE`` +
+# ``_extract_statewide_antelope_overlay``) that synthesized the STATEWIDE row
+# with column-position remap (Aug.15-Nov.08 mapped to ``archery_only`` because
+# the extras text said "ArchEquip only", but the date was actually in the
+# **Season Dates** column = ``general`` per the column-header mapping). It
+# also stripped the ``"Antelope License: "`` prefix, dropped the verbatim
+# extras text, and stripped commas from quota_range — every per-HD antelope
+# row preserved these. The synthesized form violated ADR-008.
 #
-#   Antelope License: 900-20 Either-sex June 1 5,600 1-7,500 - Aug. 15-Nov. 08
-#   ArchEquip only.
+# The new design: the antelope orchestrator walks rows, and on the FIRST
+# 900-20 row it captures the row data, sets ``hd_number="STATEWIDE"``, and
+# emits a section using the same ``_rows_to_license_extractions`` machinery
+# as any other antelope row. Subsequent 900-20 rows are deduplicated.
+# Inline in ``extract()``; no separate helper.
 #
-# The columns (from the page header) are:
-#   License  |  Opportunity  |  Apply by Date  |  Quota  |  Quota Range  |  Season Dates  |  Archery Season Dates
-#
-# The "-" in the Season Dates column means the general season is absent;
-# "Aug. 15-Nov. 08" is the archery-only window.
-#
-# Strategy: walk antelope pages and match the FIRST occurrence of this row.
-# Verbatim text: the two-line block (900-20 row + "ArchEquip only." annotation).
-_ANTELOPE_900_ROW_RE = re.compile(
-    r"Antelope License:\s+900-20\s+"  # license prefix
-    r"(\S+)\s+"  # opportunity (e.g. "Either-sex")
-    r"(\w+\s+\d+)\s+"  # apply_by (e.g. "June 1")
-    r"([\d,]+)\s+"  # quota (e.g. "5,600")
-    r"([\d,]+-[\d,]+)\s+"  # quota_range (e.g. "1-7,500")
-    r"(-|\S+)\s+"  # general season (usually "-" = absent)
-    r"((?:\w+\.?\s+\d+-\w+\.?\s+\d+|\w+\s+\d+-\w+\s+\d+))"  # archery window
-)
-
-
-def _extract_statewide_antelope_overlay(
-    pdf: PdfDocument,
-    antelope_pages: tuple[int, int],
-    extracted_at: str,
-) -> "DeaSectionExtraction":
-    """Extract the statewide 900-20 archery antelope overlay.
-
-    Deviation from plan (discovered via reconnaissance on 2026-05-06):
-    The ``900-20`` entry is NOT a standalone prose paragraph. It appears as a
-    repeated data row appended to every per-HD antelope block:
-
-        Antelope License: 900-20 Either-sex June 1 5,600 1-7,500 - Aug. 15-Nov. 08
-        ArchEquip only.
-
-    Strategy: walk ``antelope_pages``, match the first occurrence, and parse
-    the structured fields directly from the row. Verbatim text is the two-line
-    block (900-20 row + "ArchEquip only." annotation) — this is a tighter
-    verbatim capture than the full-page approach and more faithful to what the
-    source actually says about the 900-20 overlay.
-
-    Fail-loud: if no match is found in the page range, raises PdfExtractionError.
-    """
-    match_page: int | None = None
-    row_match: re.Match[str] | None = None
-    full_page_text: str = ""
-
-    # Walk pages in range; grab the first occurrence.
-    for page_num, page in iter_pages(pdf, *antelope_pages):
-        text = extract_text(page)
-        m = _ANTELOPE_900_ROW_RE.search(text)
-        if m:
-            match_page = page_num
-            row_match = m
-            full_page_text = text
-            break
-
-    if match_page is None or row_match is None:
-        a, b = antelope_pages
-        raise PdfExtractionError(
-            f"antelope statewide 900-20 overlay not found in pp.{a}-{b}"
-        )
-
-    # ------------------------------------------------------------------
-    # Parse structured fields from the matched row.
-    # ------------------------------------------------------------------
-
-    # opportunity group (e.g. "Either-sex")
-    raw_opportunity_tag = row_match.group(1)  # noqa: F841 — informational only
-
-    # apply_by (e.g. "June 1")
-    apply_by: str | None = row_match.group(2).strip()
-
-    # quota (strip commas → int)
-    raw_quota_str = row_match.group(3).replace(",", "")
-    quota: int | None = None
-    try:
-        quota = int(raw_quota_str)
-    except ValueError:
-        _logger.warning("900-20: could not parse quota from %r", row_match.group(3))
-
-    # quota_range (strip commas, keep as "N-N" string)
-    quota_range: str | None = row_match.group(4).replace(",", "")
-
-    # archery-only season window (group 6; group 5 is the general season "-")
-    season_window_str: str | None = row_match.group(6).strip()
-    if not season_window_str:
-        _logger.warning("900-20: no archery season window found in row")
-        season_window_str = None
-
-    # ------------------------------------------------------------------
-    # Verbatim text: the two-line 900-20 block (row + "ArchEquip only.")
-    # This is tighter than full-page and more faithful to ADR-008.
-    # ------------------------------------------------------------------
-    verbatim_match = re.search(
-        r"Antelope License: 900-20 .+?\nArchEquip only\.",
-        full_page_text,
-        re.DOTALL,
-    )
-    if verbatim_match is None:
-        _logger.warning(
-            "900-20: two-line verbatim pattern did not match on p%d — "
-            "falling back to full page text (verbatim_text will be wider than design intent)",
-            match_page,
-        )
-        verbatim_text = full_page_text
-    else:
-        verbatim_text = verbatim_match.group(0)
-
-    # ------------------------------------------------------------------
-    # Build the single DeaRowExtraction.
-    # ------------------------------------------------------------------
-    season_windows: dict[str, "SeasonWindow"] = {}
-    if season_window_str:
-        season_windows = {
-            "archery_only": SeasonWindow(
-                window=season_window_str,
-                weapon_type_override="archery",
-            )
-        }
-
-    section_page_reference = PageReference(
-        pdf_filename=_PDF_FILENAME_FOR_REF,
-        page_num_1based=match_page,
-        bbox=None,
-        extracted_at=extracted_at,
-    )
-
-    row = DeaRowExtraction(
-        license_code=_STATEWIDE_ANTELOPE_LICENSE,
-        opportunity="Statewide (900 series) — archery only",
-        apply_by=apply_by,
-        quota=quota,
-        quota_range=quota_range,
-        season_coverage=SeasonCoverage(
-            early_season=False,
-            archery_only=True,
-            general=False,
-            heritage_muzzleloader=False,
-            late=False,
-        ),
-        season_windows=season_windows,
-        weapon_types=["archery"],
-        extras=None,
-        # MEDIUM: extracted from structured prose row, not a pdfplumber table cell.
-        # T9 will confirm this is MEDIUM (prose-source path).
-        extraction_confidence=ConfidenceTier.MEDIUM,
-        page_reference=section_page_reference,
-    )
-
-    return DeaSectionExtraction(
-        hd_number="STATEWIDE",
-        hd_name="",
-        species_group="antelope",
-        license_year=_LICENSE_YEAR,
-        page_reference=section_page_reference,
-        verbatim_text=verbatim_text,
-        rows=[row],
-    )
+# Confidence tier for the STATEWIDE row: MEDIUM. Despite the row being a
+# structured table cell (which would normally yield HIGH via the table-source
+# path), the directive specifies MEDIUM to reflect that the row is a
+# meta-row summarizing statewide applicability rather than a per-HD
+# regulation. The orchestrator forces MEDIUM by passing ``source="prose"``
+# to ``_assign_row_confidence``.
 
 
 # ---------------------------------------------------------------------------
@@ -1458,11 +1299,8 @@ def extract(pdf_path: Path) -> list["DeaSectionExtraction"]:
                     extracted_at=extracted_at,
                 )
 
-                section_windows = _aggregate_section_season_windows(
-                    headers_nullable, sp_rows
-                )
                 rows = _rows_to_license_extractions(
-                    headers_nullable, sp_rows, page_reference, section_windows
+                    headers_nullable, sp_rows, page_reference
                 )
 
                 for row in rows:
@@ -1482,84 +1320,229 @@ def extract(pdf_path: Path) -> list["DeaSectionExtraction"]:
 
         # ------------------------------------------------------------------
         # Antelope HDs: pp. 136–141.
+        #
+        # Walks the antelope tables row-by-row, building "logical sections":
+        #   - HD-numbered: ``HD NNN - Name`` delimiter → 1 section per delimiter
+        #   - Portions: ``Portions of HDs A, B, C ... <directional>`` delimiter
+        #     → 1 section per listed HD with the same row content (option (a)
+        #     per UAT-fix directive 2026-05-08). License codes disambiguate at
+        #     S03.6 ingestion.
+        #
+        # ``Region N`` rows are skipped (not regulation rows). The first 900-20
+        # row encountered becomes the STATEWIDE section; subsequent 900-20 rows
+        # are filtered (deduplication).
         # ------------------------------------------------------------------
-        for hd_number, hd_name, _sg, page_num, _section_bbox in _iter_hd_sections(
-            pdf, _ANTELOPE_PAGES, "antelope"
-        ):
-            try:
-                headers, data_rows, _last_page = _extract_hd_table(
-                    pdf, page_num, hd_number
-                )
-            except PdfExtractionError as e:
-                raise PdfExtractionError(
-                    f"species=antelope HD={hd_number} ({hd_name}): {e}"
-                ) from e
-
-            page_text = ""
-            for _pn, page in iter_pages(pdf, page_num, page_num):
-                page_text = extract_text(page)
-                break
-
-            # Antelope tables have no species-banner rows (the whole table is
-            # antelope data). Use data_rows directly with two filters applied:
-            #   1. Skip the 900-20 statewide overlay row (extracted separately
-            #      by _extract_statewide_antelope_overlay). Match the literal
-            #      "900-20" anywhere in the row, not just position 0 — guards
-            #      against layout drift moving the LICENSE column.
-            #   2. Skip footer rows whose first cell is a "Region N" tag
-            #      (FWP region designator). These are scope footers, not
-            #      regulation rows, and have no licensed seasons. Filtering
-            #      here keeps the intermediate artifact consumer-clean —
-            #      otherwise every S03.6+ caller would need its own filter.
-            sp_rows = [
-                r for r in data_rows
-                if not _is_900_20_overlay_row(r)
-                and not _is_region_footer_row(r)
+        antelope_pending: list[
+            tuple[
+                list[str],  # hd_numbers
+                str,  # hd_name
+                str,  # verbatim_text
+                int,  # page_num
+                list[str | None],  # headers
+                list[list[str | None]],  # data_rows for this logical section
             ]
-            if not sp_rows:
-                _logger.warning(
-                    "antelope HD %s p%d: no antelope rows found (all were 900-20 "
-                    "overlay rows or empty) — skipping",
-                    hd_number,
-                    page_num,
-                )
-                continue
+        ] = []
+        statewide_row: list[str | None] | None = None
+        statewide_headers: list[str | None] | None = None
+        statewide_page_num: int | None = None
 
-            headers_nullable = list(headers)
+        # Walking state for the current logical section.
+        cur_hd_numbers: list[str] | None = None
+        cur_hd_name: str = ""
+        cur_verbatim: str = ""
+        cur_page_num: int = 0
+        cur_headers: list[str | None] | None = None
+        cur_rows: list[list[str | None]] = []
+
+        def _flush_current() -> None:
+            nonlocal cur_hd_numbers, cur_hd_name, cur_verbatim
+            nonlocal cur_page_num, cur_headers, cur_rows
+            if cur_hd_numbers and cur_rows and cur_headers is not None:
+                antelope_pending.append(
+                    (
+                        list(cur_hd_numbers),
+                        cur_hd_name,
+                        cur_verbatim,
+                        cur_page_num,
+                        list(cur_headers),
+                        list(cur_rows),
+                    )
+                )
+            cur_hd_numbers = None
+            cur_hd_name = ""
+            cur_verbatim = ""
+            cur_page_num = 0
+            cur_headers = None
+            cur_rows = []
+
+        for page_num, page in iter_pages(pdf, *_ANTELOPE_PAGES):
+            page_text = extract_text(page)
+            tables = extract_tables(page)
+            for tm in tables:
+                if not tm["headers"] or not _matches_dea_header(tm["headers"]):
+                    continue
+                table_headers = tm["headers"]
+                for data_row in tm["rows"]:
+                    # HD-numbered delimiter: "HD NNN - Name" in first cell.
+                    if _is_any_hd_header_row(data_row):
+                        _flush_current()
+                        first_norm = _normalize_cell(data_row[0]) or ""
+                        m = _HD_HEADING_REGEX.match(first_norm)
+                        if m is None:
+                            continue
+                        cur_hd_numbers = [m.group("num")]
+                        cur_hd_name = m.group("name").strip()
+                        cur_verbatim = page_text
+                        cur_page_num = page_num
+                        cur_headers = table_headers
+                        cur_rows = []
+                        continue
+                    # Portions sub-section delimiter: "Portions of HDs A, B, C ..."
+                    if _is_portions_subsection_row(data_row):
+                        _flush_current()
+                        portions_text = _normalize_cell(data_row[0]) or ""
+                        hd_list = _parse_portions_hd_list(portions_text)
+                        if not hd_list:
+                            _logger.warning(
+                                "antelope p%d: failed to parse Portions HD list "
+                                "from %r — skipping section",
+                                page_num,
+                                portions_text,
+                            )
+                            continue
+                        cur_hd_numbers = hd_list
+                        cur_hd_name = ""
+                        # Preserve the directional qualifier in verbatim_text
+                        # so S03.10 binding generation can decide whether the
+                        # qualifier matters geometrically.
+                        cur_verbatim = portions_text
+                        cur_page_num = page_num
+                        cur_headers = table_headers
+                        cur_rows = []
+                        continue
+                    # Region N footer/header row: skip (not a regulation row).
+                    if _is_region_footer_row(data_row):
+                        continue
+                    # 900-20 row: capture as STATEWIDE on first sighting; else skip.
+                    if _is_900_20_overlay_row(data_row):
+                        if statewide_row is None:
+                            statewide_row = data_row
+                            statewide_headers = table_headers
+                            statewide_page_num = page_num
+                        continue
+                    # Regular regulation row: append to current section.
+                    if cur_hd_numbers is not None:
+                        cur_rows.append(data_row)
+        _flush_current()
+
+        # Emit one DeaSectionExtraction per logical section per HD listed.
+        for (
+            hd_numbers,
+            hd_name,
+            verbatim_text,
+            page_num,
+            section_headers,
+            section_data_rows,
+        ) in antelope_pending:
             page_reference = PageReference(
                 pdf_filename=_PDF_FILENAME_FOR_REF,
                 page_num_1based=page_num,
                 bbox=None,
                 extracted_at=extracted_at,
             )
-            section_windows = _aggregate_section_season_windows(
-                headers_nullable, sp_rows
-            )
-            rows = _rows_to_license_extractions(
-                headers_nullable, sp_rows, page_reference, section_windows
-            )
+            try:
+                rows = _rows_to_license_extractions(
+                    section_headers, section_data_rows, page_reference
+                )
+            except PdfExtractionError as e:
+                raise PdfExtractionError(
+                    f"species=antelope HD={hd_numbers} ({hd_name}) p{page_num}: {e}"
+                ) from e
+            if not rows:
+                continue
             for row in rows:
                 row["extraction_confidence"] = _assign_row_confidence(row, "table")
-
-            sections.append(
-                DeaSectionExtraction(
-                    hd_number=hd_number,
-                    hd_name=hd_name,
-                    species_group="antelope",
-                    license_year=_LICENSE_YEAR,
-                    page_reference=page_reference,
-                    verbatim_text=page_text,
-                    rows=rows,
+            for hd_num in hd_numbers:
+                sections.append(
+                    DeaSectionExtraction(
+                        hd_number=hd_num,
+                        hd_name=hd_name,
+                        species_group="antelope",
+                        license_year=_LICENSE_YEAR,
+                        page_reference=page_reference,
+                        verbatim_text=verbatim_text,
+                        # Shallow copy: each emitted section gets its own list
+                        # but rows themselves are shared (TypedDicts are
+                        # immutable enough for downstream consumers; if a
+                        # consumer mutates a row we want those mutations to
+                        # propagate to all HDs that bind to the same regulation).
+                        rows=list(rows),
+                    )
                 )
-            )
 
         # ------------------------------------------------------------------
-        # Append the antelope statewide overlay (prose-extracted 900-20 row).
+        # STATEWIDE 900-20 antelope overlay: column-faithful row construction.
+        # Per UAT-fix D3+D4+D5+D6 (2026-05-08), the STATEWIDE row uses the
+        # SAME _rows_to_license_extractions machinery as any other antelope
+        # row. The hand-rolled parser was deleted because it remapped the
+        # date column (Aug.15-Nov.08 lives in Season Dates = general, NOT
+        # in Archery Season Dates), dropped the verbatim extras text,
+        # stripped the "Antelope License: " prefix, and stripped commas.
+        # All four of those defects vanish when the row goes through the
+        # same path as per-HD antelope rows.
         # ------------------------------------------------------------------
-        overlay = _extract_statewide_antelope_overlay(pdf, _ANTELOPE_PAGES, extracted_at)
-        for row in overlay["rows"]:
-            row["extraction_confidence"] = _assign_row_confidence(row, "prose")
-        sections.append(overlay)
+        if statewide_row is not None and statewide_headers is not None and statewide_page_num is not None:
+            statewide_page_reference = PageReference(
+                pdf_filename=_PDF_FILENAME_FOR_REF,
+                page_num_1based=statewide_page_num,
+                bbox=None,
+                extracted_at=extracted_at,
+            )
+            statewide_rows = _rows_to_license_extractions(
+                statewide_headers,
+                [statewide_row],
+                statewide_page_reference,
+                is_statewide_overlay=True,
+            )
+            if statewide_rows:
+                # weapon_types override: the extras column ("First and only
+                # choice. ArchEquip only.") is the source-of-truth for the
+                # archery restriction. Per directive Fix 3, weapon_types stays
+                # ["archery"] for STATEWIDE despite the row having coverage
+                # in the general column. The default ["any_legal_weapon"] is
+                # overridden post-construction.
+                statewide_rows[0]["weapon_types"] = ["archery"]
+                # Confidence: directive specifies MEDIUM (a meta-row
+                # summarizing statewide applicability, not a per-HD
+                # regulation). Pass source="prose" through the existing
+                # path which always returns MEDIUM.
+                statewide_rows[0]["extraction_confidence"] = (
+                    _assign_row_confidence(statewide_rows[0], "prose")
+                )
+                # verbatim_text: capture the page text where the 900-20 row
+                # was first seen. The row's first cell alone ("Antelope
+                # License: 900-20") would be too narrow to satisfy ADR-008
+                # for an artifact that downstream stories use as faithfulness
+                # ground truth. Page-level text matches the per-HD antelope
+                # section convention.
+                statewide_page = pdf.pages[statewide_page_num - 1]
+                statewide_verbatim = extract_text(statewide_page)
+                sections.append(
+                    DeaSectionExtraction(
+                        hd_number="STATEWIDE",
+                        hd_name="",
+                        species_group="antelope",
+                        license_year=_LICENSE_YEAR,
+                        page_reference=statewide_page_reference,
+                        verbatim_text=statewide_verbatim,
+                        rows=[statewide_rows[0]],
+                    )
+                )
+        else:
+            raise PdfExtractionError(
+                f"antelope STATEWIDE 900-20 overlay row not found in pp."
+                f"{_ANTELOPE_PAGES[0]}-{_ANTELOPE_PAGES[1]}"
+            )
 
     # Sort deterministically by (species_order, hd_sort_key).
     sections.sort(key=_sort_key)
