@@ -672,17 +672,33 @@ def _find_foreign_state_imports(
     """Walk ``source``'s AST and return human-readable violation strings for any
     import that references a state adapter other than ``allowed_state``.
 
-    Catches all six grammatical forms an import can take in Python:
+    Covers absolute AND relative imports. The relative-import handling assumes
+    the source file lives at ``states/<allowed_state>/<file>.py``, so:
 
-      1. ``from states.<other> import X``
-      2. ``from ingestion.states.<other> import X``
-      3. ``from states import <other>`` — `<other>` is a sub-package alias here
-      4. ``from ingestion.states import <other>`` — same
-      5. ``import states.<other>``
-      6. ``import ingestion.states.<other>``
+    - ``level == 0`` → absolute import; check against the ``states.`` and
+      ``ingestion.states.`` prefixes.
+    - ``level == 1`` → relative within the own-state package
+      (``from . import X``, ``from .helpers import X``); always allowed.
+    - ``level >= 2`` → relative outside the own-state package, accessing a
+      sibling-state. Examples: ``from ..colorado import X`` (level=2,
+      module='colorado') or ``from .. import colorado`` (level=2, module=None,
+      names=['colorado']). The first dotted component of ``module`` (or the
+      alias name when ``module is None``) IS a sibling-package slug — must
+      match ``allowed_state``.
 
-    Forms 3 and 4 are the bypass paths that must be checked against
-    ``node.names`` (the imported aliases), not the ``module`` field.
+    Catches eight grammatical import forms in total:
+
+      Absolute (level=0):
+        1. ``from states.<other> import X``
+        2. ``from ingestion.states.<other> import X``
+        3. ``from states import <other>``
+        4. ``from ingestion.states import <other>``
+        5. ``import states.<other>``
+        6. ``import ingestion.states.<other>``
+
+      Relative (level>=2):
+        7. ``from ..<other> import X``  /  ``from ..<other>.<sub> import X``
+        8. ``from .. import <other>``
 
     Returns a list of violation strings (one per offending import). Empty
     list means clean.
@@ -700,6 +716,37 @@ def _find_foreign_state_imports(
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             module = node.module or ""
+            level = node.level
+
+            # ---- Relative imports (level >= 1) ----
+            if level >= 1:
+                # level == 1 is relative within the own-state package
+                # (`from . import X`, `from .helpers import X`) — always allow.
+                if level == 1:
+                    continue
+                # level >= 2: relative outside the own-state package.
+                # Reconstruct a human-readable form for error messages.
+                dots = "." * level
+                if module:
+                    # Form 7: `from ..<other> import X` (or .<other>.<sub>)
+                    rendered = f"from {dots}{module} import ..."
+                    _check_state_slug(
+                        module.split(".")[0],
+                        rendered,
+                        node.lineno,
+                    )
+                else:
+                    # Form 8: `from .. import <other>` — each alias is a
+                    # sibling-package slug.
+                    for alias in node.names:
+                        _check_state_slug(
+                            alias.name,
+                            f"from {dots} import {alias.name}",
+                            node.lineno,
+                        )
+                continue
+
+            # ---- Absolute imports (level == 0) ----
             # Forms 1 + 2: `from <prefix>.<state>.<sub> import X`
             if module.startswith("states."):
                 _check_state_slug(
@@ -732,7 +779,8 @@ def _find_foreign_state_imports(
                     )
 
         elif isinstance(node, ast.Import):
-            # Forms 5 + 6: `import states.<state>` / `import ingestion.states.<state>`
+            # Forms 5 + 6: `import states.<state>` / `import ingestion.states.<state>`.
+            # `import` statements have no `level` attribute — they are always absolute.
             for alias in node.names:
                 name = alias.name
                 if name.startswith("states."):
@@ -846,6 +894,64 @@ class TestNoForeignStateAdapterImports:
                 "from pathlib import Path",
                 "from ingestion.lib.pdf import open_pdf",
                 "import ingestion.lib.pdf as pdf",
+            ]
+        )
+        violations = _find_foreign_state_imports(clean, self._ALLOWED_STATE)
+        assert violations == [], violations
+
+    def test_guard_catches_relative_dotted_form(self) -> None:
+        # Form 7 (relative bypass — was UNCAUGHT before this fix):
+        # `from ..<other> import X` — for a file at states/montana/X.py, this
+        # resolves to states.<other>.X.
+        violations = _find_foreign_state_imports(
+            "from ..colorado import load_hds", self._ALLOWED_STATE
+        )
+        assert any(
+            "from ..colorado" in v for v in violations
+        ), f"BUG: relative `from ..colorado` not caught: {violations}"
+
+    def test_guard_catches_relative_deep_dotted_form(self) -> None:
+        # Form 7 (deep): `from ..<other>.<sub> import X` — resolves to
+        # states.<other>.<sub>.X.
+        violations = _find_foreign_state_imports(
+            "from ..colorado.fetch_pdfs import fetch_x", self._ALLOWED_STATE
+        )
+        assert any(
+            "from ..colorado.fetch_pdfs" in v for v in violations
+        ), violations
+
+    def test_guard_catches_relative_bare_from_form(self) -> None:
+        # Form 8 (relative bypass — was UNCAUGHT before this fix):
+        # `from .. import <other>` — `<other>` is a sibling-package slug in
+        # node.names, not in node.module.
+        violations = _find_foreign_state_imports(
+            "from .. import colorado", self._ALLOWED_STATE
+        )
+        assert any(
+            "from .. import colorado" in v for v in violations
+        ), f"BUG: relative `from .. import colorado` not caught: {violations}"
+
+    def test_guard_allows_relative_within_own_state(self) -> None:
+        # `from . import X` and `from .helpers import X` are level=1 imports
+        # within the own-state package. Always allowed.
+        clean = "\n".join(
+            [
+                "from . import constants",
+                "from .helpers import normalize",
+                "from .submodule.sub import deep_helper",
+            ]
+        )
+        violations = _find_foreign_state_imports(clean, self._ALLOWED_STATE)
+        assert violations == [], violations
+
+    def test_guard_allows_relative_to_own_state_via_double_dot(self) -> None:
+        # `from .. import montana` and `from ..montana import X` resolve back to
+        # the own-state package — must NOT be flagged.
+        clean = "\n".join(
+            [
+                "from .. import montana",
+                "from ..montana import fetch_pdfs",
+                "from ..montana.helpers import util",
             ]
         )
         violations = _find_foreign_state_imports(clean, self._ALLOWED_STATE)
