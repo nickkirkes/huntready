@@ -1,0 +1,32 @@
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_9a9554132d1ded::t_0837263344ba37 340-342
+  s_9a9554132d1ded::t_eca523dc7d03d8 346,348
+  s_9a9554132d1ded::t_7fddc9bfb84c42 3,8
+  s_9a9554132d1ded::t_a3cfb8b4f59308 335-336
+  s_9a9554132d1ded::t_2def81e6a9537b 351-352
+CLAUDE.md
+  s_9a9554132d1ded::t_3f1c1f73aaf8aa 11
+docs/planning/README.md
+  s_9a9554132d1ded::t_b7b423e34d8acf 32
+  s_9a9554132d1ded::t_d1941241a26425 4
+  s_9a9554132d1ded::t_483c710c9f0984 95-102
+  s_9a9554132d1ded::t_fd734e4336a27b 41
+docs/planning/epics/E03-confidence-findings/S03.3-uat-fixes.md
+  s_9a9554132d1ded::t_ac4c522ad7ad63 1-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "9fa27f36bc70ce72100ad4204da5db0d56a94f0b",
+  "prompts": {},
+  "sessions": {
+    "s_9a9554132d1ded": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
