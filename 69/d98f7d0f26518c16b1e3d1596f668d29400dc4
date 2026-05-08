@@ -1,0 +1,20 @@
+ingestion/tests/test_extract_dea.py
+  s_b7633879e96af8::t_57431bbfcc1e43 675-701,719-749,782-783
+  s_b7633879e96af8::t_6a9b8d92c7e8eb 902-959
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "69d98f7d0f26518c16b1e3d1596f668d29400dc4",
+  "prompts": {},
+  "sessions": {
+    "s_b7633879e96af8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "673c5f41-f87a-47d1-8b78-f7f1628bf6a6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
