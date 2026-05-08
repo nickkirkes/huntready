@@ -148,6 +148,36 @@ The wrapper `ingestion/ingestion/lib/pdf.py::extract_tables` calls `find_tables(
 
 Surfaced by S03.2 implementation on 2026-05-05.
 
+### FWP DEA-style tables: one table per page, not per regulation unit
+
+The Montana DEA (Deer/Elk/Antelope) regulations PDF — and likely other state F&W table-formatted booklets — does NOT structure regulation tables as one-table-per-HD/unit. `pdfplumber.find_tables()` returns ONE TABLE PER PAGE, with HD-section delimiters embedded as data rows whose first cell matches `"HD NNN - Name"`. Multi-HD pages contain multiple such delimiter rows.
+
+**Symptom:** A state adapter assuming one-table-per-HD silently truncates every HD's data after the first delimiter row, OR silently merges multiple HDs into one section. Both failures surface only at downstream validation, not at extraction time.
+
+**Fix:** HD-level slicing must walk data rows looking for the heading regex, then accumulate rows until the next heading. Multi-page HDs (continuations) need bounded lookahead capped at 2–3 pages — do NOT scan unboundedly to "find the end." `pdfplumber.find_tables()` returning 1 table does not mean 1 HD's worth of data; it may contain 5 HDs on one page.
+
+Reference implementation: `ingestion/states/montana/extract_dea.py::_slice_hd_rows` and `::_extract_hd_table` (S03.3, 2026-05-08).
+
+### FWP tables use `"-"` as absence sentinel — applies to ALL nullable cells, not just season columns
+
+FWP DEA table cells use the literal hyphen `"-"` to mean "not applicable / no value here." This applies to season-coverage columns (`EARLY SEASON DATES`, `ARCHERY ONLY SEASON DATES`, `GENERAL SEASON DATES`, `HERITAGE MUZZLELOADER SEASON DATES`, `LATE SEASON DATES`) AND to other nullable string fields: `APPLY BY DATE`, `QUOTA RANGE`, `OPPORTUNITY SPECIFIC DETAILS AND/OR RESTRICTIONS`. Likely extends to other FWP booklets.
+
+**Symptom:** A naive `_normalize_cell` that only strips whitespace returns `"-"` — a non-empty string — contaminating the artifact. S03.3 saw 675 / 971 / 521 leaked sentinel rows in `apply_by` / `quota_range` / `extras` before the fix. Downstream code using `if row["apply_by"]:` treats the sentinel as a real value (violates ADR-001's "absent data is explicit null").
+
+**Fix:** Both season-coverage logic AND nullable string field assignment must apply an `_is_absent_cell(cell)` check treating `None` AND `"-"` (and whitespace-padded variants like `" - "`) as absent. The predicate normalizes to `None` before any consumer reads the cell.
+
+Reference implementation: `ingestion/states/montana/extract_dea.py::_is_season_cell_absent` (S03.3, 2026-05-08) — despite the name it is used for non-season fields too; the name is a historical artifact.
+
+### pdfplumber sub-rows under a merged-cell license code return `None` — implement carry-forward
+
+The DEA PDF (and likely many state regulation tables) groups multiple opportunity sub-rows under a single license code via merged cells. pdfplumber returns `None` in the LICENSE/PERMIT column for every sub-row — the merged cell's value appears only on the first row of the group.
+
+**Symptom:** Naive per-row processing emits sub-rows with `license_code=None`, which fails fail-loud guards or produces NULL primary-key violations downstream. The A/B-asymmetric coverage signal is also lost — sub-rows that differ only in `season_coverage` end up rejected rather than recorded as separate season rows.
+
+**Fix:** Track `last_license_code` (and `last_opportunity` for sub-opportunity rows) across rows; inherit the prior value whenever the LICENSE/PERMIT cell is `None`. This pattern enables correct A/B-asymmetric coverage: one license can have multiple sub-rows with differing `season_coverage` values, all sharing the same license code. S03.7's `license_season` link table depends on this carry-forward.
+
+Reference implementation: `ingestion/states/montana/extract_dea.py::_rows_to_license_extractions` — `last_license_code` and `last_opportunity` carry-forward variables (S03.3, 2026-05-08).
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
