@@ -942,11 +942,23 @@ def _rows_to_license_extractions(
         # a license row). The species-banner detector below catches the strict
         # ['DEER'/'ELK'/'ANTELOPE', None, ...] form; this filter generalizes
         # to any single-cell label whose remaining cells are empty.
-        if len(row) > 1 and _normalize_cell(row[0]) is not None and all(
-            _normalize_cell(cell) is None for cell in row[1:]
-        ):
-            _logger.debug("skipping label-only row: %r", _normalize_cell(row[0]))
-            continue
+        #
+        # IMPORTANT: filter ONLY rows whose first cell does NOT contain an
+        # HD-code pattern (\b\d{3}-\d{2}\b). A row like "Deer B License:
+        # 124-00" with all other cells None is almost certainly a pdfplumber
+        # parse failure on a real regulation row, NOT a label — the HD code
+        # is the primary key. Such rows fall through to the carry-forward
+        # logic and fail loud at the missing-OPPORTUNITY guard per ADR-001,
+        # giving an operator-visible signal rather than silent data loss.
+        if len(row) > 1:
+            first_cell = _normalize_cell(row[0])
+            if (
+                first_cell is not None
+                and not re.search(r"\b\d{3}-\d{2}\b", first_cell)
+                and all(_normalize_cell(cell) is None for cell in row[1:])
+            ):
+                _logger.debug("skipping label-only row: %r", first_cell)
+                continue
 
         # Skip species-banner rows (e.g. ['DEER', None, ...], ['ELK', None, ...]).
         if _is_species_banner_row(row):

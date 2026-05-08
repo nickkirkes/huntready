@@ -993,6 +993,27 @@ class TestLabelOnlyRowFilter:
             r["opportunity"] == "Antlerless" for r in result
         )
 
+    def test_hd_coded_label_only_row_fails_loud_not_filtered(self) -> None:
+        """A row with an HD-code in cell 0 but all other cells None is NOT filtered.
+
+        Such a row is almost certainly a pdfplumber parse failure on a real
+        regulation row. Silently filtering would mask data loss; the row
+        instead falls through to the carry-forward logic and fails loud at
+        the missing-OPPORTUNITY guard per ADR-001.
+        """
+        header_row: list[str | None] = [
+            "LICENSE/PERMIT", "OPPORTUNITY", "GENERAL SEASON DATES",
+        ]
+        data_rows: list[list[str | None]] = [
+            ["Deer B License: 124-00", None, None],  # HD code present, all else None
+        ]
+        page_ref = _make_page_reference()
+        section_windows = _aggregate_section_season_windows(header_row, data_rows)
+        with pytest.raises(PdfExtractionError, match="missing OPPORTUNITY"):
+            _rows_to_license_extractions(
+                header_row, data_rows, page_ref, section_windows
+            )
+
     def test_label_only_row_does_not_corrupt_opportunity_carryforward(self) -> None:
         """Filtered label rows do not corrupt the opportunity carry-forward state."""
         header_row: list[str | None] = [
