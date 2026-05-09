@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-05-08
-**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 3/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives. S03.3 RE-OPENED 2026-05-08 after UAT failure — six defects, fix directive at `epics/E03-confidence-findings/S03.3-uat-fixes.md`)
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 4/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives, S03.3 DEA booklet extraction (closed 2026-05-08 after one UAT-driven fix cycle))
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -29,7 +29,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
 | E02 | Montana Geometry Ingestion | Complete (audited) | 2026-04-28 | 2026-05-03 | 8 |
-| E03 | Montana Regulation Text Ingestion | In Progress (3/13 stories complete; S03.3 RE-OPENED after UAT failure 2026-05-08) | 2026-05-03 | — | 13 |
+| E03 | Montana Regulation Text Ingestion | In Progress (4/13 stories complete; S03.3 closed 2026-05-08 after UAT-driven fix cycle) | 2026-05-03 | — | 13 |
 
 ### E03 Story Status
 
@@ -38,7 +38,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | S03.0 | Schema preparation — license_season + geometry.legal_description + geometry.kind='state' + Montana state geometry | Complete | Implementation |
 | S03.1 | PDF fetch infrastructure | Complete | Implementation |
 | S03.2 | PDF extraction primitives (shared library) | Complete | Implementation |
-| S03.3 | DEA booklet extraction (deer, elk, antelope) | RE-OPENED 2026-05-08 (UAT failed; 6 defects; see `epics/E03-confidence-findings/S03.3-uat-fixes.md`) | Implementation (UAT: yes) |
+| S03.3 | DEA booklet extraction (deer, elk, antelope) | Complete (UAT passed 2026-05-08 after one fix cycle) | Implementation (UAT: yes) |
 | S03.4 | Black Bear booklet extraction + correction PDF handling | Not Started | Implementation (UAT: yes) |
 | S03.5 | Legal Descriptions extraction | Not Started | Implementation (UAT: yes) |
 | S03.6 | regulation_record ingestion | Not Started | Implementation |
@@ -92,14 +92,14 @@ Documentation-debt items (non-blocking):
 
 ## Next Actions
 
-- **S03.3 RE-OPENED 2026-05-08 after UAT failure.** PM ran the UAT workbench against deer HD 124 / elk HD 170 / antelope HD 690 / antelope STATEWIDE 900-20 and found six defects. Two are P0 (D1: per-row General Season window divergence collapsed to first-row's value across ≥143 sections; D2: Region 7 "Portions of HDs ..." sub-sections absorbed into HD 690 with 4 phantom rows, and the actual Region 7 portions sub-sections entirely missing). Four are P1-P3 (D3-D6) on the STATEWIDE 900-20 row's column-position semantics, dropped extras, and consistency with per-HD rows. **Implementation directive at [`docs/planning/epics/E03-confidence-findings/S03.3-uat-fixes.md`](epics/E03-confidence-findings/S03.3-uat-fixes.md)** — three code-level fixes, confirmed Region 7 emission strategy (option (a): one section per listed HD with rows duplicated; license_code disambiguates at S03.6).
-- **Implementation owns: S03.3 fix-and-re-extract** on `feat/S03.3-dea-booklet-extraction` (continue, do NOT branch off). Per-row `season_windows`; Region 7 portions slicer; column-faithful STATEWIDE row. Re-extract `dea-2026.json` after fix; existing 74 tests stay green plus new regression tests per the directive.
-- **PM owns post-fix:** re-run UAT workbench against re-extracted artifact + the four original candidates + one Region 7 portions HD; flip the four re-opened ACs once defects clear; close S03.3 with single PM commit.
-- **S03.4 (Black Bear booklet extraction + correction PDF handling) is BLOCKED on S03.3 re-close.** S03.4 inherits the per-row windows + statewide-row patterns from S03.3; starting it before the corrections land would propagate the same defects. Resume S03.4 only after S03.3 closes.
-- **S03.6+ planning inputs from S03.3 closure note (still valid):** (a) per-row `page_reference` is currently section-starting-page; multi-page HDs need per-row page accuracy if S03.6 cares (deferred follow-up); (b) row-level `weapon_types` defaults to `["any_legal_weapon"]` — refine after S03.7 review (deferred follow-up). The third deferred follow-up (window divergence per row) was promoted to P0 D1 and is being fixed in re-open.
-- **S03.7 inputs from S03.3 (still valid):** A/B asymmetric `season_coverage` is the load-bearing signal for `license_season` link-table writes. 143 HDs exhibit the pattern.
-- **S03.8 inputs from S03.3 (will be revised post-fix):** statewide row's `quota_range` and `license_code` will keep prefixes/commas after Fix 4 (consistency with per-HD rows). Don't pin S03.8 patterns to current artifact values.
-- After S03.3 re-closes: S03.4 → S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12.
+- **S03.3 closed 2026-05-08 after UAT-driven fix cycle.** Original PR shipped 12 commits and cleared code review; PM-run UAT against deer HD 124 / elk HD 170 / antelope HD 690 / antelope STATEWIDE 900-20 surfaced six defects (D1 per-row windows; D2 Region 7 portions absorption; D3-D6 STATEWIDE column-position + extras + prefix/comma). Implementation agent applied three fixes in a single new commit (`cb3fb24`); PM re-ran the workbench and confirmed all six defects resolved. Final artifact: 272 sections / 1190 rows (+8 sections / +12 rows from Region 7 portions emission). Test suite: 488 passed + 1 skipped. Four pdfplumber pitfalls in `.roughly/known-pitfalls.md` (one-table-per-page; `-` as universal absence sentinel; merged-cell carry-forward; the new "first-observation-wins is interpretive, not faithful").
+- **Begin S03.4 (Black Bear booklet extraction + correction PDF handling) — UNBLOCKED.** Second per-booklet extractor; precondition (correction URL) was resolved 2026-05-07; manifests on disk. UAT story; faithfulness review against the Black Bear PDF + correction PDF for ≥3 sampled BMUs. Date-arbitrated three-pass architecture (base extraction → correction extraction → per-cell merge with MAX `publication_date` wins); ADR-017 §4 correction-touched-rows demote-one-tier rule must be unit-tested. **Inherits the new S03.3 patterns**: per-row `season_windows`, `_parse_portions_hd_list`-style slicer if applicable to BMU regional sub-sections, column-faithful row construction. Carry forward the documented S03.3 lesson — UAT spot-checks catch what code review can't.
+- **S03.4 inherits one small docstring polish** from S03.3 (deferred): the extras-only `re.sub(r"\s+", " ", ...)` collapse rule that the UAT fix added at `extract_dea.py:1019-1024` is documented inline at the write-site but not in the module-level "Cleanup rules" docstring section. Pick up when next touching the module.
+- **S03.3 → S03.5 inherit from S03.2** (recorded in epic): byte-exact text path (`page.chars`) is available as a future helper if needed — to be added as `extract_text_chars_raw(page) -> str` rather than retrofitted onto `extract_text`.
+- **S03.6 + S03.7 inputs from S03.3 (carry forward):** (a) per-row `page_reference` is currently section-starting-page; multi-page HDs need per-row page accuracy if S03.6 cares (deferred follow-up); (b) row-level `weapon_types` defaults to `["any_legal_weapon"]` — refine after S03.7 review (deferred follow-up). The third pre-UAT deferred item (window divergence per row) was promoted to P0 D1 and resolved in `cb3fb24`.
+- **S03.7 inputs from S03.3 (still valid; pattern locked):** A/B asymmetric `season_coverage` is the load-bearing signal for `license_season` link-table writes. 143 HDs exhibit the pattern. Per-row `season_windows` (post-fix) means S03.7 sees per-license windows directly without reconstructing them.
+- **S03.8 inputs from S03.3 (post-fix, locked):** STATEWIDE 900-20 row's `quota_range="1-7,500"` (comma kept), `license_code="Antelope License: 900-20"` (prefix kept), `quota=5600`, `weapon_types=["archery"]`, `season_coverage.general=true` (column-faithful). The `900-20` STATEWIDE antelope row is the V1 antelope `draw_spec` input.
+- After S03.4: S03.5 → entity ingestion in S03.6-S03.9 → binding generation in S03.10 → calibration audit in S03.11 → M1 UAT in S03.12.
 - The `m1` tag pushes at S03.12's final commit, alongside `git rm -r docs/planning/epics/E03-confidence-findings/` per ADR-017's working-notes deletion policy.
 
 ---
