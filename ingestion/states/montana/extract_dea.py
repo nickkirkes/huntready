@@ -1519,58 +1519,68 @@ def extract(pdf_path: Path) -> list["DeaSectionExtraction"]:
         # All four of those defects vanish when the row goes through the
         # same path as per-HD antelope rows.
         # ------------------------------------------------------------------
-        if statewide_row is not None and statewide_headers is not None and statewide_page_num is not None:
-            statewide_page_reference = PageReference(
-                pdf_filename=_PDF_FILENAME_FOR_REF,
-                page_num_1based=statewide_page_num,
-                bbox=None,
-                extracted_at=extracted_at,
-            )
-            statewide_rows = _rows_to_license_extractions(
-                statewide_headers,
-                [statewide_row],
-                statewide_page_reference,
-                is_statewide_overlay=True,
-            )
-            if statewide_rows:
-                # weapon_types override: the extras column ("First and only
-                # choice. ArchEquip only.") is the source-of-truth for the
-                # archery restriction. Per directive Fix 3, weapon_types stays
-                # ["archery"] for STATEWIDE despite the row having coverage
-                # in the general column. The default ["any_legal_weapon"] is
-                # overridden post-construction.
-                statewide_rows[0]["weapon_types"] = ["archery"]
-                # Confidence: directive specifies MEDIUM (a meta-row
-                # summarizing statewide applicability, not a per-HD
-                # regulation). Pass source="prose" through the existing
-                # path which always returns MEDIUM.
-                statewide_rows[0]["extraction_confidence"] = (
-                    _assign_row_confidence(statewide_rows[0], "prose")
-                )
-                # verbatim_text: capture the page text where the 900-20 row
-                # was first seen. The row's first cell alone ("Antelope
-                # License: 900-20") would be too narrow to satisfy ADR-008
-                # for an artifact that downstream stories use as faithfulness
-                # ground truth. Page-level text matches the per-HD antelope
-                # section convention.
-                statewide_page = pdf.pages[statewide_page_num - 1]
-                statewide_verbatim = extract_text(statewide_page)
-                sections.append(
-                    DeaSectionExtraction(
-                        hd_number="STATEWIDE",
-                        hd_name="",
-                        species_group="antelope",
-                        license_year=_LICENSE_YEAR,
-                        page_reference=statewide_page_reference,
-                        verbatim_text=statewide_verbatim,
-                        rows=[statewide_rows[0]],
-                    )
-                )
-        else:
+        if statewide_row is None or statewide_headers is None or statewide_page_num is None:
             raise PdfExtractionError(
                 f"antelope STATEWIDE 900-20 overlay row not found in pp."
                 f"{_ANTELOPE_PAGES[0]}-{_ANTELOPE_PAGES[1]}"
             )
+        statewide_page_reference = PageReference(
+            pdf_filename=_PDF_FILENAME_FOR_REF,
+            page_num_1based=statewide_page_num,
+            bbox=None,
+            extracted_at=extracted_at,
+        )
+        statewide_rows = _rows_to_license_extractions(
+            statewide_headers,
+            [statewide_row],
+            statewide_page_reference,
+            is_statewide_overlay=True,
+        )
+        # Fail-loud per ADR-001: if the captured 900-20 row is present in the
+        # source but produces zero extractions (e.g., every cell normalizes
+        # to absent — pdfplumber returned None across the row, or some filter
+        # inside _rows_to_license_extractions fired unexpectedly), the
+        # STATEWIDE section would silently vanish from the artifact.
+        # Downstream stories rely on STATEWIDE existing — never silently drop.
+        if not statewide_rows:
+            raise PdfExtractionError(
+                f"antelope STATEWIDE 900-20 overlay row was located on "
+                f"p{statewide_page_num} but produced zero extractions; "
+                f"raw row was {statewide_row!r} — inspect the source page"
+            )
+        # weapon_types override: the extras column ("First and only
+        # choice. ArchEquip only.") is the source-of-truth for the
+        # archery restriction. Per directive Fix 3, weapon_types stays
+        # ["archery"] for STATEWIDE despite the row having coverage
+        # in the general column. The default ["any_legal_weapon"] is
+        # overridden post-construction.
+        statewide_rows[0]["weapon_types"] = ["archery"]
+        # Confidence: directive specifies MEDIUM (a meta-row
+        # summarizing statewide applicability, not a per-HD
+        # regulation). Pass source="prose" through the existing
+        # path which always returns MEDIUM.
+        statewide_rows[0]["extraction_confidence"] = (
+            _assign_row_confidence(statewide_rows[0], "prose")
+        )
+        # verbatim_text: capture the page text where the 900-20 row
+        # was first seen. The row's first cell alone ("Antelope
+        # License: 900-20") would be too narrow to satisfy ADR-008
+        # for an artifact that downstream stories use as faithfulness
+        # ground truth. Page-level text matches the per-HD antelope
+        # section convention.
+        statewide_page = pdf.pages[statewide_page_num - 1]
+        statewide_verbatim = extract_text(statewide_page)
+        sections.append(
+            DeaSectionExtraction(
+                hd_number="STATEWIDE",
+                hd_name="",
+                species_group="antelope",
+                license_year=_LICENSE_YEAR,
+                page_reference=statewide_page_reference,
+                verbatim_text=statewide_verbatim,
+                rows=[statewide_rows[0]],
+            )
+        )
 
     # Sort deterministically by (species_order, hd_sort_key).
     sections.sort(key=_sort_key)

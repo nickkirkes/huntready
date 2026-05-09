@@ -577,6 +577,73 @@ class TestStatewideOverlayColumnFaithful:
         assert with_flag[0]["license_code"] == "Antelope License: 900-20"
 
 
+class TestStatewideOverlayFailLoudOnEmptyExtraction:
+    """If the 900-20 row is captured during the antelope walk but
+    ``_rows_to_license_extractions(..., is_statewide_overlay=True)`` returns
+    ``[]``, the orchestrator must raise rather than silently dropping the
+    STATEWIDE section. ADR-001 fail-loud contract.
+
+    Reachability: in the live DEA PDF the 900-20 row has 8 populated cells
+    so ``_rows_to_license_extractions`` always returns one extraction. The
+    empty-result path is reachable only via a future PDF revision that
+    drops cells (pdfplumber returns None across the row), or via internal
+    filter changes that accidentally apply to the statewide path. This
+    test locks the fail-loud guard against regression to silent drop.
+    """
+
+    def test_empty_statewide_extractions_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Mock ``_rows_to_license_extractions`` to return ``[]`` when called
+        with ``is_statewide_overlay=True`` while letting per-HD calls pass
+        through normally. Run ``extract()`` against the real DEA PDF and
+        assert it raises ``PdfExtractionError`` with a descriptive message.
+        """
+        if not _ARTIFACT_PATH.exists():
+            # Need the live DEA PDF to drive extract(). The PDF lives in
+            # the same fixtures dir; if the artifact is missing the PDF
+            # almost certainly is too — skip cleanly.
+            pytest.skip("integration — requires live DEA PDF fixture")
+        pdf_path = (
+            Path(__file__).resolve().parents[2]
+            / "ingestion"
+            / "states"
+            / "montana"
+            / "fixtures"
+            / "mt-fwp-dea-2026-booklet-2026-04-27.pdf"
+        )
+        if not pdf_path.exists():
+            pytest.skip(f"live DEA PDF missing at {pdf_path}")
+
+        # Replace _rows_to_license_extractions: per-HD calls return
+        # one synthetic extraction each (so per-HD sections still
+        # build); the STATEWIDE call returns [].
+        original = extract_dea._rows_to_license_extractions
+
+        def stub(
+            headers: list[str | None],
+            data_rows: list[list[str | None]],
+            page_reference: PageReference,
+            *,
+            is_statewide_overlay: bool = False,
+        ) -> list[DeaRowExtraction]:
+            if is_statewide_overlay:
+                return []
+            return original(
+                headers, data_rows, page_reference,
+                is_statewide_overlay=is_statewide_overlay,
+            )
+
+        monkeypatch.setattr(
+            extract_dea, "_rows_to_license_extractions", stub
+        )
+        with pytest.raises(
+            PdfExtractionError,
+            match=r"STATEWIDE 900-20.*produced zero extractions",
+        ):
+            extract_dea.extract(pdf_path)
+
+
 class TestPortionsHelpers:
     """Unit tests for the Portions sub-section parsing helpers added by D2."""
 
