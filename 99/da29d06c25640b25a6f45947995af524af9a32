@@ -1,0 +1,23 @@
+docs/plans/S03.3-dea-booklet-extraction-plan.md
+  s_b7633879e96af8::t_88b9c7c026d745 565-572
+ingestion/tests/test_extract_dea.py
+  s_b7633879e96af8::t_35c269d0922253 580-644
+ingestion/states/montana/extract_dea.py
+  s_b7633879e96af8::t_1c199d06f0be93 1522,1527-1583
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "99da29d06c25640b25a6f45947995af524af9a32",
+  "prompts": {},
+  "sessions": {
+    "s_b7633879e96af8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "673c5f41-f87a-47d1-8b78-f7f1628bf6a6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
