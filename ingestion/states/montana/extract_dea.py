@@ -41,6 +41,25 @@ Cleanup rules (applied only to structured ``rows`` cells, never to
         - "262-50" is NOT rejoined (digit neighbors).
         - "ARCHERY-\\nONLY" is NOT rejoined (uppercase neighbors).
 
+  Extras-column whitespace collapse (applied AFTER cell padding, ONLY to the
+  "OPPORTUNITY SPECIFIC DETAILS AND/OR RESTRICTIONS" column at the
+  ``_rows_to_license_extractions`` write-site):
+      ``re.sub(r'\\s+', ' ', normalized_extras)``
+      Collapses ALL whitespace runs (1+ characters) — including single
+      newlines — to a single space. The DEA extras column embeds
+      multi-sentence prose with ``\\n`` between sentences (e.g. the 900-20
+      row's "First and only choice.\\nArchEquip only."); the natural reading
+      is a single space-separated paragraph. This rule is more aggressive
+      than the cell-padding ``\\s{3,}`` rule above (which only collapses
+      runs of 3+) because extras is the only column where
+      single-newline-as-sentence-separator is the dominant pattern. Applied
+      only to extras — NOT to ``_normalize_cell`` globally — because
+      preservation of single newlines elsewhere is required by the
+      ``_HD_HEADING_REGEX`` MULTILINE detector. Surfaced by S03.3 UAT fix
+      cycle 2026-05-08; locked at the artifact level by
+      ``TestStatewideOverlayColumnFaithful`` and indirectly by
+      ``TestArtifactRegion7Portions``.
+
   Empty cells:
       ``_normalize_cell`` returns ``None`` (not ``""``) for cells that are
       ``None``, empty, or whitespace-only. Per ADR-001, absent data is
@@ -53,6 +72,7 @@ Cleanup rules (applied only to structured ``rows`` cells, never to
 # walk at CI time.
 
 import argparse
+import copy
 import json
 import logging
 import re
@@ -1471,12 +1491,20 @@ def extract(pdf_path: Path) -> list["DeaSectionExtraction"]:
                         license_year=_LICENSE_YEAR,
                         page_reference=page_reference,
                         verbatim_text=verbatim_text,
-                        # Shallow copy: each emitted section gets its own list
-                        # but rows themselves are shared (TypedDicts are
-                        # immutable enough for downstream consumers; if a
-                        # consumer mutates a row we want those mutations to
-                        # propagate to all HDs that bind to the same regulation).
-                        rows=list(rows),
+                        # Deep copy each row per emitted section. The
+                        # DeaRowExtraction TypedDict has nested mutable
+                        # structures (season_coverage, season_windows,
+                        # weapon_types, page_reference); sharing those across
+                        # HD sections that came from the same Portions
+                        # sub-section would create an aliasing footgun where a
+                        # downstream consumer's in-place transform on one HD
+                        # silently leaks to siblings. The shared-regulation
+                        # semantic (HDs 700/701/703 in the same Portions block
+                        # all bind to the same regulation_record) is enforced
+                        # at S03.6 ingestion via license_code dedup, not via
+                        # Python object aliasing here. Cost is trivial (~30
+                        # rows total across all V1 Region 7 portions).
+                        rows=[copy.deepcopy(r) for r in rows],
                     )
                 )
 
