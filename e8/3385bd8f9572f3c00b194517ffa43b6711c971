@@ -1,0 +1,22 @@
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_b7633879e96af8::t_c867ec8d7ec4b0 337
+docs/plans/S03.3-dea-booklet-extraction-plan.md
+  s_b7633879e96af8::t_36bb864dc178de 270,276-278,281-282,284-301,303-304,306
+  s_b7633879e96af8::t_f9aa0936f760ad 318-320,323-335,337-341,343-350,352-354,356
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "e83385bd8f9572f3c00b194517ffa43b6711c971",
+  "prompts": {},
+  "sessions": {
+    "s_b7633879e96af8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "673c5f41-f87a-47d1-8b78-f7f1628bf6a6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
