@@ -1,0 +1,25 @@
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_9a9554132d1ded::t_d6c81f9f8ea4ae 351
+CLAUDE.md
+  s_9a9554132d1ded::t_e0824b7b460d51 11
+ingestion/states/montana/extract_dea.py
+  s_9a9554132d1ded::t_18969e6cce6b67 1494-1507
+  s_9a9554132d1ded::t_5305c0c3ba71a4 44-62
+  s_9a9554132d1ded::t_08c125a429f1da 75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.1",
+  "base_commit_sha": "e8aa15347da5d4e41810599e9f945b9a3240e6b7",
+  "prompts": {},
+  "sessions": {
+    "s_9a9554132d1ded": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
