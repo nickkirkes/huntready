@@ -148,6 +148,44 @@ The wrapper `ingestion/ingestion/lib/pdf.py::extract_tables` calls `find_tables(
 
 Surfaced by S03.2 implementation on 2026-05-05.
 
+### FWP DEA-style tables: one table per page, not per regulation unit
+
+The Montana DEA (Deer/Elk/Antelope) regulations PDF — and likely other state F&W table-formatted booklets — does NOT structure regulation tables as one-table-per-HD/unit. `pdfplumber.find_tables()` returns ONE TABLE PER PAGE, with HD-section delimiters embedded as data rows whose first cell matches `"HD NNN - Name"`. Multi-HD pages contain multiple such delimiter rows.
+
+**Symptom:** A state adapter assuming one-table-per-HD silently truncates every HD's data after the first delimiter row, OR silently merges multiple HDs into one section. Both failures surface only at downstream validation, not at extraction time.
+
+**Fix:** HD-level slicing must walk data rows looking for the heading regex, then accumulate rows until the next heading. Multi-page HDs (continuations) need bounded lookahead capped at 2–3 pages — do NOT scan unboundedly to "find the end." `pdfplumber.find_tables()` returning 1 table does not mean 1 HD's worth of data; it may contain 5 HDs on one page.
+
+Reference implementation: `ingestion/states/montana/extract_dea.py::_slice_hd_rows` and `::_extract_hd_table` (S03.3, 2026-05-08).
+
+### FWP tables use `"-"` as absence sentinel — applies to ALL nullable cells, not just season columns
+
+FWP DEA table cells use the literal hyphen `"-"` to mean "not applicable / no value here." This applies to season-coverage columns (`EARLY SEASON DATES`, `ARCHERY ONLY SEASON DATES`, `GENERAL SEASON DATES`, `HERITAGE MUZZLELOADER SEASON DATES`, `LATE SEASON DATES`) AND to other nullable string fields: `APPLY BY DATE`, `QUOTA RANGE`, `OPPORTUNITY SPECIFIC DETAILS AND/OR RESTRICTIONS`. Likely extends to other FWP booklets.
+
+**Symptom:** A naive `_normalize_cell` that only strips whitespace returns `"-"` — a non-empty string — contaminating the artifact. S03.3 saw 675 / 971 / 521 leaked sentinel rows in `apply_by` / `quota_range` / `extras` before the fix. Downstream code using `if row["apply_by"]:` treats the sentinel as a real value (violates ADR-001's "absent data is explicit null").
+
+**Fix:** Both season-coverage logic AND nullable string field assignment must apply an `_is_absent_cell(cell)` check treating `None` AND `"-"` (and whitespace-padded variants like `" - "`) as absent. The predicate normalizes to `None` before any consumer reads the cell.
+
+Reference implementation: `ingestion/states/montana/extract_dea.py::_is_season_cell_absent` (S03.3, 2026-05-08) — despite the name it is used for non-season fields too; the name is a historical artifact.
+
+### pdfplumber sub-rows under a merged-cell license code return `None` — implement carry-forward
+
+The DEA PDF (and likely many state regulation tables) groups multiple opportunity sub-rows under a single license code via merged cells. pdfplumber returns `None` in the LICENSE/PERMIT column for every sub-row — the merged cell's value appears only on the first row of the group.
+
+**Symptom:** Naive per-row processing emits sub-rows with `license_code=None`, which fails fail-loud guards or produces NULL primary-key violations downstream. The A/B-asymmetric coverage signal is also lost — sub-rows that differ only in `season_coverage` end up rejected rather than recorded as separate season rows.
+
+**Fix:** Track `last_license_code` (and `last_opportunity` for sub-opportunity rows) across rows; inherit the prior value whenever the LICENSE/PERMIT cell is `None`. This pattern enables correct A/B-asymmetric coverage: one license can have multiple sub-rows with differing `season_coverage` values, all sharing the same license code. S03.7's `license_season` link table depends on this carry-forward.
+
+Reference implementation: `ingestion/states/montana/extract_dea.py::_rows_to_license_extractions` — `last_license_code` and `last_opportunity` carry-forward variables (S03.3, 2026-05-08).
+
+### Section-level "first-observation-wins" for per-row variable fields is interpretive, not faithful
+
+**Symptom:** When a per-row PDF field varies within a section (e.g., season date windows that differ per license/opportunity row), capturing only the first observation and replicating it across rows replaces source data with a paraphrase — violates ADR-008. Per-row divergence collapses to a single value in the artifact, and downstream consumers reading individual rows see incorrect data.
+
+**Fix:** Always extract per-row from each row's column cells; emit warnings only for cases that genuinely cannot be parsed (not for natural divergence). The "section-level windows + per-row filter" pattern is the trap — rebuild as "per-row windows from each row's own cells, no section-level aggregation."
+
+Reference: `ingestion/states/montana/extract_dea.py::_rows_to_license_extractions` — per-row `season_windows` populated inline from each row's column cells. Surfaced by S03.3 UAT failure on 2026-05-08 (HD 124 deer had three distinct General Season windows in the source PDF; the artifact carried only the first observation across all 5 rows).
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
@@ -267,6 +305,20 @@ The field exists so reviewers can see operator intent in `git diff` ("the operat
 If a future operator wants `sources.yaml` to actively gate fetches, that is a behavior change — read the field in `fetch_pdf` and compare against the observed SHA. As of S03.1 this is intentionally not wired up to avoid coupling fetch behavior to a hand-edited YAML field.
 
 Surfaced by S03.1 implementation on 2026-05-04.
+
+### `sources.yaml` URL slug ≠ publication cadence — confirm cadence by reading the PDF, not the URL
+
+**Symptom:** A spec table claims a source is "biennial 2026/2027" or "annual 2026", but the actual file on the agency CDN is named in a way that contradicts the spec — e.g. spec says biennial but the URL slug is just `2026-...`.
+
+**Cause:** Spec authors infer cadence from the document's *content* (cover page, internal validity dates), but URL slugs encode whatever filename the agency's CMS chose for the binary. The two are independent. FWP's CDN names the DEA file `2026-dea-regulations-final-with-low-resolution-maps-for-web.pdf` even when (per PRD assumption) it covers the 2026/2027 biennium internally. The slug is not the contract.
+
+**Fix:** Treat the URL slug as opaque. Confirm cadence by reading the PDF cover page — that is the authoritative source for "this document covers years X through Y." If the slug and content disagree, name the citation id after what the document *contains*, not what the URL string says (or rename to match the URL if the content is also single-year — which is what we did for `mt-fwp-dea-2026-booklet`).
+
+Two concrete consequences:
+- `sources.yaml` `id` and `title` should reflect document content, not URL slug verbatim.
+- `expected_page_count` is a sanity-check claim, not a contract. The first live fetch reveals the true page count; pin `expected_sha256` only after the document content has been visually confirmed to match the spec's intent (or the spec has been amended).
+
+**Surfaced 2026-05-07 during S03.3 unblock**: spec table called DEA "Biennial 2026/2027" but the FWP file is named `2026-dea-regulations`. Renamed citation id from `mt-fwp-dea-2026-2027-booklet` → `mt-fwp-dea-2026-booklet` (URL-truthful). Cover-page cadence to be verified at S03.3 first fetch. Three other URL slugs corrected in the same pass — all four were spec-table guesses that didn't survive contact with the live FWP CDN.
 
 ### Read-only scripts must still fail loud on empty source data
 
