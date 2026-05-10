@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-05-08
-**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 4/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives, S03.3 DEA booklet extraction (closed 2026-05-08 after one UAT-driven fix cycle))
+**Last Updated:** 2026-05-09
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 4/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives, S03.3 DEA booklet extraction (closed 2026-05-08; finalized 2026-05-09 after plan-realignment + fail-loud polish))
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -29,7 +29,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
 | E02 | Montana Geometry Ingestion | Complete (audited) | 2026-04-28 | 2026-05-03 | 8 |
-| E03 | Montana Regulation Text Ingestion | In Progress (4/13 stories complete; S03.3 closed 2026-05-08 after UAT-driven fix cycle) | 2026-05-03 | — | 13 |
+| E03 | Montana Regulation Text Ingestion | In Progress (4/13 stories complete; S03.3 closed 2026-05-08; finalized 2026-05-09 with plan-realignment + fail-loud polish) | 2026-05-03 | — | 13 |
 
 ### E03 Story Status
 
@@ -38,7 +38,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 | S03.0 | Schema preparation — license_season + geometry.legal_description + geometry.kind='state' + Montana state geometry | Complete | Implementation |
 | S03.1 | PDF fetch infrastructure | Complete | Implementation |
 | S03.2 | PDF extraction primitives (shared library) | Complete | Implementation |
-| S03.3 | DEA booklet extraction (deer, elk, antelope) | Complete (UAT passed 2026-05-08 after one fix cycle) | Implementation (UAT: yes) |
+| S03.3 | DEA booklet extraction (deer, elk, antelope) | Complete (UAT passed 2026-05-08 after one fix cycle; plan-realignment + fail-loud polish 2026-05-09) | Implementation (UAT: yes) |
 | S03.4 | Black Bear booklet extraction + correction PDF handling | Not Started | Implementation (UAT: yes) |
 | S03.5 | Legal Descriptions extraction | Not Started | Implementation (UAT: yes) |
 | S03.6 | regulation_record ingestion | Not Started | Implementation |
@@ -92,9 +92,8 @@ Documentation-debt items (non-blocking):
 
 ## Next Actions
 
-- **S03.3 closed 2026-05-08 after UAT-driven fix cycle.** Original PR shipped 12 commits and cleared code review; PM-run UAT against deer HD 124 / elk HD 170 / antelope HD 690 / antelope STATEWIDE 900-20 surfaced six defects (D1 per-row windows; D2 Region 7 portions absorption; D3-D6 STATEWIDE column-position + extras + prefix/comma). Implementation agent applied three fixes in a single new commit (`cb3fb24`); PM re-ran the workbench and confirmed all six defects resolved. Final artifact: 272 sections / 1190 rows (+8 sections / +12 rows from Region 7 portions emission). Test suite: 488 passed + 1 skipped. Four pdfplumber pitfalls in `.roughly/known-pitfalls.md` (one-table-per-page; `-` as universal absence sentinel; merged-cell carry-forward; the new "first-observation-wins is interpretive, not faithful").
-- **Begin S03.4 (Black Bear booklet extraction + correction PDF handling) — UNBLOCKED.** Second per-booklet extractor; precondition (correction URL) was resolved 2026-05-07; manifests on disk. UAT story; faithfulness review against the Black Bear PDF + correction PDF for ≥3 sampled BMUs. Date-arbitrated three-pass architecture (base extraction → correction extraction → per-cell merge with MAX `publication_date` wins); ADR-017 §4 correction-touched-rows demote-one-tier rule must be unit-tested. **Inherits the new S03.3 patterns**: per-row `season_windows`, `_parse_portions_hd_list`-style slicer if applicable to BMU regional sub-sections, column-faithful row construction. Carry forward the documented S03.3 lesson — UAT spot-checks catch what code review can't.
-- **S03.4 inherits one small docstring polish** from S03.3 (deferred): the extras-only `re.sub(r"\s+", " ", ...)` collapse rule that the UAT fix added at `extract_dea.py:1019-1024` is documented inline at the write-site but not in the module-level "Cleanup rules" docstring section. Pick up when next touching the module.
+- **S03.3 closed 2026-05-08; finalized 2026-05-09.** Original PR shipped 12 commits and cleared code review; PM-run UAT against deer HD 124 / elk HD 170 / antelope HD 690 / antelope STATEWIDE 900-20 surfaced six defects (D1 per-row windows; D2 Region 7 portions absorption; D3-D6 STATEWIDE column-position + extras + prefix/comma). Implementation agent applied three fixes in single commit `cb3fb24`; PM re-ran the workbench and confirmed all six defects resolved. **2026-05-09 polish landed two more layers:** Phase 6 (plan-realignment — five docs(S03.3) commits aligned the implementation plan with the UAT-corrected code so a future re-reader following the plan wouldn't re-create the UAT defects); Phase 7 (fail-loud guard — `cb3fb24`'s STATEWIDE emit had a P1 silent-data-loss path when the row was captured but `_rows_to_license_extractions` returned `[]`; restructured to fail loud at three stages with `TestStatewideOverlayFailLoudOnEmptyExtraction` regression test). Final artifact: 272 sections / 1190 rows; SHA-256 byte-identical to post-UAT-fix. Test suite: 489 passed + 1 skipped. Four pdfplumber pitfalls in `.roughly/known-pitfalls.md` (one-table-per-page; `-` as universal absence sentinel; merged-cell carry-forward; "first-observation-wins is interpretive, not faithful").
+- **Begin S03.4 (Black Bear booklet extraction + correction PDF handling) — UNBLOCKED.** Second per-booklet extractor; precondition (correction URL) was resolved 2026-05-07; manifests on disk. UAT story; faithfulness review against the Black Bear PDF + correction PDF for ≥3 sampled BMUs. Date-arbitrated three-pass architecture (base extraction → correction extraction → per-cell merge with MAX `publication_date` wins); ADR-017 §4 correction-touched-rows demote-one-tier rule must be unit-tested. **Inherits the now-canonical S03.3 patterns:** per-row `season_windows` (no section-level aggregation); `_parse_portions_hd_list`-style slicer if BMU regional sub-sections behave like Region 7 portions; column-faithful row construction; deep-copy when emitting one section per listed-HD; every cleanup rule applied to row cells must appear in the module-level docstring (AC #338 strict pattern); fail-loud at every "could-be-silent-data-loss" guard (Phase 7 lesson). Carry forward the documented S03.3 lesson — UAT spot-checks catch what code review can't.
 - **S03.3 → S03.5 inherit from S03.2** (recorded in epic): byte-exact text path (`page.chars`) is available as a future helper if needed — to be added as `extract_text_chars_raw(page) -> str` rather than retrofitted onto `extract_text`.
 - **S03.6 + S03.7 inputs from S03.3 (carry forward):** (a) per-row `page_reference` is currently section-starting-page; multi-page HDs need per-row page accuracy if S03.6 cares (deferred follow-up); (b) row-level `weapon_types` defaults to `["any_legal_weapon"]` — refine after S03.7 review (deferred follow-up). The third pre-UAT deferred item (window divergence per row) was promoted to P0 D1 and resolved in `cb3fb24`.
 - **S03.7 inputs from S03.3 (still valid; pattern locked):** A/B asymmetric `season_coverage` is the load-bearing signal for `license_season` link-table writes. 143 HDs exhibit the pattern. Per-row `season_windows` (post-fix) means S03.7 sees per-license windows directly without reconstructing them.
