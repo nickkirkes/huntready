@@ -1,0 +1,22 @@
+ingestion/tests/test_extract_black_bear.py
+  s_b51f6dd589ce24::t_86513463466c39 1235-1277
+ingestion/states/montana/extract_black_bear.py
+  s_b51f6dd589ce24::t_a2e9e83445ff8d 1735-1742
+  s_b51f6dd589ce24::t_6547af6a1f789a 1721-1729
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "90235f42c300da9f4691ffdc139a0e977dcfb501",
+  "prompts": {},
+  "sessions": {
+    "s_b51f6dd589ce24": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "05ad3f50-750a-4697-85a5-ce8bb14b71ed",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
