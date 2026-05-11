@@ -1718,15 +1718,28 @@ def _merge_with_corrections(
     #   (b) demote_one_tier to fire N times for a row touched by N
     #       field-level ops, e.g., a HIGH row + 2 corrections would demote
     #       to LOW (over-demotion), violating ADR-017 §4's single-step rule.
-    # Row-level source attribution now reflects the MAX-date winning op
-    # across ALL ops touching the row, so it is deterministic and matches
-    # "the latest authoritative source touching this row".
+    # Row-level source attribution reflects the MAX-date winning op across
+    # ALL ops touching the row — "the latest authoritative source touching
+    # this row". On equal-date ties (two corrections targeting different
+    # fields with identical publication_date), break by lexicographically
+    # smallest source_id so the choice is fully deterministic regardless of
+    # dict / list iteration order. A lex tiebreaker is preferred over
+    # CorrectionConflictError here because equal-date different-field ops
+    # are not a semantic conflict — both ops are applied at the cell level;
+    # only the row-level "last touched by" provenance needs a single answer.
     bmu_touched_ops: dict[int, list[CorrectionOperation]] = {}
     for (bmu, _field), winning_op in winning_op_by_cell.items():
         bmu_touched_ops.setdefault(bmu, []).append(winning_op)
     for bmu, winning_ops in bmu_touched_ops.items():
         row = next(r for r in merged_rows if r["bmu_number"] == bmu)
-        row_winner = max(winning_ops, key=lambda op: op["source_publication_date"])
+        # Two-pass selection: first find the latest date, then break date-ties
+        # by lexicographically smallest source_id. This avoids relying on
+        # list / dict iteration order for a deterministic outcome.
+        row_max_date = max(op["source_publication_date"] for op in winning_ops)
+        row_date_ties = [
+            op for op in winning_ops if op["source_publication_date"] == row_max_date
+        ]
+        row_winner = min(row_date_ties, key=lambda op: op["source_id"])
         row["applied_correction"] = True
         row["supersedes"] = base["source"]["id"]
         row["source_id"] = row_winner["source_id"]

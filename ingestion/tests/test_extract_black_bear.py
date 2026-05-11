@@ -1232,6 +1232,49 @@ class TestMergeWithCorrections:
         with pytest.raises(PdfExtractionError, match="unknown BmuRowExtraction field"):
             _merge_with_corrections(base, correction)
 
+    def test_row_provenance_tiebreaker_is_lex_smallest_source_id(self) -> None:
+        """When two corrections targeting different fields on the same BMU
+        share the same publication_date, row-level source_id must be the
+        lexicographically smallest source_id (deterministic regardless of
+        op order).
+
+        Without this tiebreaker, the choice would depend on dict / list
+        insertion order — a real reproducibility hazard for future
+        cross-correction merges. Locked here as a regression guard.
+        """
+        base_row = _make_bmu_row_extraction(
+            bmu_number=100,
+            general_season="Sep.15-Nov.29",
+            hound_training_season="Apr.15-Jun.15",
+        )
+        base = _make_base_extraction([base_row])
+        # Two corrections, SAME publication_date, DIFFERENT source_ids,
+        # targeting DIFFERENT fields. The lex-smallest source_id must win.
+        op_b = _make_correction_op(
+            target_bmu=100,
+            target_field="hound_training_season",
+            source_id="corr-b-2026",   # lex-larger
+            source_publication_date="2026-03-18",
+        )
+        op_a = _make_correction_op(
+            target_bmu=100,
+            target_field="general_season",
+            source_id="corr-a-2026",   # lex-smaller; should win
+            source_publication_date="2026-03-18",
+        )
+        # Order matters for the test: put the LEX-LARGER one first so a
+        # naive `max(..., key=date)` would pick the wrong winner.
+        correction = _make_correction_extraction([op_b, op_a])
+
+        merged = _merge_with_corrections(base, correction)
+        merged_row = merged["rows"][0]
+
+        assert merged_row["source_id"] == "corr-a-2026", (
+            f"row provenance tiebreaker broken: expected 'corr-a-2026' "
+            f"(lex-smallest), got {merged_row['source_id']!r}"
+        )
+        assert merged_row["source_publication_date"] == "2026-03-18"
+
     def test_multi_field_row_demoted_once_and_provenance_is_max_date(self) -> None:
         """When TWO correction ops touch DIFFERENT fields on the SAME BMU row,
         demote_one_tier must fire exactly once (not twice) and the row-level
