@@ -1232,6 +1232,57 @@ class TestMergeWithCorrections:
         with pytest.raises(PdfExtractionError, match="unknown BmuRowExtraction field"):
             _merge_with_corrections(base, correction)
 
+    def test_multi_field_row_demoted_once_and_provenance_is_max_date(self) -> None:
+        """When TWO correction ops touch DIFFERENT fields on the SAME BMU row,
+        demote_one_tier must fire exactly once (not twice) and the row-level
+        source_id/source_publication_date must reflect the MAX-date winning
+        op across both fields (not whichever iterated last).
+
+        Regression for cubic-review P2: previously the merge loop overwrote
+        row-level provenance and re-demoted confidence on each (bmu, field)
+        iteration, so for a HIGH row + 2 corrections the result was LOW
+        instead of MEDIUM, and provenance depended on dict insertion order.
+        """
+        base_row = _make_bmu_row_extraction(
+            bmu_number=100,
+            general_season="Sep.15-Nov.29",
+            hound_training_season="Apr.15-Jun.15",
+            extraction_confidence=ConfidenceTier.HIGH,
+        )
+        base = _make_base_extraction([base_row])
+        # Two corrections from two different sources targeting two different
+        # fields on the same BMU. Later date should win row-level provenance.
+        op_older = _make_correction_op(
+            target_bmu=100,
+            target_field="hound_training_season",
+            source_id="corr-2026-01",
+            source_publication_date="2026-01-15",
+        )
+        op_newer = _make_correction_op(
+            target_bmu=100,
+            target_field="general_season",
+            source_id="corr-2026-03",
+            source_publication_date="2026-03-18",
+        )
+        correction = _make_correction_extraction([op_older, op_newer])
+
+        merged = _merge_with_corrections(base, correction)
+        merged_row = merged["rows"][0]
+
+        # Confidence demoted exactly once: HIGH -> MEDIUM (NOT LOW).
+        assert merged_row["extraction_confidence"] is ConfidenceTier.MEDIUM, (
+            f"row was demoted {1 if merged_row['extraction_confidence'] is ConfidenceTier.MEDIUM else 2}+ times; "
+            f"got {merged_row['extraction_confidence']!r}, expected MEDIUM"
+        )
+        # Row-level provenance = MAX-date winner (corr-2026-03).
+        assert merged_row["source_id"] == "corr-2026-03"
+        assert merged_row["source_publication_date"] == "2026-03-18"
+        # Both fields were applied at cell level regardless of provenance choice.
+        assert merged_row["hound_training_season"] is None
+        # general_season was a "remove" op too (per _make_correction_op default)
+        # — just confirm it was processed.
+        assert merged_row["applied_correction"] is True
+
 
 # ---------------------------------------------------------------------------
 # 13. TestLoadCitationFromSourcesYaml

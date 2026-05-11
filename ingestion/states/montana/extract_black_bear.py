@@ -1683,16 +1683,14 @@ def _merge_with_corrections(
         key = (op["target_bmu"], op_field)
         ops_by_target.setdefault(key, []).append(op)
 
-    # Per-cell arbitration.
+    # Stage 1 — per-cell arbitration: for each (bmu, field) targeted by one or
+    # more ops, select the winning op by MAX source_publication_date among
+    # same-doc-type sources. Raise CorrectionConflictError on equal-date ties.
+    # The winning-op map is keyed by (bmu, field).
+    winning_op_by_cell: dict[tuple[int, str], CorrectionOperation] = {}
     for (bmu, field), ops in ops_by_target.items():
-        # Locate the corresponding merged row.
-        row = next((r for r in merged_rows if r["bmu_number"] == bmu), None)
-        if row is None:
+        if not any(r["bmu_number"] == bmu for r in merged_rows):
             raise PdfExtractionError(f"correction targets unknown BMU {bmu}")
-
-        # Option B: all ops are correction-type and therefore win over the
-        # annual_regulations base.  Among the ops, find the winner by MAX
-        # source_publication_date.
         max_date = max(op["source_publication_date"] for op in ops)
         winners = [op for op in ops if op["source_publication_date"] == max_date]
         if len(winners) > 1:
@@ -1700,24 +1698,39 @@ def _merge_with_corrections(
                 f"BMU {bmu} field {field}: equal publication_date {max_date} "
                 f"for source_ids {[op['source_id'] for op in winners]}"
             )
-        winning_op = winners[0]
+        winning_op_by_cell[(bmu, field)] = winners[0]
 
-        # Apply the winning operation.
+    # Stage 2 — apply field-level value changes.
+    for (bmu, field), winning_op in winning_op_by_cell.items():
+        row = next(r for r in merged_rows if r["bmu_number"] == bmu)
         if winning_op["change"] == "remove":
             row[field] = None  # type: ignore[literal-required]
         else:
             # "set" or "replace"
             row[field] = winning_op["new_value"]  # type: ignore[literal-required]
 
-        # Tag the row as correction-touched.
+    # Stage 3 — row-level provenance and confidence demotion: apply EXACTLY
+    # ONCE per touched BMU, regardless of how many fields were touched.
+    # Previously this lived inside the per-(bmu, field) loop, which caused:
+    #   (a) source_id/source_publication_date to be overwritten on each
+    #       iteration, so the final row-level provenance depended on dict
+    #       insertion order rather than a deterministic rule;
+    #   (b) demote_one_tier to fire N times for a row touched by N
+    #       field-level ops, e.g., a HIGH row + 2 corrections would demote
+    #       to LOW (over-demotion), violating ADR-017 §4's single-step rule.
+    # Row-level source attribution now reflects the MAX-date winning op
+    # across ALL ops touching the row, so it is deterministic and matches
+    # "the latest authoritative source touching this row".
+    bmu_touched_ops: dict[int, list[CorrectionOperation]] = {}
+    for (bmu, _field), winning_op in winning_op_by_cell.items():
+        bmu_touched_ops.setdefault(bmu, []).append(winning_op)
+    for bmu, winning_ops in bmu_touched_ops.items():
+        row = next(r for r in merged_rows if r["bmu_number"] == bmu)
+        row_winner = max(winning_ops, key=lambda op: op["source_publication_date"])
         row["applied_correction"] = True
         row["supersedes"] = base["source"]["id"]
-
-        # Update row-level source attribution to the winning correction.
-        row["source_id"] = winning_op["source_id"]
-        row["source_publication_date"] = winning_op["source_publication_date"]
-
-        # Demote confidence one tier per ADR-017 §4.
+        row["source_id"] = row_winner["source_id"]
+        row["source_publication_date"] = row_winner["source_publication_date"]
         row["extraction_confidence"] = demote_one_tier(row["extraction_confidence"])
 
     return BlackBearMergedExtraction(
