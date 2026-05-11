@@ -1,0 +1,1481 @@
+{
+  "closures": [
+    {
+      "bmu_numbers": [
+        300,
+        301,
+        319,
+        580
+      ],
+      "extraction_confidence": "medium",
+      "kind": "sex_threshold",
+      "notification_channel": "agency_website",
+      "observation_channel": "mandatory_reporting",
+      "page_reference": {
+        "bbox": [
+          306.0,
+          0.0,
+          612.0,
+          792.0
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 7,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-booklet",
+      "source_publication_date": "2026-04-27",
+      "threshold_percent": 37.0,
+      "threshold_sex": "female",
+      "verbatim_rule": "Spring Season Closure: BMUs 300, 301, 319, and 580 are subject\nto close, with regular public notice, at any point after May 31 if the\ncumulative spring harvest exceeds 37% female black bears."
+    },
+    {
+      "bmu_numbers": [
+        411,
+        420,
+        440,
+        450,
+        510,
+        520,
+        600,
+        700
+      ],
+      "extraction_confidence": "medium",
+      "kind": "quota_threshold",
+      "notification_channel": "agency_phone",
+      "observation_channel": "mandatory_reporting",
+      "page_reference": {
+        "bbox": [
+          306.0,
+          0.0,
+          612.0,
+          792.0
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 7,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-booklet",
+      "source_publication_date": "2026-04-27",
+      "threshold_percent": null,
+      "threshold_sex": null,
+      "verbatim_rule": "In BMUs 411, 420, 440, 450, 510, 520, 600, and 700 when the quota\nis reached or approached in each of these districts, the black bear\nseason in that district will close. For quota status, call 1-800-385-7826 or 406-444-1989."
+    }
+  ],
+  "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+  "license_year": 2026,
+  "reporting_obligations": [
+    {
+      "deadline_hint": "48 hours",
+      "extraction_confidence": "medium",
+      "kind_hint": "harvest_report",
+      "page_reference": {
+        "bbox": [
+          306.0,
+          0.0,
+          612.0,
+          792.0
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 7,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "region_scope": "STATEWIDE",
+      "source_id": "mt-fwp-black-bear-2026-booklet",
+      "source_publication_date": "2026-04-27",
+      "verbatim_rule": "Mandatory Reporting Requirements\nAll successful black bear hunters must\npersonally report their black bear\nharvest within 48 hours.\nSuccessful hunters are required to provide FWP personnel with\nhunter’s name, telephone number, ALS number, bear management\nunit (BMU), county, sex, and the township, range, and section (TRS)\nof the harvest.\nHarvest Reporting ................. 1-877-FWPWILD or 1-877-397-9453\nor 406-444-0356 or through the MyFWP portal at fwp.mt.gov\nQuota Status/Closures.................800-385-7826 or 406-444-1989\nOR on the FWP website......................................................... fwp.mt.gov\nThe toll-free line and FWP website are updated daily by 1 p.m. MST.\nWhen reporting a black bear harvest, it is unlawful to subscribe to\nor make any statement that is materially false. Successful hunters\nin backcountry areas will be allowed to report a black bear harvest\nwithin 48 hours of reaching a trailhead."
+    },
+    {
+      "deadline_hint": "10 days",
+      "extraction_confidence": "medium",
+      "kind_hint": "tooth_submission",
+      "page_reference": {
+        "bbox": [
+          306.0,
+          0.0,
+          612.0,
+          792.0
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 7,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "region_scope": "R1",
+      "source_id": "mt-fwp-black-bear-2026-booklet",
+      "source_publication_date": "2026-04-27",
+      "verbatim_rule": "Inspection Requirements Region 1 Only:\nFor black bears harvested within Region 1, physical inspection of a\nharvested black bear is not required. Successful Region 1 hunters\nmust submit both premolar teeth from harvested black bears and\ndeliver them to an FWP office within 10 days, either in person or by\nmail (postmarked within 10 days). See page 10 for more information."
+    },
+    {
+      "deadline_hint": "10 days",
+      "extraction_confidence": "medium",
+      "kind_hint": "hide_skull_presentation",
+      "page_reference": {
+        "bbox": [
+          306.0,
+          0.0,
+          612.0,
+          792.0
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 7,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "region_scope": "R2-7",
+      "source_id": "mt-fwp-black-bear-2026-booklet",
+      "source_publication_date": "2026-04-27",
+      "verbatim_rule": "Inspection Requirements Regions 2-7:\nWithin 10 days of harvesting a black bear, the successful hunter\nmust present to a Montana FWP official the complete bear hide and\nskull for the purpose of inspection, tagging, and possible removal\nof a tooth (for aging). The hide and skull must be presented in\na condition that allows full inspection and tooth collection (i.e.,\nunfrozen). Any hide or skull not presented or registered to FWP\npersonnel within 10 days of harvest is subject to confiscation."
+    }
+  ],
+  "rows": [
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 100,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n100"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 101,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n101"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 103,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Game Check\nRestricted\nArchery-only\nArea\nHunting\nArea.\nDescriptions\n(p\n13):\nLibby\nBig",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Game Check\nRestricted\nArchery-only\nArea\nHunting\nArea.\nDescriptions\n(p\n13):\nLibby\nBig\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n103"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 104,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n104"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 110,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n110"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 120,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n120"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 121,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n121"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 122,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n122"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 123,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n123"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 130,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n130"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 140,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n140"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 141,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Check\nclosed. of-way\nfrom\nRestricted\nMarias\nArea\nPass\nto\nthe\nDescriptions\nJava (p\n13):\nCreek\nBNSF\nBridge\nis right-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Check\nclosed. of-way\nfrom\nRestricted\nMarias\nArea\nPass\nto\nthe\nDescriptions\nJava (p\n13):\nCreek\nBNSF\nBridge\nis right-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n141"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 150,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n150"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 170,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R1",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Check\nRegion Canyon\n1,\nWMA;\nKalispell Restricted\nKuhns\nArea\noiffce\nWMA\nmap\nDescriptions\n406-752-5501. (p\navailable 13):\nfrom Bad\nFWP Rock",
+      "page_reference": {
+        "bbox": [
+          35.56,
+          36.460952380952364,
+          359.6205,
+          755.6266666666667
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 9,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Check\nRegion Canyon\n1,\nWMA;\nKalispell Restricted\nKuhns\nArea\noiffce\nWMA\nmap\nDescriptions\n406-752-5501. (p\navailable 13):\nfrom Bad\nFWP Rock\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n170"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 200,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R2",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n200"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 216,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R2",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Ranch Check\nMetcalf\navailable\nnear\nfrom\nRefuge\nthe Deer Restricted\nLegal\nLee Area\nLodge\nis\nMetcalf\ndescription,\nclosed Descriptions\nRefuge, map, to (p\nall\nand 13):\nGrant\nhunting;\n406-777-5552.\nregulations Lee Kohrs",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Ranch Check\nMetcalf\navailable\nnear\nfrom\nRefuge\nthe Deer Restricted\nLegal\nLee Area\nLodge\nis\nMetcalf\ndescription,\nclosed Descriptions\nRefuge, map, to (p\nall\nand 13):\nGrant\nhunting;\n406-777-5552.\nregulations Lee Kohrs\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n216"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 240,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R2",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n240"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 280,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R2",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n280"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 290,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R2",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Lake\nCheck\nOvando\nGame\nRestricted\nArchery-only Preserve\nis Area\nArea.\nclosed\nto\nDescriptions\nall\n(p\n13):\nhunting:\nEast Seeley",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Lake\nCheck\nOvando\nGame\nRestricted\nArchery-only Preserve\nis Area\nArea.\nclosed\nto\nDescriptions\nall\n(p\n13):\nhunting:\nEast Seeley\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n290"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 300,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R3",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Valley Check\nMountains\nGame Weapons Restricted\nArea\nPreserve.\nRestriction\nArea; Descriptions\n(p\nGates 13):\nof\nthe Helena",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Valley Check\nMountains\nGame Weapons Restricted\nArea\nPreserve.\nRestriction\nArea; Descriptions\n(p\nGates 13):\nof\nthe Helena\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n300*"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 301,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R3",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Check\nWeapons\nRestricted\nArea.\nRestricted\nRestriction\nArea\nArea;\nMuskrat Descriptions\n(p\nValley 13):\nWeapons Townsend",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Check\nWeapons\nRestricted\nArea.\nRestricted\nRestriction\nArea\nArea;\nMuskrat Descriptions\n(p\nValley 13):\nWeapons Townsend\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n301*"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": null,
+      "bmu_number": 309,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n02-Nov.\n26",
+      "hd_region": "R3",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "the\nFWP from Black\nweb EXCEPT\nthe\ntraditional bear\nat: on\nRegion\n3,\nsome hunting\nweapons\nhandgun, is\nBozeman private\nrestricted\noiffce restrictions. lands, to\nmuzzleloader,\nMap or\nwhich\nare\nArchEquip,\nfwp.mt.gov/gis/maps/huntPlanner/. 406-577-7900, available crossbow\nor\non from excluded only, shotgun,",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "the\nFWP from Black\nweb EXCEPT\nthe\ntraditional bear\nat: on\nRegion\n3,\nsome hunting\nweapons\nhandgun, is\nBozeman private\nrestricted\noiffce restrictions. lands, to\nmuzzleloader,\nMap or\nwhich\nare\nArchEquip,\nfwp.mt.gov/gis/maps/huntPlanner/. 406-577-7900, available crossbow\nor\non from excluded only, shotgun,\nSep.\n02-Nov.\n26\n\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n309"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 316,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R3",
+      "hound_nr_license": "316-00",
+      "hound_nr_max": 3,
+      "hound_training_season": null,
+      "opportunity": "Check\nSlough\nshotgun,\ncrossbow\nFAS\nonly.\nRestricted\nsouth\ntraditional of\nArea\nDillon,\nhandgun,\nDescriptions\nrestricted (p\nto 13):\nmuzzleloader,\nor ArchEquip, Poindexter",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Check\nSlough\nshotgun,\ncrossbow\nFAS\nonly.\nRestricted\nsouth\ntraditional of\nArea\nDillon,\nhandgun,\nDescriptions\nrestricted (p\nto 13):\nmuzzleloader,\nor ArchEquip, Poindexter\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\nApr.\n15-Jun.\n15\n316-00\n3\n-\n-\n316"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 317,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R3",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Check\nSlough\nshotgun,\ncrossbow\nFAS\nonly.\nRestricted\nsouth\ntraditional of\nArea\nDillon,\nhandgun,\nDescriptions\nrestricted (p\nto 13):\nmuzzleloader,\nor ArchEquip, Poindexter",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Check\nSlough\nshotgun,\ncrossbow\nFAS\nonly.\nRestricted\nsouth\ntraditional of\nArea\nDillon,\nhandgun,\nDescriptions\nrestricted (p\nto 13):\nmuzzleloader,\nor ArchEquip, Poindexter\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n317"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 319,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R3",
+      "hound_nr_license": "319-00",
+      "hound_nr_max": 3,
+      "hound_training_season": null,
+      "opportunity": "the\nCheck\nRestriction\nMountains\nArea. Restricted\nGame\nArea\nPreserve;\nDescriptions\n(p\nTownsend\n13):\nGates\nWeapons of",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "the\nCheck\nRestriction\nMountains\nArea. Restricted\nGame\nArea\nPreserve;\nDescriptions\n(p\nTownsend\n13):\nGates\nWeapons of\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\nApr.\n15-Jun.\n15\n319-00\n3\n-\n-\n319*"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 341,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R3",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Check\nCLOSED\nto\nManagement\nRestricted\nArea hunting\nof\nArea\nall\nclosed\nto\ngame\nbear\nDescriptions\nanimals.\n(p\nhunting.\n13):\nGallatin\nSpecial Gardiner",
+      "page_reference": {
+        "bbox": [
+          35.7182,
+          36.51999999999998,
+          575.9204545454545,
+          755.68
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 10,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Check\nCLOSED\nto\nManagement\nRestricted\nArea hunting\nof\nArea\nall\nclosed\nto\ngame\nbear\nDescriptions\nanimals.\n(p\nhunting.\n13):\nGallatin\nSpecial Gardiner\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n-\n-\n341"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 411,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": 4,
+        "kind": "female_subquota",
+        "verbatim": "=\n4\nFemale\nsubquota"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R4",
+      "hound_nr_license": "411-00",
+      "hound_nr_max": 1,
+      "hound_training_season": null,
+      "opportunity": "subquota.\nArchery-only\nquota\nnot\nmore\nthan\n30%\nof\nfall\nharvest",
+      "page_reference": {
+        "bbox": [
+          37.0,
+          36.100221739130404,
+          575.7201,
+          755.2602217391305
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 11,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": 2,
+        "kind": "female_subquota",
+        "verbatim": "=\n2\nFemale\nsubquota"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "subquota.\nArchery-only\nquota\nnot\nmore\nthan\n30%\nof\nfall\nharvest\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\nApr.\n15-Jun.\n15\n411-00\n1\n=\n4\nFemale\nsubquota\n=\n2\nFemale\nsubquota\n411"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 420,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": 10,
+        "kind": "female_subquota",
+        "verbatim": "=\n10\nFemale\nsubquota"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R4",
+      "hound_nr_license": "420-00",
+      "hound_nr_max": 1,
+      "hound_training_season": null,
+      "opportunity": "subquota.\nArchery-only\nquota\nnot\nmore\nthan\n30%\nof\nfall\nharvest",
+      "page_reference": {
+        "bbox": [
+          37.0,
+          36.100221739130404,
+          575.7201,
+          755.2602217391305
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 11,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": 8,
+        "kind": "female_subquota",
+        "verbatim": "=\n8\nFemale\nsubquota"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "subquota.\nArchery-only\nquota\nnot\nmore\nthan\n30%\nof\nfall\nharvest\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\nApr.\n15-Jun.\n15\n420-00\n1\n=\n10\nFemale\nsubquota\n=\n8\nFemale\nsubquota\n420"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 440,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": 6,
+        "kind": "female_subquota",
+        "verbatim": "=\n6\nFemale\nsubquota"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R4",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "Gates\nWeapons of subquota.\nthe Archery-only\nCheck\nquota\nRestriction\nnot\nMountains\nArea.\nRestricted\nmore\nGame\nArea\nthan\n30%\nPreserve; of\nfall\nDescriptions\n(p\nTownsend 13): harvest",
+      "page_reference": {
+        "bbox": [
+          37.0,
+          36.100221739130404,
+          575.7201,
+          755.2602217391305
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 11,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": 4,
+        "kind": "female_subquota",
+        "verbatim": "=\n4\nFemale\nsubquota"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "Gates\nWeapons of subquota.\nthe Archery-only\nCheck\nquota\nRestriction\nnot\nMountains\nArea.\nRestricted\nmore\nGame\nArea\nthan\n30%\nPreserve; of\nfall\nDescriptions\n(p\nTownsend 13): harvest\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n=\n6\nFemale\nsubquota\n=\n4\nFemale\nsubquota\n440"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 450,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": 14,
+        "kind": "female_subquota",
+        "verbatim": "=\n14\nFemale\nsubquota"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R4",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "(p\nvest\n13):\nhunting.\nSun\nArchery-only\nsubquota.\nRiver\nquota\nCheck\nGame not\nmore\nPreserve Restricted\nthan\nArea\nclosed 30%\nto of\nfall\nbear\nDescriptions har-",
+      "page_reference": {
+        "bbox": [
+          37.0,
+          36.100221739130404,
+          575.7201,
+          755.2602217391305
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 11,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": 7,
+        "kind": "female_subquota",
+        "verbatim": "=\n7\nFemale\nsubquota"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "(p\nvest\n13):\nhunting.\nSun\nArchery-only\nsubquota.\nRiver\nquota\nCheck\nGame not\nmore\nPreserve Restricted\nthan\nArea\nclosed 30%\nto of\nfall\nbear\nDescriptions har-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\nApr.\n15-Jun.\n15\n-\n-\n=\n14\nFemale\nsubquota\n=\n7\nFemale\nsubquota\n450"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 510,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": 2,
+        "kind": "female_subquota",
+        "verbatim": "=\n2\nquota Female"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R5",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "the\nhours\nblack subquota.\nnotice. Archery-only\n406-444-1989. bear\nFor When\nquota\nthe\nseason\nquota not\nin\nquota\nstatus this is more\ncall BMU than\nreached\nwill\n30%\nor\nof\nclose\nfall\n1-800-385-7826 upon\nor 48 approached, harvest",
+      "page_reference": {
+        "bbox": [
+          37.0,
+          36.100221739130404,
+          575.7201,
+          755.2602217391305
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 11,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": 2,
+        "kind": "female_subquota",
+        "verbatim": "= =\n2 5\nFemale quota harvest Total\nsubquota"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "the\nhours\nblack subquota.\nnotice. Archery-only\n406-444-1989. bear\nFor When\nquota\nthe\nseason\nquota not\nin\nquota\nstatus this is more\ncall BMU than\nreached\nwill\n30%\nor\nof\nclose\nfall\n1-800-385-7826 upon\nor 48 approached, harvest\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n=\n2\nquota Female\n= =\n2 5\nFemale quota harvest Total\nsubquota\n510"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 520,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": 10,
+        "kind": "female_subquota",
+        "verbatim": "=\n10 quota Female"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R5",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "the\nhours\nblack subquota.\nnotice. Archery-only\n406-444-1989. bear\nFor When\nquota\nthe\nseason\nquota not\nin\nquota\nstatus this is more\ncall BMU than\nreached\nwill\n30%\nor\nof\nclose\nfall\n1-800-385-7826 upon\nor 48 approached, harvest",
+      "page_reference": {
+        "bbox": [
+          37.0,
+          36.100221739130404,
+          575.7201,
+          755.2602217391305
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 11,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": 12,
+        "kind": "female_subquota",
+        "verbatim": "quota\n=\nFemale\n12"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "the\nhours\nblack subquota.\nnotice. Archery-only\n406-444-1989. bear\nFor When\nquota\nthe\nseason\nquota not\nin\nquota\nstatus this is more\ncall BMU than\nreached\nwill\n30%\nor\nof\nclose\nfall\n1-800-385-7826 upon\nor 48 approached, harvest\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n=\n10 quota Female\nquota\n=\nFemale\n12\n520"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 580,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R5",
+      "hound_nr_license": "580-00",
+      "hound_nr_max": 4,
+      "hound_training_season": null,
+      "opportunity": "-",
+      "page_reference": {
+        "bbox": [
+          37.0,
+          36.100221739130404,
+          575.7201,
+          755.2602217391305
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 11,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": null,
+        "kind": null,
+        "verbatim": "-"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "-\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\nApr.\n15-Jun.\n15\n580-00\n4\n-\n-\n580*"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 600,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": 4,
+        "kind": "harvest_quota",
+        "verbatim": "=\n4\nquota\nHarvest"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R6",
+      "hound_nr_license": "600-00",
+      "hound_nr_max": 4,
+      "hound_training_season": null,
+      "opportunity": "or 48 the\nhours black subquota.\nArchery-only\nbear\nnotice. When\n406-444-1989.\nFor the quota\nseason\nnot\nin\nquota quota\nthis is more\nstatus\nthan\ncall district reached\n30%\nor\nwill of\nfall\nclose\n1-800-385-7826 upon approached, harvest",
+      "page_reference": {
+        "bbox": [
+          37.72,
+          34.360000000000014,
+          273.4004545454546,
+          753.52
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 12,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": 4,
+        "kind": "harvest_quota",
+        "verbatim": "quota\n=\nHarvest\n4"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "or 48 the\nhours black subquota.\nArchery-only\nbear\nnotice. When\n406-444-1989.\nFor the quota\nseason\nnot\nin\nquota quota\nthis is more\nstatus\nthan\ncall district reached\n30%\nor\nwill of\nfall\nclose\n1-800-385-7826 upon approached, harvest\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\nApr.\n15-Jun.\n15\n600-00\n4\n=\n4\nquota\nHarvest\nquota\n=\nHarvest\n4\n600"
+    },
+    {
+      "applied_correction": true,
+      "archery_only_season": "Sep.\n05-Sep.\n14",
+      "bmu_number": 700,
+      "extraction_confidence": "medium",
+      "fall_quota": {
+        "count": 18,
+        "kind": "harvest_quota",
+        "verbatim": "=\n18 quota\nHarvest"
+      },
+      "general_season": "Sep.\n15-Nov.\n29",
+      "hd_region": "R7",
+      "hound_nr_license": "-",
+      "hound_nr_max": null,
+      "hound_training_season": null,
+      "opportunity": "or 48 the\nhours black subquota.\nArchery-only\nbear\nnotice. When\n406-444-1989.\nFor the quota\nseason\nnot\nin\nquota quota\nthis is more\nstatus\nthan\ncall district reached\n30%\nor\nwill of\nfall\nclose\n1-800-385-7826 upon approached, harvest",
+      "page_reference": {
+        "bbox": [
+          37.72,
+          34.360000000000014,
+          273.4004545454546,
+          753.52
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 12,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "spring_quota": {
+        "count": 6,
+        "kind": "harvest_quota",
+        "verbatim": "quota\n=\nHarvest\n6"
+      },
+      "spring_season": "Apr.\n15-Jun.\n15",
+      "supersedes": "mt-fwp-black-bear-2026-booklet",
+      "verbatim_text": "or 48 the\nhours black subquota.\nArchery-only\nbear\nnotice. When\n406-444-1989.\nFor the quota\nseason\nnot\nin\nquota quota\nthis is more\nstatus\nthan\ncall district reached\n30%\nor\nwill of\nfall\nclose\n1-800-385-7826 upon approached, harvest\nSep.\n15-Nov.\n29\nSep.\n05-Sep.\n14\nApr.\n15-Jun.\n15\n-\n-\n-\n=\n18 quota\nHarvest\nquota\n=\nHarvest\n6\n700"
+    }
+  ],
+  "schema_version": 2,
+  "sources": [
+    {
+      "agency": "Montana Fish, Wildlife & Parks",
+      "document_type": "annual_regulations",
+      "id": "mt-fwp-black-bear-2026-booklet",
+      "publication_date": "2026-04-27",
+      "title": "Black Bear Hunting Regulations 2026",
+      "url": "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/2026-black-bear-final-for-web.pdf"
+    },
+    {
+      "agency": "Montana Fish, Wildlife & Parks",
+      "document_type": "correction",
+      "id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "publication_date": "2026-03-18",
+      "title": "Black Bear Hunting Regulations 2026 — Correction (2026-03-18)",
+      "url": "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/corrections-to-the-2026-printed-black-bear-regulations.pdf"
+    }
+  ],
+  "species_group": "black_bear",
+  "state": "MT"
+}

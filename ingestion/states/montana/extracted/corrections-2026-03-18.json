@@ -1,0 +1,328 @@
+{
+  "extracted_at": "2026-05-08T00:22:13.955478+00:00",
+  "operations": [
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 100,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 101,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 103,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 104,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 110,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 120,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 121,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 122,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 123,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 130,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 140,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 141,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 150,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 170,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 200,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 216,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 240,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 280,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 290,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 300,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 301,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 309,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 316,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 317,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 319,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 341,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 411,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 420,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 440,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 450,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 510,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 520,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 580,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 600,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    },
+    {
+      "change": "remove",
+      "new_value": null,
+      "source_id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+      "source_publication_date": "2026-03-18",
+      "target_bmu": 700,
+      "target_field": "hound_training_season",
+      "verbatim_correction_text": "Removed the hound training season column from the BMU tables on pages. Statutorily the training season begins following the end of spring bear and runs until June 15."
+    }
+  ],
+  "source": {
+    "agency": "Montana Fish, Wildlife & Parks",
+    "document_type": "correction",
+    "id": "mt-fwp-black-bear-2026-correction-2026-03-18",
+    "publication_date": "2026-03-18",
+    "title": "Black Bear Hunting Regulations 2026 — Correction (2026-03-18)",
+    "url": "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/corrections-to-the-2026-printed-black-bear-regulations.pdf"
+  }
+}
