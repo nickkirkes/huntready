@@ -1,0 +1,93 @@
+ingestion/states/montana/extracted/black-bear-2026.json
+  s_b51f6dd589ce24::t_86ca1b57251b3b 1-60,62-1481
+  s_b51f6dd589ce24::t_0dab49efb08f4d 61
+ingestion/states/montana/extracted/corrections-2026-03-18.json
+  s_b51f6dd589ce24::t_86ca1b57251b3b 1-328
+.secrets.baseline
+  s_b51f6dd589ce24::t_ed67775b8c2c72 136,284
+docs/planning/epics/E03-confidence-findings/S03.4.md
+  s_b51f6dd589ce24::t_4ee02dd4a383db 1-106
+docs/plans/S03.4-black-bear-extraction-plan.md
+  s_b51f6dd589ce24::t_286cca47fdaca7 916
+  s_b51f6dd589ce24::t_a61952e037e04b 637-638
+  s_b51f6dd589ce24::t_5c40db7e89db0c 1065-1066
+  s_b51f6dd589ce24::t_a4eafc1c628358 887,889
+  s_b51f6dd589ce24::t_343722a7953f24 1-129,131-636,639-772,774,777,779-886,888,890-915,917-1064,1067-1109
+  s_b51f6dd589ce24::t_94ad4322c0a539 130
+  s_b51f6dd589ce24::t_40016124c18997 773,775-776,778
+ingestion/states/montana/extract_black_bear.py
+  s_b51f6dd589ce24::t_5dd188b959c332 1017,1025-1030,1032-1036
+  s_b51f6dd589ce24::t_51e5aa19c392d8 410-419,421-482
+  s_b51f6dd589ce24::t_e795699a991253 603-646,652-676,687-716,724-728,741,744-745,747,749-750,758-774,776-799
+  s_b51f6dd589ce24::t_2ceca44c15579d 1005,1008-1013
+  s_b51f6dd589ce24::t_4b65b5cc423fda 525-548,565-566,570-573,598,601-602
+  s_b51f6dd589ce24::t_367cab1cd2709e 32
+  s_b51f6dd589ce24::t_c9a1bdd06018b6 647-651
+  s_b51f6dd589ce24::t_6355cb959d3148 973-978
+  s_b51f6dd589ce24::t_fefa7b6ec427d0 198,202
+  s_b51f6dd589ce24::t_e6bb94499e21a6 65-74
+  s_b51f6dd589ce24::t_82beb0a027e503 717-722
+  s_b51f6dd589ce24::t_3e1013d8e3e0ab 420
+  s_b51f6dd589ce24::t_cc1acedc56a890 1332-1346,1367-1400,1414-1456
+  s_b51f6dd589ce24::t_c3254441537e92 1555
+  s_b51f6dd589ce24::t_53c0186fac2a87 1572-1584
+  s_b51f6dd589ce24::t_480f481a4575cf 1-31,33-64,75-94,96-193,210,212-214,220
+  s_b51f6dd589ce24::t_8d76b7feb7962b 1195,1198-1203
+  s_b51f6dd589ce24::t_0e43987bdea624 574-575,583,597,599-600
+  s_b51f6dd589ce24::t_c7846a54c43754 1401-1413
+  s_b51f6dd589ce24::t_cb0d84fb0f2725 723,729-734,742-743,748,751-757
+  s_b51f6dd589ce24::t_45c14ec556b822 95
+  s_b51f6dd589ce24::t_a8c2cf9c926e87 1096-1098,1100
+  s_b51f6dd589ce24::t_2a01117320d363 1041-1046
+  s_b51f6dd589ce24::t_67d4fd7d0ac336 1140-1194,1196-1197,1204-1331
+  s_b51f6dd589ce24::t_0a754d921ae94b 215-219
+  s_b51f6dd589ce24::t_6287fb7d42a5a0 1669-1673,1676-1683
+  s_b51f6dd589ce24::t_88d55babea581e 194-197,199-201,203-209,211
+  s_b51f6dd589ce24::t_311cb185cfd119 735
+  s_b51f6dd589ce24::t_6b827378054c2e 1457-1538,1540-1541,1547-1554,1556-1571,1585-1617
+  s_b51f6dd589ce24::t_ebf979afcc2572 800-947
+  s_b51f6dd589ce24::t_bdfd872f54d071 948-972,979-1004,1006-1007,1014-1016,1018-1024,1031,1037-1040,1047-1073,1075-1080,1088,1094-1095,1099,1101-1139
+  s_b51f6dd589ce24::t_92bff6c534f306 737-740,746
+  s_b51f6dd589ce24::t_095e837461b358 221-409
+  s_b51f6dd589ce24::t_eac5f940ac9fdc 1074,1081-1087,1089-1093
+  s_b51f6dd589ce24::t_1e347cefcf529d 549-564,567-569,576-582,584-596
+  s_b51f6dd589ce24::t_b7b1120cf3e62a 1539,1542-1546
+  s_b51f6dd589ce24::t_f6cb941f70ca0d 1618-1668,1674-1675,1684-1809
+  s_b51f6dd589ce24::t_66e74165ad7311 686
+  s_b51f6dd589ce24::t_cb9282c8c7af3d 736
+  s_b51f6dd589ce24::t_1dcdd4c368574e 775
+  s_b51f6dd589ce24::t_f6db7f66894996 677-685
+  s_b51f6dd589ce24::t_abf796e420f224 1347-1366
+  s_b51f6dd589ce24::t_d7a8091dfaff8d 483-524
+ingestion/states/montana/extracted/black-bear-2026-base.json
+  s_b51f6dd589ce24::t_86ca1b57251b3b 1-60,62-1471
+  s_b51f6dd589ce24::t_0dab49efb08f4d 61
+ingestion/tests/test_extract_black_bear.py
+  s_b51f6dd589ce24::t_5953347ccbf62a 1-89,91-703,748-1218,1235-1386,1438-1507,1509-1510
+  s_b51f6dd589ce24::t_affbd66362df3a 90
+  s_b51f6dd589ce24::t_079d5657f1d8a9 1387-1437
+  s_b51f6dd589ce24::t_ca074e73029d9a 1508,1511-1559
+  s_b51f6dd589ce24::t_c1cc97aba28040 1219-1234
+  s_b51f6dd589ce24::t_271197e19db1e2 704-747
+docs/planning/epics/E03-deferred-items/closure-temporal-anchors.md
+  s_b51f6dd589ce24::t_4a06bddfbf61d4 1-21
+.roughly/known-pitfalls.md
+  s_b51f6dd589ce24::t_a3a1725456691d 189-200
+  s_b51f6dd589ce24::t_a7d3272970c670 347-358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "fbaaf6eb2dcf4c343dfc8f9a07c1994479314c2e",
+  "prompts": {},
+  "sessions": {
+    "s_b51f6dd589ce24": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "05ad3f50-750a-4697-85a5-ce8bb14b71ed",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
