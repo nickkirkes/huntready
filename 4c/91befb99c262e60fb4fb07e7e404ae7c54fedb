@@ -1,0 +1,36 @@
+CLAUDE.md
+  s_9a9554132d1ded::t_583af4d8b538ab 132,149-151
+  s_9a9554132d1ded::t_da7f046275a73e 11
+docs/adrs/ADR-019-doc-type-precedence-multi-source-merge.md
+  s_9a9554132d1ded::t_83081aa298bcf6 1-3,5-65,78-80,86-104,114-124,138-146,157-190,214-218,225,227-251
+  s_9a9554132d1ded::t_56f944f0077a78 191-213
+  s_9a9554132d1ded::t_3783f8c864f616 252-263
+  s_9a9554132d1ded::t_d1b2468be5165a 4
+  s_9a9554132d1ded::t_9bdcd1de4debb3 125-137
+  s_9a9554132d1ded::t_670d2594e4d418 66-77,81-85
+  s_9a9554132d1ded::t_b220823f89729c 147-156
+  s_9a9554132d1ded::t_75ecee5fa3e364 105-113
+  s_9a9554132d1ded::t_aa0a0c36b0cf42 219-224,226
+docs/adrs/README.md
+  s_9a9554132d1ded::t_effa9ed407eab8 81
+docs/planning/README.md
+  s_9a9554132d1ded::t_8931a16f9b7308 4
+  s_9a9554132d1ded::t_1b4570bb589180 32
+  s_9a9554132d1ded::t_27e964ae12d62b 96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "4c91befb99c262e60fb4fb07e7e404ae7c54fedb",
+  "prompts": {},
+  "sessions": {
+    "s_9a9554132d1ded": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
