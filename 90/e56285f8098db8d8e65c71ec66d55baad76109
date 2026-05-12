@@ -1,0 +1,22 @@
+docs/planning/epics/E03-confidence-findings/S03.4.md
+  s_b51f6dd589ce24::t_4c74060514ca1f 41
+docs/plans/S03.4-black-bear-extraction-plan.md
+  s_b51f6dd589ce24::t_f4f11a1ebb8aa2 842,848
+  s_b51f6dd589ce24::t_4ac60b86439000 821-825,827-841,843-847,849-852
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.4",
+  "base_commit_sha": "90e56285f8098db8d8e65c71ec66d55baad76109",
+  "prompts": {},
+  "sessions": {
+    "s_b51f6dd589ce24": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "05ad3f50-750a-4697-85a5-ce8bb14b71ed",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
