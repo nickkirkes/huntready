@@ -186,6 +186,18 @@ Reference implementation: `ingestion/states/montana/extract_dea.py::_rows_to_lic
 
 Reference: `ingestion/states/montana/extract_dea.py::_rows_to_license_extractions` — per-row `season_windows` populated inline from each row's column cells. Surfaced by S03.3 UAT failure on 2026-05-08 (HD 124 deer had three distinct General Season windows in the source PDF; the artifact carried only the first observation across all 5 rows).
 
+### Rotated tables emit doubly-reversed cells
+
+- **Rotated tables emit doubly-reversed cells.** Some PDFs (Montana Black Bear booklet) print regulation tables physically rotated. pdfplumber returns each cell with both line order AND character order reversed (e.g., `"Sep.15-Nov.29"` extracts as `"92.voN-51.peS"`). `page.rotation` reports 0 — there's no hint that reversal is needed. Every cell must be passed through a reversal helper BEFORE normalization. Reference: `_reverse_cell_text` in `extract_black_bear.py`.
+
+### Two-column page layouts interleave text in `extract_text(page)`
+
+- **Two-column page layouts interleave text in `extract_text(page)`.** pdfplumber's default extraction reads top-to-bottom across both columns. For pages with two-column layouts (Black Bear p. 7), use `extract_text(page, bbox=(306, 0, 612, 792))` to isolate the right column before processing.
+
+### Quota-cell word order varies by extraction context
+
+- **Quota-cell word order varies by extraction context.** The same quota phrase can appear as `"= N Female subquota"`, `"= N quota Harvest"`, or `"quota = Harvest N"` depending on how pdfplumber splits multi-line cells in rotated tables. Use a primary regex + word-order-invariant component fallback (`_QUOTA_COUNT_REGEX` + `_QUOTA_KIND_REGEX` in `extract_black_bear.py`).
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
@@ -331,6 +343,26 @@ Two concrete consequences:
 Concrete example: `ingestion/states/montana/build_overlay_fixture.py` lines 166–172 raise `OverlayFixtureError` when `_fetch_hd_ids(conn)` returns empty, naming `load_hds.py` as the prerequisite. Extends the zero-features writer convention (see "Single atomic commit" entry) to the reader side.
 
 Surfaced by S02.6 implementation on 2026-05-01.
+
+### Spec-table BMU/HD lists must be cross-checked against the live PDF
+
+- **Spec-table BMU/HD lists must be cross-checked against the live PDF.** The Black Bear 2026 spec listed 9 quota-closure BMUs; the actual PDF has 8 (BMU 530 absent). Use `re.findall(r"\d{3}", verbatim_rule)` against a constants tuple as a fail-loud drift guard at extraction time. Scope the drift guard to the first sentence to avoid phone-number digits (e.g., 385, 444, 800) contaminating the BMU set.
+
+### Correction-merge arbitration is doc-type-precedence, not date-precedence
+
+- **Correction-merge arbitration is doc-type-precedence, not date-precedence.** When merging a correction PDF with an annual_regulations booklet, `document_type='correction'` always wins over `'annual_regulations'` regardless of `publication_date`. Date is used only for tiebreaking among same-doc-type sources. The naive "MAX date wins" rule silently inverts intent when a correction is published BEFORE the booklet it corrects (Montana 2026 case: correction `2026-03-18` < booklet `2026-04-27`). Reference: `_merge_with_corrections` in `extract_black_bear.py`.
+
+### BMU/HD identifier regexes must handle footnote-marker suffixes
+
+- **BMU/HD identifier regexes must handle footnote-marker suffixes.** Female-sub-quota BMUs in the Montana Black Bear booklet carry a trailing asterisk (`"300*"`, `"580*"`) as a footnote marker. Capture the digits and strip the suffix at parse time (`re.compile(r"^(\d{3})\*?$")`).
+
+### Multi-iteration state writes must hoist out of the loop
+
+- **State-overwriting loops are dict/list-iteration-order-dependent.** When a `for X in collection: state.attr = X[...]` loop runs more than once and `collection` has a non-deterministic order (Python dicts preserve insertion order but the *insertion* itself may be order-dependent on upstream code), the final value of `state.attr` reflects whichever element was iterated last. The build pipeline for S03.4 caught this twice in `_merge_with_corrections`: row-level `source_id`/`source_publication_date` and `extraction_confidence` were both being overwritten on every `(bmu, field)` iteration, producing dict-order-dependent provenance and N-times-demoted confidence for rows touched by N field-level ops. **Rule:** hoist any per-row state assignment out of the per-cell loop into a separate post-loop pass keyed on the row, so each row's state is computed exactly once from a deterministic input. Reference: `_merge_with_corrections` Stage 3 in `extract_black_bear.py` for the canonical pattern (Stage 1 selects winners per cell; Stage 2 applies cell values; Stage 3 updates row-level state once per touched row).
+
+### `max()` / `min()` with comparable ties need an explicit secondary key
+
+- **`max(items, key=...)` and `min(items, key=...)` are list-iteration-order-dependent on ties.** When the keying function returns equal values for two or more items, `max` / `min` returns the first one encountered. For deterministic semantics across re-runs (e.g., re-generating an artifact whose SHA must be byte-stable), use a tuple key with a secondary sort field, OR do a two-pass selection: filter to ties, then pick by the secondary criterion. The S03.4 row-provenance code uses the two-pass form: `max_date = max(op["source_publication_date"] for op in ops); date_ties = [op for op in ops if op["source_publication_date"] == max_date]; row_winner = min(date_ties, key=lambda op: op["source_id"])` — lex-smallest `source_id` breaks ties. Reference: `_merge_with_corrections` row-provenance selection in `extract_black_bear.py`.
 
 ## Conventions — Pre-commit & secrets
 
