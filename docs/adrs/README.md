@@ -78,6 +78,7 @@ Most ADRs carry one or two tags. If an ADR needs three or more, it may be doing 
 | 016 | Digitization-Tolerant Geometry Overlay Containment | Accepted  | ingestion, schema   |
 | 017 | Confidence Calibration and Parent-Inheritance Rule | Accepted  | ingestion, schema   |
 | 018 | E03 Schema Additions — license_season, geometry.legal_description, geometry.kind='state' | Accepted | schema, ingestion |
+| 019 | Doc-Type Precedence in Multi-Source Regulation Merge | Accepted | ingestion        |
 
 ADRs not yet drafted show `—` in the Status column. Once drafted and committed, Status becomes `Accepted` (or `Proposed` if written ahead of implementation).
 

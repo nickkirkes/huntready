@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-05-12
-**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 5/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives, S03.3 DEA booklet extraction, S03.4 Black Bear booklet + correction (closed 2026-05-12; Option B doc-type precedence accepted; ADR-019 candidate))
+**Current Milestone:** M1 — Montana Ingestion (E01 + E02 complete; E03 active — 5/13 stories complete: S03.0 schema, S03.1 PDF fetch, S03.2 PDF extraction primitives, S03.3 DEA booklet extraction, S03.4 Black Bear booklet + correction (closed 2026-05-12; Option B doc-type precedence accepted; ADR-019 accepted))
 **Overall V1 Status:** 1/6 milestones complete
 
 ---
@@ -29,7 +29,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 |---|---|---|---|---|---|
 | E01 | Schema Migrations, RLS, and Quality Gates | Complete | 2026-04-24 | 2026-04-28 | 6 |
 | E02 | Montana Geometry Ingestion | Complete (audited) | 2026-04-28 | 2026-05-03 | 8 |
-| E03 | Montana Regulation Text Ingestion | In Progress (5/13 stories complete; S03.4 closed 2026-05-12; Option B doc-type precedence; ADR-019 candidate) | 2026-05-03 | — | 13 |
+| E03 | Montana Regulation Text Ingestion | In Progress (5/13 stories complete; S03.4 closed 2026-05-12; ADR-019 accepted 2026-05-12) | 2026-05-03 | — | 13 |
 
 ### E03 Story Status
 
@@ -93,7 +93,7 @@ Documentation-debt items (non-blocking):
 ## Next Actions
 
 - **S03.4 closed 2026-05-12.** PR `ab09e82` squash-merged to main; 35 BMU rows + 2 closures + 3 reporting obligations in `black-bear-2026.json`. UAT cleared (4 BMUs spot-checked against `pdfplumber`-extracted source: BMU 411 quota-closure+female-subquota; BMU 300 Spring Closure; BMU 100 unrestricted; BMU 700 quota-closure). Three spec corrections accepted: (a) AC #428 9→8 quota-closure BMUs (BMU 530 absent from 2026 PDF); (b) AC #429 2→3 reporting obligations (statewide 48-hour mandatory reporting is distinct from R1/R2-7 inspection); (c) AC #430-431 **Option B (doc-type precedence)** replaces spec's MAX-date Option A (booklet Last-Modified 2026-04-27 post-dates correction 2026-03-18, so Option A would silently no-op). 35 BMU rows all confidence=medium (HIGH→MEDIUM demote via correction-touched single demote-one-tier per row). 12 real-PDF discoveries documented in closure note; 8 new pitfalls in `.roughly/known-pitfalls.md`. Test suite: 574 passed + 2 skipped.
-- **PM follow-up (next PM action): draft ADR-019** to formalize doc-type-precedence correction arbitration as canonical for all future state adapters. Existing PRD 001 R5 "latest-dated source winning" wording needs reconciliation. Rationale: HTTP Last-Modified is unreliable as a "supersedes" signal across doc-types; `document_type='correction'` is the explicit hand-curated signal. ADR-019 codifies what S03.4 implemented.
+- **ADR-019 accepted 2026-05-12** at [`docs/adrs/ADR-019-doc-type-precedence-multi-source-merge.md`](../adrs/ADR-019-doc-type-precedence-multi-source-merge.md). Formalizes the doc-type-precedence rule (`correction` > `annual_regulations`) for all future state adapters. PRD 001 R5 wording reconciliation deferred to the next PM-led PRD review pass or before E04 planning, whichever comes first. The ADR's V1 rank table is exhaustive within the regulation-text merge path: a `rule_change` or `emergency_order` source attempting to participate fails loud at merge time, and adding a rank for either requires an ADR amendment first. `gis_layer` is structurally outside regulation-text merges (it's the geometry-source doc-type per ADR-014) and the rule doesn't apply.
 - **Begin S03.5 (Legal Descriptions extraction) — UNBLOCKED.** Third per-booklet extractor; cross-references prose boundary descriptions in the 2026-2027 Legal Descriptions PDF (56 pages) to existing `geometry` rows by `kind` + identifier. UAT story; faithfulness review for ≥2 sampled descriptions (one HD + one CWD/restricted-area). Output: `extracted/legal-descriptions-2026.json`. Manifest on disk from the 2026-05-07 fetch sweep.
 - **Begin S03.6 (regulation_record ingestion) in parallel with S03.5.** S03.6 reads `dea-2026.json` + `black-bear-2026.json` and writes `regulation_record` rows. **S03.4 introduces row-level source attribution** (single `source_id` + `source_publication_date` per BMU row; true cell-level deferred to M2); S03.6 should accept this granularity. S03.6 must also dedupe Region 7 portions (HDs 700-705 sections share rows) via license_code matching per the option-(a) S03.3 emission strategy.
 - **S03.5 → S03.4 inherit from S03.3** (recorded in epic): per-row `season_windows` (no section-level aggregation); column-faithful row construction; deep-copy when emitting multiple sections from one source block; every cleanup rule applied to row cells must appear in the module-level docstring (AC #338 strict pattern); fail-loud at every "could-be-silent-data-loss" guard.
