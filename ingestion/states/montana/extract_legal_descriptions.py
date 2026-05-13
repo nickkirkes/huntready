@@ -889,6 +889,51 @@ def _apply_continuation_merges(
     return result
 
 
+def _check_no_duplicate_hd_blocks(
+    blocks: list[tuple[HeadedBlock, str, PageReference]],
+) -> None:
+    """Fail loud if the same ``(namespace, hd_number)`` HD block appears twice.
+
+    Without this guard, two matched entries with the same ``geometry_id`` would
+    be appended to the artifact's ``matched`` array. S03.6 would then UPSERT
+    the same ``geometry_id`` twice with last-write-wins corruption of
+    ``geometry.legal_description``.
+
+    The current FWP Legal Descriptions PDF (2026-2027) does NOT produce HD
+    duplicates — 139 matched entries all have unique ``geometry_id`` per
+    artifact stats. This check is defensive against future PDF revisions that
+    may repeat HD headings (e.g., a "X - Continued" pattern like the DEA
+    booklet uses, per CLAUDE.md S03.3 closure). When a duplicate is detected,
+    the operator must investigate whether both copies carry the same body
+    (column-extraction artifact) or different bodies (multi-column real-body
+    bleed analogous to the CWD case), and add a merge step accordingly.
+
+    Distinct namespaces with the same HD number (e.g., HD 100 in both
+    ``bear`` and ``deer-elk-lion``) are NOT duplicates — they map to distinct
+    geometry_ids.
+
+    Raises ``PdfExtractionError`` naming the geometry_id and both page refs.
+    """
+    seen: dict[tuple[str, int], PageReference] = {}
+    for block, namespace, page_reference in blocks:
+        if block.kind != "hd" or block.hd_number is None:
+            continue
+        key = (namespace, block.hd_number)
+        if key in seen:
+            prev_pref = seen[key]
+            raise PdfExtractionError(
+                f"Duplicate HD heading: namespace={namespace} hd_number={block.hd_number} "
+                f"appears at pages {prev_pref['page_num_1based']} and "
+                f"{page_reference['page_num_1based']}. Without dedup, "
+                f"MT-HD-{namespace}-{block.hd_number}-geom would be written "
+                f"twice in S03.6 with last-write-wins corruption. Investigate "
+                f"the PDF source and add a merge step (concatenate bodies if "
+                f"the duplicate is a multi-column body bleed; first-match-wins "
+                f"if it is a column-extraction artifact with identical bodies)."
+            )
+        seen[key] = page_reference
+
+
 def _build_artifact(
     merged_blocks: list[tuple[HeadedBlock, str, PageReference]],
     extracted_at: str,
@@ -1050,6 +1095,7 @@ def main(argv: list[str] | None = None) -> int:
     with open_pdf(args.pdf) as pdf:
         raw_blocks = list(_walk_v1_pages(pdf, args.pdf.name, extracted_at))
     consolidated = _consolidate_cwd_blocks(raw_blocks)
+    _check_no_duplicate_hd_blocks(consolidated)
     merged = _apply_continuation_merges(consolidated)
 
     artifact = _build_artifact(merged, extracted_at, hd_lookup, cwd_lookup, all_v1_ids)

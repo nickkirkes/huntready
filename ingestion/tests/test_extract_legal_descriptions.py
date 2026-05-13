@@ -36,6 +36,7 @@ from states.montana.extract_legal_descriptions import (
     _apply_continuation_merges,
     _build_artifact,
     _canonicalize_cwd_name,
+    _check_no_duplicate_hd_blocks,
     _CWD_HEADING_RE,
     _HD_HEADING_RE,
     _PORTION_HEADING_RE,
@@ -770,6 +771,84 @@ class TestApplyContinuationMerges:
         assert "part one" in merged
         assert "part two" in merged
         assert "part three" in merged
+
+
+# ---------------------------------------------------------------------------
+# 8b. TestCheckNoDuplicateHdBlocks
+# ---------------------------------------------------------------------------
+
+
+class TestCheckNoDuplicateHdBlocks:
+    """``_check_no_duplicate_hd_blocks`` raises if the same (namespace, hd_number)
+    appears twice — guards S03.6 against last-write-wins corruption when the
+    same geometry_id is matched in two blocks."""
+
+    def _hd_tuple(
+        self,
+        hd_number: int,
+        namespace: str = "antelope",
+        page_num: int = 5,
+    ) -> tuple[HeadedBlock, str, PageReference]:
+        return (
+            _make_hd_block(hd_number, page_num=page_num),
+            namespace,
+            _make_page_reference(page_num),
+        )
+
+    def test_no_duplicates_passes(self) -> None:
+        """Distinct HD numbers in the same namespace pass."""
+        blocks = [self._hd_tuple(215), self._hd_tuple(291)]
+        _check_no_duplicate_hd_blocks(blocks)  # No raise.
+
+    def test_duplicate_in_same_namespace_raises(self) -> None:
+        """Same (namespace, hd_number) on two pages raises PdfExtractionError."""
+        blocks = [
+            self._hd_tuple(215, page_num=5),
+            self._hd_tuple(215, page_num=6),
+        ]
+        with pytest.raises(PdfExtractionError) as exc_info:
+            _check_no_duplicate_hd_blocks(blocks)
+        msg = str(exc_info.value)
+        assert "Duplicate HD heading" in msg
+        assert "namespace=antelope" in msg
+        assert "hd_number=215" in msg
+        assert "pages 5 and 6" in msg
+        # The error message must name the geometry_id that would corrupt downstream.
+        assert "MT-HD-antelope-215-geom" in msg
+
+    def test_same_number_different_namespace_passes(self) -> None:
+        """HD 100 in bear vs deer-elk-lion maps to distinct geometry_ids — not a dup."""
+        blocks = [
+            self._hd_tuple(100, namespace="bear", page_num=14),
+            self._hd_tuple(100, namespace="deer-elk-lion", page_num=19),
+        ]
+        _check_no_duplicate_hd_blocks(blocks)  # No raise.
+
+    def test_non_hd_blocks_ignored(self) -> None:
+        """Continuation, CWD, and portion blocks do NOT participate in the dup check."""
+        cwd_block = HeadedBlock(
+            kind="cwd",
+            heading_text="Libby CWD Management Zone",
+            hd_number=None,
+            cwd_name="Libby CWD Management Zone",
+            body_raw="cwd body",
+            page_num_1based=19,
+        )
+        portion_block = HeadedBlock(
+            kind="portion",
+            heading_text="Portion of HD 103",
+            hd_number=103,  # populated for portion blocks, but kind != "hd"
+            cwd_name=None,
+            body_raw="portion body",
+            page_num_1based=20,
+        )
+        blocks: list[tuple[HeadedBlock, str, PageReference]] = [
+            (cwd_block, "deer-elk-lion", _make_page_reference(19)),
+            (cwd_block, "deer-elk-lion", _make_page_reference(20)),  # repeat CWD: not flagged
+            (portion_block, "deer-elk-lion", _make_page_reference(20)),
+            (portion_block, "deer-elk-lion", _make_page_reference(21)),  # repeat portion: not flagged
+        ]
+        _check_no_duplicate_hd_blocks(blocks)  # No raise — only kind="hd" is checked.
 
 
 # ---------------------------------------------------------------------------
