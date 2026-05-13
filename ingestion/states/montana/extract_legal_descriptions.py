@@ -86,6 +86,26 @@ downstream ``geometry.legal_description`` writes (S03.6).
       anchor handles it.
       Locked by test ``TestBuildArtifact::test_heading_text_not_in_body``.
 
+  Rule C — structural locator clause stripped:
+      Anchor: ``\\bBeg\\w*\\b`` (matches "Beginning", "Begin", or column-
+      truncated "Beg"). Scope: assembled ``verbatim_description`` only,
+      applied AFTER Rule A's whitespace collapse.
+      The HD/CWD heading regex captures up through "Those portions" / "That
+      portion" / the zone name, but the FWP locator clause that follows
+      ("of <county list> lying within the following described boundary:")
+      bleeds into ``body_raw``. That clause is metadata, not boundary prose;
+      the V1 spec scopes ``verbatim_description`` to "<full prose boundary
+      description, verbatim>" (epic line 475). The boundary description
+      itself always opens with "Beginning at <point>..." (sometimes truncated
+      to "Beg at..." or "Beginnin at..." by narrow-column wrap).
+      Implementation: find the FIRST occurrence of the anchor pattern; slice
+      ``body`` to start at that position. If no anchor is found, log a
+      WARNING naming the geometry_id and keep ``body`` unmodified (fail-safe
+      preservation per ADR-001).
+      Discovery 2026-05-13: 156/156 matched entries had the structural
+      locator clause leading their bodies before this rule was added.
+      Locked by test ``TestBuildArtifact::test_locator_clause_stripped``.
+
 Fail-loud threshold
 -------------------
 ``unmatched_rate = len(unmatched) / (len(matched) + len(unmatched))``
@@ -386,6 +406,15 @@ _PORTION_HEADING_RE = re.compile(
     r"^\s*Portion of HD\s+(\d{2,3})\b",
     re.MULTILINE,
 )
+
+# Cleanup Rule C anchor: identifies the start of the boundary description
+# prose ("Beginning at <point>..."). Case-sensitive on the leading capital
+# 'B' to avoid matching lowercase "beginning." that appears at the END of
+# every boundary description (e.g., "...the point of beginning."). The
+# ``\w*`` suffix tolerates column-wrap truncation: "Begin", "Beginning",
+# "Beginnin" (missing trailing 'g'), and "Beg" all match. Discovery
+# 2026-05-13: every V1 matched body had this anchor present.
+_BODY_START_RE = re.compile(r"\bBeg\w*\b")
 
 
 def _load_geometry_lookup(
@@ -1012,11 +1041,28 @@ def _build_artifact(
         status, payload = _match_block_to_geometry(block, namespace, hd_lookup, cwd_lookup)
 
         if status == "matched":
+            # Cleanup Rule C: strip the FWP locator clause ("of <counties>
+            # lying within the following described boundary:") that bleeds
+            # into body_raw before the actual boundary prose. The boundary
+            # description always opens with "Beginning at..." (possibly
+            # truncated to "Beg at..." by column wrap).
+            anchor = _BODY_START_RE.search(body_collapsed)
+            if anchor:
+                body_for_match = body_collapsed[anchor.start():]
+            else:
+                _logger.warning(
+                    "No 'Beg...' boundary-start anchor in body for "
+                    "geometry_id=%s page=%d; preserving locator clause "
+                    "text. Operator should investigate.",
+                    payload["geometry_id"],
+                    page_reference["page_num_1based"],
+                )
+                body_for_match = body_collapsed
             matched.append(
                 LegalDescriptionEntry(
                     geometry_id=payload["geometry_id"],
                     geometry_kind=payload["geometry_kind"],
-                    verbatim_description=body_collapsed,
+                    verbatim_description=body_for_match,
                     page_reference=page_reference,
                     extraction_confidence=payload["extraction_confidence"],
                 )

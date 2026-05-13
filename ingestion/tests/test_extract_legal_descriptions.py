@@ -1140,6 +1140,119 @@ class TestBuildArtifact:
             f"HD name leaked into verbatim_description: {vd!r}"
         )
 
+    def test_locator_clause_stripped(self) -> None:
+        """Cleanup Rule C: the FWP locator clause is stripped from body.
+
+        The HD/CWD heading regex captures up through "Those portions" /
+        "That portion" / zone name, but the structural locator clause
+        ("of <counties> lying within the following described boundary:")
+        bleeds into body_raw. Rule C trims to the first \\bBeg\\w*\\b
+        anchor — the boundary description always opens with "Beginning at..."
+        (sometimes column-truncated to "Beg at...").
+        """
+        hd_lookup = _make_hd_lookup()
+        cwd_lookup = _make_cwd_lookup()
+        # Simulate a body_raw that includes locator clause prefix + boundary.
+        body_raw = (
+            "of Granite, Powell and Deer Lodge Counties lying within the "
+            "following described boundary: Beginning at the junction of "
+            "US-89 and MT-200, then north along said route."
+        )
+        block = HeadedBlock(
+            kind="hd",
+            heading_text="215 East Deer Lodge",
+            hd_number=215,
+            cwd_name=None,
+            body_raw=body_raw,
+            page_num_1based=5,
+        )
+        merged_blocks: list[tuple[HeadedBlock, str, PageReference]] = [
+            (block, "antelope", _make_page_reference(5)),
+        ]
+        all_v1_ids: list[tuple[str, str]] = [(_ANTELOPE_215_GEOM_ID, "hunting_district")]
+        artifact = _build_artifact(
+            merged_blocks, _FAKE_EXTRACTED_AT, hd_lookup, cwd_lookup, all_v1_ids
+        )
+        vd = artifact["matched"][0]["verbatim_description"]
+        assert vd.startswith("Beginning at"), (
+            f"Rule C should trim locator clause; body must start with 'Beginning'. "
+            f"Got: {vd!r}"
+        )
+        # Confirm locator clause IS stripped (none of the structural words appear)
+        assert "Granite" not in vd, f"Locator clause leaked: {vd!r}"
+        assert "lying within" not in vd, f"Locator clause leaked: {vd!r}"
+        assert "described boundary" not in vd, f"Locator clause leaked: {vd!r}"
+
+    def test_locator_clause_stripped_with_truncated_beg(self) -> None:
+        """Rule C handles column-truncated 'Beg' (not just 'Beginning').
+
+        Narrow columns sometimes wrap so that "Beginning" becomes "Beg" or
+        "Beginnin" by losing trailing chars. The \\bBeg\\w*\\b anchor matches
+        either form.
+        """
+        hd_lookup = _make_hd_lookup()
+        cwd_lookup = _make_cwd_lookup()
+        body_raw = (
+            "of Lewis and Clark County lying within following-described "
+            "boundary: Beg at the junction of Rogers Pass and Route 200."
+        )
+        block = HeadedBlock(
+            kind="hd",
+            heading_text="440 Test",
+            hd_number=215,  # use 215 for the lookup
+            cwd_name=None,
+            body_raw=body_raw,
+            page_num_1based=5,
+        )
+        merged_blocks: list[tuple[HeadedBlock, str, PageReference]] = [
+            (block, "antelope", _make_page_reference(5)),
+        ]
+        all_v1_ids: list[tuple[str, str]] = [(_ANTELOPE_215_GEOM_ID, "hunting_district")]
+        artifact = _build_artifact(
+            merged_blocks, _FAKE_EXTRACTED_AT, hd_lookup, cwd_lookup, all_v1_ids
+        )
+        vd = artifact["matched"][0]["verbatim_description"]
+        assert vd.startswith("Beg at"), (
+            f"Rule C should match truncated 'Beg' form; got: {vd!r}"
+        )
+
+    def test_rule_c_fail_safe_when_no_beg_anchor(self, caplog: Any) -> None:
+        """Rule C preserves body unchanged + WARNs when 'Beg' anchor is missing.
+
+        ADR-001 fail-safe: rather than silently corrupting the body when the
+        anchor pattern is absent, Rule C logs a WARNING naming the
+        geometry_id and keeps the body as-is for operator investigation.
+        """
+        hd_lookup = _make_hd_lookup()
+        cwd_lookup = _make_cwd_lookup()
+        # Body with no "Beg..." word anywhere
+        body_raw = "of County X lying within boundary: starts here without any anchor."
+        block = HeadedBlock(
+            kind="hd",
+            heading_text="215 Test",
+            hd_number=215,
+            cwd_name=None,
+            body_raw=body_raw,
+            page_num_1based=5,
+        )
+        merged_blocks: list[tuple[HeadedBlock, str, PageReference]] = [
+            (block, "antelope", _make_page_reference(5)),
+        ]
+        all_v1_ids: list[tuple[str, str]] = [(_ANTELOPE_215_GEOM_ID, "hunting_district")]
+        with caplog.at_level(logging.WARNING):
+            artifact = _build_artifact(
+                merged_blocks, _FAKE_EXTRACTED_AT, hd_lookup, cwd_lookup, all_v1_ids
+            )
+        vd = artifact["matched"][0]["verbatim_description"]
+        # Body is preserved as-is (fail-safe)
+        assert "of County X" in vd
+        # WARNING was logged naming the geometry_id
+        assert any(
+            "No 'Beg...' boundary-start anchor" in rec.message
+            and _ANTELOPE_215_GEOM_ID in rec.message
+            for rec in caplog.records
+        ), f"Expected anchor-missing warning; got: {[r.message for r in caplog.records]}"
+
     def test_sort_order_matched(self) -> None:
         """matched is sorted by (geometry_kind, geometry_id)."""
         hd_lookup: dict[tuple[str, int], str] = {
@@ -1498,6 +1611,27 @@ class TestArtifactRegression:
         assert not leaks, (
             f"Running-footer text leaked into matched verbatim_descriptions: "
             f"{leaks}. Increase _FOOTER_STRIP_PT to exclude the footer."
+        )
+
+    def test_all_matched_bodies_start_with_boundary_prose(self) -> None:
+        """Cleanup Rule C lock: every matched verbatim_description starts with 'Beg'.
+
+        Guards against regression of the locator-clause-strip fix
+        (2026-05-13 finding). Without Rule C, bodies started with "of <county>
+        lying within ..." or ": Those portions of ..." — structural metadata,
+        not boundary prose. After Rule C, every body opens with the actual
+        boundary description ("Beginning at <point>...", or column-truncated
+        "Begin..." / "Beg..." variants).
+        """
+        artifact = self._load_artifact()
+        violations = [
+            (e["geometry_id"], e["verbatim_description"][:80])
+            for e in artifact["matched"]
+            if not e["verbatim_description"].startswith("Beg")
+        ]
+        assert not violations, (
+            f"{len(violations)} matched entries do NOT start with 'Beg' "
+            f"(locator clause not stripped): {violations[:5]}"
         )
 
     def test_hd_705_antelope_matched_via_wrapped_anchor(self) -> None:
