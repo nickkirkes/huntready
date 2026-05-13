@@ -1,0 +1,22 @@
+ingestion/states/montana/extract_legal_descriptions.py
+  s_00335cf32f820a::t_a6ea4a174e0ca8 424-431,446,448
+  s_00335cf32f820a::t_bf77b8cc663801 458,484,486
+ingestion/tests/test_extract_legal_descriptions.py
+  s_00335cf32f820a::t_166ca54ccc643b 459-504
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "fa7b873ae0c58ee3e51c1129669c6fad53cdd6bd",
+  "prompts": {},
+  "sessions": {
+    "s_00335cf32f820a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "380e7014-a5d0-4364-bb69-3ea9471274b9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
