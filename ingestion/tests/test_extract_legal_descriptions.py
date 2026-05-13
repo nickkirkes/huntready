@@ -63,10 +63,16 @@ _LIBBY_CWD_GEOM_ID = "MT-CWD-zone-libby-cwd-management-zone-geom"
 _KALISPELL_CWD_GEOM_ID = "MT-CWD-zone-kalispell-cwd-management-zone-geom"
 
 
+_PORTION_GEOM_ID = "MT-HD-elk-215-portion-elPt21-geom"
+_RESTRICTED_GEOM_ID = "MT-restricted-bigame-flathead-wpa-geom"
+
+
 def _make_synthetic_fixture(
     *,
     include_hds: bool = True,
     include_cwd: bool = True,
+    include_portion: bool = True,
+    include_restricted: bool = True,
 ) -> list[dict[str, str]]:
     """Return a minimal geometry-overlays list for unit tests."""
     entries: list[dict[str, str]] = []
@@ -112,6 +118,24 @@ def _make_synthetic_fixture(
                 "parent_kind": "state",
             },
         ]
+    if include_portion:
+        entries.append(
+            {
+                "child_geometry_id": _PORTION_GEOM_ID,
+                "child_kind": "portion",
+                "parent_geometry_id": "MT-HD-deer-elk-lion-215-geom",
+                "parent_kind": "hunting_district",
+            }
+        )
+    if include_restricted:
+        entries.append(
+            {
+                "child_geometry_id": _RESTRICTED_GEOM_ID,
+                "child_kind": "restricted_area",
+                "parent_geometry_id": "MT-STATEWIDE-geom",
+                "parent_kind": "state",
+            }
+        )
     return entries
 
 
@@ -381,13 +405,56 @@ class TestGeometryLookup:
         assert cwd_lookup["Kalispell Area CWD Management Zone"] == _KALISPELL_CWD_GEOM_ID
 
     def test_all_v1_ids_union(self, tmp_path: Path) -> None:
-        """all_v1_ids is the union of V1 HD IDs + CWD IDs."""
+        """all_v1_ids contains HD + CWD + portion + restricted_area + STATEWIDE.
+
+        The module docstring promises that portion, restricted_area, and the
+        hardcoded MT-STATEWIDE-geom all land in `unlinked`. The lookup must
+        therefore include them so `_build_artifact` can emit them.
+        """
         fixture_path = _write_fixture(tmp_path, _make_synthetic_fixture())
         _hd_lookup, _cwd_lookup, all_v1_ids = _load_geometry_lookup(fixture_path)
+        ids_by_kind = {kind: gid for gid, kind in all_v1_ids}
         geom_ids = {gid for gid, _ in all_v1_ids}
+        # HD entries present
         assert _ANTELOPE_215_GEOM_ID in geom_ids
+        # CWD entries present
         assert _LIBBY_CWD_GEOM_ID in geom_ids
         assert _KALISPELL_CWD_GEOM_ID in geom_ids
+        # Portion + restricted_area entries present (out-of-matcher-scope, in-unlinked-scope)
+        assert _PORTION_GEOM_ID in geom_ids, (
+            "portion row missing from all_v1_ids — docstring says it should land in unlinked"
+        )
+        assert _RESTRICTED_GEOM_ID in geom_ids, (
+            "restricted_area row missing from all_v1_ids — docstring says it should land in unlinked"
+        )
+        # STATEWIDE hardcoded (fixture predates S03.0)
+        assert "MT-STATEWIDE-geom" in geom_ids, (
+            "MT-STATEWIDE-geom missing from all_v1_ids — must be hardcoded since "
+            "the fixture predates S03.0's state-boundary write"
+        )
+        assert ids_by_kind.get("state") == "MT-STATEWIDE-geom"
+
+    def test_statewide_present_even_when_fixture_omits_it(self, tmp_path: Path) -> None:
+        """MT-STATEWIDE-geom is injected even when the fixture has no 'state' kind rows.
+
+        The production geometry-overlays.json predates S03.0 and does NOT contain
+        a 'state' kind entry; the loader must inject MT-STATEWIDE-geom anyway
+        so unlinked represents the full V1 geometry surface per the docstring.
+        """
+        # Build fixture with NO 'state'-kind rows (parent_kind=state is fine; only
+        # child_kind=state would be a fixture-provided STATEWIDE row).
+        entries = _make_synthetic_fixture()
+        # Sanity: confirm none of the entries declare child_kind=state
+        assert not any(e.get("child_kind") == "state" for e in entries)
+        fixture_path = _write_fixture(tmp_path, entries)
+        _hd_lookup, _cwd_lookup, all_v1_ids = _load_geometry_lookup(fixture_path)
+        statewide_entries = [
+            (gid, kind) for gid, kind in all_v1_ids if gid == "MT-STATEWIDE-geom"
+        ]
+        assert statewide_entries == [("MT-STATEWIDE-geom", "state")], (
+            "STATEWIDE must be injected exactly once with kind='state'; "
+            f"got: {statewide_entries}"
+        )
 
     def test_empty_fixture_raises(self, tmp_path: Path) -> None:
         """Empty fixture (no entries) raises PdfExtractionError."""
@@ -1270,6 +1337,38 @@ class TestArtifactRegression:
         assert not empty, (
             f"Matched entries with empty verbatim_description: {empty}"
         )
+
+    def test_unlinked_includes_full_v1_surface(self) -> None:
+        """unlinked covers portion + restricted_area + STATEWIDE rows.
+
+        The module docstring promises that 55 portion rows, 54 restricted_area
+        rows, and 1 STATEWIDE row land in `unlinked` for S03.6's "no heading
+        in PDF" audit. Without these, the artifact would silently underreport
+        the geometry surface S03.6 must reason about (P1 finding 2026-05-13).
+        """
+        artifact = self._load_artifact()
+        unlinked_by_kind: dict[str, int] = {}
+        for entry in artifact["unlinked"]:
+            unlinked_by_kind[entry["geometry_kind"]] = (
+                unlinked_by_kind.get(entry["geometry_kind"], 0) + 1
+            )
+        # Sanity: at least the four expected kinds appear in unlinked
+        assert unlinked_by_kind.get("portion", 0) >= 1, (
+            f"unlinked has no portion rows; breakdown: {unlinked_by_kind}"
+        )
+        assert unlinked_by_kind.get("restricted_area", 0) >= 1, (
+            f"unlinked has no restricted_area rows; breakdown: {unlinked_by_kind}"
+        )
+        assert unlinked_by_kind.get("state", 0) == 1, (
+            f"unlinked must contain exactly 1 state row (MT-STATEWIDE-geom); "
+            f"breakdown: {unlinked_by_kind}"
+        )
+        statewide_entries = [
+            e for e in artifact["unlinked"] if e["geometry_id"] == "MT-STATEWIDE-geom"
+        ]
+        assert len(statewide_entries) == 1
+        assert statewide_entries[0]["geometry_kind"] == "state"
+        assert statewide_entries[0]["reason"] == "no_heading_in_pdf"
 
     def test_no_cross_namespace_bleed_in_verbatim_descriptions(self) -> None:
         """No matched entry's body contains a section-header from another species namespace.

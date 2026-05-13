@@ -2161,6 +2161,556 @@
       "geometry_id": "MT-HD-deer-elk-lion-705-geom",
       "geometry_kind": "hunting_district",
       "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-antelope-701-portion-antPt11-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-antelope-701-portion-antPt14-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-antelope-703-portion-antPt12-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-antelope-703-portion-antPt17-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-170-portion-elPt22-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-200-portion-elPt7-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-202-portion-elPt8-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-204-portion-elPt28-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-210-portion-elPt29-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-210-portion-elPt30-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-213-portion-elPt20-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-215-portion-elPt21-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-240-portion-elPt18-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-270-portion-elPt19-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-270-portion-elPt23-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-292-portion-elPt4-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-293-portion-elPt15-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-310-portion-elPt1-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-313-portion-elPt2-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-314-portion-elPt5-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-314-portion-elPt6-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-323-portion-elPt14-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-388-portion-elPt12-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-388-portion-elPt13-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-391-portion-elPt31-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-410-portion-elPt410-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-413-portion-elPt33-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-417-portion-elPt417-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-425-portion-elPt24-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-441-portion-elPt16-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-elk-701-portion-elPt9-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-103-portion-portion-of-hd-103-north-fisher-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-130-portion-portion-of-hd-130-mission-mtns-wilderness-portion-of-flathead-natl-forest-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-213-portion-portion-of-hd-213-outside-of-the-national-forest-boundary-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-240-portion-portion-of-hd-240-inside-wilderness-boundary-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-261-portion-portion-of-hd-261-outside-of-the-national-forest-boundary-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-310-portion-gallatin-special-management-area-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-east-of-springhill-rocky-mtn-road-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-312-portion-portion-of-hd-312-west-of-springhill-rocky-mtn-road-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-outside-weapons-restriction-area-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-388-portion-portion-of-hd-388-weapons-restriction-area-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-mule-deer-441-portion-portion-of-hd-441-within-the-national-forest-boundary-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-100-portion-wtPt12-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-103-portion-wtPt10-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-104-portion-wtPt11-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-201-portion-wtPt13-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-213-portion-wtPt8-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-213-portion-wtPt9-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-292-portion-wtPt3-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-310-portion-wtPt7-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-380-portion-wtPt2-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-388-portion-wtPt4-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-388-portion-wtPt5-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-388-portion-wtPt6-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-HD-whitetail-391-portion-wtPt1-geom",
+      "geometry_kind": "portion",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-aunt-molly-wma-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-bitterroot-clark-fork-archery-district-portion-of-hd-260-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-blackwood-exclusion-zone-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-blasdel-wpa-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-bnsf-right-of-way-from-marias-pass-to-the-java-creek-bridge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-charles-m-russell-national-wildlife-refuge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-cree-crossing-wma-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-east-ovando-archery-only-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-ennis-airport-weapons-restriction-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-flathead-weapons-restriction-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-flathead-wpa-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-fort-harrison-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-fort-peck-dam-site-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-freezout-lake-wildlife-management-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-gallatin-valley-weapons-restriction-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-gardiner-closure-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-gates-of-the-mountains-game-preserve-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-grant-kohrs-ranch-near-deer-lodge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-hd-120-north-between-smith-lake-road-and-us-route-2-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-hd-632-the-charles-m-russell-national-wildlife-refuge-cmr-in-valley-county-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-hd-650-on-the-cmr-refuge-at-the-fort-peck-dam-site-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-helena-valley-regulating-reservoir-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-helmville-ovando-archery-district-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-jeffers-weapons-restriction-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-lake-bowdoin-migratory-waterfowl-refuge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-lake-helena-wildlife-management-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-lee-metcalf-refuge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-libby-big-game-archery-only-hunting-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-limestone-hills-training-range-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-lincoln-archery-district-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-lincoln-closed-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-medicine-lake-national-wildlife-refuge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-milk-river-wildlife-management-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-missouri-river-between-the-mouth-of-sand-coulee-crk-downstream-to-great-falls-city-limits-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-muskrat-valley-near-boulder-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-poindexter-slough-area-south-of-dillon-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-prickly-pear-weapons-restriction-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-prison-ranch-archery-only-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-red-rock-lakes-national-wildlife-refuge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-rookery-wildlife-management-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-seeley-lake-game-preserve-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-slippery-ann-elk-viewing-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-sourdough-exclusion-zone-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-sun-river-wildlife-management-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-swan-river-refuge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-the-pines-recreation-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-townsend-weapons-restriction-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-ul-bend-national-wildlife-refuge-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-warm-springs-wildlife-management-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-bigame-yellowstone-river-islands-restricted-to-archequip-only-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-elk-deckard-flats-to-trail-creek-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-elk-gallatin-special-management-area-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-elk-portion-of-hd-101-north-tobacco-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-restricted-elk-wall-creek-wma-and-adjacent-land-as-posted-geom",
+      "geometry_kind": "restricted_area",
+      "reason": "no_heading_in_pdf"
+    },
+    {
+      "geometry_id": "MT-STATEWIDE-geom",
+      "geometry_kind": "state",
+      "reason": "no_heading_in_pdf"
     }
   ],
   "unmatched": [

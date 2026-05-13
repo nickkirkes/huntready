@@ -391,9 +391,22 @@ def _load_geometry_lookup(
                      from the ``_CWD_HEADING_TO_GEOMETRY_ID`` constant and
                      verified against the fixture.
         all_v1_ids:  List of ``(geometry_id, geometry_kind)`` tuples covering
-                     every in-scope V1 ID: all HD rows in the three namespaces
-                     plus the 2 CWD zones.  Used by T8 to compute the
-                     ``unlinked`` array.
+                     every in-scope V1 ID. Used by T8 to compute the
+                     ``unlinked`` array (V1 geometry IDs that had no
+                     matching heading in the PDF). Includes:
+                       - All HD rows in the three V1 namespaces (235).
+                       - The 2 CWD zones.
+                       - All ``portion`` rows (55) — out-of-scope for matching
+                         per the plan (opaque Pt slugs not derivable from
+                         heading text); land in ``unlinked`` for S03.6 audit.
+                       - All ``restricted_area`` rows (54) — no headed
+                         sections in this PDF; land in ``unlinked``.
+                       - The hardcoded ``MT-STATEWIDE-geom`` (state) row —
+                         present in production DB via S03.0 but absent from
+                         this fixture (the fixture predates S03.0); injected
+                         here so ``unlinked`` represents the full V1 geometry
+                         surface per the module docstring contract.
+                     Total: 347 V1 IDs for the 2026 Montana data.
 
     Fail-loud invariants (ADR-001):
         - If ``hd_lookup`` is empty after construction → ``PdfExtractionError``.
@@ -408,19 +421,29 @@ def _load_geometry_lookup(
     hd_lookup: dict[tuple[str, int], str] = {}
     hd_v1_ids: list[tuple[str, str]] = []
 
+    # Track every fixture geometry_id once per kind for the all_v1_ids
+    # construction below — used for kinds OTHER than hunting_district where
+    # we don't filter by namespace (portions, restricted_area, cwd_zone).
+    seen_other: dict[str, str] = {}  # geom_id -> kind
+
     for entry in entries:
         child_kind = entry.get("child_kind", "")
         child_id = entry.get("child_geometry_id", "")
-        if child_kind != "hunting_district":
+        if not child_id:
             continue
-        m = _HD_GEOMETRY_ID_RE.match(child_id)
-        if not m:
-            continue
-        namespace = m.group(1)   # "antelope" | "bear" | "deer-elk-lion"
-        hd_number = int(m.group(2))
-        key = (namespace, hd_number)
-        hd_lookup[key] = child_id
-        hd_v1_ids.append((child_id, child_kind))
+        if child_kind == "hunting_district":
+            m = _HD_GEOMETRY_ID_RE.match(child_id)
+            if not m:
+                continue
+            namespace = m.group(1)   # "antelope" | "bear" | "deer-elk-lion"
+            hd_number = int(m.group(2))
+            key = (namespace, hd_number)
+            hd_lookup[key] = child_id
+            hd_v1_ids.append((child_id, child_kind))
+        elif child_kind in ("portion", "restricted_area", "cwd_zone"):
+            # Dedupe — the overlay fixture lists each ID once per relationship,
+            # so a single child_id may appear multiple times.
+            seen_other.setdefault(child_id, child_kind)
 
     if not hd_lookup:
         raise PdfExtractionError(
@@ -430,9 +453,7 @@ def _load_geometry_lookup(
 
     # --- CWD lookup — verify hardcoded targets exist in the fixture ---------
     fixture_cwd_ids = {
-        entry["child_geometry_id"]
-        for entry in entries
-        if entry.get("child_kind") == "cwd_zone"
+        geom_id for geom_id, kind in seen_other.items() if kind == "cwd_zone"
     }
     missing = [
         target_id
@@ -453,11 +474,16 @@ def _load_geometry_lookup(
             f"{fixture_path}"
         )
 
-    # --- all_v1_ids: HD rows + CWD zones ------------------------------------
-    cwd_v1_ids: list[tuple[str, str]] = [
-        (geom_id, "cwd_zone") for geom_id in cwd_lookup.values()
-    ]
-    all_v1_ids: list[tuple[str, str]] = hd_v1_ids + cwd_v1_ids
+    # --- all_v1_ids: HD + CWD + portion + restricted_area + STATEWIDE -------
+    # The module docstring promises that portion, restricted_area, and
+    # MT-STATEWIDE-geom all land in `unlinked`. Without including them here,
+    # the artifact silently underreports the geometry surface S03.6 must
+    # reason about.
+    other_v1_ids: list[tuple[str, str]] = sorted(seen_other.items())
+    statewide_v1_id: tuple[str, str] = ("MT-STATEWIDE-geom", "state")
+    all_v1_ids: list[tuple[str, str]] = (
+        hd_v1_ids + other_v1_ids + [statewide_v1_id]
+    )
 
     return hd_lookup, cwd_lookup, all_v1_ids
 
