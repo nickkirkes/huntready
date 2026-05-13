@@ -1,0 +1,33 @@
+docs/planning/epics/E03-confidence-findings/S03.5.md
+  s_00335cf32f820a::t_9e9fb3526495c5 143,146,152,154-155
+  s_00335cf32f820a::t_6aa85d95a7f6a6 119-132
+  s_00335cf32f820a::t_616421000e6e35 76
+.roughly/known-pitfalls.md
+  s_00335cf32f820a::t_f153988c2edd38 246,252-258
+.secrets.baseline
+  s_00335cf32f820a::t_f517fa01aa993f 136,284
+ingestion/states/montana/extract_legal_descriptions.py
+  s_00335cf32f820a::t_bc0dab00ec20ca 185-191,196
+  s_00335cf32f820a::t_2c40956e40e226 353-362,364
+ingestion/states/montana/extracted/legal-descriptions-2026.json
+  s_00335cf32f820a::t_fe94a2f990fa7e 62,98,134,170,194-206,218,266-278,338,386,398,470,494-506,530,566,614,650,686,698,722-758,782,830,866,902,926,986,1010,1034-1046,1094,1106,1118,1130,1142-1154,1166,1180-1191,1202,1252-1263,1286,1310-1322,1394,1514-1526,1550,1574-1598,1610,1658,1670,1682-1694,1718,1754,1778-1790,1838,1862-1874
+ingestion/tests/test_extract_legal_descriptions.py
+  s_00335cf32f820a::t_47b1dc763b123d 1481-1516
+  s_00335cf32f820a::t_c39a43ac9a35ab 234-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "2d98854f7214a8b3a01c52aea92ebd21d12a94e6",
+  "prompts": {},
+  "sessions": {
+    "s_00335cf32f820a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "380e7014-a5d0-4364-bb69-3ea9471274b9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
