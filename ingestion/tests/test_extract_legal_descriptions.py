@@ -231,6 +231,44 @@ class TestHeadingRegex:
         text = "Not a heading line at all"
         assert _HD_HEADING_RE.search(text) is None
 
+    def test_hd_anchor_phrase_wraps_across_newline(self) -> None:
+        """HD heading whose 'Those portions' anchor wraps to next line still matches.
+
+        Discovery 2026-05-13: HD 705 "Prairie/Pines-Juniper Breaks" reads
+        ``705 Prairie/Pines-Juniper Breaks: Those\\nportions of Carter, ...``
+        in the column-cropped text stream. The regex must allow whitespace
+        (including newline) between "Those" and "portions" via ``\\s+``.
+        Without this, HD 705 silently landed in unlinked while HD 704's
+        body absorbed the 705 heading text.
+        """
+        text = "705 Prairie/Pines-Juniper Breaks: Those\nportions of Carter County"
+        m = _HD_HEADING_RE.search(text)
+        assert m is not None, "_HD_HEADING_RE did not match wrapped anchor phrase"
+        assert m.group(1) == "705"
+        assert "Prairie/Pines-Juniper Breaks" in m.group(2)
+
+    def test_hd_that_portion_wraps_across_newline(self) -> None:
+        """The 'That portion' singular variant also tolerates a newline wrap."""
+        text = "110 Sun-River Wildlife: That\nportion of Teton County"
+        m = _HD_HEADING_RE.search(text)
+        assert m is not None, "_HD_HEADING_RE did not match 'That\\nportion' wrap"
+        assert m.group(1) == "110"
+
+    def test_hd_anchor_phrase_does_not_match_arbitrary_text_between(self) -> None:
+        """Whitespace flex must NOT match across non-whitespace text.
+
+        Guards the wrap fix above: ``Those\\s+portions?`` allows
+        whitespace-only separators, but must not match "Those sections are
+        open. portions exist." or similar prose that happens to contain
+        both words.
+        """
+        text = "100 Test: Those sections are open. portions exist."
+        m = _HD_HEADING_RE.search(text)
+        assert m is None, (
+            f"Whitespace-flex anchor should not match arbitrary text between "
+            f"Those and portions; matched: {m.group(0)!r}" if m else "OK"
+        )
+
 
 # ---------------------------------------------------------------------------
 # 2. TestColumnCropping
@@ -1438,6 +1476,42 @@ class TestArtifactRegression:
                     violations.append((entry["geometry_id"], header))
         assert not violations, (
             f"Cross-namespace section headers leaked into matched bodies: {violations}"
+        )
+
+    def test_no_running_footer_leak_in_verbatim_descriptions(self) -> None:
+        """No matched entry's verbatim_description contains the running footer.
+
+        The Legal Descriptions PDF carries a running ``Visit fwp.mt.gov <page#>``
+        footer on every content page. With too-shallow a footer crop, this
+        text leaks into the last HD body on the page (P2 finding 2026-05-13:
+        HD 704's body ended with "Visit fwp.mt.gov 9"). The footer strip
+        must be wide enough that no matched body contains "fwp.mt.gov" or
+        "Visit fwp" substrings.
+        """
+        artifact = self._load_artifact()
+        leaks = [
+            entry["geometry_id"]
+            for entry in artifact["matched"]
+            if "fwp.mt.gov" in entry.get("verbatim_description", "")
+            or "Visit fwp" in entry.get("verbatim_description", "")
+        ]
+        assert not leaks, (
+            f"Running-footer text leaked into matched verbatim_descriptions: "
+            f"{leaks}. Increase _FOOTER_STRIP_PT to exclude the footer."
+        )
+
+    def test_hd_705_antelope_matched_via_wrapped_anchor(self) -> None:
+        """HD 705 antelope (Prairie/Pines-Juniper Breaks) is in matched, not unlinked.
+
+        The PDF column-wraps "Those portions" across a line break for this
+        HD, which previously caused the regex to miss the heading entirely.
+        Locks the regex fix (``Those\\s+portions?``) against regression.
+        """
+        artifact = self._load_artifact()
+        matched_ids = {e["geometry_id"] for e in artifact["matched"]}
+        assert "MT-HD-antelope-705-geom" in matched_ids, (
+            "HD 705 antelope is missing from matched — has _HD_HEADING_RE "
+            "regressed to require 'Those portions' on a single line?"
         )
 
 

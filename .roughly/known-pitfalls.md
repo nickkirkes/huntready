@@ -243,11 +243,19 @@ The FWP Legal Descriptions PDF wraps the heading anchor phrase ("Those portions 
 
 **Fix:** for the narrow-column case, the heading regex CANNOT require the anchor phrase on the same line; it can match only the heading-name prefix:
 
-```
+```text
 ^\s*(Libby CWD Management Zone|Kalispell Area CWD Management(?:\s+Zone)?)\b
 ```
 
 Then in the matcher, canonicalize the captured name (append " Zone" if missing) before the lookup. Reference: `ingestion/states/montana/extract_legal_descriptions.py::_canonicalize_cwd_name` (S03.5, 2026-05-12).
+
+The same wrap also affects HD headings: HD 705 reads `"705 Prairie/Pines-Juniper Breaks: Those\nportions of..."` — the literal space in `Those portions?` doesn't match the newline. Fix: use `Those\s+portions?` (and `That\s+portion`) — whitespace-flex matches the wrap while still rejecting arbitrary non-whitespace text between the two words (since `\s` is whitespace-only). Surfaced 2026-05-13 — without this, +17 HDs silently surfaced as unlinked. Locked by `TestHeadingRegex::test_hd_anchor_phrase_wraps_across_newline`.
+
+### Running PDF footer leaks into last body when crop strip is too shallow
+
+The FWP Legal Descriptions PDF carries a `"Visit fwp.mt.gov <page#>"` running footer on every content page at `top ≈ 716` on a 756pt-tall page (roughly 40pt from the bottom). The initial column-crop footer strip of 20pt produced a cutoff at `page.height - 20 = 736` — above the footer — so the footer text leaked into whichever HD body extended near the bottom of the column. HD 704's `verbatim_description` ended with `"Visit fwp.mt.gov 9"`.
+
+**Fix:** crop the bottom-most 50pt (not 20pt). The cutoff at `page.height - 50 = 706` is well above the footer's top y of 716. Probe footer position with `page.extract_words()` filtered to the bottom region before settling on a strip value. Reference: `ingestion/states/montana/extract_legal_descriptions.py::_FOOTER_STRIP_PT` (S03.5, 2026-05-13). Locked by `TestArtifactRegression::test_no_running_footer_leak_in_verbatim_descriptions`.
 
 ## Build & Deploy
 

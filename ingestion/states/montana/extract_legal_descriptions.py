@@ -182,13 +182,18 @@ _V1_SECTIONS: tuple[tuple[str, range], ...] = (
 # Column boundaries on the 594pt-wide Legal Descriptions PDF page,
 # derived during S03.5 discovery (PDF inspection 2026-05-12). The PDF
 # uses a three-column layout for all content pages (5-53).
-# Header strip top=40pt removes running title; footer strip bottom=20pt
-# removes page number.
+# Header strip top=40pt removes running title.
+# Footer strip bottom=50pt removes the "Visit fwp.mt.gov <page#>" running
+# footer (located at top≈716 on a 756pt-tall page, i.e., ~40pt from the
+# bottom). The 50pt strip puts the cutoff at top=706, well above the
+# footer's text top. Earlier value of 20pt was too shallow and let the
+# footer leak into HD bodies (e.g., HD 704's verbatim_description).
+# Discovery 2026-05-13.
 _COLUMN_LEFT_X = (36.0, 195.0)
 _COLUMN_MIDDLE_X = (210.0, 355.0)
 _COLUMN_RIGHT_X = (390.0, 555.0)
 _HEADER_STRIP_PT = 40.0
-_FOOTER_STRIP_PT = 20.0
+_FOOTER_STRIP_PT = 50.0
 
 # ---------------------------------------------------------------------------
 # TypedDicts
@@ -345,8 +350,18 @@ _HD_GEOMETRY_ID_RE = re.compile(
 # swallow the next line's "261 East Bitterroot: That portion..." heading.
 # Discovered 2026-05-12 — without the ``\n`` exclusion, HD 261/262 silently
 # surfaced as unmatched and HD 93 (not in the DB) appeared instead.
+#
+# ``Those\s+portions?`` / ``That\s+portion`` (whitespace-flexible) allows the
+# anchor phrase to span a column-wrap newline. Discovery 2026-05-13: HD 705
+# Prairie/Pines-Juniper Breaks heading reads "705 Prairie/Pines-Juniper
+# Breaks: Those\nportions of Carter, Custer, ..." — without ``\s+``, the
+# literal space between "Those" and "portions" failed to match across the
+# line break, so HD 705 silently surfaced in ``unlinked`` while HD 704's
+# verbatim_description absorbed the 705 heading text. The ``[^:\n]`` name
+# capture is unchanged; only the post-colon anchor phrase is whitespace-
+# flexible.
 _HD_HEADING_RE = re.compile(
-    r"^\s*(\d{2,3})\s+([^:\n]{3,80}?):\s+(?:Those portions?|That portion)\b",
+    r"^\s*(\d{2,3})\s+([^:\n]{3,80}?):\s+(?:Those\s+portions?|That\s+portion)\b",
     re.MULTILINE,
 )
 
