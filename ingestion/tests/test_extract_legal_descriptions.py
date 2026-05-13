@@ -456,6 +456,52 @@ class TestGeometryLookup:
             f"got: {statewide_entries}"
         )
 
+    def test_all_v1_ids_deduplicates_repeated_child_rows(self, tmp_path: Path) -> None:
+        """The same child_geometry_id repeated across overlay rows is emitted once.
+
+        The production geometry-overlays.json contains 586 relationship rows
+        but only 346 unique child geometry_ids — many IDs appear in multiple
+        relationship rows. Without dedup, all_v1_ids would carry repeated
+        entries, inflating downstream unlinked counts and causing repeated
+        inserts in S03.6 consumers that assume uniqueness.
+
+        Locks the dedup invariant: each (geometry_id, kind) tuple appears
+        at most once in all_v1_ids regardless of how many relationship rows
+        reference the same child_geometry_id.
+        """
+        # Build a fixture where one HD and one portion appear in multiple
+        # relationship rows (mimicking the production overlay structure).
+        repeated_hd = {
+            "child_geometry_id": _ANTELOPE_215_GEOM_ID,
+            "child_kind": "hunting_district",
+            "parent_geometry_id": "MT-STATEWIDE-geom",
+            "parent_kind": "state",
+        }
+        repeated_portion = {
+            "child_geometry_id": _PORTION_GEOM_ID,
+            "child_kind": "portion",
+            "parent_geometry_id": "MT-HD-deer-elk-lion-215-geom",
+            "parent_kind": "hunting_district",
+        }
+        entries = _make_synthetic_fixture()
+        # Triple-up the antelope-215 HD and double-up the portion row.
+        entries.extend([repeated_hd, repeated_hd, repeated_portion])
+        fixture_path = _write_fixture(tmp_path, entries)
+
+        _hd_lookup, _cwd_lookup, all_v1_ids = _load_geometry_lookup(fixture_path)
+
+        from collections import Counter
+        counts = Counter(all_v1_ids)
+        duplicates = {tup: n for tup, n in counts.items() if n > 1}
+        assert not duplicates, (
+            f"all_v1_ids contains duplicate entries: {duplicates}. "
+            "Repeated child rows in the fixture must dedupe to a single entry."
+        )
+        # Sanity: the repeated IDs appear exactly once.
+        gids = [gid for gid, _ in all_v1_ids]
+        assert gids.count(_ANTELOPE_215_GEOM_ID) == 1
+        assert gids.count(_PORTION_GEOM_ID) == 1
+
     def test_empty_fixture_raises(self, tmp_path: Path) -> None:
         """Empty fixture (no entries) raises PdfExtractionError."""
         fixture_path = _write_fixture(tmp_path, [])

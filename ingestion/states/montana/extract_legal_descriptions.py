@@ -419,12 +419,16 @@ def _load_geometry_lookup(
 
     # --- HD lookup (filter to V1 namespaces only) ---------------------------
     hd_lookup: dict[tuple[str, int], str] = {}
-    hd_v1_ids: list[tuple[str, str]] = []
 
     # Track every fixture geometry_id once per kind for the all_v1_ids
-    # construction below — used for kinds OTHER than hunting_district where
-    # we don't filter by namespace (portions, restricted_area, cwd_zone).
-    seen_other: dict[str, str] = {}  # geom_id -> kind
+    # construction below. The overlay fixture lists each ID once per
+    # relationship row, so a single child_geometry_id can appear multiple
+    # times. Without dedup, the same geometry_id would appear repeatedly
+    # in all_v1_ids → repeated unlinked entries → inflated audit counts in
+    # S03.6 and downstream consumers that assume uniqueness. Today's
+    # fixture happens to list each HD only once as child_geometry_id, but
+    # the defensive dedup ensures this stays true under fixture rebuilds.
+    seen_ids: dict[str, str] = {}  # geom_id -> kind
 
     for entry in entries:
         child_kind = entry.get("child_kind", "")
@@ -439,11 +443,9 @@ def _load_geometry_lookup(
             hd_number = int(m.group(2))
             key = (namespace, hd_number)
             hd_lookup[key] = child_id
-            hd_v1_ids.append((child_id, child_kind))
+            seen_ids.setdefault(child_id, child_kind)
         elif child_kind in ("portion", "restricted_area", "cwd_zone"):
-            # Dedupe — the overlay fixture lists each ID once per relationship,
-            # so a single child_id may appear multiple times.
-            seen_other.setdefault(child_id, child_kind)
+            seen_ids.setdefault(child_id, child_kind)
 
     if not hd_lookup:
         raise PdfExtractionError(
@@ -453,7 +455,7 @@ def _load_geometry_lookup(
 
     # --- CWD lookup — verify hardcoded targets exist in the fixture ---------
     fixture_cwd_ids = {
-        geom_id for geom_id, kind in seen_other.items() if kind == "cwd_zone"
+        geom_id for geom_id, kind in seen_ids.items() if kind == "cwd_zone"
     }
     missing = [
         target_id
@@ -479,11 +481,9 @@ def _load_geometry_lookup(
     # MT-STATEWIDE-geom all land in `unlinked`. Without including them here,
     # the artifact silently underreports the geometry surface S03.6 must
     # reason about.
-    other_v1_ids: list[tuple[str, str]] = sorted(seen_other.items())
+    # ``seen_ids`` is populated by setdefault above — already deduplicated.
     statewide_v1_id: tuple[str, str] = ("MT-STATEWIDE-geom", "state")
-    all_v1_ids: list[tuple[str, str]] = (
-        hd_v1_ids + other_v1_ids + [statewide_v1_id]
-    )
+    all_v1_ids: list[tuple[str, str]] = sorted(seen_ids.items()) + [statewide_v1_id]
 
     return hd_lookup, cwd_lookup, all_v1_ids
 
