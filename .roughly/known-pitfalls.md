@@ -202,14 +202,15 @@ Reference: `ingestion/states/montana/extract_dea.py::_rows_to_license_extraction
 
 The FWP Legal Descriptions PDF (2026-2027 edition, 56 pages) uses a three-column layout on every content page. `pdfplumber.Page.extract_text()` on the full page reads top-to-bottom across all three columns, producing severely interleaved text (e.g., column-3 heading interleaved with column-2 body). Heading regexes against this stream produce false-positive matches across column boundaries.
 
-**Fix:** crop each column separately and concatenate the per-column streams in left-to-right order. Column boundaries for the FWP Legal Descriptions PDF (594pt-wide page):
+**Fix:** crop each column separately and concatenate the per-column streams in left-to-right order. Column boundaries for the FWP Legal Descriptions PDF (594pt × 756pt page):
 
 - col1: `x ∈ (36, 195)`
 - col2: `x ∈ (210, 355)`
 - col3: `x ∈ (390, 555)`
-- header strip top = 40pt, footer strip bottom = 20pt
+- header strip top = **25pt** (no running title on V1 content pages; first content row sits at top≈29; an over-aggressive 40pt strip clipped HD headings at the top of each column)
+- footer strip bottom = **50pt** (running footer `"Visit fwp.mt.gov <page#>"` sits at top≈716, ~40pt above page bottom; 20pt was too shallow)
 
-Reference implementation: `ingestion/states/montana/extract_legal_descriptions.py::_extract_three_column_text` (S03.5, 2026-05-12).
+Reference implementation: `ingestion/states/montana/extract_legal_descriptions.py::_extract_three_column_text` (S03.5, 2026-05-12; strip values revised 2026-05-13/14).
 
 ### Rotated chapter-label sidebars are non-upright glyphs — filter via `c.get("upright", True)`
 

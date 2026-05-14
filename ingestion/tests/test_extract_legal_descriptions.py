@@ -254,20 +254,64 @@ class TestHeadingRegex:
         assert m is not None, "_HD_HEADING_RE did not match 'That\\nportion' wrap"
         assert m.group(1) == "110"
 
-    def test_hd_anchor_phrase_does_not_match_arbitrary_text_between(self) -> None:
-        """Whitespace flex must NOT match across non-whitespace text.
+    def test_hd_regex_rejects_body_text_followed_by_note_line(self) -> None:
+        """Period-pre-wrap lookbehind rejects body-text bleed into NOTE: line.
 
-        Guards the wrap fix above: ``Those\\s+portions?`` allows
-        whitespace-only separators, but must not match "Those sections are
-        open. portions exist." or similar prose that happens to contain
-        both words.
+        Discovery 2026-05-14: body text "41 to Twin Bridges, the point of
+        beginning.\\nNOTE: The Red Rock Lakes National Wildlife..." matched
+        as if "41" were an HD number, with the wrap absorbing "\\nNOTE".
+        The ``(?<!\\.)`` lookbehinds before both the wrap and the colon
+        reject this — a name part ending with "." cannot be followed by a
+        wrap continuation or a colon.
         """
-        text = "100 Test: Those sections are open. portions exist."
+        text = "41 to Twin Bridges, the point of beginning.\nNOTE: The Red Rock"
         m = _HD_HEADING_RE.search(text)
         assert m is None, (
-            f"Whitespace-flex anchor should not match arbitrary text between "
-            f"Those and portions; matched: {m.group(0)!r}" if m else "OK"
+            f"period-pre-wrap lookbehind should reject body text followed by "
+            f"NOTE: line; matched: {m.group(0)!r}" if m else "OK"
         )
+
+    def test_hd_regex_matches_hd_prefix_form(self) -> None:
+        """HD heading with literal 'HD NNN Name:' prefix matches (case 8).
+
+        Discovery 2026-05-14: HD 525 reads "HD 525 Beartooth/Absaroka: Those
+        portions of Carbon, Stillwater, Sweet Grass and Park Counties..." in
+        the column stream. The optional ``(?:HD\\s+)?`` prefix accepts this.
+        """
+        text = "HD 525 Beartooth/Absaroka: Those portions"
+        m = _HD_HEADING_RE.search(text)
+        assert m is not None, "_HD_HEADING_RE did not match 'HD 525 ...' form"
+        assert (m.group("num_a") or m.group("num_b")) == "525"
+
+    def test_hd_regex_matches_name_with_period(self) -> None:
+        """HD names containing periods ('North St. Regis') match correctly.
+
+        Discovery 2026-05-14: HD 200 deer-elk-lion reads "200 North St. Regis:
+        Those portions o Mineral and Sanders Counties...". The name capture
+        allows periods inside (only the LAST char before colon is forbidden
+        from being period, via lookbehind).
+        """
+        text = "200 North St. Regis: Those portions of Mineral County"
+        m = _HD_HEADING_RE.search(text)
+        assert m is not None, "_HD_HEADING_RE did not match 'North St. Regis'"
+        assert (m.group("num_a") or m.group("num_b")) == "200"
+        name = m.group("name_a") or m.group("name_b")
+        assert "North St. Regis" in name, f"name capture missed period: {name!r}"
+
+    def test_hd_regex_matches_no_colon_heading_via_secondary_alt(self) -> None:
+        """Case-6 HD heading with NO colon on heading line matches secondary alt.
+
+        Discovery 2026-05-14: HD 311 reads "311 Lower Gallatin-Madison-
+        Horseshoe\\nThose portions of Madison, Park, G\\nJefferson, ..." — no
+        colon anywhere on the heading line. The secondary regex alternation
+        matches a heading line followed by a Th/Beg anchor on the next line.
+        """
+        text = "311 Lower Gallatin-Madison-Horseshoe\nThose portions of Madison"
+        m = _HD_HEADING_RE.search(text)
+        assert m is not None, "_HD_HEADING_RE did not match no-colon heading"
+        # num_b should be populated (secondary alternation)
+        assert m.group("num_b") == "311"
+        assert m.group("num_a") is None  # primary did not fire
 
 
 # ---------------------------------------------------------------------------
@@ -1614,7 +1658,7 @@ class TestArtifactRegression:
         )
 
     def test_all_matched_bodies_start_with_boundary_prose(self) -> None:
-        """Cleanup Rule C lock: every matched verbatim_description starts with 'Beg'.
+        """Cleanup Rule C lock: every matched verbatim_description starts with 'Beg' / 'beg'.
 
         Guards against regression of the locator-clause-strip fix
         (2026-05-13 finding). Without Rule C, bodies started with "of <county>
@@ -1622,15 +1666,19 @@ class TestArtifactRegression:
         not boundary prose. After Rule C, every body opens with the actual
         boundary description ("Beginning at <point>...", or column-truncated
         "Begin..." / "Beg..." variants).
+
+        Case-insensitive on the leading "B" because the FWP PDF uses both
+        "Beginning at..." and "beginning at..." (HD bear-309 — discovered
+        2026-05-14).
         """
         artifact = self._load_artifact()
         violations = [
             (e["geometry_id"], e["verbatim_description"][:80])
             for e in artifact["matched"]
-            if not e["verbatim_description"].startswith("Beg")
+            if not e["verbatim_description"][:3].lower().startswith("beg")
         ]
         assert not violations, (
-            f"{len(violations)} matched entries do NOT start with 'Beg' "
+            f"{len(violations)} matched entries do NOT start with 'Beg'/'beg' "
             f"(locator clause not stripped): {violations[:5]}"
         )
 

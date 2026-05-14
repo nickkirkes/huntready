@@ -202,7 +202,12 @@ _V1_SECTIONS: tuple[tuple[str, range], ...] = (
 # Column boundaries on the 594pt-wide Legal Descriptions PDF page,
 # derived during S03.5 discovery (PDF inspection 2026-05-12). The PDF
 # uses a three-column layout for all content pages (5-53).
-# Header strip top=40pt removes running title.
+# Header strip top=25pt: there is NO running title on V1 content pages
+# (verified 2026-05-14 — no words above top=28). The first row of real
+# content sits at top≈29 (HD headings or body prose). The earlier 40pt
+# strip clipped HD headings like "310 Pioneers: Those portions of..." at
+# the top of col 2 — those HDs surfaced as bleed inside the preceding
+# HD's body because no heading delimiter was visible in the column stream.
 # Footer strip bottom=50pt removes the "Visit fwp.mt.gov <page#>" running
 # footer (located at top≈716 on a 756pt-tall page, i.e., ~40pt from the
 # bottom). The 50pt strip puts the cutoff at top=706, well above the
@@ -212,7 +217,7 @@ _V1_SECTIONS: tuple[tuple[str, range], ...] = (
 _COLUMN_LEFT_X = (36.0, 195.0)
 _COLUMN_MIDDLE_X = (210.0, 355.0)
 _COLUMN_RIGHT_X = (390.0, 555.0)
-_HEADER_STRIP_PT = 40.0
+_HEADER_STRIP_PT = 25.0
 _FOOTER_STRIP_PT = 50.0
 
 # ---------------------------------------------------------------------------
@@ -361,27 +366,106 @@ _HD_GEOMETRY_ID_RE = re.compile(
 # Heading-detection regexes (T4)
 # ---------------------------------------------------------------------------
 
-# Matches numeric HD headings, e.g.:
-#   "215 East Deer Lodge: Those portions of Granite County lying within..."
-# Group 1: HD number (2–3 digits)
-# Group 2: HD name text (3–80 chars, not containing ":" or newline)
-# ``[^:\n]`` (not ``[^:]``) prevents the lazy name capture from crossing
-# newlines: a stray "93 in Missoula County." prior-body fragment must not
-# swallow the next line's "261 East Bitterroot: That portion..." heading.
-# Discovered 2026-05-12 — without the ``\n`` exclusion, HD 261/262 silently
-# surfaced as unmatched and HD 93 (not in the DB) appeared instead.
+# Matches numeric HD headings. The FWP Legal Descriptions PDF uses five
+# distinct heading variants observed across V1 species sections:
 #
-# ``Those\s+portions?`` / ``That\s+portion`` (whitespace-flexible) allows the
-# anchor phrase to span a column-wrap newline. Discovery 2026-05-13: HD 705
-# Prairie/Pines-Juniper Breaks heading reads "705 Prairie/Pines-Juniper
-# Breaks: Those\nportions of Carter, Custer, ..." — without ``\s+``, the
-# literal space between "Those" and "portions" failed to match across the
-# line break, so HD 705 silently surfaced in ``unlinked`` while HD 704's
-# verbatim_description absorbed the 705 heading text. The ``[^:\n]`` name
-# capture is unchanged; only the post-colon anchor phrase is whitespace-
-# flexible.
+#   1. Canonical:        "215 East Deer Lodge: Those portions of ..."
+#   2. No locator:       "301 Hyalite-Portal: Beginning at ..."     (boundary direct)
+#   3. "The" typo:       "302 Tendoys: The portion of ..."           (FWP-side typo for "That")
+#   4. Truncated wrap:   "303 Lima Peaks-Nicholia: That p\n..."      (column wrap mid-word)
+#   5. Wrapped name:     "309 Gallatin Valley Weapons Rest\nArea: That portion of ..."
+#
+# Group 1: HD number (2–3 digits).
+# Group 2: HD name text (3–80 chars on first line, optionally a wrap continuation
+#          of up to 40 chars on the next line, no internal "." or ":").
+#
+# Excluding ``.`` from the name capture prevents a stray prior-body fragment
+# like "93 in Missoula County.\n261 East Bitterroot:" from swallowing HD 261 —
+# the period anchors the name capture and forces the regex to look for a real
+# heading further downstream. Excluding ``\n`` keeps single-line names from
+# crossing line boundaries arbitrarily; the explicit ``\n[^:\n.]{0,40}`` wrap
+# allows EXACTLY one line wrap for case 5.
+#
+# Post-colon anchor ``(?=(?:Beg|Th)\w*)`` is a LOOKAHEAD (not a consume) —
+# the body therefore starts AT the anchor word, not after it. This is
+# important for the case-2 "no locator" variant: HD 301 reads
+# ``301 Hyalite-Portal: Beginning at Bear Canyo...``; consuming "Beginning"
+# would leave body starting with " at Bear Canyo..." which has no Rule C
+# anchor and would fire a fail-safe warning unnecessarily. The lookahead
+# preserves "Beg..." / "Th..." in body_raw, where Rule C trims to the first
+# "\bBeg\w*\b" — clean output for both case-1 (locator clause leads body)
+# and case-2 (boundary description leads body).
+#
+# Matched lookahead prefixes:
+#   - "Beg", "Begin", "Beginning"           (case 2: boundary direct)
+#   - "Those", "Thos", "Tho", "Th"          (cases 1+4: full or truncated)
+#   - "That", "Tha", "Th"                   (case 3+5: full or truncated)
+#   - "The"                                 (case 3: FWP typo)
+#   - "HD"                                  (case 7: "318 Big Hole: HD 318-Big Hole-Those...")
+# This is intentionally permissive because column-wrap truncation can leave
+# only "Th" or "Beg" visible after the colon. The combination of
+# (line-start digits + colon-delimited name + Beg/Th/HD lookahead) is
+# specific enough to reject ordinary body prose.
+#
+# Name-wrap guard: ``(?:\n[^:\n.\d][^:\n.]{0,39})?`` allows EXACTLY one line
+# wrap in the name, BUT the first character after the wrap must not be a
+# digit. Without that guard, a body-text fragment "Interstate 90 to ... at
+# Livin\n400 Lower Marias River:" would let the regex match "90" as the HD
+# number with the wrap absorbing "\n400 Lower Marias River" as part of the
+# name — swallowing HD 400's real heading. The digit-exclusion ensures wraps
+# only continue actual multi-word names (e.g., "Gallatin Valley Weapons
+# Rest\nArea:"), not collisions with a subsequent HD heading on the next
+# line.
+#
+# Discovery history:
+#   2026-05-12 — added ``[^:\n]`` to stop name from crossing newlines
+#                (was ``[^:]``). Caught HD 261/262 swallowed by stray "93".
+#   2026-05-13a — added ``\s+`` between "Those" and "portions" to handle
+#                 wrap on the anchor phrase. Caught HD 705.
+#   2026-05-13b — replaced anchor-phrase requirement with permissive
+#                 ``(?:Beg|Th)\w*`` lookahead AND allowed one-line name wrap
+#                 (with leading-digit guard). Lookahead leaves the anchor in
+#                 body_raw for Rule C to handle. Caught 35 corrupted matched
+#                 entries + 53 unlinked-but-actually-present HDs from cases
+#                 2-5 above.
+#
+# Case 6 — "no colon" variant: HD 311 reads "311 Lower Gallatin-Madison-
+# Horseshoe\nThose portions of Madison, Park, G\nJefferson, ..." — the
+# heading name has NO trailing colon on its line; the locator clause
+# starts directly on the next line. The primary regex requires a colon
+# (it is the most reliable single-line heading marker for cases 1-5+7).
+# A secondary alternation handles case 6 by matching: line-start digits,
+# capitalized name on first line (no period, no colon), then a newline,
+# then a lookahead at an anchor word (Th|Beg) at the start of the next
+# non-empty line. The two alternations share the same regex object; the
+# splitter must look at whichever capture-group pair is populated.
 _HD_HEADING_RE = re.compile(
-    r"^\s*(\d{2,3})\s+([^:\n]{3,80}?):\s+(?:Those\s+portions?|That\s+portion)\b",
+    # Primary: heading line ends with ":" + anchor lookahead.
+    # An optional "HD " prefix handles case 8 ("HD 525 Beartooth/Absaroka:
+    # Those portions..."). The name's first part is ``[^:\n]`` (period
+    # allowed inside the name, for HD names like "North St. Regis"); the
+    # wrap continuation excludes both newline and period to prevent
+    # crossing into the next HD heading.
+    #
+    # Two ``(?<!\.)`` lookbehinds (zero-width) prevent the regex from
+    # capturing a body-text fragment that happens to end with a period
+    # and is followed by a "NOTE:" or similar line. Discovery 2026-05-14:
+    # body text "41 to Twin Bridges, the point of beginning.\nNOTE: The..."
+    # matched as if "41" were an HD number, with the wrap absorbing
+    # "\nNOTE". The lookbehinds reject:
+    #   - first ``(?<!\.)``  — last char of first-line name must not be ".".
+    #   - second ``(?<!\.)`` — char immediately before the colon must not
+    #     be "." (catches cases where the wrap or first-line name ends
+    #     with a period).
+    r"^\s*(?:HD\s+)?(?P<num_a>\d{2,3})\s+"
+    r"(?P<name_a>[^:\n]{3,80}?(?<!\.)(?:\n[^:\n.\d][^:\n.]{0,39})?)(?<!\.):"
+    r"\s+(?=(?:Beg|Th|HD)\w*)"
+    r"|"
+    # Secondary (case 6): heading line has NO colon; locator clause starts
+    # on the next non-empty line with a Th/Beg anchor word.
+    r"^\s*(?:HD\s+)?(?P<num_b>\d{2,3})\s+"
+    r"(?P<name_b>[A-Z][^:\n]{2,80}(?<!\.))"
+    r"\s*\n\s*(?=(?:Th|Beg)\w*)",
     re.MULTILINE,
 )
 
@@ -398,23 +482,38 @@ _CWD_HEADING_RE = re.compile(
     re.MULTILINE,
 )
 
-# Matches "Portion of HD NNN" sub-headings (~50 per PDF).
+# Matches "Portion of [HD ]NNN" sub-headings (~50 per PDF).
 # These are captured and surfaced as ``unmatched`` (no automatic resolution
 # to opaque ``Pt{N}`` suffixes — see plan § "Out of scope").
+# The "HD" between "Portion of" and the number is optional — discovered
+# 2026-05-14 — the PDF uses both "Portion of HD 204 Eight Mile-Turah:" and
+# "Portion of 204 Eight Mile-Turah:". Without the optional prefix, the
+# second variant fell through to the HD regex and got absorbed as bleed.
 # Group 1: HD number (2–3 digits)
 _PORTION_HEADING_RE = re.compile(
-    r"^\s*Portion of HD\s+(\d{2,3})\b",
+    r"^\s*Portion of\s+(?:HD\s+)?(\d{2,3})\b",
     re.MULTILINE,
 )
 
 # Cleanup Rule C anchor: identifies the start of the boundary description
-# prose ("Beginning at <point>..."). Case-sensitive on the leading capital
-# 'B' to avoid matching lowercase "beginning." that appears at the END of
-# every boundary description (e.g., "...the point of beginning."). The
-# ``\w*`` suffix tolerates column-wrap truncation: "Begin", "Beginning",
-# "Beginnin" (missing trailing 'g'), and "Beg" all match. Discovery
-# 2026-05-13: every V1 matched body had this anchor present.
-_BODY_START_RE = re.compile(r"\bBeg\w*\b")
+# prose ("Beginning at <point>..."). Matches case-insensitive ``[Bb]eg\w*``
+# followed by whitespace + another word — i.e., a Beg-word that is the
+# start of a description, not the END-of-body "the point of beginning."
+# where "beginning" is followed by a period.
+#
+# The trailing ``\s+\w`` is the discriminator:
+#   - "Beginning at <point>..." → "Beginning" + " " + "a" matches.
+#   - "Beg at the junction..."  → "Beg" + " " + "a" matches.
+#   - "beginning at the intersection..." (HD bear-309 lowercase variant,
+#     discovered 2026-05-14) → "beginning" + " " + "a" matches.
+#   - "...the point of beginning." → "beginning" + "." → no \w after,
+#     NO MATCH. Rule C does NOT trim to the wrong position.
+#
+# The ``\w*`` between ``Beg`` and the whitespace tolerates column-wrap
+# truncation: "Begin", "Beginning", "Beginnin" (missing trailing 'g'),
+# and bare "Beg" all match. Discovery 2026-05-13: every V1 matched body
+# had this anchor present somewhere.
+_BODY_START_RE = re.compile(r"\b[Bb]eg\w*\s+\w")
 
 
 def _load_geometry_lookup(
@@ -624,7 +723,13 @@ def _split_column_stream_into_blocks(
     matches: list[_MatchRecord] = []
 
     for m in _HD_HEADING_RE.finditer(stream_text):
-        hd_num = int(m.group(1))
+        # The HD regex has two named alternations: primary "num_a/name_a"
+        # for headings ending in a colon, secondary "num_b/name_b" for the
+        # case-6 no-colon variant where the locator clause starts on the
+        # next line. Exactly one pair is populated per match.
+        num_str = m.group("num_a") or m.group("num_b")
+        assert num_str is not None, "HD regex matched without populating num_a or num_b"
+        hd_num = int(num_str)
         heading_text = stream_text[m.start():m.end()].strip()
         matches.append((m.start(), m.end(), "hd", hd_num, None, heading_text))
 
@@ -777,7 +882,13 @@ def _consolidate_cwd_blocks(
     harmless when stream is single-occurrence.
     """
     result: list[tuple[HeadedBlock, str, PageReference]] = []
-    # Maps cwd_name → index in result list for the first occurrence.
+    # Maps CANONICAL cwd_name → index in result list for the first occurrence.
+    # Discovery 2026-05-13: keying on raw block.cwd_name failed to merge a
+    # "Libby CWD Management Zone" block with a "Libby CWD Management" (Zone
+    # truncated by column wrap) block — both would emit as separate matched
+    # entries with the same geometry_id, producing duplicate writes in S03.6.
+    # Canonicalizing here (same rule the matcher applies via
+    # _canonicalize_cwd_name) ensures the dedup key is the lookup key.
     first_seen: dict[str, int] = {}
 
     for block, namespace, page_reference in blocks:
@@ -787,14 +898,15 @@ def _consolidate_cwd_blocks(
 
         cwd_name = block.cwd_name  # str | None; always str for kind=="cwd"
         assert cwd_name is not None, "HeadedBlock with kind='cwd' must have cwd_name set"
+        canonical_key = _canonicalize_cwd_name(cwd_name)
 
-        if cwd_name not in first_seen:
+        if canonical_key not in first_seen:
             # First occurrence: record its position and append as canonical entry.
-            first_seen[cwd_name] = len(result)
+            first_seen[canonical_key] = len(result)
             result.append((block, namespace, page_reference))
         else:
             # Subsequent occurrence: concatenate body_raw onto the first occurrence.
-            idx = first_seen[cwd_name]
+            idx = first_seen[canonical_key]
             prior_block, prior_ns, prior_page_ref = result[idx]
             merged_body = prior_block.body_raw + " " + block.body_raw
             merged_block = replace(prior_block, body_raw=merged_body)
