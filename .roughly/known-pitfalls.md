@@ -198,6 +198,66 @@ Reference: `ingestion/states/montana/extract_dea.py::_rows_to_license_extraction
 
 - **Quota-cell word order varies by extraction context.** The same quota phrase can appear as `"= N Female subquota"`, `"= N quota Harvest"`, or `"quota = Harvest N"` depending on how pdfplumber splits multi-line cells in rotated tables. Use a primary regex + word-order-invariant component fallback (`_QUOTA_COUNT_REGEX` + `_QUOTA_KIND_REGEX` in `extract_black_bear.py`).
 
+### Three-column FWP booklet layout — full-page `extract_text()` is unusable
+
+The FWP Legal Descriptions PDF (2026-2027 edition, 56 pages) uses a three-column layout on every content page. `pdfplumber.Page.extract_text()` on the full page reads top-to-bottom across all three columns, producing severely interleaved text (e.g., column-3 heading interleaved with column-2 body). Heading regexes against this stream produce false-positive matches across column boundaries.
+
+**Fix:** crop each column separately and concatenate the per-column streams in left-to-right order. Column boundaries for the FWP Legal Descriptions PDF (594pt × 756pt page):
+
+- col1: `x ∈ (36, 195)`
+- col2: `x ∈ (210, 355)`
+- col3: `x ∈ (390, 555)`
+- header strip top = **25pt** (no running title on V1 content pages; first content row sits at top≈29; an over-aggressive 40pt strip clipped HD headings at the top of each column)
+- footer strip bottom = **50pt** (running footer `"Visit fwp.mt.gov <page#>"` sits at top≈716, ~40pt above page bottom; 20pt was too shallow)
+
+Reference implementation: `ingestion/states/montana/extract_legal_descriptions.py::_extract_three_column_text` (S03.5, 2026-05-12; strip values revised 2026-05-13/14).
+
+### Rotated chapter-label sidebars are non-upright glyphs — filter via `c.get("upright", True)`
+
+Every content page of FWP booklets carries a vertical chapter label in the outer margin (e.g., `klE & reeD`, `epoletnA`). These are not separate page layers; they are sideways-drawn text characters whose `char["upright"]` is `False`. Without filtering, they contaminate column extractions and trigger spurious heading matches.
+
+**Fix:** apply a chained filter when cropping for column text:
+
+```python
+page.crop(bbox).filter(lambda c: c.get("upright", True)).extract_text()
+```
+
+`page.rotation` reports `0` for these pages — there is no signal that filtering is needed except inspection. Reference: `ingestion/states/montana/extract_legal_descriptions.py::_extract_three_column_text` (S03.5, 2026-05-12).
+
+### Heading regex name capture must exclude newline, not just colon
+
+A naive heading regex like `^\s*(\d{2,3})\s+([^:]{3,80}?):\s+ANCHOR` looks safe because the lazy `[^:]{3,80}?` excludes the colon delimiter. But `[^:]` does NOT exclude `\n` — the lazy match can span line boundaries, letting a leading-digit fragment on a prior line absorb the next line's intended heading.
+
+**Symptom:** A body fragment ending with a 2–3-digit number (e.g., `"93 in Missoula County."`) immediately preceding a real heading line (`"261 East Bitterroot: That portion..."`) causes the regex to capture `93` as the HD number and absorb `"in Missoula County.\n261 East Bitterroot"` into the lazy name span. Result: the false HD 93 surfaces as unmatched; the real HD 261 is silently swallowed.
+
+**Fix:** use `[^:\n]` (or `[^:\r\n]` for Windows-line-ending tolerance) in the lazy name capture. Reference: `ingestion/states/montana/extract_legal_descriptions.py::_HD_HEADING_RE` (S03.5, 2026-05-12). Discovered during T11 end-to-end run; locked by `TestArtifactRegression::test_regression_unmatched_rate_below_10_percent`.
+
+### Same heading text repeats once per column when a description spans multiple columns
+
+The three-column layout causes a single zone-description (e.g., the Libby CWD Management Zone on PDF page 19) to span all three columns. The heading text appears in EACH column with a different body fragment in each. A naive page-walk yields three blocks with the same `cwd_name`; if the matcher first-match-wins, the body of the first column is recorded and the other two columns are dropped.
+
+**Fix:** post-walk consolidation step that merges all blocks with the same canonical heading into a single block whose body concatenates the per-column fragments in original column order. Defensive: idempotent (running twice is a no-op). Reference: `ingestion/states/montana/extract_legal_descriptions.py::_consolidate_cwd_blocks` (S03.5, 2026-05-12).
+
+### Heading anchor phrases wrap onto continuation lines when columns are narrow
+
+The FWP Legal Descriptions PDF wraps the heading anchor phrase ("Those portions of Lincoln county...") onto the line after the heading line, and sometimes even wraps the trailing word `Zone:` of the heading itself (Kalispell case: page 21 col 2 reads `"Kalispell Area CWD Management"` with no colon or "Zone" suffix on that line).
+
+**Fix:** for the narrow-column case, the heading regex CANNOT require the anchor phrase on the same line; it can match only the heading-name prefix:
+
+```text
+^\s*(Libby CWD Management Zone|Kalispell Area CWD Management(?:\s+Zone)?)\b
+```
+
+Then in the matcher, canonicalize the captured name (append " Zone" if missing) before the lookup. Reference: `ingestion/states/montana/extract_legal_descriptions.py::_canonicalize_cwd_name` (S03.5, 2026-05-12).
+
+The same wrap also affects HD headings: HD 705 reads `"705 Prairie/Pines-Juniper Breaks: Those\nportions of..."` — the literal space in `Those portions?` doesn't match the newline. Fix: use `Those\s+portions?` (and `That\s+portion`) — whitespace-flex matches the wrap while still rejecting arbitrary non-whitespace text between the two words (since `\s` is whitespace-only). Surfaced 2026-05-13 — without this, +17 HDs silently surfaced as unlinked. Locked by `TestHeadingRegex::test_hd_anchor_phrase_wraps_across_newline`.
+
+### Running PDF footer leaks into last body when crop strip is too shallow
+
+The FWP Legal Descriptions PDF carries a `"Visit fwp.mt.gov <page#>"` running footer on every content page at `top ≈ 716` on a 756pt-tall page (roughly 40pt from the bottom). The initial column-crop footer strip of 20pt produced a cutoff at `page.height - 20 = 736` — above the footer — so the footer text leaked into whichever HD body extended near the bottom of the column. HD 704's `verbatim_description` ended with `"Visit fwp.mt.gov 9"`.
+
+**Fix:** crop the bottom-most 50pt (not 20pt). The cutoff at `page.height - 50 = 706` is well above the footer's top y of 716. Probe footer position with `page.extract_words()` filtered to the bottom region before settling on a strip value. Reference: `ingestion/states/montana/extract_legal_descriptions.py::_FOOTER_STRIP_PT` (S03.5, 2026-05-13). Locked by `TestArtifactRegression::test_no_running_footer_leak_in_verbatim_descriptions`.
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
