@@ -774,46 +774,50 @@ class TestConsolidateCwdBlocks:
         )
         return (block, "deer-elk-lion", _make_page_reference(page_num))
 
-    def test_three_occurrences_merged_to_one(self) -> None:
-        """Three Libby CWD blocks merge into a single block."""
+    def test_three_occurrences_dedupe_to_one(self) -> None:
+        """Three Libby CWD blocks dedupe to a single block (longest body wins).
+
+        Discovery 2026-05-14: each column on page 19 contains the FULL Libby
+        zone description (not different fragments), so concatenating produced
+        triplicated text. The consolidator now picks the longest body and
+        drops the others.
+        """
         inputs = [
-            self._make_cwd_tuple("Libby CWD Management Zone", "body part one."),
-            self._make_cwd_tuple("Libby CWD Management Zone", "body part two."),
-            self._make_cwd_tuple("Libby CWD Management Zone", "body part three."),
+            self._make_cwd_tuple("Libby CWD Management Zone", "short."),
+            self._make_cwd_tuple("Libby CWD Management Zone", "this is a longer body."),
+            self._make_cwd_tuple("Libby CWD Management Zone", "medium length."),
         ]
         result = _consolidate_cwd_blocks(inputs)
         cwd_blocks = [(b, ns, pr) for b, ns, pr in result if b.kind == "cwd"]
         assert len(cwd_blocks) == 1, f"Expected 1 CWD block, got {len(cwd_blocks)}"
-        merged_body = cwd_blocks[0][0].body_raw
-        assert "body part one" in merged_body
-        assert "body part two" in merged_body
-        assert "body part three" in merged_body
+        winner_body = cwd_blocks[0][0].body_raw
+        assert winner_body == "this is a longer body.", (
+            f"Longest-wins should pick the 22-char body; got: {winner_body!r}"
+        )
 
-    def test_merged_body_is_concatenation_of_all(self) -> None:
-        """Merged block body is all three bodies joined (in order)."""
+    def test_first_occurrence_wins_when_lengths_equal(self) -> None:
+        """Equal-length bodies → first occurrence wins (deterministic tiebreak)."""
         inputs = [
-            self._make_cwd_tuple("Libby CWD Management Zone", "AAA"),
-            self._make_cwd_tuple("Libby CWD Management Zone", "BBB"),
-            self._make_cwd_tuple("Libby CWD Management Zone", "CCC"),
+            self._make_cwd_tuple("Libby CWD Management Zone", "first body."),
+            self._make_cwd_tuple("Libby CWD Management Zone", "OTHER body."),  # same length
         ]
         result = _consolidate_cwd_blocks(inputs)
-        merged_body = result[0][0].body_raw
-        # All three fragments should appear in order in the concatenation
-        idx_a = merged_body.find("AAA")
-        idx_b = merged_body.find("BBB")
-        idx_c = merged_body.find("CCC")
-        assert idx_a < idx_b < idx_c, f"Body order wrong: {merged_body!r}"
+        winner_body = result[0][0].body_raw
+        assert winner_body == "first body.", (
+            f"Tiebreak should pick first occurrence; got: {winner_body!r}"
+        )
 
     def test_idempotent(self) -> None:
         """Running consolidate twice yields the same result."""
         inputs = [
-            self._make_cwd_tuple("Libby CWD Management Zone", "body part one."),
-            self._make_cwd_tuple("Libby CWD Management Zone", "body part two."),
+            self._make_cwd_tuple("Libby CWD Management Zone", "short."),
+            self._make_cwd_tuple("Libby CWD Management Zone", "longer body wins."),
         ]
         once = _consolidate_cwd_blocks(inputs)
         twice = _consolidate_cwd_blocks(once)
         assert len(once) == len(twice)
         assert once[0][0].body_raw == twice[0][0].body_raw
+        assert once[0][0].body_raw == "longer body wins."
 
     def test_non_cwd_blocks_pass_through(self) -> None:
         """HD and portion blocks are not affected by consolidation."""

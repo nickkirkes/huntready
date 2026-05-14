@@ -862,34 +862,41 @@ def _walk_v1_pages(
 def _consolidate_cwd_blocks(
     blocks: list[tuple[HeadedBlock, str, PageReference]],
 ) -> list[tuple[HeadedBlock, str, PageReference]]:
-    """Merge duplicate CWD heading blocks (one per column) into a single block per zone.
+    """Dedupe duplicate CWD heading blocks (one per column) — longest body wins.
 
-    The three-column FWP Legal Descriptions PDF places the same CWD heading
-    text once per column on a page where the zone's description spans all
-    three columns (Libby CWD Management Zone on page 19 is the V1 case).
-    This function walks the (block, namespace, page_reference) tuples
-    returned by ``_walk_v1_pages`` and merges all blocks with the same
-    ``cwd_name`` into one — keeping the FIRST occurrence's namespace and
-    page_reference, and concatenating subsequent occurrences' ``body_raw``
-    in their original order separated by " " (Cleanup Rule A's whitespace
-    collapse will normalize it later in T8).
+    The three-column FWP Legal Descriptions PDF page 19 prints the Libby CWD
+    Management Zone heading + complete boundary description ONCE PER COLUMN
+    (each column contains the full description, not three different
+    fragments). Concatenating all three would triplicate the body. This
+    function walks the (block, namespace, page_reference) tuples returned
+    by ``_walk_v1_pages``, groups by canonical CWD name, and emits exactly
+    ONE block per zone — the one whose ``body_raw`` is LONGEST (so the
+    most-complete column wins; narrow column-truncation favors the wider
+    column with cleaner text).
+
+    Discovery history (working note D4 + D10/D12):
+      2026-05-12 D4 — assumed each column carried a distinct fragment of
+                       the same zone; designed consolidator to concatenate
+                       bodies in order.
+      2026-05-13 D11 — keyed dedup on canonical CWD name (Kalispell's
+                       "Zone" suffix can wrap off).
+      2026-05-14 D12 — verified each column actually contains the FULL
+                       description (similarity ratio 0.66–0.90 between
+                       columns), not different fragments. Concatenation
+                       produced 3× duplication. Changed to longest-wins
+                       to preserve maximum source text without duplication.
 
     Non-CWD blocks pass through unchanged.
 
     Idempotent: running twice yields the same result.
 
-    Defensive merge for CWD multi-occurrence per S03.5 discovery 2026-05-12;
-    harmless when stream is single-occurrence.
+    Tie-breaking: when two occurrences have equal body length, the FIRST
+    occurrence wins (deterministic).
     """
     result: list[tuple[HeadedBlock, str, PageReference]] = []
-    # Maps CANONICAL cwd_name → index in result list for the first occurrence.
-    # Discovery 2026-05-13: keying on raw block.cwd_name failed to merge a
-    # "Libby CWD Management Zone" block with a "Libby CWD Management" (Zone
-    # truncated by column wrap) block — both would emit as separate matched
-    # entries with the same geometry_id, producing duplicate writes in S03.6.
-    # Canonicalizing here (same rule the matcher applies via
-    # _canonicalize_cwd_name) ensures the dedup key is the lookup key.
-    first_seen: dict[str, int] = {}
+    # Maps canonical cwd_name → index in result list for the current "winner"
+    # (the occurrence with the longest body_raw seen so far for this zone).
+    winner_idx: dict[str, int] = {}
 
     for block, namespace, page_reference in blocks:
         if block.kind != "cwd":
@@ -900,17 +907,17 @@ def _consolidate_cwd_blocks(
         assert cwd_name is not None, "HeadedBlock with kind='cwd' must have cwd_name set"
         canonical_key = _canonicalize_cwd_name(cwd_name)
 
-        if canonical_key not in first_seen:
-            # First occurrence: record its position and append as canonical entry.
-            first_seen[canonical_key] = len(result)
+        if canonical_key not in winner_idx:
+            # First occurrence: place in result and remember its index.
+            winner_idx[canonical_key] = len(result)
             result.append((block, namespace, page_reference))
         else:
-            # Subsequent occurrence: concatenate body_raw onto the first occurrence.
-            idx = first_seen[canonical_key]
-            prior_block, prior_ns, prior_page_ref = result[idx]
-            merged_body = prior_block.body_raw + " " + block.body_raw
-            merged_block = replace(prior_block, body_raw=merged_body)
-            result[idx] = (merged_block, prior_ns, prior_page_ref)
+            # Subsequent occurrence: keep the one with the longer body_raw.
+            idx = winner_idx[canonical_key]
+            current_winner = result[idx][0]
+            if len(block.body_raw) > len(current_winner.body_raw):
+                result[idx] = (block, namespace, page_reference)
+            # else: keep the existing winner unchanged.
 
     return result
 
