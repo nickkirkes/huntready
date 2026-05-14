@@ -1,0 +1,27 @@
+CLAUDE.md
+  s_9a9554132d1ded::t_5d67c1b8ab8620 11
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_9a9554132d1ded::t_7d2a962bce5422 3,8
+  s_9a9554132d1ded::t_0168d74ff2fc8d 502-518
+docs/planning/README.md
+  s_9a9554132d1ded::t_8f7c14989c1881 32
+  s_9a9554132d1ded::t_3f064474c6f6ac 43
+  s_9a9554132d1ded::t_d4b0e58ff679b6 97-101,105-106
+  s_9a9554132d1ded::t_1487bd16d810ae 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "39cd4e392c4f0df1d780a4bf1f381902fc4647a0",
+  "prompts": {},
+  "sessions": {
+    "s_9a9554132d1ded": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
