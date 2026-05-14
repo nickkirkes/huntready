@@ -1,0 +1,19 @@
+docs/plans/S03.5-legal-descriptions-extraction-plan.md
+  s_00335cf32f820a::t_fa763dbb5998ce 99-101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "d3533bbcdd9245cc6441e9beb1931576dd0efe67",
+  "prompts": {},
+  "sessions": {
+    "s_00335cf32f820a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "380e7014-a5d0-4364-bb69-3ea9471274b9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
