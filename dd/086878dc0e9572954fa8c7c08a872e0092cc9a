@@ -1,0 +1,28 @@
+docs/plans/S03.5-legal-descriptions-extraction-plan.md
+  s_00335cf32f820a::t_dd60eb2b7042f0 268-269
+ingestion/tests/test_extract_legal_descriptions.py
+  s_00335cf32f820a::t_8eab2e889d1cb4 777-784,786-788,793-796,798-799,801-802,805-808,813-814,820
+docs/planning/epics/E03-confidence-findings/S03.5.md
+  s_00335cf32f820a::t_ed448e834a504a 228,230-231
+  s_00335cf32f820a::t_2633b4cc39eb1f 105,107,109
+ingestion/states/montana/extract_legal_descriptions.py
+  s_00335cf32f820a::t_57ea5451554899 865-887,893-894,897-899,910-912,915-920
+ingestion/states/montana/extracted/legal-descriptions-2026.json
+  s_00335cf32f820a::t_e821da5636468c 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "dd086878dc0e9572954fa8c7c08a872e0092cc9a",
+  "prompts": {},
+  "sessions": {
+    "s_00335cf32f820a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "380e7014-a5d0-4364-bb69-3ea9471274b9",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
