@@ -1,0 +1,33 @@
+.claude/settings.json
+  s_1a35dd9ab64a8e::t_49bb831c531884 13-22
+.roughly/workflow-upgrades
+  s_1a35dd9ab64a8e::t_49bb831c531884 1,5
+.claude/settings.json.backup-2026-05-14
+  s_0ff6c54ae243fe::t_e4d8efbfcaa51e 1-15
+.claude/hooks/plan-mode-gate.sh
+  s_0ff6c54ae243fe::t_d6442cd1dc1d04 1-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "1fb9dcf0ba7d94c9036fd6c9951d33393701bc8c",
+  "prompts": {},
+  "sessions": {
+    "s_0ff6c54ae243fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "293e4b22-b7dc-4173-a281-9283d1b561a1",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    },
+    "s_1a35dd9ab64a8e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da390e88-51c5-47ab-8a6b-75bdfef74cba",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
