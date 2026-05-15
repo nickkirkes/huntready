@@ -1,0 +1,24 @@
+docs/plans/S03.6-regulation-record-ingestion-plan.md
+  s_1a35dd9ab64a8e::t_2fe4ebfbfd5056 381
+  s_1a35dd9ab64a8e::t_45e7b23b6b0922 357,361-363
+  s_1a35dd9ab64a8e::t_8e05e0d39d36fe 343
+  s_1a35dd9ab64a8e::t_ceb363f3aad5b5 313
+  s_1a35dd9ab64a8e::t_724c50fb94d3b5 344-350
+  s_1a35dd9ab64a8e::t_1cd2432cc5e37b 398-405,422
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "686728db650c1af667ce6af6f3e6d50e2c48a59d",
+  "prompts": {},
+  "sessions": {
+    "s_1a35dd9ab64a8e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da390e88-51c5-47ab-8a6b-75bdfef74cba",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
