@@ -326,9 +326,16 @@ def _build_bear_records(bear_artifact: dict) -> list[RegulationRecord]:
             f"(expected list, got {type(raw_sources).__name__}); "
             f"re-run extract_black_bear.py and inspect the artifact"
         )
+    raw_rows = bear_artifact.get("rows")
+    if not isinstance(raw_rows, list):
+        raise RuntimeError(
+            f"bear artifact missing or invalid 'rows' key "
+            f"(expected list, got {type(raw_rows).__name__}); "
+            f"re-run extract_black_bear.py and inspect the artifact"
+        )
     sources_by_id: dict[str, dict] = {s["id"]: s for s in raw_sources}
     records: list[RegulationRecord] = []
-    for row in bear_artifact["rows"]:
+    for row in raw_rows:
         source_id = row["source_id"]
         if source_id not in sources_by_id:
             raise RuntimeError(

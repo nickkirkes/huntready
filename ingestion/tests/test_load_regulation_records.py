@@ -398,6 +398,21 @@ class TestBuildBearRecords:
         with pytest.raises(RuntimeError, match="missing or invalid 'sources'"):
             lrr._build_bear_records(artifact)
 
+    def test_missing_rows_key_raises_diagnostic_runtime_error(self) -> None:
+        """A bear artifact missing the top-level `rows` key entirely should
+        fail loud with a diagnostic naming the file to inspect — symmetric
+        with the `sources` guard, not a bare KeyError from the for-loop."""
+        artifact = {"sources": [_make_bear_source()]}  # no "rows" key
+        with pytest.raises(RuntimeError, match="missing or invalid 'rows'"):
+            lrr._build_bear_records(artifact)
+
+    def test_rows_wrong_type_raises_diagnostic_runtime_error(self) -> None:
+        """A bear artifact with `rows` set to a non-list value (e.g. None or
+        a dict) should also fail loud — same diagnostic path."""
+        artifact = {"sources": [_make_bear_source()], "rows": None}
+        with pytest.raises(RuntimeError, match="missing or invalid 'rows'"):
+            lrr._build_bear_records(artifact)
+
     def test_invalid_extraction_confidence_raises_at_row(self) -> None:
         """ConfidenceTier(...) validates the row's confidence string at-row,
         naming the bad value — mirrors the DEA path so triage doesn't depend
