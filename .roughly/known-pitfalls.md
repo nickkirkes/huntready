@@ -424,6 +424,26 @@ Surfaced by S02.6 implementation on 2026-05-01.
 
 - **`max(items, key=...)` and `min(items, key=...)` are list-iteration-order-dependent on ties.** When the keying function returns equal values for two or more items, `max` / `min` returns the first one encountered. For deterministic semantics across re-runs (e.g., re-generating an artifact whose SHA must be byte-stable), use a tuple key with a secondary sort field, OR do a two-pass selection: filter to ties, then pick by the secondary criterion. The S03.4 row-provenance code uses the two-pass form: `max_date = max(op["source_publication_date"] for op in ops); date_ties = [op for op in ops if op["source_publication_date"] == max_date]; row_winner = min(date_ties, key=lambda op: op["source_id"])` — lex-smallest `source_id` breaks ties. Reference: `_merge_with_corrections` row-provenance selection in `extract_black_bear.py`.
 
+### `regulation_record` has no `verbatim_rule` column — section text decomposes onto child entities
+
+- **`regulation_record` is a pure anchor; section verbatim text decomposes onto S03.7's child entities.** The DDL (`supabase/migrations/20260425000000_initial_schema.sql:36-49`) and the `RegulationRecord` Pydantic model (`ingestion/ingestion/lib/schema.py:221-238`) define this table as `(PK, source, confidence, schema_version, ingested_at) + additional_rules: VerbatimRule[]` — no `verbatim_rule` field. A loader for `regulation_record` MUST NOT attempt to write a section-level `verbatim_rule`. The DEA section's `verbatim_text` decomposes onto `season_definition.verbatim_rule` (per-window) and `license_tag.verbatim_rule` (per-license-row) via S03.7; HD-wide `NOTE:` lines are captured by S03.6 in `additional_rules`. Resolution recorded in `docs/open-questions.md` Q15 and epic footnote `[^oq1]` at line 565. Reference: `_build_dea_records` + `_build_bear_records` in `load_regulation_records.py`.
+
+### `db.update_legal_description` fails loud on `cur.rowcount == 0`
+
+- **Targeted UPDATE helpers must raise when the WHERE clause matches no row.** `update_legal_description(conn, geometry_id, text)` in `ingestion/lib/db.py` runs `UPDATE geometry SET legal_description = %s WHERE id = %s` and raises `RuntimeError` if `cur.rowcount == 0`. A silent no-op would mask matcher bugs — e.g., the S03.5 extractor emitting a `geometry_id` that doesn't exist in the `geometry` table because of E02 fixture drift. The same pattern should apply to any future targeted UPDATE helper added to `db.py` for child entities.
+
+### DEA `species_group="deer"` requires fan-out to `mule_deer` + `whitetail`
+
+- **The DEA artifact uses booklet-column species labels; the DB schema uses granular species values.** The DEA extraction artifact emits `species_group ∈ {"deer", "elk", "antelope"}` because those are the species column blocks in the FWP DEA booklet. The `regulation_record.species_group` DB column uses `{"mule_deer", "whitetail", "elk", "pronghorn", "bear"}`. The mapping is: `"deer"` fans out to **two rows** (`mule_deer` + `whitetail`) sharing the same per-HD verbatim/source/confidence; `"elk"` stays as `"elk"`; `"antelope"` renames to `"pronghorn"`. A naive `1:1` for-loop is wrong. Reference: `_DEA_SPECIES_FANOUT` and `_build_dea_records` in `load_regulation_records.py`. Locked by `test_deer_fans_out_to_mule_deer_and_whitetail`.
+
+### Bear DB `species_group` is `"bear"`, NOT the artifact's top-level `"black_bear"`
+
+- **The Black Bear extraction artifact's top-level `species_group` field is `"black_bear"`. The `regulation_record.species_group` DB value is `"bear"`.** Mixing the two produces silent FK mismatches against any future cross-table query joining on species. Reference: `_build_bear_records` in `load_regulation_records.py` (literal `species_group="bear"`). Locked by `test_bear_species_group_is_bear_not_black_bear`.
+
+### Confidence MIN-aggregation must use `ConfidenceTier.min_tier`, not bare `min()` over strings
+
+- **`min(["high", "low"])` returns `"high"` lexicographically** because `"h" < "l"` in ASCII order. The S03.2 `pdf.ConfidenceTier.min_tier` helper uses `key=lambda t: t.rank` so the most-uncertain tier wins ADR-017-faithfully. Loaders that aggregate confidence across multiple extraction rows MUST call `min_tier`, not the builtin. Reference: `pdf.py` lines 121-150 (helper); `_build_dea_records` in `load_regulation_records.py` (call site). The trap case is locked by `test_confidence_min_tier_trap_case_high_low_returns_low`.
+
 ## Conventions — Pre-commit & secrets
 
 ### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings

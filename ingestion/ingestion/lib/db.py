@@ -1,9 +1,14 @@
-"""Canonical write path for the ``geometry`` table.
+"""Canonical write path for the ``geometry`` and ``regulation_record`` tables.
 
 This module is the single authoritative place for persisting ``Geometry``
-records to Postgres. Future stories (S02.3–S02.5) MUST extend this module
-rather than implement a parallel write path. See ADR-003 (ingestion upstream
-and offline) and ADR-004 (Supabase Postgres + PostGIS).
+and ``RegulationRecord`` records to Postgres. Future stories MUST extend this
+module rather than implement a parallel write path. See ADR-003 (ingestion
+upstream and offline) and ADR-004 (Supabase Postgres + PostGIS).
+
+Future stories S03.7-S03.10 will extend this module with helpers for
+``season_definition``, ``license_tag``, ``license_season``, ``draw_spec``,
+``reporting_obligation``, and ``jurisdiction_binding``. This is the documented
+extension point — do not implement a parallel write path.
 
 WKT cast precedent
 ------------------
@@ -20,8 +25,8 @@ Transaction discipline
 ----------------------
 Neither ``upsert_geometry`` nor ``upsert_geometries`` commits. Callers control
 the transaction boundary so that a single commit can atomically write all three
-layers (geometry + jurisdiction_binding + regulation_record) when S02.3–S02.5
-are implemented.
+layers (geometry + jurisdiction_binding + regulation_record + season_definition
++ license_tag + ... — the full set lands across S02.3–S03.10).
 """
 
 from __future__ import annotations
@@ -33,7 +38,7 @@ from collections.abc import Iterable
 import psycopg
 from psycopg.types.json import Json
 
-from ingestion.lib.schema import Geometry
+from ingestion.lib.schema import Geometry, RegulationRecord
 
 _logger = logging.getLogger(__name__)
 
@@ -51,6 +56,27 @@ ON CONFLICT (id) DO UPDATE SET
 -- structural identity, not data. Reclassifying a row across kinds (e.g.
 -- 'hunting_district' to 'cwd_zone') means the ID's identity has changed
 -- and a new row should be created instead.
+"""
+
+_UPSERT_REGULATION_RECORD_SQL = """
+INSERT INTO regulation_record (
+    state, jurisdiction_code, species_group, license_year,
+    schema_version, source, confidence, additional_rules
+)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (state, jurisdiction_code, species_group, license_year) DO UPDATE SET
+    schema_version = EXCLUDED.schema_version,
+    source = EXCLUDED.source,
+    confidence = EXCLUDED.confidence,
+    additional_rules = EXCLUDED.additional_rules
+-- ingested_at is intentionally NOT in the UPDATE clause: it records the first
+-- successful ingest time; re-runs preserve the original timestamp. The PK
+-- columns are also excluded (no-op on conflict); explicit documentation
+-- here parallels the kind/state exclusion comment on _UPSERT_SQL above.
+"""
+
+_UPDATE_LEGAL_DESCRIPTION_SQL = """
+UPDATE geometry SET legal_description = %s WHERE id = %s
 """
 
 
@@ -116,3 +142,76 @@ def upsert_geometries(
         count += 1
     _logger.info("upserted %d geometry rows", count)
     return count
+
+
+def upsert_regulation_record(
+    conn: psycopg.Connection[tuple[object, ...]],
+    record: RegulationRecord,
+) -> None:
+    """INSERT … ON CONFLICT UPDATE a single ``RegulationRecord`` row.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        record: The ``RegulationRecord`` instance to persist.
+    """
+    source_json = Json(record.source.model_dump(exclude_none=True))
+    additional_rules_json = Json(
+        [rule.model_dump(exclude_none=True) for rule in record.additional_rules]
+    )
+    params: tuple[object, ...] = (
+        record.state,
+        record.jurisdiction_code,
+        record.species_group,
+        record.license_year,
+        record.schema_version,
+        source_json,
+        record.confidence,
+        additional_rules_json,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_UPSERT_REGULATION_RECORD_SQL, params)
+    _logger.debug(
+        "upserted regulation_record state=%s code=%s species=%s year=%d",
+        record.state, record.jurisdiction_code,
+        record.species_group, record.license_year,
+    )
+
+
+def update_legal_description(
+    conn: psycopg.Connection[tuple[object, ...]],
+    geometry_id: str,
+    text: str | None,
+) -> None:
+    """UPDATE ``geometry.legal_description`` for a single row by ``id``.
+
+    ``text=None`` writes SQL NULL (explicit null-out for de-flagging an old
+    description). Empty-string guarding is the caller's responsibility —
+    a caller wanting NULL semantics should pass None, not "".
+
+    Fails loud if the WHERE clause matches no row: raises ``RuntimeError``
+    with the unmatched geometry_id. This catches loader bugs where the
+    matcher emits a geometry_id that doesn't exist in the DB (e.g., E02
+    fixture drift introducing a new id the legal-descriptions extractor
+    didn't see).
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        geometry_id: The PK of the geometry row to update.
+        text: The legal-description prose to write, or None for SQL NULL.
+    """
+    params: tuple[object, ...] = (text, geometry_id)
+    with conn.cursor() as cur:
+        cur.execute(_UPDATE_LEGAL_DESCRIPTION_SQL, params)
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"update_legal_description: no geometry row with id={geometry_id!r}"
+            )
+    _logger.debug(
+        "updated legal_description for geometry id=%s (%d chars)",
+        geometry_id,
+        len(text or ""),
+    )

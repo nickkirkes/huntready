@@ -16,6 +16,26 @@ This is a *working* document. It is expected to grow during the build and shrink
 
 Questions resolved through the April 2026 research cycle. Listed here as visible handoff context during active work on M1 and M2; retire when the linked ADRs are sufficiently referenced elsewhere that this section is no longer useful for context. Full resolutions live in the linked research documents, in `architecture.md` / `research/schema-proposal-v2.md`, and in the ADRs linked under each question.
 
+### Q15. Where does section-level verbatim text live on `regulation_record`? (resolved 2026-05-14 during S03.6)
+
+**Question:** S03.6's epic spec mapped DEA section `verbatim_text` and Black-Bear merged-row text onto `regulation_record.verbatim_rule` ([epic line 565](planning/epics/E03-regulation-text-ingestion.md)). During implementation discovery the column was found to not exist — the DDL (`supabase/migrations/20260425000000_initial_schema.sql:36-49`) and the Pydantic `RegulationRecord` model (`ingestion/ingestion/lib/schema.py:221-238`) both define an anchor entity with no `verbatim_rule` field. Three options were considered: (a) add the column via a new migration, (b) carry section text via an `additional_rules` discriminator, (c) drop section text from `regulation_record` and let it decompose into S03.7's per-entity verbatim fields.
+
+**Decision:** Option (c). `regulation_record` stays a pure anchor: `(PK, source, confidence, schema_version, ingested_at) + additional_rules: VerbatimRule[]`. Section-level text decomposes onto the entities that scope it:
+
+- Per-license-row text → `license_tag.verbatim_rule` (S03.7)
+- Per-season-window text → `season_definition.verbatim_rule` (S03.7)
+- HD-wide `NOTE:` lines → `regulation_record.additional_rules: VerbatimRule[]` (S03.6 captures these)
+
+For bear specifically: the per-BMU prose decomposes into `season_definition.verbatim_rule` (S03.7, one row per general/archery/spring/hound-training window with `closure_predicate` populated for the quota-closure + female-sub-quota BMUs) and `license_tag.verbatim_rule` (S03.7, hound-NR license). The bear closure prose lives on `reporting_obligation.verbatim_rule` (S03.9).
+
+**Rationale:** Storing section-level text on `regulation_record` would denormalize the same prose at multiple levels (section + per-row), inviting drift between the two stored copies and violating ADR-010's decomposition principle. ADR-008's verbatim-preservation invariant is satisfied because every reg-bearing piece is faithfully stored on the entity it describes; the artifact's full `verbatim_text` field remains in the JSON artifact (committed to repo) as a debug/audit aid. Option (a) would have required a migration with three-place sync (DDL + Pydantic + TS types); option (b) would have required a `VerbatimRule.kind` discriminator the schema doesn't currently model.
+
+**Known risk:** Free prose between rows that isn't a `NOTE:` line currently has no structured home in the DB. V1 Montana DEA is dense table data + `NOTE:` lines; this is expected to be empty set. S03.12 UAT spot-checks; S03.6's working note (`docs/planning/epics/E03-confidence-findings/S03.6.md`) flags any encountered cases for future planner attention.
+
+**Resolution home:** No new ADR (this is a refinement of ADR-008's decomposition story, not a new commitment). Epic E03 line 565 amended with footnote `[^oq1]`. Plan: [`docs/plans/S03.6-regulation-record-ingestion-plan.md`](plans/S03.6-regulation-record-ingestion-plan.md). Working note: [`docs/planning/epics/E03-confidence-findings/S03.6.md`](planning/epics/E03-confidence-findings/S03.6.md).
+
+---
+
 ### Q1. How are Montana's big game regulations actually structured in the source PDF?
 
 **Resolution:** Hybrid ingestion strategy. Geometries come from the MT FWP ArcGIS MapServer (`admbnd/huntingDistricts`, 40 layers including the V1 big-game layers). Regulation text, seasons, methods, and tag mechanics come from three published PDFs (DEA biennial booklet, Black Bear annual booklet, Legal Descriptions biennial booklet) plus ad-hoc correction PDFs. The `myfwp.mt.gov` undocumented endpoints are explicitly out of scope.

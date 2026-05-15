@@ -562,7 +562,7 @@ Composite PK `(state, jurisdiction_code, species_group, license_year)` distingui
 
 | Entity field | Source extraction span |
 |---|---|
-| `regulation_record.verbatim_rule` | The DEA section's `verbatim_text` (section-level text for that HD subsection) OR the Black Bear merged-row text for that BMU |
+| ~~`regulation_record.verbatim_rule`~~ (column does not exist; see [^oq1]) | ~~The DEA section's `verbatim_text`~~ — decomposes into `season_definition.verbatim_rule` + `license_tag.verbatim_rule` via S03.7; NOTE-style lines land in `regulation_record.additional_rules` via S03.6 |
 | `regulation_record.additional_rules` | NOTE-style lines from the DEA HD subsection that apply to the HD as a whole, not to a specific license. Each NOTE line becomes one `VerbatimRule` jsonb entry with its own `verbatim_rule`, `confidence`, `source`, `page_reference` |
 | `season_definition.verbatim_rule` (S03.7) | The DEA opportunity-specific-details cell text for the relevant season window (per HD per license) |
 | `license_tag.verbatim_rule` (S03.7) | The DEA full license-row text (the row's verbatim across all 11 columns) |
@@ -592,7 +592,9 @@ This story writes `geometry.legal_description` (the column added by S03.0/ADR-01
 
 - [ ] `ingestion/states/montana/load_regulation_records.py` exists; reads the three extraction artifacts; deterministic load order
 - [ ] Approximately 514 `regulation_record` rows written (verify exact count from extraction; may differ if DEA HD count is not exactly 139 in the actual data)
-- [ ] Every row has `state='US-MT'`, `license_year=2026`, `schema_version=2`, populated `verbatim_rule`, populated `source` (jsonb SourceCitation), populated `confidence` per ADR-017's MIN aggregation **using S03.2's `ConfidenceTier.min_tier` helper** (NOT lexicographic `min()` over strings — see S03.2's tier-rank trap-case AC)
+- [x] Every row has `state='US-MT'`, `license_year=2026`, `schema_version=2`, populated `source` (jsonb SourceCitation), populated `confidence` per ADR-017's MIN aggregation **using S03.2's `ConfidenceTier.min_tier` helper** (NOT lexicographic `min()` over strings — see S03.2's tier-rank trap-case AC). ~~populated `verbatim_rule`~~ struck — column does not exist per OQ1 resolution; see [^oq1]
+- [x] Row-count fail-loud guard: write count must be within `int(514 × 0.70)..int(514 × 1.30)` i.e. `[359, 668]`; outside the band raises `RuntimeError` and aborts the load (OQ7 resolution; first row-count guard in the pipeline, sets precedent for S03.7-S03.10)
+- [x] `legal_description` empty / whitespace-only values written as SQL NULL, never `""` (review N4)
 - [ ] `MT-STATEWIDE-antelope` regulation_record exists (anchor for `900-20`); any additional statewide candidates surfaced via working note, NOT autonomously added
 - [ ] DEA-sourced rows use `document_type='annual_regulations'`; Black-Bear-correction-touched rows use `document_type='correction'` with `supersedes` populated; citation IDs match `sources.yaml`
 - [ ] NOTE-style lines in DEA HD subsections written to `regulation_record.additional_rules` as `VerbatimRule[]` jsonb
@@ -602,6 +604,21 @@ This story writes `geometry.legal_description` (the column added by S03.0/ADR-01
 - [ ] Working note `docs/planning/epics/E03-confidence-findings/S03.6.md` exists
 - [ ] `ruff check`, `mypy` clean
 - [ ] Unit tests cover: jurisdiction_code derivation (incl. statewide), SourceCitation construction (incl. correction case + supersedes from sources.yaml), confidence MIN aggregation, NOTE-line→additional_rules mapping, legal_description write-to-geometry round-trip
+
+[^oq1]: **OQ1 resolution (2026-05-14):** During S03.6 implementation, the
+    discovery report surfaced that `regulation_record` has no `verbatim_rule`
+    column in the DDL (`supabase/migrations/20260425000000_initial_schema.sql`
+    lines 36-49) or in the Pydantic `RegulationRecord` model
+    (`ingestion/ingestion/lib/schema.py` lines 221-238). Option (c) — drop
+    section-level text from `regulation_record` and let it decompose into S03.7's
+    `season_definition.verbatim_rule` + `license_tag.verbatim_rule` — was
+    selected. ADR-008's verbatim-preservation invariant is satisfied because
+    every reg-bearing piece of source text is stored on the entity it describes.
+    NOTE-style HD-wide lines are captured by S03.6 in `additional_rules`. The
+    DEA artifact's full `verbatim_text` field remains in the JSON artifact
+    (committed to repo) as a debug/audit aid. See `docs/open-questions.md` for
+    the full rationale and `docs/planning/epics/E03-confidence-findings/S03.6.md`
+    for the working note.
 
 ---
 
