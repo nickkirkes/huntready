@@ -1,0 +1,21 @@
+ingestion/states/montana/load_regulation_records.py
+  s_1a35dd9ab64a8e::t_2ae95f0640d59a 329-335,338
+ingestion/tests/test_load_regulation_records.py
+  s_1a35dd9ab64a8e::t_a062158beb3a12 401-415
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "831bf758c43c26053d16821a811585a5c441dc5e",
+  "prompts": {},
+  "sessions": {
+    "s_1a35dd9ab64a8e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da390e88-51c5-47ab-8a6b-75bdfef74cba",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
