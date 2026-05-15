@@ -298,6 +298,12 @@ The script's `from ingestion.lib.X import ...` calls at module load resolve via 
 
 Surfaced by S03.1 implementation on 2026-05-04.
 
+### Adapter-module tests should use direct `import`, not `importlib.util.spec_from_file_location`
+
+State-adapter scripts under `ingestion/states/<state>/*.py` are NOT a Python package (`states/` has no `__init__.py`), but the editable install adds `ingestion/` to `sys.path` so `import states.montana.<module>` resolves cleanly as a namespace package. Every adapter test in `ingestion/tests/test_load_*.py` uses this direct-import pattern — for instance `test_load_state_boundary.py` does `from states.montana.load_state_boundary import _build_source_citation, ...`. A `_load_module()` helper using `importlib.util.spec_from_file_location(...)` + `exec_module(...)` is the wrong shape for this codebase: it adds dead-code overhead (path computation, type-narrowing assertions, ModuleType import) for a problem that the editable install already solved.
+
+The trap is that the `importlib.util` path *works* — tests pass — so the divergence is invisible at run time. Reviewers (static-analysis agent in S03.6's review cycle caught this) only spot it by comparing against peer test files. Surfaced during S03.6's Stage 6 review and corrected in the review-fix cycle.
+
 ### `supabase db push` against a project bootstrapped via dashboard fails with "relation already exists"
 
 When a Supabase project's schema was originally created via the dashboard SQL editor — or via `supabase db push` from a different machine with a different local migration history — the remote `supabase_migrations.schema_migrations` tracker can be empty even though the schema is fully populated. The next `supabase db push` then attempts to replay all migrations from scratch and dies on the first `CREATE TABLE` with `relation already exists` (SQLSTATE 42P07).
@@ -482,3 +488,21 @@ git add .secrets.baseline <new-files>
 Or pass file paths directly: `detect-secrets scan <file1> <file2> ... > .secrets.baseline` (loses the existing baseline content — typically merge manually or stick with the `--intent-to-add` flow). The `--all-files` flag scans EVERY file including `.git/`, `.venv/`, `node_modules/` — slow and rarely what you want.
 
 Surfaced by S02.7 manifest backfill on 2026-05-02.
+
+### `detect-secrets` pre-commit hook updates `.secrets.baseline` line numbers on every commit that grows tracked files
+
+**Symptom:** `git commit` reports `Detect secrets... Failed - exit code: 3 - files were modified by this hook` with `The baseline file was updated. Probably to keep line numbers of secrets up-to-date. Please \`git add .secrets.baseline\`, thank you.` The diff on `.secrets.baseline` is a pure line-number shift on an existing tracked false-positive — no new finding, no new line, just `line_number: N` → `line_number: N+k` where `k` is the number of lines added above it in the same file.
+
+**Cause:** A pre-existing false-positive in `.secrets.baseline` (e.g., the BMU `300*` footnote pitfall in `.roughly/known-pitfalls.md`) has its absolute line number recorded. When a commit adds content to that same file above the false-positive's line, every subsequent run of `detect-secrets` rewrites the baseline's `line_number` field to match the new position. The hook intentionally surfaces this as a fail-loud "stage the new baseline" gate rather than silently rebasing on the operator's behalf.
+
+**Fix:** Stage the modified baseline and re-commit. The diff is mechanical — verify it's only `line_number` and `generated_at` fields shifting, not a new finding:
+
+```bash
+git diff .secrets.baseline | grep -E '^[+-]' | head   # confirm no new `results` entries
+git add .secrets.baseline
+git commit -m "..."  # retry the original commit
+```
+
+If the diff shows a new `results` entry (not just a line-number shift), inspect what triggered it — that's a real new finding, not the drift case.
+
+Surfaced repeatedly across stories (S03.6 wrap-up is the most recent); recurring whenever a story adds substantial content to a file that already has a tracked false-positive entry. The hook's behavior is correct and intentional — this entry exists to short-circuit the cognitive surprise of "wait, what just changed?"
