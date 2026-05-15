@@ -1,0 +1,73 @@
+docs/open-questions.md
+  s_1a35dd9ab64a8e::t_202a1a6c4858d4 19-38
+docs/plans/S03.6-regulation-record-ingestion-plan.md
+  s_1a35dd9ab64a8e::t_49a1e9344d9f4e 350
+  s_1a35dd9ab64a8e::t_571360d5d88e2f 1-18,20-235,237-349,351-558
+  s_1a35dd9ab64a8e::t_9c353684f3dae0 19
+  s_1a35dd9ab64a8e::t_9ea60044168b84 236
+ingestion/states/montana/load_regulation_records.py
+  s_1a35dd9ab64a8e::t_ecbb8ce1d31377 79-83
+  s_1a35dd9ab64a8e::t_a28e757b908983 446-557,559-579
+  s_1a35dd9ab64a8e::t_cae0ea17745ffc 264-265
+  s_1a35dd9ab64a8e::t_b454de8320c513 195-225,239-263,266-292,296-300
+  s_1a35dd9ab64a8e::t_d1eca8c4bd1ee3 33-34,41
+  s_1a35dd9ab64a8e::t_b133b48a13e620 558
+  s_1a35dd9ab64a8e::t_0c278a9da170cb 47
+  s_1a35dd9ab64a8e::t_a0558db50a14f8 35
+  s_1a35dd9ab64a8e::t_dadedacec39753 42-45
+  s_1a35dd9ab64a8e::t_4e6cd5be4b0c83 226-238
+  s_1a35dd9ab64a8e::t_839925a54abf4d 132-144,150,152-194
+  s_1a35dd9ab64a8e::t_163f874764105f 301-321,330-348,356-372
+  s_1a35dd9ab64a8e::t_782ca1dcc77fb5 322-329,349-355
+  s_1a35dd9ab64a8e::t_a3665883f91f8f 37
+  s_1a35dd9ab64a8e::t_1f598a8679b1ef 145-149,151
+  s_1a35dd9ab64a8e::t_90b3883d4d8ed8 293-295
+  s_1a35dd9ab64a8e::t_8bab4fb4debbbb 373-407,427-445
+  s_1a35dd9ab64a8e::t_9c21781c520e8e 408-426
+ingestion/tests/test_load_regulation_records.py
+  s_1a35dd9ab64a8e::t_75f311d0d6a3fb 598,621-736
+  s_1a35dd9ab64a8e::t_3d75faf0fa710d 269-385,410-461
+  s_1a35dd9ab64a8e::t_00fe401c32754b 1-5,13-16,20-21,23-124,130,141-148,153-159,162-218,238-268
+  s_1a35dd9ab64a8e::t_9f358a382d80be 462-597
+  s_1a35dd9ab64a8e::t_6b723d2bfbf973 125-129,131-132,134-140
+  s_1a35dd9ab64a8e::t_0b18945554ae5b 17-18
+  s_1a35dd9ab64a8e::t_48c4691b32960b 599-620
+  s_1a35dd9ab64a8e::t_7f148b35e5465f 133
+  s_1a35dd9ab64a8e::t_72ece9c88ecfe2 149-152,160-161
+  s_1a35dd9ab64a8e::t_551da1f105f28a 386-409
+  s_1a35dd9ab64a8e::t_d7cb12753834a7 6-12,19,22
+  s_1a35dd9ab64a8e::t_c405866f99d4d7 219-237
+ingestion/ingestion/lib/db.py
+  s_1a35dd9ab64a8e::t_53c5986384238a 78-81
+  s_1a35dd9ab64a8e::t_a38f46275424e3 1,4-11,28-29
+  s_1a35dd9ab64a8e::t_de099ef110dbfb 41
+  s_1a35dd9ab64a8e::t_7acfd605fdc430 145-179
+  s_1a35dd9ab64a8e::t_84406bcbf0d3be 61-77
+  s_1a35dd9ab64a8e::t_5e6d3a7a90e194 180-217
+docs/planning/epics/E03-confidence-findings/S03.6.md
+  s_1a35dd9ab64a8e::t_2403b82018d4d6 13-34
+  s_1a35dd9ab64a8e::t_9bd3b49aae7a24 43-62
+  s_1a35dd9ab64a8e::t_15ee06fd6d92f7 1-12,35-42,63-87
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_1a35dd9ab64a8e::t_e48cefa8a59410 608-622
+  s_1a35dd9ab64a8e::t_f333a8ac6fd2f7 595-597
+  s_1a35dd9ab64a8e::t_1eb2c94de56f56 565
+.roughly/known-pitfalls.md
+  s_1a35dd9ab64a8e::t_8d19b26c913dea 427-446
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "2c77184b19595b90d74373e0f9cbf71913a59b36",
+  "prompts": {},
+  "sessions": {
+    "s_1a35dd9ab64a8e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da390e88-51c5-47ab-8a6b-75bdfef74cba",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
