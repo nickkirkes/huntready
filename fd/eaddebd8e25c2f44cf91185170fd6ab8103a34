@@ -1,0 +1,32 @@
+docs/planning/README.md
+  s_9a9554132d1ded::t_3854337a65a075 45
+  s_9a9554132d1ded::t_d803c03d43299f 98-101,103
+  s_9a9554132d1ded::t_5cabc300ead14a 3-4
+  s_9a9554132d1ded::t_f0d22eb6f418a2 32
+ingestion/states/montana/load_seasons_and_licenses.py
+  s_9a9554132d1ded::t_7b8e896cfba22c 562
+  s_9a9554132d1ded::t_09e3f1016b52d6 1408-1413
+  s_9a9554132d1ded::t_1f906c8a0ece47 59
+  s_9a9554132d1ded::t_0e5f17543d1fed 1277-1278
+CLAUDE.md
+  s_9a9554132d1ded::t_d18d7d78854823 11
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_9a9554132d1ded::t_1c6d139e67239d 699-722
+  s_9a9554132d1ded::t_67173f933c502e 3,8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "fdeaddebd8e25c2f44cf91185170fd6ab8103a34",
+  "prompts": {},
+  "sessions": {
+    "s_9a9554132d1ded": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
