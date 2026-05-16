@@ -634,7 +634,7 @@ This story writes `geometry.legal_description` (the column added by S03.0/ADR-01
 **I want** `season_definition` rows for each unique season window per HD, `license_tag` rows for each General/B variant, and `license_season` link rows expressing exactly which seasons each license covers
 **So that** the milestone UAT criterion #2 ("A and B licenses both cross-referencing the appropriate seasons") is satisfied **without** the over-attribution failure mode the legacy schema had
 
-**UAT: yes** — query HD 262 elk and verify (a) the season_definition rows match the source DEA subsection's distinct windows, (b) both A and B license_tag rows exist, and (c) the `license_season` join shows A covers Heritage Muzzleloader while B does not (or whatever the actual asymmetry is in HD 262's source data).
+**UAT: yes** — query HD 170 (Flathead River) elk and verify (a) the season_definition rows match the source DEA subsection's distinct windows (Archery Only, General, Heritage Muzzleloader, Late), (b) both A (General Elk License) and B (Elk B License: 170-00) license_tag rows exist, and (c) the `license_season` join shows asymmetric coverage: A covers Heritage Muzzleloader (B does not), and B covers Late (A does not).  Note: the original spec referenced HD 262 elk, but HD 262 only exists for deer in the live DEA artifact — substitution made during S03.7 implementation discovery.
 
 **Context:**
 
@@ -643,7 +643,7 @@ This is the load-bearing entity-mapping story for the A/B license pattern. ADR-0
 **Per-HD construction pattern:**
 
 For each HD's DEA subsection:
-1. Identify all unique season windows present across the HD's licenses (e.g., HD 262 elk: Archery Only, General, Heritage Muzzleloader). This goes in `season_windows` from S03.3's artifact.
+1. Identify all unique season windows present across the HD's licenses (e.g., HD 170 elk: Archery Only, General, Heritage Muzzleloader, Late). This goes in `season_windows` from S03.3's artifact.
 2. For each unique season window, create a `season_definition` row with:
    - `name` (e.g., "Archery Only", "General", "Heritage Muzzleloader")
    - `opens` and `closes` (parsed from `season_windows[<key>]` like `9/7-10/20`)
@@ -684,6 +684,8 @@ S03.7 writes the license_tag and one corresponding `license_season` row if the s
 - `license_tag`: General + 1-3 B variants per HD × 514 → **~1,000-2,000 rows**
 - `license_season`: per-license × per-season-it-covers → **~3,000-6,000 rows**
 
+**Actual counts at S03.7 implementation (2026-05-15):** season_definition=978, license_tag=1225, license_season=3040, regulation_season=1385, regulation_license=1914.  Closure_predicate count: 20 (8 quota-closure BMUs × 2 fall seasons + 4 female-sub-quota BMUs × 1 spring season).
+
 Order-of-magnitude verification against the extraction artifacts is part of the AC.
 
 **Confidence per ADR-017:** child entities inherit confidence from the parent regulation_record; nothing written to `season_definition`, `license_tag`, or `license_season`.
@@ -698,13 +700,13 @@ Order-of-magnitude verification against the extraction artifacts is part of the 
 - [ ] `season_definition` rows written; per-HD unique-window deduplication confirmed (e.g., `name='General'` count is near-1:1 with HD count, not multiplied by license-variant count)
 - [ ] `license_tag` rows written; multiple license_tag rows per HD where DEA shows A + B variants
 - [ ] **`license_tag.draw_spec_key` is NULL on every row written by S03.7** (backfilled later by S03.8); SQL spot-check confirms `SELECT count(*) FROM license_tag WHERE draw_spec_key IS NOT NULL` returns 0 immediately after S03.7's load completes
-- [ ] **`license_season` rows written per S03.3's `season_coverage` truth values**; per-license season selection is explicit; SQL spot-check on HD 262 elk shows A's `license_season` set differs from B's (asymmetric coverage)
+- [ ] **`license_season` rows written per S03.3's `season_coverage` truth values**; per-license season selection is explicit; SQL spot-check on HD 170 elk shows A's `license_season` set differs from B's (asymmetric coverage)
 - [ ] `regulation_season` link table populated for every (regulation_record, season_definition) pair (HD-level: every season the HD has); `regulation_license` link table populated for every (regulation_record, license_tag) pair
 - [ ] Bear `season_definition` rows with `closure_predicate` jsonb populated for the 9 quota-closure BMUs and 4 female-sub-quota BMUs; temporal anchors preserved in `verbatim_rule` only
 - [ ] Statewide antelope `900-20` license_tag row exists with `kind='statewide'`, `verbatim_rule` carrying the full "first and only choice" text; **no `draw_spec_key`** (S03.8 doesn't write one)
 - [ ] `quota_range` uses `[]` inclusive bounds; application-code validation confirms `lower <= quota <= upper` for non-null quota
 - [ ] `season_definition.weapon_type` is **populated directly from S03.3's `season_windows[<key>].weapon_type_override`** — no name-based string matching; NULL where the source column header has no weapon constraint (most cases, e.g., GENERAL); `"archery"` for ARCHERY ONLY; `"muzzleloader"` for HERITAGE MUZZLELOADER; `license_tag.weapon_types` separately carries the per-license constraint
-- [ ] **UAT (M1 success criterion 2):** query HD 262 elk → returns archery, general, heritage muzzleloader as separate `season_definition` rows; `license_season` join shows A covers a different set of seasons than B (asymmetric coverage explicitly verified)
+- [ ] **UAT (M1 success criterion 2):** query HD 170 elk → returns Archery Only, General, Heritage Muzzleloader, Late as separate `season_definition` rows; `license_season` join shows A (General Elk License) covers `{archery-only, general, heritage-muzzleloader}` and B (Elk B License 170-00) covers `{archery-only, general, late}` — explicit asymmetric coverage. A-only = `{heritage-muzzleloader}`; B-only = `{late}`.
 - [ ] If extraction surfaces a license/season pattern that doesn't fit the model: flagged via the operational definition (working note + WARN log + run-summary count)
 - [ ] UPSERT idempotency confirmed
 - [ ] Working note `docs/planning/epics/E03-confidence-findings/S03.7.md` records any A/B-pattern edge cases or model-fit anomalies

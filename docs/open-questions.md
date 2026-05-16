@@ -248,6 +248,26 @@ With Postgres as the storage layer, the tools can return richer, pre-composited 
 
 ---
 
+## Q16: Species granularity of license_tag and season_definition (S03.7 → M2 revisit)
+
+**Story:** S03.7 (closed 2026-05-15)
+**ADR-relevance:** ADR-010 (decomposed entity model), ADR-018 (license_season link table)
+**Status:** Resolved for V1; flagged for M2 review.
+
+S03.7 writes one `license_tag` (and one `season_definition`) per artifact-level species label (`"deer" | "elk" | "antelope" | "bear"`).  For DEA deer sections that fan out to DB species_group values `"mule_deer"` and `"whitetail"`, the fan-out happens only at the `regulation_license` / `regulation_season` link layer — both DB regulation_records reference the same shared license_tag / season_definition.
+
+**Rationale:** A "Deer B License: 262-50" license is sold once and is valid for either species.  Duplicating the license_tag into a mule_deer variant + a whitetail variant would create false structural distinction; the link tables already express the species coverage correctly.
+
+**M2 revisit trigger:** if Montana (or any other state) ever ships a species-specific license (e.g., mule-deer-only with no whitetail validity), the V1 shared-license_tag model wouldn't fit cleanly.  At that point, decide between:
+
+- (a) Splitting the license_tag into per-species variants with disambiguated IDs.
+- (b) Adding a `valid_species: list[str]` column on license_tag.
+- (c) Some hybrid.
+
+For now: no action; surface in M2 scoping.
+
+---
+
 ## Parking lot
 
 ### P1. Observability and error tracking
