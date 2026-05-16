@@ -252,6 +252,16 @@ Then in the matcher, canonicalize the captured name (append " Zone" if missing) 
 
 The same wrap also affects HD headings: HD 705 reads `"705 Prairie/Pines-Juniper Breaks: Those\nportions of..."` — the literal space in `Those portions?` doesn't match the newline. Fix: use `Those\s+portions?` (and `That\s+portion`) — whitespace-flex matches the wrap while still rejecting arbitrary non-whitespace text between the two words (since `\s` is whitespace-only). Surfaced 2026-05-13 — without this, +17 HDs silently surfaced as unlinked. Locked by `TestHeadingRegex::test_hd_anchor_phrase_wraps_across_newline`.
 
+### FWP antelope DEA tables use 4-letter `"Sept"` month abbreviation
+
+FWP DEA antelope per-HD A-license rows use `"Sept"` (4 letters) where all other DEA tables use `"Sep"` (3 letters), e.g. `"Sept. 05-Oct. 09"`. Python's `datetime.strptime` with `%b` only accepts the 3-letter POSIX form and raises `ValueError` on `"Sept"`.
+
+**Symptom:** Date-parsing of antelope rows aborts with `ValueError: time data 'Sept. 05' does not match format '%b. %d'`. All other species parse cleanly, making the error look like a data anomaly rather than a normalization gap.
+
+**Fix:** In the date-parsing helper, normalize before `strptime`: `re.sub(r"\bSept\b", "Sep", cell_text)`. Apply before any `strptime` call, not inside a try/except — fail-loud is better than silently skipping antelope rows. Reference: `_parse_window` in `ingestion/states/montana/load_seasons_and_licenses.py`.
+
+Surfaced by S03.7 implementation 2026-05-15.
+
 ### Running PDF footer leaks into last body when crop strip is too shallow
 
 The FWP Legal Descriptions PDF carries a `"Visit fwp.mt.gov <page#>"` running footer on every content page at `top ≈ 716` on a 756pt-tall page (roughly 40pt from the bottom). The initial column-crop footer strip of 20pt produced a cutoff at `page.height - 20 = 736` — above the footer — so the footer text leaked into whichever HD body extended near the bottom of the column. HD 704's `verbatim_description` ended with `"Visit fwp.mt.gov 9"`.
@@ -449,6 +459,22 @@ Surfaced by S02.6 implementation on 2026-05-01.
 ### Confidence MIN-aggregation must use `ConfidenceTier.min_tier`, not bare `min()` over strings
 
 - **`min(["high", "low"])` returns `"high"` lexicographically** because `"h" < "l"` in ASCII order. The S03.2 `pdf.ConfidenceTier.min_tier` helper uses `key=lambda t: t.rank` so the most-uncertain tier wins ADR-017-faithfully. Loaders that aggregate confidence across multiple extraction rows MUST call `min_tier`, not the builtin. Reference: `pdf.py` lines 121-150 (helper); `_build_dea_records` in `load_regulation_records.py` (call site). The trap case is locked by `test_confidence_min_tier_trap_case_high_low_returns_low`.
+
+### Closed-set kind/category heuristics require full-artifact profiling before plan finalization
+
+- **Profile the FULL extraction artifact before writing a closed-set categorization branch list.** S03.7's `_build_dea_license_tags` uses `else: raise RuntimeError` on an unmatched `kind`. The initial plan listed 3 branches (general / B License / statewide). Plan-review caught that 121 of 1190 rows (91 `"Deer Permit: …"` / `"Elk Permit: …"` rows + 30 per-HD `"Antelope License: XYZ"` rows) would have aborted — two additional code families not in the spec. The plan was revised to 5 branches before implementation. The rule: for any `if/elif/else: raise RuntimeError` over a closed-set label (`license_kind`, `species_group_label`, `season_key`, `document_type`), run `collections.Counter(row[field] for row in artifact)` against the full artifact and enumerate every value seen before writing the branch list. Surfaced by S03.7 plan-review 2026-05-15.
+
+### Pydantic `frozen=True, extra="forbid"` models — enumerate every required field at construction time
+
+- **When constructing Pydantic models with `ConfigDict(frozen=True, extra="forbid")`, mechanically enumerate every field with no default and no `Optional` annotation before writing the constructor call.** A missed required field raises `ValidationError` at the first production row, not at import time. The cost at plan-review is one revision cycle; at runtime it is a full re-run plus a debug cycle to locate which builder omitted which field. Example: `schema.py:ClosurePredicate.notification_channel` has no default — S03.7 plan-review caught a T8 draft that didn't read it from the artifact. Fix: grep `schema.py` for the model class, list all fields that have no `= ...` or `Optional` annotation, and verify each is read from the artifact dict at the call site. Surfaced by S03.7 plan-review 2026-05-15.
+
+### DEA artifact has duplicate `license_code` rows within sections — let UPSERT collapse, not the builder
+
+- **Some DEA sections contain two rows with the same `license_code` value (202 sections affected in V1 Montana DEA).** Both rows produce the same deterministic `license_tag.id` and collide at the UPSERT layer. The semantic payload is the UNION of `season_coverage` across same-code rows; license-level fields are structurally identical across duplicates. **Do NOT pre-deduplicate in the builder.** Emit both rows; let the UPSERT `ON CONFLICT (id) DO UPDATE` collapse duplicate `license_tag` rows, and let `license_season` link rows collapse via `ON CONFLICT DO NOTHING`. Pre-deduplicating in the builder requires a parallel accumulator, adds complexity, and doesn't express the union semantic cleanly. Reference: `_build_dea_license_tags` in `load_seasons_and_licenses.py`. Locked by `test_duplicate_license_code_rows_collapsed_by_upsert`. Surfaced by S03.7 implementation 2026-05-15.
+
+### Downstream FK adapters must grep upstream adapters for exact id-construction patterns
+
+- **Before writing any adapter that populates a link table whose composite FK targets a previously-loaded entity, grep the upstream adapter for the exact id-construction expression and copy it verbatim.** A single-character drift in jurisdiction_code, species_group, license_year, or any other FK component breaks every link-row insert with a FK violation that is hard to diagnose (the error names the constraint, not which field drifted). Example: S03.7's bear builders use `jurisdiction_code = f"MT-HD-bear-{bmu_number}"` — this must match S03.6's `load_regulation_records.py:366` exactly. Pattern: add a code comment at the call site naming the upstream adapter and the line number where the original expression lives, e.g. `# must match load_regulation_records.py:366 exactly`. Optionally lock with a cross-module test that constructs both ids from the same fixture and asserts equality. Surfaced by S03.7 implementation 2026-05-15.
 
 ## Conventions — Pre-commit & secrets
 
