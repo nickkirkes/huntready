@@ -858,6 +858,73 @@ class TestBuildDeaLinkRows:
         species_groups = {lk.species_group for lk in links}
         assert species_groups == {"elk"}
 
+    def test_season_coverage_false_drift_skipped_across_three_builders(
+        self, mock_dea_citation: SourceCitation, caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Drift guard: when season_windows has an entry but season_coverage[key]
+        is False, all three DEA builders that iterate season_windows MUST treat
+        season_coverage as the source of truth and skip the entry (with a WARN).
+
+        Discovery confirmed the invariant (season_windows keys ≡ season_coverage
+        trues) holds for the V1 artifact, so this branch is normally unreachable.
+        It exists as a defense against S03.3 extraction regression.
+        """
+        section = {
+            "hd_number": "999",
+            "hd_name": "Drift",
+            "species_group": "elk",
+            "license_year": 2026,
+            "page_reference": _BASE_PAGE_REF,
+            "verbatim_text": "Drift section",
+            "rows": [
+                {
+                    "license_code": "General Elk License",
+                    "opportunity": "Test",
+                    "apply_by": None,
+                    "quota": None,
+                    "quota_range": None,
+                    # season_coverage says general=True, archery_only=False, ...
+                    "season_coverage": {
+                        "early_season": False,
+                        "archery_only": False,  # NOT covered
+                        "general": True,
+                        "heritage_muzzleloader": False,
+                        "late": False,
+                    },
+                    # season_windows has archery_only AND general — drift.
+                    "season_windows": {
+                        "archery_only": {"window": "Sep 05-Oct 18", "weapon_type_override": "archery"},
+                        "general": {"window": "Oct 24-Nov 29", "weapon_type_override": None},
+                    },
+                    "weapon_types": ["any_legal_weapon"],
+                    "extras": None,
+                    "extraction_confidence": "high",
+                    "page_reference": _BASE_PAGE_REF,
+                },
+            ],
+        }
+
+        with caplog.at_level(logging.WARNING):
+            defs = _build_dea_season_definitions([section], mock_dea_citation)
+            ls_links = _build_dea_license_season_links([section])
+            rs_links = _build_dea_regulation_season_links([section])
+
+        # All three builders must respect season_coverage truth: only `general`
+        # is covered; the archery_only entry in season_windows is drift and must
+        # be skipped.
+        assert [d.id for d in defs] == ["MT-HD-999-elk-general-2026"]
+        assert [lk.season_definition_id for lk in ls_links] == ["MT-HD-999-elk-general-2026"]
+        assert [lk.season_definition_id for lk in rs_links] == ["MT-HD-999-elk-general-2026"]
+
+        # Drift WARNs surfaced (one per builder × one per drifted key).
+        drift_warnings = [
+            r for r in caplog.records
+            if "season_coverage[" in r.getMessage() and "=False" in r.getMessage()
+        ]
+        assert len(drift_warnings) >= 2  # at minimum: defs builder + ls builder
+        # Static set comprehension in rs builder filters silently without WARN —
+        # the defs + ls WARNs are the surfaced signal.
+
 
 # ---------------------------------------------------------------------------
 # TestDeerSpeciesFanOut

@@ -812,6 +812,23 @@ def _build_dea_season_definitions(
 
         for row in section["rows"]:
             for season_key, season_window in row["season_windows"].items():
+                if not row["season_coverage"].get(season_key, False):
+                    # Drift signal: season_windows carries an entry whose
+                    # season_coverage flag is False (or absent).  Discovery
+                    # confirmed the invariant (season_windows keys ≡ trues
+                    # in season_coverage) holds for the V1 artifact, so this
+                    # branch is normally unreachable.  If it fires, an S03.3
+                    # extraction regression has decoupled the two fields and
+                    # the season_coverage truth value is the source of record
+                    # ("this license covers this season").  Skip and warn so
+                    # the loud signal surfaces.
+                    _logger.warning(
+                        "section HD=%s species=%s row %r has season_windows[%r] "
+                        "but season_coverage[%r]=False; skipping per coverage truth.",
+                        section["hd_number"], section["species_group"],
+                        row["license_code"], season_key, season_key,
+                    )
+                    continue
                 season_definition_id = _season_definition_id(
                     section["species_group"],
                     section["hd_number"],
@@ -989,6 +1006,16 @@ def _build_dea_license_season_links(
             license_code: str = row["license_code"]
             license_tag_id = _license_tag_id(species_group, hd_number, license_code)
             for season_key in row["season_windows"]:
+                if not row["season_coverage"].get(season_key, False):
+                    # Drift guard: see _build_dea_season_definitions for context.
+                    # season_coverage is the source of truth for "covers this
+                    # season"; skip rather than over-emit a license_season link.
+                    _logger.warning(
+                        "section HD=%s species=%s row %r has season_windows[%r] "
+                        "but season_coverage[%r]=False; skipping license_season link.",
+                        hd_number, species_group, license_code, season_key, season_key,
+                    )
+                    continue
                 season_definition_id = _season_definition_id(
                     species_group, hd_number, season_key
                 )
@@ -1020,11 +1047,18 @@ def _build_dea_regulation_season_links(
         hd_number: str = section["hd_number"]
         _validate_dea_species_group(species_group, hd_number)
 
-        # Collect unique season_keys present in this section (season_coverage True).
+        # Collect unique season_keys present in this section, gated by
+        # season_coverage truth values.  Discovery confirmed the invariant
+        # (season_windows keys ≡ trues in season_coverage) holds for the V1
+        # artifact; the filter is defensive against S03.3 extraction drift
+        # that could decouple the two fields.  season_coverage is the source
+        # of truth for "this license covers this season" — without the filter,
+        # a stale season_windows entry would over-emit a regulation_season link.
         unique_season_keys: set[str] = {
             season_key
             for row in section["rows"]
             for season_key in row["season_windows"]
+            if row["season_coverage"].get(season_key, False)
         }
 
         for target_species in _DEA_SPECIES_FANOUT[species_group]:
