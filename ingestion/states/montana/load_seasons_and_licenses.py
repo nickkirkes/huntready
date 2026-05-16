@@ -315,21 +315,47 @@ def _license_code_slug(license_code: str) -> str:
 
     Examples:
     - ``"General Elk License"``      → ``"general"``
-    - ``"Elk B License: 124-00"``    → ``"124-00"``
-    - ``"Antelope License: 900-20"`` → ``"900-20"``
-    - ``"Deer Permit: 262-51"``      → ``"262-51"``
+    - ``"Elk B License: 124-00"``    → ``"elk-b-124-00"``
+    - ``"Deer B License: 262-50"``   → ``"deer-b-262-50"``
+    - ``"Antelope License: 900-20"`` → ``"antelope-900-20"``
+    - ``"Antelope License: 471-20"`` → ``"antelope-471-20"``
+    - ``"Deer Permit: 262-51"``      → ``"deer-permit-262-51"``
+    - ``"Elk Permit: 999-99"``       → ``"elk-permit-999-99"``
 
     Strategy (per OQ-S7-7 closed-set discipline):
-    1. Numeric suffix ``DDD-DD`` → extract and return.
-    2. ``"General "`` prefix → return ``"general"``.
+    1. ``"General "`` prefix → return ``"general"`` (the section's species_group
+       distinguishes "General Elk License" vs "General Deer License" at the
+       license_tag id layer; no within-section general-vs-general collisions
+       observed in the V1 artifact).
+    2. Numeric suffix ``DDD-DD`` present → return the license-type prefix
+       (lowercased, hyphenated, with trailing ``" License"`` word dropped as
+       noise) joined with the numeric suffix.  This includes the license-type
+       prefix so two licenses sharing the same numeric code (e.g. the same
+       deer-section containing ``"Deer B License: 410-00"`` AND
+       ``"Elk B License: 410-00"`` cross-listed) produce DISTINCT slugs.
+       Without this disambiguation 6 cross-license collisions occur in the
+       live V1 artifact (cubic-review P1, 2026-05-16).
     3. Anything else → ``ValueError`` (fail-loud).
     """
-    m = re.search(r"(\d+-\d+)", license_code)
-    if m:
-        return m.group(1)
     if license_code.startswith("General "):
         return "general"
-    raise ValueError(f"unrecognized license_code format: {license_code!r}")
+    m = re.search(r"(\d+-\d+)", license_code)
+    if not m:
+        raise ValueError(f"unrecognized license_code format: {license_code!r}")
+    numeric = m.group(1)
+    prefix_text = license_code[: m.start()].rstrip(": ").strip()
+    # Drop a redundant trailing " License" word — it's a noisy suffix shared
+    # by most codes that adds no disambiguating value.  Keep "Permit" since
+    # it discriminates from "License" kinds.
+    if prefix_text.endswith(" License"):
+        prefix_text = prefix_text[: -len(" License")].strip()
+    prefix_slug = re.sub(r"\s+", "-", prefix_text.lower())
+    if not prefix_slug:
+        raise ValueError(
+            f"license_code {license_code!r} produced empty prefix slug "
+            f"(numeric={numeric!r}); is the code missing a license-type prefix?"
+        )
+    return f"{prefix_slug}-{numeric}"
 
 
 # ---------------------------------------------------------------------------

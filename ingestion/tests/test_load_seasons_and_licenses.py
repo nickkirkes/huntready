@@ -377,19 +377,19 @@ class TestLicenseCodeSlug:
         assert _license_code_slug("General Antelope License") == "general"
 
     def test_elk_b_license(self) -> None:
-        assert _license_code_slug("Elk B License: 124-00") == "124-00"
+        assert _license_code_slug("Elk B License: 124-00") == "elk-b-124-00"
 
     def test_deer_b_license(self) -> None:
-        assert _license_code_slug("Deer B License: 262-50") == "262-50"
+        assert _license_code_slug("Deer B License: 262-50") == "deer-b-262-50"
 
     def test_antelope_license_900_20(self) -> None:
-        assert _license_code_slug("Antelope License: 900-20") == "900-20"
+        assert _license_code_slug("Antelope License: 900-20") == "antelope-900-20"
 
     def test_antelope_license_471_20(self) -> None:
-        assert _license_code_slug("Antelope License: 471-20") == "471-20"
+        assert _license_code_slug("Antelope License: 471-20") == "antelope-471-20"
 
     def test_deer_permit(self) -> None:
-        assert _license_code_slug("Deer Permit: 262-51") == "262-51"
+        assert _license_code_slug("Deer Permit: 262-51") == "deer-permit-262-51"
 
     def test_unrecognized_raises_value_error(self) -> None:
         with pytest.raises(ValueError, match="unrecognized license_code format"):
@@ -414,7 +414,20 @@ class TestIdConstructors:
 
     def test_license_tag_id_b_license(self) -> None:
         result = _license_tag_id("elk", "262", "Elk B License: 262-50")
-        assert result == "MT-HD-262-elk-262-50-2026"
+        assert result == "MT-HD-262-elk-elk-b-262-50-2026"
+
+    def test_license_tag_id_disambiguates_same_numeric_across_species_in_section(self) -> None:
+        """Cubic P1 regression lock (2026-05-16): when a deer section cross-
+        lists a Deer B and Elk B license sharing the same numeric code, the
+        slug-with-prefix produces DISTINCT license_tag ids.  Without the
+        prefix, 6 collisions occur in the live V1 artifact (deer sections
+        555 / 410 / 455 / 630 / 700 with cross-listed Elk B variants).
+        """
+        deer_b = _license_tag_id("deer", "555", "Deer B License: 005-00")
+        elk_b = _license_tag_id("deer", "555", "Elk B License: 005-00")
+        assert deer_b == "MT-HD-555-deer-deer-b-005-00-2026"
+        assert elk_b == "MT-HD-555-deer-elk-b-005-00-2026"
+        assert deer_b != elk_b
 
     def test_bear_season_definition_id_general(self) -> None:
         assert _bear_season_definition_id(411, "general") == "MT-BMU-411-bear-general-2026"
@@ -1365,7 +1378,7 @@ class TestStatewideOverlay:
         links = _build_dea_license_season_links([statewide_section])
         # 1 row with 2 season_windows → 2 license_season links
         assert len(links) == 2
-        tag_id = "MT-STATEWIDE-antelope-900-20-2026"
+        tag_id = "MT-STATEWIDE-antelope-antelope-900-20-2026"
         assert all(lk.license_tag_id == tag_id for lk in links)
 
     def test_regulation_season_links(
