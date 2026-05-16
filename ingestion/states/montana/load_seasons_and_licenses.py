@@ -56,6 +56,7 @@ from ingestion.lib.schema import (
     RegulationSeason,
     SeasonDefinition,
     SourceCitation,
+    WeaponType,
 )
 
 
@@ -558,7 +559,7 @@ def _build_bear_season_definitions(
                 continue
 
             opens, closes = _parse_window(row[field_name], _LICENSE_YEAR)
-            weapon_type = "archery" if season_key == "archery-only" else None
+            weapon_type: WeaponType | None = "archery" if season_key == "archery-only" else None
 
             # closure_predicate attachment per OQ-S7-5/-6
             closure_predicate: ClosurePredicate | None
@@ -1273,8 +1274,8 @@ def _log_summary(
     # 2. license_tag: (species, kind)
     lt_buckets: dict[tuple[str, str], int] = {}
     for lt in license_tags:
-        key = (lt.species, lt.kind)
-        lt_buckets[key] = lt_buckets.get(key, 0) + 1
+        lt_key = (lt.species, lt.kind)
+        lt_buckets[lt_key] = lt_buckets.get(lt_key, 0) + 1
     lines.append("")
     lines.append("license_tag summary:")
     lines.append("  species   | kind             | count")
@@ -1404,12 +1405,12 @@ def main(argv: list[str] | None = None) -> int:
             db.upsert_season_definition(conn, season)
         for tag in license_tags:
             db.upsert_license_tag(conn, tag)
-        for link in license_season_links:
-            db.write_license_season(conn, link)
-        for link in regulation_season_links:
-            db.write_regulation_season(conn, link)
-        for link in regulation_license_links:
-            db.write_regulation_license(conn, link)
+        for ls_link in license_season_links:
+            db.write_license_season(conn, ls_link)
+        for rs_link in regulation_season_links:
+            db.write_regulation_season(conn, rs_link)
+        for rl_link in regulation_license_links:
+            db.write_regulation_license(conn, rl_link)
         conn.commit()
 
     logger.info(
