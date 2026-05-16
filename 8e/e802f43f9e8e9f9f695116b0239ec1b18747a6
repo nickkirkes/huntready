@@ -1,0 +1,21 @@
+docs/plans/S03.7-season-license-ingestion-plan.md
+  s_70b151f494d298::t_49b7c8f90a1f88 114
+  s_70b151f494d298::t_452520ad24429b 129
+  s_70b151f494d298::t_8fe42ffac3a3af 315
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "8ee802f43f9e8e9f9f695116b0239ec1b18747a6",
+  "prompts": {},
+  "sessions": {
+    "s_70b151f494d298": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1688bcfc-ff6e-4a91-87f6-00c13f63dbcc",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
