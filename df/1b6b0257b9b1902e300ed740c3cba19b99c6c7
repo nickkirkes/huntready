@@ -1,0 +1,32 @@
+ingestion/tests/test_load_seasons_and_licenses.py
+  s_70b151f494d298::t_7662b5e923431a 389
+  s_70b151f494d298::t_e04110b02eb9fc 392
+  s_70b151f494d298::t_6e17869f085131 386
+  s_70b151f494d298::t_284ef7e974503f 383
+  s_70b151f494d298::t_caf33b3390a5f4 380
+  s_70b151f494d298::t_4524aaf3c87270 417-430
+  s_70b151f494d298::t_104ce5f02293ca 1381
+ingestion/states/montana/load_seasons_and_licenses.py
+  s_70b151f494d298::t_80f70451968460 318-323,326-337,342-358
+docs/plans/S03.7-season-license-ingestion-plan.md
+  s_70b151f494d298::t_c6853e6b6ac109 391
+docs/planning/epics/E03-confidence-findings/S03.7.md
+  s_70b151f494d298::t_86c039d37b3ecd 47
+  s_70b151f494d298::t_df2f196522a29b 54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.8",
+  "base_commit_sha": "df1b6b0257b9b1902e300ed740c3cba19b99c6c7",
+  "prompts": {},
+  "sessions": {
+    "s_70b151f494d298": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1688bcfc-ff6e-4a91-87f6-00c13f63dbcc",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
