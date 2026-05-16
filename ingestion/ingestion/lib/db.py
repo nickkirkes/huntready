@@ -38,7 +38,15 @@ from collections.abc import Iterable
 import psycopg
 from psycopg.types.json import Json
 
-from ingestion.lib.schema import Geometry, RegulationRecord
+from ingestion.lib.schema import (
+    Geometry,
+    LicenseTag,
+    LicenseSeason,
+    RegulationLicense,
+    RegulationRecord,
+    RegulationSeason,
+    SeasonDefinition,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -78,6 +86,65 @@ ON CONFLICT (state, jurisdiction_code, species_group, license_year) DO UPDATE SE
 _UPDATE_LEGAL_DESCRIPTION_SQL = """
 UPDATE geometry SET legal_description = %s WHERE id = %s
 """
+
+_UPSERT_SEASON_DEFINITION_SQL = """
+INSERT INTO season_definition (
+    id, name, opens, closes, weapon_type, residency,
+    closure_predicate, verbatim_rule, page_reference, source
+)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (id) DO UPDATE SET
+    name               = EXCLUDED.name,
+    opens              = EXCLUDED.opens,
+    closes             = EXCLUDED.closes,
+    weapon_type        = EXCLUDED.weapon_type,
+    residency          = EXCLUDED.residency,
+    closure_predicate  = EXCLUDED.closure_predicate,
+    verbatim_rule      = EXCLUDED.verbatim_rule,
+    page_reference     = EXCLUDED.page_reference,
+    source             = EXCLUDED.source
+-- id (PK) is intentionally NOT in the UPDATE clause: it is the conflict
+-- discriminator and a no-op to update. Parallels the kind/state exclusion
+-- comment on _UPSERT_SQL and ingested_at exclusion on
+-- _UPSERT_REGULATION_RECORD_SQL above.
+"""
+
+_UPSERT_LICENSE_TAG_SQL = """
+INSERT INTO license_tag (
+    id, license_code, name, kind, species, weapon_types, residency,
+    quota, quota_range, purchase_url, draw_spec_key,
+    reserved_pools, verbatim_rule, source
+)
+VALUES (
+    %s, %s, %s, %s, %s, %s, %s,
+    %s,
+    CASE WHEN %s::int IS NULL THEN NULL ELSE int4range(%s, %s, '[]') END,
+    %s, %s,
+    %s, %s, %s
+)
+ON CONFLICT (id) DO UPDATE SET
+    license_code   = EXCLUDED.license_code,
+    name           = EXCLUDED.name,
+    kind           = EXCLUDED.kind,
+    species        = EXCLUDED.species,
+    weapon_types   = EXCLUDED.weapon_types,
+    residency      = EXCLUDED.residency,
+    quota          = EXCLUDED.quota,
+    quota_range    = EXCLUDED.quota_range,
+    purchase_url   = EXCLUDED.purchase_url,
+    draw_spec_key  = EXCLUDED.draw_spec_key,
+    reserved_pools = EXCLUDED.reserved_pools,
+    verbatim_rule  = EXCLUDED.verbatim_rule,
+    source         = EXCLUDED.source
+-- id (PK) is intentionally NOT in the UPDATE clause: same discipline as
+-- _UPSERT_SEASON_DEFINITION_SQL above.
+"""
+
+_INSERT_LICENSE_SEASON_SQL = "INSERT INTO license_season (license_tag_id, season_definition_id) VALUES (%s, %s) ON CONFLICT DO NOTHING"
+
+_INSERT_REGULATION_SEASON_SQL = "INSERT INTO regulation_season (state, jurisdiction_code, species_group, license_year, season_definition_id) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
+
+_INSERT_REGULATION_LICENSE_SQL = "INSERT INTO regulation_license (state, jurisdiction_code, species_group, license_year, license_tag_id) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
 
 
 def connect() -> psycopg.Connection[tuple[object, ...]]:
@@ -214,4 +281,200 @@ def update_legal_description(
         "updated legal_description for geometry id=%s (%d chars)",
         geometry_id,
         len(text or ""),
+    )
+
+
+def upsert_season_definition(
+    conn: psycopg.Connection[tuple[object, ...]],
+    season: SeasonDefinition,
+) -> None:
+    """INSERT … ON CONFLICT UPDATE a single ``SeasonDefinition`` row.
+
+    Part of the decomposed entity model (ADR-010). Written by S03.7 alongside
+    ``upsert_license_tag`` as child entities whose FK target is the
+    ``regulation_record`` rows landed in S03.6.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        season: The ``SeasonDefinition`` instance to persist.
+    """
+    closure_predicate_json = (
+        Json(season.closure_predicate.model_dump(exclude_none=True))
+        if season.closure_predicate
+        else None
+    )
+    source_json = Json(season.source.model_dump(exclude_none=True))
+    params: tuple[object, ...] = (
+        season.id,
+        season.name,
+        season.opens,
+        season.closes,
+        season.weapon_type,       # None → SQL NULL (nullable column)
+        season.residency,         # None → SQL NULL (nullable column)
+        closure_predicate_json,   # None → SQL NULL (nullable jsonb)
+        season.verbatim_rule,
+        season.page_reference,    # None → SQL NULL (nullable column)
+        source_json,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_UPSERT_SEASON_DEFINITION_SQL, params)
+    _logger.debug("upserted season_definition id=%s name=%r", season.id, season.name)
+
+
+def upsert_license_tag(
+    conn: psycopg.Connection[tuple[object, ...]],
+    tag: LicenseTag,
+) -> None:
+    """INSERT … ON CONFLICT UPDATE a single ``LicenseTag`` row.
+
+    Part of the decomposed entity model (ADR-010). Written by S03.7 alongside
+    ``upsert_season_definition`` as child entities whose FK target is the
+    ``regulation_record`` rows landed in S03.6.
+
+    ``quota_range`` is an ``int4range`` column. The SQL uses a CASE expression
+    so that a None Python value produces SQL NULL rather than an empty range.
+    Three params are passed for the CASE+int4range fragment: the first is the
+    NULL sentinel (cast to int); the second and third are the inclusive lower
+    and upper bounds.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        tag: The ``LicenseTag`` instance to persist.
+    """
+    if tag.quota_range is not None:
+        qr_sentinel: int | None = tag.quota_range[0]
+        qr_lo: int | None = tag.quota_range[0]
+        qr_hi: int | None = tag.quota_range[1]
+    else:
+        qr_sentinel = None
+        qr_lo = None
+        qr_hi = None
+
+    draw_spec_key_json = (
+        Json(tag.draw_spec_key.model_dump(exclude_none=True))
+        if tag.draw_spec_key
+        else None
+    )
+    reserved_pools_json = Json([rp.model_dump(exclude_none=True) for rp in tag.reserved_pools])
+    source_json = Json(tag.source.model_dump(exclude_none=True))
+
+    params: tuple[object, ...] = (
+        tag.id,
+        tag.license_code,
+        tag.name,
+        tag.kind,
+        tag.species,
+        tag.weapon_types,          # list[str] — psycopg3 maps to text[] natively
+        tag.residency,
+        tag.quota,                 # int | None → SQL NULL when None
+        qr_sentinel,               # CASE sentinel — None → NULL range
+        qr_lo,                     # int4range lower bound
+        qr_hi,                     # int4range upper bound
+        tag.purchase_url,
+        draw_spec_key_json,        # None → SQL NULL (S03.8 backfills draw_spec_key)
+        reserved_pools_json,
+        tag.verbatim_rule,
+        source_json,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_UPSERT_LICENSE_TAG_SQL, params)
+    _logger.debug(
+        "upserted license_tag id=%s code=%r kind=%s",
+        tag.id, tag.license_code, tag.kind,
+    )
+
+
+def write_license_season(
+    conn: psycopg.Connection[tuple[object, ...]],
+    link: LicenseSeason,
+) -> None:
+    """INSERT … ON CONFLICT DO NOTHING for a ``license_season`` link row.
+
+    Per ADR-018 §1, ``license_season`` records per-license season coverage —
+    distinct from ``regulation_season`` which records per-regulation_record
+    coverage. Both link tables coexist; each answers a different join question.
+    Written by S03.7 as part of the decomposed entity link-table population.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        link: The ``LicenseSeason`` instance to persist.
+    """
+    params: tuple[object, ...] = (link.license_tag_id, link.season_definition_id)
+    with conn.cursor() as cur:
+        cur.execute(_INSERT_LICENSE_SEASON_SQL, params)
+    _logger.debug(
+        "inserted license_season license_tag=%s season=%s",
+        link.license_tag_id, link.season_definition_id,
+    )
+
+
+def write_regulation_season(
+    conn: psycopg.Connection[tuple[object, ...]],
+    link: RegulationSeason,
+) -> None:
+    """INSERT … ON CONFLICT DO NOTHING for a ``regulation_season`` link row.
+
+    Part of the canonical decomposed-entity link-table pattern (ADR-010).
+    Written by S03.7 as part of the season/license entity population that
+    targets the ``regulation_record`` rows landed in S03.6.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        link: The ``RegulationSeason`` instance to persist.
+    """
+    params: tuple[object, ...] = (
+        link.state,
+        link.jurisdiction_code,
+        link.species_group,
+        link.license_year,
+        link.season_definition_id,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_INSERT_REGULATION_SEASON_SQL, params)
+    _logger.debug(
+        "inserted regulation_season state=%s code=%s species=%s year=%d season=%s",
+        link.state, link.jurisdiction_code,
+        link.species_group, link.license_year,
+        link.season_definition_id,
+    )
+
+
+def write_regulation_license(
+    conn: psycopg.Connection[tuple[object, ...]],
+    link: RegulationLicense,
+) -> None:
+    """INSERT … ON CONFLICT DO NOTHING for a ``regulation_license`` link row.
+
+    Part of the canonical decomposed-entity link-table pattern (ADR-010).
+    Written by S03.7 as part of the season/license entity population that
+    targets the ``regulation_record`` rows landed in S03.6.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        link: The ``RegulationLicense`` instance to persist.
+    """
+    params: tuple[object, ...] = (
+        link.state,
+        link.jurisdiction_code,
+        link.species_group,
+        link.license_year,
+        link.license_tag_id,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_INSERT_REGULATION_LICENSE_SQL, params)
+    _logger.debug(
+        "inserted regulation_license state=%s code=%s species=%s year=%d tag=%s",
+        link.state, link.jurisdiction_code,
+        link.species_group, link.license_year,
+        link.license_tag_id,
     )
