@@ -1,0 +1,75 @@
+ingestion/tests/test_load_draw_specs.py
+  s_c867ccd21eb3fa::t_0ffd2c5770e18b 1-23,25-39,41-43,45-498,500-501,508,513-516,748-1096
+  s_c867ccd21eb3fa::t_e379bbfb202d8e 517-747
+  s_c867ccd21eb3fa::t_b732922ff5dd2f 499,502-507,509-512
+  s_c867ccd21eb3fa::t_2cf77f55be9834 40,44
+  s_c867ccd21eb3fa::t_96db6221dfc5b0 24
+ingestion/states/montana/load_seasons_and_licenses.py
+  s_c867ccd21eb3fa::t_7d447162d04d0c 974-976,981-983,987-990,992-993
+  s_c867ccd21eb3fa::t_05cedc6edb15a5 1011-1012
+  s_c867ccd21eb3fa::t_49cdf951eac035 991
+  s_c867ccd21eb3fa::t_bf93eb37b4e29c 918-948
+ingestion/tests/test_load_seasons_and_licenses.py
+  s_c867ccd21eb3fa::t_bfbf0b7a0a75e9 1540-1682,1735-1787
+  s_c867ccd21eb3fa::t_6efbd0407e2e7b 1713-1734
+  s_c867ccd21eb3fa::t_598da7681ee1fe 1683-1712
+  s_c867ccd21eb3fa::t_f2cc07e404604e 52
+ingestion/ingestion/lib/db.py
+  s_c867ccd21eb3fa::t_5d82597f746476 43
+  s_c867ccd21eb3fa::t_b48ccc4101dbdf 42
+  s_c867ccd21eb3fa::t_92056f30f70aa3 92-95
+  s_c867ccd21eb3fa::t_60a20ba28cfbc7 318-357
+  s_c867ccd21eb3fa::t_efa0040284c568 149-173
+  s_c867ccd21eb3fa::t_999bc5a797925e 462-523
+docs/planning/epics/E03-deferred-items/draw-mechanics.md
+  s_c867ccd21eb3fa::t_c6322b0793967f 91-113,115-139
+  s_c867ccd21eb3fa::t_c13470ed144f94 114
+  s_c867ccd21eb3fa::t_5a81bc256db8e8 14-73,75-90
+  s_c867ccd21eb3fa::t_c3eb871fce6147 74
+docs/plans/S03.8-draw-spec-ingestion-plan.md
+  s_c867ccd21eb3fa::t_55b6e64de47068 1-555
+docs/planning/epics/E03-confidence-findings/S03.8.md
+  s_c867ccd21eb3fa::t_f6e45790dbd6b3 13
+  s_c867ccd21eb3fa::t_b45a19cc66fa48 1-12,14-27,29-36,70-74,76-79,81-83,85-118,132-176
+  s_c867ccd21eb3fa::t_1b469577287456 28
+  s_c867ccd21eb3fa::t_e0d91cb0481a56 119
+  s_c867ccd21eb3fa::t_bdb0a9f12897d0 75,80,84
+  s_c867ccd21eb3fa::t_12c583823f8509 120-131
+  s_c867ccd21eb3fa::t_615c85efaf0582 37-43,45-69
+  s_c867ccd21eb3fa::t_d0509312551264 44
+docs/open-questions.md
+  s_c867ccd21eb3fa::t_95c68c1962a948 271-284,286-350
+  s_c867ccd21eb3fa::t_74f75721fa85b2 285
+ingestion/states/montana/load_draw_specs.py
+  s_c867ccd21eb3fa::t_67a14bd6394f43 361-370
+  s_c867ccd21eb3fa::t_99ecc6f0460602 451-536
+  s_c867ccd21eb3fa::t_c540b913100650 643-647,650-657,666-669
+  s_c867ccd21eb3fa::t_c9aa60656db194 205-235
+  s_c867ccd21eb3fa::t_3d6c2d980f4623 177-204,236-274
+  s_c867ccd21eb3fa::t_400bf4992627ef 107,109,111,116,122,130
+  s_c867ccd21eb3fa::t_40c9268e7cfc2c 60-62
+  s_c867ccd21eb3fa::t_b224727a70ba09 11-17
+  s_c867ccd21eb3fa::t_db98871f47c9cb 564,570-612,614-642,648-649,658-665,670-720,732-752
+  s_c867ccd21eb3fa::t_99ad371a1e9d51 132
+  s_c867ccd21eb3fa::t_4c5257f0900990 277-360,371-450
+  s_c867ccd21eb3fa::t_6f90f3c007636f 131,133
+  s_c867ccd21eb3fa::t_7172674d2f0e75 1-10,18-59,63-106,108,110,112-115,117-121,123-129,134-176,275-276,565-569,613,753-756
+  s_c867ccd21eb3fa::t_31b980c7be3b87 537-563
+  s_c867ccd21eb3fa::t_201f7194ec60b0 721-731
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "5b489365459f6ad70a1d5c2c4d21f924d6d7f74c",
+  "prompts": {},
+  "sessions": {
+    "s_c867ccd21eb3fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "845e0d9a-015b-4dbc-a130-98f7d0bfcda6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
