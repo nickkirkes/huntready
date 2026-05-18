@@ -110,6 +110,11 @@ Each state lives in `ingestion/states/<state>/` with isolated files:
 
 State adapters are isolated from each other. Shared code lives in `ingestion/lib/`. Adding a new state means adding a new directory, not modifying shared code.
 
+**FWP DEA table hazards (apply to any state using a similar table format):**
+
+- The "same `license_code` = same data" assumption is FALSE. Cross-listed B Licenses appear in multiple HD sections with different quota values. Validate structural agreement across same-`license_code` rows before writing `draw_spec` rows — see `.roughly/known-pitfalls.md` "DEA cross-listed B Licenses can carry conflicting structural fields."
+- `license_tag.kind` for B Licenses requires inspecting the `apply_by` column, not just the `license_code`. OTC B Licenses have an `apply_by` cell prefixed with `OTC:` — classify them as `over_the_counter`, not `limited_draw`. See `.roughly/known-pitfalls.md` "DEA `license_tag.kind` requires inspecting `apply_by`."
+
 ## V1 scope
 
 - **States:** Montana, Colorado (deliberately chosen: MT for moderate complexity, CO for draw-system stress-test)

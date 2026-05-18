@@ -330,6 +330,16 @@ Run once per migration that's already reflected in the schema, then `supabase db
 
 Surfaced by S03.0 deployment on 2026-05-04.
 
+### Subagent-authored docs can reference stale task IDs from earlier plan drafts
+
+**Symptom:** An AC table or working note produced by a subagent references task numbers (e.g., T2–T9) that don't match the final plan's task numbering (e.g., T1–T11). The orchestrator only notices during spot-check.
+
+**Cause:** Long `/roughly:build` pipelines go through multiple plan-revision cycles before the final plan is locked. A subagent dispatched at a later stage may carry forward an earlier plan draft's task numbering in its internal context, especially if the earlier draft was included in the prompt verbatim.
+
+**Fix:** When dispatching a subagent that writes long-form docs referencing task IDs, include the final locked task list in the dispatch prompt verbatim and explicitly direct the subagent to consult the final plan file. On return, spot-check the generated doc against the final plan file before marking the stage complete — look for any T-number reference and verify it matches.
+
+Surfaced by S03.8 Stage 8 wrap-up on 2026-05-18.
+
 ## Conventions — Ingestion adapters
 
 ### Shared predicate module when two stories partition a single source layer
@@ -475,6 +485,47 @@ Surfaced by S02.6 implementation on 2026-05-01.
 ### Downstream FK adapters must grep upstream adapters for exact id-construction patterns
 
 - **Before writing any adapter that populates a link table whose composite FK targets a previously-loaded entity, grep the upstream adapter for the exact id-construction expression and copy it verbatim.** A single-character drift in jurisdiction_code, species_group, license_year, or any other FK component breaks every link-row insert with a FK violation that is hard to diagnose (the error names the constraint, not which field drifted). Example: S03.7's bear builders use `jurisdiction_code = f"MT-HD-bear-{bmu_number}"` — this must match S03.6's `load_regulation_records.py:366` exactly. Pattern: add a code comment at the call site naming the upstream adapter and the line number where the original expression lives, e.g. `# must match load_regulation_records.py:366 exactly`. Optionally lock with a cross-module test that constructs both ids from the same fixture and asserts equality. Surfaced by S03.7 implementation 2026-05-15.
+
+### DEA cross-listed B Licenses can carry conflicting structural fields across HD sections
+
+**Symptom:** A `draw_spec` builder that groups rows by `license_code` and assumes same-code rows are structurally identical silently writes the wrong quota (or wrong hunt_code) — whichever row happened to be processed last wins.
+
+**Cause:** A single `license_code` (e.g., `Elk B License: 210-03`) can appear in multiple DEA HD sections. The home-HD section shows the total drawable quota; cross-listed mentions in other HD sections show per-HD allocation caps — different `quota` values, same `license_code`, identical `extras` text. The DEA artifact faithfully records each appearance; collisions surface only when the adapter groups by `license_code` to build one `draw_spec` row per license.
+
+**Real example (DEA 2026, pp. 53/54/57):** `Elk B License: 210-03` appears with `quota=300` in HD 210 (home) and `quota=200` in HDs 211, 212, 216 (cross-listed). Detail text is identical on all four rows: `"Valid on private lands in HDs 211, 212, 216 and south portion of 210..."`.
+
+**Fix:** Pre-write consistency validator that groups draw_spec candidates by `(hunt_code, year)` PK; fail-loud on undocumented field conflicts; allow override entries in `_KNOWN_CROSS_LISTING_OVERRIDES` with a WARN log + rationale string. Reference: `_validate_cross_listing_consistency` in `ingestion/states/montana/load_draw_specs.py`. The per-HD allocation-cap structural gap (home vs. cross-listed quota semantics) is deferred to M2 per `docs/open-questions.md` Q17.
+
+**Why it matters for future adapters:** The "same `license_code` = same data" assumption is FALSE for FWP DEA tables. Any adapter that builds entity rows keyed on `license_code` must validate cross-row structural agreement at build time, before writing.
+
+Surfaced by S03.8 Stage 6 silent-failure-hunter on 2026-05-18.
+
+### DEA `license_tag.kind` requires inspecting `apply_by`, not just `license_code`
+
+**Symptom:** All B License rows are classified as `limited_draw`, but 160 of them are actually over-the-counter purchases — wrong `draw_spec` rows are written (or attempted) for OTC licenses.
+
+**Cause:** A B License row's `license_code` alone (e.g., `Deer B License: 262-50`) does NOT discriminate drawing-eligible B Licenses from OTC B Licenses. The discriminator is the `apply_by` column: cells containing `"OTC:\nJun 15"` (or any `OTC:` prefix) indicate an OTC purchase window; cells containing only a date (e.g., `"Jun 1"`) indicate a drawing deadline. S03.7's original 5-branch heuristic classified all B License rows as `kind='limited_draw'` before S03.8 corrected it.
+
+**Compounding factor:** The same `(species, hd_number, license_code)` triple can appear in multiple artifact rows with different `apply_by` values (extraction noise from S03.3's table structure). Apply OTC-wins discipline: any artifact row showing OTC demotes ALL rows of that identity to `over_the_counter`.
+
+**Fix:** Pre-pass computes `_otc_identities: frozenset[tuple[str, str, str]]` from all artifact rows; per-row classification consults the set before assigning `kind`. `apply_by` must be type-guarded (`isinstance(str)`) before substring matching — raise on schema drift rather than silently defaulting. Reference: `_build_dea_license_tags` in `ingestion/states/montana/load_seasons_and_licenses.py` (post-S03.8 T1 amendment). Baseline post-fix: 390 `limited_draw` / 160 `over_the_counter` / 239 `general` / 1 `statewide`.
+
+Surfaced by S03.8 Stage 2 discovery probe on 2026-05-17.
+
+### DEA front-matter carries authoritative deadlines when per-row `apply_by` is genuinely null
+
+**Symptom:** A `draw_spec` row has `application_deadline=None` even though the FWP source has a published deadline for that species/kind combination.
+
+**Cause:** When a DEA per-row `apply_by` cell is genuinely blank (FWP chooses not to repeat the deadline in-table when it's already in the booklet's front-matter), the per-row extraction faithfully records `apply_by=None`. The canonical deadline lives in the DEA booklet's front-matter sections: pp. 5 "Highlights", p. 9 "Important Dates", pp. 10–11 "License Charts". This is not an extraction defect — the cell is blank by design.
+
+**V1 chart values (DEA 2026, MT):**
+
+- Deer/Elk Permit: April 1
+- Deer/Elk B License (Drawing) + Antelope License + Antelope B: June 1
+
+**Fix:** Adapter-level fallback lookup `_DEA_DEADLINE_LOOKUP: dict[tuple[str, str], date]` keyed on `(species, kind_token)` and populated from the front-matter chart values. Apply only when per-row `apply_by` is null; emit a WARN log on each hit (expected zero hits in V1 — any hit in production signals PDF drift and needs operator review). Reference: `_DEA_DEADLINE_LOOKUP` in `ingestion/states/montana/load_draw_specs.py`.
+
+Surfaced by S03.8 Stage 2 B4 probe on 2026-05-17.
 
 ## Conventions — Pre-commit & secrets
 
