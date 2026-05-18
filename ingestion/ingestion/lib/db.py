@@ -39,6 +39,8 @@ import psycopg
 from psycopg.types.json import Json
 
 from ingestion.lib.schema import (
+    DrawSpec,
+    DrawSpecKey,
     Geometry,
     LicenseTag,
     LicenseSeason,
@@ -85,6 +87,10 @@ ON CONFLICT (state, jurisdiction_code, species_group, license_year) DO UPDATE SE
 
 _UPDATE_LEGAL_DESCRIPTION_SQL = """
 UPDATE geometry SET legal_description = %s WHERE id = %s
+"""
+
+_UPDATE_LICENSE_TAG_DRAW_SPEC_KEY_SQL = """
+UPDATE license_tag SET draw_spec_key = %s::jsonb WHERE id = %s
 """
 
 _UPSERT_SEASON_DEFINITION_SQL = """
@@ -138,6 +144,31 @@ ON CONFLICT (id) DO UPDATE SET
     source         = EXCLUDED.source
 -- id (PK) is intentionally NOT in the UPDATE clause: same discipline as
 -- _UPSERT_SEASON_DEFINITION_SQL above.
+"""
+
+_UPSERT_DRAW_SPEC_SQL = """
+INSERT INTO draw_spec (
+    state, hunt_code, year, schema_version, quota, point_system,
+    residency_cap, choices, pools, draw_phase, successor_hunt_code_key,
+    application_deadline, parameters, source
+) VALUES (
+    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+)
+ON CONFLICT (state, hunt_code, year) DO UPDATE SET
+    schema_version          = EXCLUDED.schema_version,
+    quota                   = EXCLUDED.quota,
+    point_system            = EXCLUDED.point_system,
+    residency_cap           = EXCLUDED.residency_cap,
+    choices                 = EXCLUDED.choices,
+    pools                   = EXCLUDED.pools,
+    draw_phase              = EXCLUDED.draw_phase,
+    successor_hunt_code_key = EXCLUDED.successor_hunt_code_key,
+    application_deadline    = EXCLUDED.application_deadline,
+    parameters              = EXCLUDED.parameters,
+    source                  = EXCLUDED.source
+-- PK columns (state, hunt_code, year) are intentionally NOT in the UPDATE
+-- clause: same discipline as _UPSERT_SEASON_DEFINITION_SQL and
+-- _UPSERT_LICENSE_TAG_SQL above.
 """
 
 _INSERT_LICENSE_SEASON_SQL = "INSERT INTO license_season (license_tag_id, season_definition_id) VALUES (%s, %s) ON CONFLICT DO NOTHING"
@@ -284,6 +315,46 @@ def update_legal_description(
     )
 
 
+def update_license_tag_draw_spec_key(
+    conn: psycopg.Connection[tuple[object, ...]],
+    license_tag_id: str,
+    key: DrawSpecKey,
+) -> None:
+    """Backfill license_tag.draw_spec_key with the soft-FK reference per ADR-012.
+
+    Fails loud on cur.rowcount == 0: that indicates the license_tag row was not
+    written by S03.7 (S03.7→S03.8 id contract broken) or the id derivation in
+    load_draw_specs.py diverged from load_seasons_and_licenses._license_tag_id.
+
+    No commit; caller owns the transaction.
+
+    Args:
+        conn: An open psycopg3 connection.
+        license_tag_id: The PK of the license_tag row to update.
+        key: The ``DrawSpecKey`` soft-FK value to write.
+    """
+    key_json = Json(key.model_dump(exclude_none=True))
+    with conn.cursor() as cur:
+        cur.execute(
+            _UPDATE_LICENSE_TAG_DRAW_SPEC_KEY_SQL,
+            (key_json, license_tag_id),
+        )
+        if cur.rowcount == 0:
+            msg = (
+                f"update_license_tag_draw_spec_key: no license_tag row found "
+                f"with id={license_tag_id!r}. The S03.7→S03.8 id contract is "
+                f"broken: either the license_tag was not written by S03.7, or "
+                f"the id derivation in load_draw_specs.py diverged from "
+                f"load_seasons_and_licenses._license_tag_id. Investigate before "
+                f"re-running."
+            )
+            raise RuntimeError(msg)
+    _logger.debug(
+        "updated draw_spec_key for license_tag id=%s",
+        license_tag_id,
+    )
+
+
 def upsert_season_definition(
     conn: psycopg.Connection[tuple[object, ...]],
     season: SeasonDefinition,
@@ -385,6 +456,68 @@ def upsert_license_tag(
     _logger.debug(
         "upserted license_tag id=%s code=%r kind=%s",
         tag.id, tag.license_code, tag.kind,
+    )
+
+
+def upsert_draw_spec(conn: psycopg.Connection[tuple[object, ...]], spec: DrawSpec) -> None:
+    """Upsert a draw_spec row. No commit; caller owns txn.
+
+    Per ADR-012, ``parameters`` is the state-adapter escape hatch — only state
+    adapters in ``ingestion/states/<state>/`` may pass a non-None value, and
+    shared code MUST NOT read it.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        spec: The ``DrawSpec`` instance to persist.
+    """
+    # nullable jsonbs: serialize as None (SQL NULL) when the field is None,
+    # else wrap in Json with exclude_none=True
+    point_system_json = (
+        Json(spec.point_system.model_dump(exclude_none=True))
+        if spec.point_system is not None
+        else None
+    )
+    residency_cap_json = (
+        Json(spec.residency_cap.model_dump(exclude_none=True))
+        if spec.residency_cap is not None
+        else None
+    )
+    successor_key_json = (
+        Json(spec.successor_hunt_code_key.model_dump(exclude_none=True))
+        if spec.successor_hunt_code_key is not None
+        else None
+    )
+    parameters_json = Json(spec.parameters) if spec.parameters is not None else None
+
+    choices_json = Json(spec.choices.model_dump(exclude_none=True))
+    pools_json = Json([p.model_dump(exclude_none=True) for p in spec.pools])
+    source_json = Json(spec.source.model_dump(exclude_none=True))
+
+    with conn.cursor() as cur:
+        cur.execute(
+            _UPSERT_DRAW_SPEC_SQL,
+            (
+                spec.state,
+                spec.hunt_code,
+                spec.year,
+                spec.schema_version,
+                spec.quota,
+                point_system_json,
+                residency_cap_json,
+                choices_json,
+                pools_json,
+                spec.draw_phase,
+                successor_key_json,
+                spec.application_deadline,
+                parameters_json,
+                source_json,
+            ),
+        )
+    _logger.debug(
+        "upserted draw_spec state=%s hunt_code=%r year=%d",
+        spec.state, spec.hunt_code, spec.year,
     )
 
 

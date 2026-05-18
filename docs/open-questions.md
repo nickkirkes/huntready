@@ -268,6 +268,86 @@ For now: no action; surface in M2 scoping.
 
 ---
 
+## Q17: How should per-HD allocation caps be modeled in `draw_spec`?
+
+**Status:** Open (M2 ADR-candidate)
+**Surfaced by:** S03.8 (2026-05-18)
+**Touches:** ADR-012 (`draw_spec` sibling entity), `draw_spec` schema
+
+### The case
+
+Some Montana DEA licenses are cross-listed across multiple HDs. The DEA booklet
+prints a single license_code (e.g., `Elk B License: 210-03`) in multiple HD
+sections, with one of those sections being the "home HD" carrying the total
+drawable quota, and the others carrying per-HD allocation caps:
+
+**Concrete example (DEA 2026 booklet):**
+
+- HD 210 (home), p. 53 row 7 — `Elk B License: 210-03`, quota=300, range=5-1,000,
+  detail="Valid on private lands in HDs 211, 212, 216 and south portion of 210
+  (Rattling Gulch-Henderson Creek)."
+- HD 211, p. 53 row 21 — same license, quota=200, **identical detail text**
+- HD 212, p. 54 row 12 — same license, quota=200, identical detail
+- HD 216, p. 57 row 13 — same license, quota=200, identical detail
+
+The home-HD quota=300 is the total drawable count; the cross-listed quota=200
+values are per-HD allocation caps on where those 300 licenses can be hunted.
+
+### Why V1 can't model this
+
+The current `draw_spec` schema (`AllocationPool[]`, `ChoiceConfig`,
+`residency_cap`, `point_system`) has no field for per-HD allocation caps. The
+`AllocationPool.eligibility` field carries `min_points`, `residency`, `guided`
+— not jurisdiction-keyed allocation caps.
+
+### V1 workaround (S03.8)
+
+`_KNOWN_CROSS_LISTING_OVERRIDES` in `ingestion/states/montana/load_draw_specs.py`
+records the canonical quota (300) explicitly. Cross-listed cap values (200) are
+dropped from `draw_spec.quota` and logged as a WARN at run time. The home-HD
+detail text is preserved in `license_tag.verbatim_rule` (via S03.7's section-
+scoped fallback). This means consumers reading `draw_spec.quota=300` see the
+drawable total, and consumers reading the per-HD `license_tag.verbatim_rule`
+see the "Valid on private lands in HDs 211, 212, 216 and south portion of 210"
+language — but the structured per-HD cap is invisible.
+
+### M2 options to evaluate
+
+1. **`draw_spec.parameters` (Q12 escape hatch)**: encode caps as
+   `parameters["per_hd_caps"] = {"210": 100, "211": 200, ...}` — pragmatic but
+   ADR-012 reserves `parameters` for state-adapter-only quirks; shared code
+   (MCP server) cannot read it.
+
+2. **New `draw_spec.per_hd_allocations` field**: jsonb column with structure
+   `{jurisdiction_code: max_licenses}`. Promotes the cap from quirk to first-
+   class. Requires schema migration + DDL update + type sync.
+
+3. **Hunt-code disambiguation**: split into N distinct hunt_codes
+   (`"Elk B License: 210-03/HD-210"`, `"Elk B License: 210-03/HD-211"`, etc.).
+   Each gets its own draw_spec with its own quota. But these aren't separate
+   licenses — they're allocations of the same license — so this would model
+   them as if they were independent draws, which they aren't.
+
+### Decision criteria for M2
+
+- Are there other (non-Montana) states with similar per-HD-cap semantics?
+  (Colorado / Wyoming research needed.)
+- Does the MCP server's `get_tag_requirements` tool need per-HD-cap visibility
+  for hunters checking which HD has remaining licenses?
+- Does ADR-012's "parameters is state-adapter-only" stance accept per-HD-caps
+  as a "Montana quirk" or are they a cross-state structural pattern that
+  deserves first-class schema?
+
+### Affected V1 entries
+
+Currently exactly 1 (HD 210). M2 should re-survey when MT 2027 booklet ships
+and when CO / WY data lands.
+
+**Working note:** [`docs/planning/epics/E03-confidence-findings/S03.8.md`](planning/epics/E03-confidence-findings/S03.8.md) § "Stage 6 PDF investigation: HD 210 cross-listing conflict"
+**Deferred-items entry:** [`docs/planning/epics/E03-deferred-items/draw-mechanics.md`](planning/epics/E03-deferred-items/draw-mechanics.md) § "Per-HD allocation caps for cross-listed B licenses"
+
+---
+
 ## Parking lot
 
 ### P1. Observability and error tracking

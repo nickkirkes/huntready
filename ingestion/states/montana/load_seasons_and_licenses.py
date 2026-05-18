@@ -915,6 +915,38 @@ def _build_dea_season_definitions(
 
 
 # ---------------------------------------------------------------------------
+# OTC row helper (F6) — used by _build_dea_license_tags
+# ---------------------------------------------------------------------------
+
+
+def _row_has_otc(row: dict) -> bool:
+    """True if row's apply_by is a string containing the 'OTC' substring.
+
+    Fails loud on non-str / non-None apply_by — artifact schema drift signal.
+
+    Args:
+        row: A single DEA artifact row dict.
+
+    Returns:
+        True if apply_by is a non-empty string containing 'OTC', False if
+        apply_by is None or a string not containing 'OTC'.
+
+    Raises:
+        RuntimeError: if apply_by is neither str nor None (artifact schema drift).
+    """
+    apply_by = row.get("apply_by")
+    if apply_by is None:
+        return False
+    if not isinstance(apply_by, str):
+        msg = (
+            f"_row_has_otc: expected apply_by to be str|None, got "
+            f"{type(apply_by).__name__}: {apply_by!r}. Artifact schema drift?"
+        )
+        raise RuntimeError(msg)
+    return "OTC" in apply_by
+
+
+# ---------------------------------------------------------------------------
 # DEA license_tag builder (T6)
 # ---------------------------------------------------------------------------
 
@@ -939,14 +971,26 @@ def _build_dea_license_tags(
     Kind heuristic (OQ-S7-7, first-match-wins):
     (a) hd_number == "STATEWIDE"         → "statewide"
     (b) license_code.startswith("General ") → "general"
-    (c) "B License" in license_code       → "limited_draw"
+    (c) "B License" in license_code       → "over_the_counter" if (species, hd, license_code)
+                                             has any artifact row with "OTC" in its apply_by;
+                                             else "limited_draw"
     (d) "Permit:" in license_code         → "limited_draw"
     (e) license_code.startswith("Antelope License:") → "limited_draw"
     (f) else: RuntimeError (fail-loud)
 
+    OTC-wins is cross-row: any artifact row's `apply_by` containing 'OTC' demotes ALL
+    rows of that (species_group, hd_number, license_code) identity to over_the_counter.
+
     Raises:
         RuntimeError: if a license_code does not match any kind heuristic.
     """
+    _otc_identities: frozenset[tuple[str, str, str]] = frozenset(
+        (section["species_group"], section["hd_number"], row["license_code"])
+        for section in dea_artifact
+        for row in section["rows"]
+        if _row_has_otc(row)
+    )
+
     tags: list[LicenseTag] = []
 
     for section in dea_artifact:
@@ -964,7 +1008,8 @@ def _build_dea_license_tags(
             elif license_code.startswith("General "):
                 kind = "general"
             elif "B License" in license_code:
-                kind = "limited_draw"
+                identity = (species_group, hd_number, license_code)
+                kind = "over_the_counter" if identity in _otc_identities else "limited_draw"
             elif "Permit:" in license_code:
                 kind = "limited_draw"
             elif license_code.startswith("Antelope License:"):
