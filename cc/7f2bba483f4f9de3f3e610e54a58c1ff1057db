@@ -1,0 +1,28 @@
+docs/planning/epics/E03-confidence-findings/S03.8.md
+  s_c867ccd21eb3fa::t_7258902d10e2d3 62-69
+ingestion/states/montana/load_draw_specs.py
+  s_c867ccd21eb3fa::t_e790db837dd9ab 523-538,540-542
+  s_c867ccd21eb3fa::t_7a622115c7f257 683-700
+ingestion/tests/test_load_draw_specs.py
+  s_c867ccd21eb3fa::t_db028371fc8fc0 896-926,930-937,940,942-948
+  s_c867ccd21eb3fa::t_b42100e38a7b0a 927-929,938-939,941
+  s_c867ccd21eb3fa::t_ae419b83e0223c 746-820
+docs/planning/epics/E03-deferred-items/draw-mechanics.md
+  s_c867ccd21eb3fa::t_eb381d5437e6a3 128-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "cc7f2bba483f4f9de3f3e610e54a58c1ff1057db",
+  "prompts": {},
+  "sessions": {
+    "s_c867ccd21eb3fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "845e0d9a-015b-4dbc-a130-98f7d0bfcda6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
