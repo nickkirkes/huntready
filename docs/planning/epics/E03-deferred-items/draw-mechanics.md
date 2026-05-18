@@ -125,9 +125,15 @@ per-HD allocation caps — `AllocationPool.eligibility` carries residency / poin
 `ingestion/states/montana/load_draw_specs.py` records the canonical quota
 (`("Elk B License: 210-03", 2026): {"quota": 300, ...}`) and a WARN log fires
 at run time naming the conflict + rationale. The cross-listed quota=200 values
-are dropped from `draw_spec.quota` but the home-HD verbatim_rule on each
-per-HD `license_tag` preserves the "Valid on private lands in HDs 211, 212, 216
-and south portion of 210" language.
+are dropped from both `draw_spec.quota` and `license_tag.quota`; the
+home-HD verbatim_rule on each per-HD `license_tag` preserves the "Valid on
+private lands in HDs 211, 212, 216 and south portion of 210" language.
+
+Cubic-review P2 fix (post-S03.8 docs-commit): the override is now applied
+SYMMETRICALLY to both `draw_spec.quota` AND `license_tag.quota` for all 4
+affected rows, so the two tables agree on the canonical drawable value (300).
+Per-HD-cap=200 values live only in this deferral entry's rationale +
+`_KNOWN_CROSS_LISTING_OVERRIDES` in `load_draw_specs.py`.
 
 **M2 recommendation:**
 Evaluate three options (see [docs/open-questions.md Q17](../../open-questions.md)):

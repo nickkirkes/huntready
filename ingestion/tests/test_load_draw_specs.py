@@ -743,6 +743,81 @@ class TestCrossListingConsistency:
             f"got {len(override_warns)}: {override_warns}"
         )
 
+    def test_override_rewrites_both_tag_and_spec_quota(
+        self,
+        real_dea_artifact: list[dict],
+        real_dea_citation: SourceCitation,
+    ) -> None:
+        """When override applies, BOTH license_tag.quota AND draw_spec.quota are
+        rewritten to the canonical value. Locks against the cubic-P2 finding that
+        draw_spec.quota was rewritten but license_tag.quota was left at the original
+        per-HD cap value, producing inconsistency between the two tables.
+        """
+        hunt_code = "Elk B License: 210-03"
+        assert (hunt_code, 2026) in _KNOWN_CROSS_LISTING_OVERRIDES, (
+            "Test precondition: override must exist for this PK"
+        )
+        override = _KNOWN_CROSS_LISTING_OVERRIDES[(hunt_code, 2026)]
+        canonical_quota = override["quota"]
+        assert canonical_quota == 300
+
+        pairs = _build_dea_draw_specs(real_dea_artifact, real_dea_citation)
+        resolved = _validate_cross_listing_consistency(pairs)
+
+        hd_210_pairs = [
+            (tag, spec) for tag, spec in resolved
+            if spec.hunt_code == hunt_code
+        ]
+        assert len(hd_210_pairs) == 4, (
+            f"Expected 4 pairs for {hunt_code!r}; got {len(hd_210_pairs)}"
+        )
+        for tag, spec in hd_210_pairs:
+            assert spec.quota == 300, (
+                f"draw_spec.quota must be canonical 300; got {spec.quota} for tag.id={tag.id}"
+            )
+            assert tag.quota == 300, (
+                f"license_tag.quota must be canonical 300; got {tag.quota} for tag.id={tag.id}. "
+                f"Cubic-P2: override must rewrite BOTH tag.quota AND spec.quota."
+            )
+
+    def test_real_artifact_hd_210_license_tag_quota_rewritten(
+        self,
+        real_dea_artifact: list[dict],
+        real_dea_citation: SourceCitation,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Real-artifact regression: after validator, all 4 HD 210 cross-listed
+        license_tags have quota=300 (not 200), matching the override applied to
+        the draw_spec. The WARN log fires confirming the override path was taken.
+        """
+        pairs = _build_dea_draw_specs(real_dea_artifact, real_dea_citation)
+
+        with caplog.at_level(logging.WARNING):
+            resolved = _validate_cross_listing_consistency(pairs)
+
+        # Confirm WARN fired
+        warn_messages = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("Cross-listing override applied" in m and "210-03" in m for m in warn_messages), (
+            f"Expected WARN for '210-03'; got: {warn_messages}"
+        )
+
+        hd_210_pairs = [
+            (tag, spec) for tag, spec in resolved
+            if spec.hunt_code == "Elk B License: 210-03"
+        ]
+        assert len(hd_210_pairs) == 4, (
+            f"Expected 4 pairs for 'Elk B License: 210-03'; got {len(hd_210_pairs)}"
+        )
+        for tag, spec in hd_210_pairs:
+            assert tag.quota == 300, (
+                f"license_tag.quota must be 300 (not 200) after validator; "
+                f"got {tag.quota} for tag.id={tag.id}"
+            )
+            assert spec.quota == 300, (
+                f"draw_spec.quota must be 300 after validator; "
+                f"got {spec.quota} for tag.id={tag.id}"
+            )
+
 
 # ---------------------------------------------------------------------------
 # TestMain
@@ -817,6 +892,59 @@ class TestMain:
 
         mock_conn.rollback.assert_called_once()
         mock_conn.commit.assert_not_called()
+
+    def test_phase1_license_tags_reflect_override_quotas_for_hd_210(self) -> None:
+        """Cubic-P2 end-to-end lock: Phase 1 upsert_license_tag calls for the 3
+        cross-listed HD 210 tags (HDs 211/212/216) must carry quota=300 (the
+        canonical override value), NOT quota=200 (the original per-HD cap).
+
+        Without the Step-4b propagation in main(), Phase 1 would write the
+        original per-HD cap (200) while Phase 2 writes 300, leaving
+        license_tag.quota and draw_spec.quota inconsistent for the same license.
+
+        Strategy: monkeypatch upsert_license_tag to capture all calls, run main()
+        against a no-op mock connection, then assert captured license_tag objects
+        for the HD 211/212/216 identities have quota=300.
+        """
+        from ingestion.lib.schema import LicenseTag as _LicenseTag
+
+        captured_license_tags: list[_LicenseTag] = []
+
+        def capturing_upsert_license_tag(conn: object, tag: _LicenseTag) -> None:
+            captured_license_tags.append(tag)
+
+        mock_conn, _ = _make_mock_conn()
+        with (
+            patch.object(lds, "connect", return_value=mock_conn),
+            patch.object(lds, "upsert_license_tag", side_effect=capturing_upsert_license_tag),
+            patch.object(lds, "upsert_draw_spec"),
+            patch.object(lds, "update_license_tag_draw_spec_key"),
+        ):
+            exit_code = main([])
+
+        assert exit_code == 0, f"main() returned non-zero: {exit_code}"
+
+        # Find cross-listed tags (HDs 211, 212, 216 — NOT the home HD 210).
+        # dea_license_tags may contain duplicates per-ID (one per artifact row),
+        # so we assert that ALL captured instances with these IDs carry quota=300.
+        cross_listed_ids = {
+            "MT-HD-211-elk-elk-b-210-03-2026",
+            "MT-HD-212-elk-elk-b-210-03-2026",
+            "MT-HD-216-elk-elk-b-210-03-2026",
+        }
+        cross_listed_tags = [
+            tag for tag in captured_license_tags if tag.id in cross_listed_ids
+        ]
+        assert len(cross_listed_tags) >= 3, (
+            f"Expected at least one upsert_license_tag call per cross-listed HD 210 tag; "
+            f"got {len(cross_listed_tags)}. "
+            f"IDs seen with '210': {[t.id for t in captured_license_tags if '210-03' in t.id]}"
+        )
+        for tag in cross_listed_tags:
+            assert tag.quota == 300, (
+                f"Phase 1 must write quota=300 (override) for {tag.id}; "
+                f"got quota={tag.quota}. Cubic-P2: propagation step missing."
+            )
 
 
 # ---------------------------------------------------------------------------

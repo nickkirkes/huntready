@@ -520,14 +520,26 @@ def _validate_cross_listing_consistency(
             rationale,
         )
         for tag, spec in constituents:
-            updates: dict[str, object] = {}
-            if override_quota is not None and spec.quota != override_quota:
-                updates["quota"] = override_quota
-            if override_deadline is not None and spec.application_deadline != override_deadline:
-                updates["application_deadline"] = override_deadline
-            if updates:
+            spec_updates: dict[str, object] = {}
+            tag_updates: dict[str, object] = {}
+
+            if override_quota is not None:
+                if spec.quota != override_quota:
+                    spec_updates["quota"] = override_quota
+                if tag.quota != override_quota:
+                    tag_updates["quota"] = override_quota
+
+            if override_deadline is not None:
+                if spec.application_deadline != override_deadline:
+                    spec_updates["application_deadline"] = override_deadline
+                # NOTE: LicenseTag has no application_deadline field; deadline
+                # overrides apply only to DrawSpec.
+
+            if spec_updates:
                 # Pydantic frozen=True — use model_copy(update=...)
-                spec = spec.model_copy(update=updates)
+                spec = spec.model_copy(update=spec_updates)
+            if tag_updates:
+                tag = tag.model_copy(update=tag_updates)
             resolved.append((tag, spec))
 
     return resolved
@@ -667,6 +679,24 @@ def main(argv: list[str] | None = None) -> int:
     # 4a. Apply cross-listing consistency validation + overrides (fail-loud on
     # undocumented conflicts; override-rewrite logs WARN per applied override)
     draw_spec_pairs = _validate_cross_listing_consistency(draw_spec_pairs)
+
+    # 4b. Propagate any cross-listing license_tag quota overrides from the
+    # validator back to the Phase 1 dea_license_tags list so Phase 1 writes
+    # the canonical quota value to DB. Without this, Phase 1 would write the
+    # original per-HD cap values (e.g., 200) while Phase 2 writes the override
+    # value (e.g., 300), producing inconsistent license_tag.quota vs
+    # draw_spec.quota for the same logical license.
+    # See _KNOWN_CROSS_LISTING_OVERRIDES rationale strings.
+    override_quotas_by_tag_id: dict[str, int | None] = {
+        tag.id: tag.quota for tag, _spec in draw_spec_pairs
+    }
+    dea_license_tags = [
+        tag.model_copy(update={"quota": override_quotas_by_tag_id[tag.id]})
+        if tag.id in override_quotas_by_tag_id
+        and tag.quota != override_quotas_by_tag_id[tag.id]
+        else tag
+        for tag in dea_license_tags
+    ]
 
     # 5. Row-count guard BEFORE db.connect()
     _assert_draw_spec_count_within_guard(len(draw_spec_pairs))
