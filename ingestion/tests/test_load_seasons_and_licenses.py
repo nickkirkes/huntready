@@ -1732,6 +1732,37 @@ class TestOtcCrossRowDiscrimination:
             f"RuntimeError message must mention 'schema drift'; got: {exc_info.value!r}"
         )
 
+    def test_absent_apply_by_key_raises_runtimeerror(self) -> None:
+        """Synthetic row WITHOUT an apply_by key entirely → RuntimeError.
+
+        Distinguishes "key removed from artifact schema" (drift) from
+        "key present with None value" (legitimate). The bare `.get()`
+        idiom collapses both cases to None silently; an absent-key check
+        surfaces schema drift loudly.
+        """
+        bad_row = {
+            "license_code": "Elk B License: 999-00",
+            # NOTE: no "apply_by" key at all (schema-drift scenario)
+            "quota": None,
+            "quota_range": None,
+            "season_coverage": {"general": True},
+            "season_windows": {
+                "general": {"window": "Oct 24-Nov 29", "weapon_type_override": None},
+            },
+            "weapon_types": ["any_legal_weapon"],
+            "extras": None,
+            "extraction_confidence": "high",
+            "page_reference": _BASE_PAGE_REF,
+        }
+        with pytest.raises(RuntimeError, match="apply_by") as exc_info:
+            _row_has_otc(bad_row)
+        assert "missing" in str(exc_info.value), (
+            f"RuntimeError message must mention 'missing'; got: {exc_info.value!r}"
+        )
+        assert "schema drift" in str(exc_info.value), (
+            f"RuntimeError message must mention 'schema drift'; got: {exc_info.value!r}"
+        )
+
 
 # ---------------------------------------------------------------------------
 # TestRealArtifactKindCountsAfterOtcDiscrimination

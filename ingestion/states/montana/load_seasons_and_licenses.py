@@ -922,7 +922,11 @@ def _build_dea_season_definitions(
 def _row_has_otc(row: dict) -> bool:
     """True if row's apply_by is a string containing the 'OTC' substring.
 
-    Fails loud on non-str / non-None apply_by — artifact schema drift signal.
+    Fails loud on absent `apply_by` key OR non-str / non-None value —
+    artifact schema drift signal. The absent-key check distinguishes
+    "key removed from artifact schema" (drift, must surface) from
+    "key present with explicit None value" (legitimate absence of a
+    deadline, treated as no-OTC).
 
     Args:
         row: A single DEA artifact row dict.
@@ -932,9 +936,17 @@ def _row_has_otc(row: dict) -> bool:
         apply_by is None or a string not containing 'OTC'.
 
     Raises:
-        RuntimeError: if apply_by is neither str nor None (artifact schema drift).
+        RuntimeError: if the `apply_by` key is missing from `row` (schema
+            drift) or if its value is neither str nor None.
     """
-    apply_by = row.get("apply_by")
+    if "apply_by" not in row:
+        msg = (
+            f"_row_has_otc: `apply_by` key missing from artifact row "
+            f"with license_code={row.get('license_code')!r}. Artifact "
+            f"schema drift? Expected str|None."
+        )
+        raise RuntimeError(msg)
+    apply_by = row["apply_by"]
     if apply_by is None:
         return False
     if not isinstance(apply_by, str):

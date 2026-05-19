@@ -1119,6 +1119,64 @@ class TestUpsertDrawSpec:
 
         conn.commit.assert_not_called()
 
+    def test_parameters_with_non_json_stdlib_values_serializes_safely(self) -> None:
+        """A state adapter may legitimately write date/UUID/Decimal into the
+        ADR-012 escape-hatch parameters dict. The serializer must convert these
+        to JSON-safe forms BEFORE wrapping in Json — raw json.dumps would raise
+        TypeError at cursor.execute time, but we want the values to round-trip
+        as strings via Pydantic's TypeAdapter dump_python(mode='json').
+
+        Without the TypeAdapter fix, this test would fail with TypeError at
+        execute time when the mocked cursor tried to serialize the Json wrapper.
+        With the fix, the wrapped value is already a JSON-safe dict.
+        """
+        import datetime as _dt
+        import json as _json
+        from decimal import Decimal
+        from uuid import UUID
+
+        cursor = Mock()
+        cursor_cm = Mock()
+        cursor_cm.__enter__ = Mock(return_value=cursor)
+        cursor_cm.__exit__ = Mock(return_value=None)
+        conn = Mock()
+        conn.cursor = Mock(return_value=cursor_cm)
+
+        exotic_params: dict[str, object] = {
+            "some_date": _dt.date(2026, 7, 15),
+            "some_uuid": UUID("12345678-1234-5678-1234-567812345678"),
+            "some_decimal": Decimal("3.14"),
+            "some_str": "plain",
+            "some_int": 42,
+        }
+        spec = _make_test_draw_spec(parameters=exotic_params)
+        upsert_draw_spec(conn, spec)
+
+        args = cursor.execute.call_args[0][1]
+        params_param = args[12]
+        # Wrapped in Json; the inner value must already be JSON-serializable
+        assert params_param is not None, "exotic parameters must not become SQL NULL"
+        # Json.adapted attribute holds the wrapped Python value
+        wrapped = getattr(params_param, "obj", None) or getattr(params_param, "adapted", None)
+        assert wrapped is not None, (
+            "could not extract wrapped value from psycopg Json instance "
+            f"(attrs: {dir(params_param)})"
+        )
+        # Round-trip via stdlib json.dumps — would raise TypeError without the fix
+        roundtripped = _json.dumps(wrapped)
+        decoded = _json.loads(roundtripped)
+        assert decoded["some_date"] == "2026-07-15", (
+            f"date must serialize as ISO string; got {decoded.get('some_date')!r}"
+        )
+        assert decoded["some_uuid"] == "12345678-1234-5678-1234-567812345678", (
+            f"UUID must serialize as canonical string; got {decoded.get('some_uuid')!r}"
+        )
+        # Decimal serializes as either string or float depending on adapter mode;
+        # accept either, just confirm it survived without TypeError
+        assert "some_decimal" in decoded
+        assert decoded["some_str"] == "plain"
+        assert decoded["some_int"] == 42
+
 
 class TestUpdateLicenseTagDrawSpecKey:
     def test_rowcount_zero_raises_runtimeerror(self) -> None:

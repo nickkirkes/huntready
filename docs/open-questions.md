@@ -319,8 +319,8 @@ language — but the structured per-HD cap is invisible.
    (MCP server) cannot read it.
 
 2. **New `draw_spec.per_hd_allocations` field**: jsonb column with structure
-   `{jurisdiction_code: max_licenses}`. Promotes the cap from quirk to first-
-   class. Requires schema migration + DDL update + type sync.
+   `{jurisdiction_code: max_licenses}`. Promotes the cap from quirk to
+   first-class. Requires schema migration + DDL update + type sync.
 
 3. **Hunt-code disambiguation**: split into N distinct hunt_codes
    (`"Elk B License: 210-03/HD-210"`, `"Elk B License: 210-03/HD-211"`, etc.).

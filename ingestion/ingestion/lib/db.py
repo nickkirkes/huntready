@@ -34,9 +34,11 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Iterable
+from typing import Any
 
 import psycopg
 from psycopg.types.json import Json
+from pydantic import TypeAdapter
 
 from ingestion.lib.schema import (
     DrawSpec,
@@ -49,6 +51,16 @@ from ingestion.lib.schema import (
     RegulationSeason,
     SeasonDefinition,
 )
+
+# JSON-safe serialization for DrawSpec.parameters per ADR-012's escape-hatch
+# discipline. parameters is `dict[str, Any]`; a state adapter may legitimately
+# write `date`, `Decimal`, `UUID`, etc. into it. Raw `Json(dict_with_date)`
+# would raise at execute time because psycopg's default JSON encoder uses
+# stdlib `json.dumps`, which can't serialize those types. Pydantic's
+# TypeAdapter `dump_python(..., mode="json")` converts to a JSON-safe dict
+# (dates → ISO strings, UUIDs → strings, etc.) using the same encoders the
+# Pydantic models elsewhere in this file rely on.
+_PARAMETERS_TYPE_ADAPTER: TypeAdapter[dict[str, Any]] = TypeAdapter(dict[str, Any])
 
 _logger = logging.getLogger(__name__)
 
@@ -489,7 +501,11 @@ def upsert_draw_spec(conn: psycopg.Connection[tuple[object, ...]], spec: DrawSpe
         if spec.successor_hunt_code_key is not None
         else None
     )
-    parameters_json = Json(spec.parameters) if spec.parameters is not None else None
+    parameters_json = (
+        Json(_PARAMETERS_TYPE_ADAPTER.dump_python(spec.parameters, mode="json"))
+        if spec.parameters is not None
+        else None
+    )
 
     choices_json = Json(spec.choices.model_dump(exclude_none=True))
     pools_json = Json([p.model_dump(exclude_none=True) for p in spec.pools])
