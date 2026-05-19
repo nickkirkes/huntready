@@ -1,0 +1,21 @@
+docs/planning/epics/E03-confidence-findings/S03.8.md
+  s_c867ccd21eb3fa::t_d583219e40a629 113,116,119
+docs/planning/epics/E03-deferred-items/draw-mechanics.md
+  s_c867ccd21eb3fa::t_f73c2f3c3a5a08 127-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "d7334827349d2e674a67fc3e411d98dbe5a29abf",
+  "prompts": {},
+  "sessions": {
+    "s_c867ccd21eb3fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "845e0d9a-015b-4dbc-a130-98f7d0bfcda6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
