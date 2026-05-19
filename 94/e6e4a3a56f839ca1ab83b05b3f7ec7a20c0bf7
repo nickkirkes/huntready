@@ -1,0 +1,43 @@
+ingestion/states/montana/load_draw_specs.py
+  s_c867ccd21eb3fa::t_a94ad6455f55d4 524-535,537,547,563-564,571-572,578
+ingestion/tests/test_load_draw_specs.py
+  s_c867ccd21eb3fa::t_697da61b1915aa 879-881,899
+  s_c867ccd21eb3fa::t_f450727532c38c 833-840,847-868,870-878,882-898,900-905
+  s_c867ccd21eb3fa::t_c7931a15c29aed 841-846,869
+docs/plans/S03.8-draw-spec-ingestion-plan.md
+  s_c867ccd21eb3fa::t_d65e638a86981d 568-587
+  s_c867ccd21eb3fa::t_92540551245216 42
+  s_c867ccd21eb3fa::t_8d24f597df0e2c 478
+  s_c867ccd21eb3fa::t_215706eaca9b00 351
+  s_c867ccd21eb3fa::t_0f2a4c9644a042 393,398-400,404
+  s_c867ccd21eb3fa::t_7a80843a8e219b 204
+  s_c867ccd21eb3fa::t_d4e5d2b68b9900 182
+  s_c867ccd21eb3fa::t_da3eb1024b11ac 8,12,14
+  s_c867ccd21eb3fa::t_79f7ddef943b8b 30
+  s_c867ccd21eb3fa::t_482c0141c73add 544
+  s_c867ccd21eb3fa::t_bbe8e1350e9afa 126
+  s_c867ccd21eb3fa::t_3a905958f04e40 461-463
+  s_c867ccd21eb3fa::t_97a75b01b92f6d 56-59,62,65-75,79,81,89
+  s_c867ccd21eb3fa::t_7a195a329ce102 302,304
+  s_c867ccd21eb3fa::t_9386cc3952dee5 343
+  s_c867ccd21eb3fa::t_229cefe1d737ed 225
+  s_c867ccd21eb3fa::t_efc0458789b9a1 258
+  s_c867ccd21eb3fa::t_bcec396072f56a 517-518
+  s_c867ccd21eb3fa::t_96f8ad2dbd3f11 526
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "94e6e4a3a56f839ca1ab83b05b3f7ec7a20c0bf7",
+  "prompts": {},
+  "sessions": {
+    "s_c867ccd21eb3fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "845e0d9a-015b-4dbc-a130-98f7d0bfcda6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
