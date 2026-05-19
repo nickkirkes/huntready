@@ -136,7 +136,7 @@ Per-HD-cap=200 values live only in this deferral entry's rationale +
 `_KNOWN_CROSS_LISTING_OVERRIDES` in `load_draw_specs.py`.
 
 **M2 recommendation:**
-Evaluate three options (see [docs/open-questions.md Q17](../../open-questions.md)):
+Evaluate three options (see [docs/open-questions.md Q17](../../../open-questions.md)):
 (a) `parameters` jsonb (ADR-012 escape hatch); (b) new `per_hd_allocations`
 schema field; (c) hunt-code disambiguation. Decision criteria: cross-state
 pattern prevalence + MCP `get_tag_requirements` consumer needs.
