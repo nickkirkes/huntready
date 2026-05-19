@@ -1,0 +1,28 @@
+ingestion/states/montana/load_seasons_and_licenses.py
+  s_c867ccd21eb3fa::t_950ce2850405ab 925-929,939-940,942-949
+ingestion/tests/test_load_draw_specs.py
+  s_c867ccd21eb3fa::t_e2316c16ae29ce 1122-1179
+docs/open-questions.md
+  s_c867ccd21eb3fa::t_9d9c012c514952 322-323
+ingestion/tests/test_load_seasons_and_licenses.py
+  s_c867ccd21eb3fa::t_66f1f39859b65b 1735-1763
+ingestion/ingestion/lib/db.py
+  s_c867ccd21eb3fa::t_9e5f5650aa9b42 504-508
+  s_c867ccd21eb3fa::t_b52409ca7084fb 37,41,55-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "73c4500fad9faec27b3a8895c172490f48c67f47",
+  "prompts": {},
+  "sessions": {
+    "s_c867ccd21eb3fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "845e0d9a-015b-4dbc-a130-98f7d0bfcda6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
