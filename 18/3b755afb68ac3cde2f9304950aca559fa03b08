@@ -1,0 +1,19 @@
+docs/planning/epics/E03-deferred-items/draw-mechanics.md
+  s_c867ccd21eb3fa::t_ac928d7b21e0eb 139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "183b755afb68ac3cde2f9304950aca559fa03b08",
+  "prompts": {},
+  "sessions": {
+    "s_c867ccd21eb3fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "845e0d9a-015b-4dbc-a130-98f7d0bfcda6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
