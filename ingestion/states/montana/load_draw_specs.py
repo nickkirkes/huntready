@@ -521,10 +521,20 @@ def _validate_cross_listing_consistency(
         # only one field but leaves another conflicting field unspecified
         # would silently produce last-write-wins via UPSERT on the uncovered
         # field — data drift without any operator signal.
-        override_quota = override.get("quota")
-        override_deadline = override.get("application_deadline")
+        #
+        # Key-presence check (not `.get(...) is None`): an override entry may
+        # intentionally specify `{"quota": None}` to force the canonical value
+        # to SQL NULL (e.g., removing a quota entirely). Using `.get(...)` would
+        # collapse "key absent" and "key present with explicit None" into the
+        # same branch — the presence check distinguishes them.
+        has_quota_override = "quota" in override
+        has_deadline_override = "application_deadline" in override
+        override_quota = override.get("quota") if has_quota_override else None
+        override_deadline = (
+            override.get("application_deadline") if has_deadline_override else None
+        )
 
-        if len(quotas) > 1 and override_quota is None:
+        if len(quotas) > 1 and not has_quota_override:
             msg = (
                 f"_validate_cross_listing_consistency: PK {pk!r} has "
                 f"{len(constituents)} constituents with conflicting `quota` "
@@ -534,7 +544,7 @@ def _validate_cross_listing_consistency(
                 f"the upstream data."
             )
             raise RuntimeError(msg)
-        if len(deadlines) > 1 and override_deadline is None:
+        if len(deadlines) > 1 and not has_deadline_override:
             msg = (
                 f"_validate_cross_listing_consistency: PK {pk!r} has "
                 f"{len(constituents)} constituents with conflicting "
@@ -550,21 +560,22 @@ def _validate_cross_listing_consistency(
             "quotas=%r deadlines=%r; canonical quota=%r deadline=%r. "
             "Rationale: %s",
             pk, len(constituents), quotas, deadlines,
-            override_quota if override_quota is not None else "(no override)",
-            override_deadline if override_deadline is not None else "(no override)",
+            override_quota if has_quota_override else "(no override)",
+            override_deadline if has_deadline_override else "(no override)",
             rationale,
         )
         for tag, spec in constituents:
             spec_updates: dict[str, object] = {}
             tag_updates: dict[str, object] = {}
 
-            if override_quota is not None:
+            if has_quota_override:
+                # override_quota may be None — that is intentional (force SQL NULL)
                 if spec.quota != override_quota:
                     spec_updates["quota"] = override_quota
                 if tag.quota != override_quota:
                     tag_updates["quota"] = override_quota
 
-            if override_deadline is not None:
+            if has_deadline_override:
                 if spec.application_deadline != override_deadline:
                     spec_updates["application_deadline"] = override_deadline
                 # NOTE: LicenseTag has no application_deadline field; deadline

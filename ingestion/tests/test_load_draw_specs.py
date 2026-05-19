@@ -830,6 +830,79 @@ class TestCrossListingConsistency:
                 f"Cubic-P2: override must rewrite BOTH tag.quota AND spec.quota."
             )
 
+    def test_override_with_explicit_none_quota_clears_field(self) -> None:
+        """An override entry with `{"quota": None}` is distinct from an entry
+        that omits "quota" entirely. The explicit-None case forces the canonical
+        quota to be None (SQL NULL); the absent-key case fails loud if
+        constituents disagree on quota.
+
+        Locks the cubic-P2 fix that distinguishes key-absent from
+        value-explicit-None in _KNOWN_CROSS_LISTING_OVERRIDES.
+
+        Note: tag.quota is not asserted here because _make_pair uses Mock() for
+        the tag, and Mock.model_copy() returns a new Mock rather than a real
+        LicenseTag. spec.quota IS a real DrawSpec field and is asserted.
+        The tag.quota rewrite path for real LicenseTag objects is covered by
+        test_override_rewrites_both_tag_and_spec_quota (real-artifact-based).
+        """
+        from unittest.mock import patch as _patch
+
+        hunt_code = "Elk B License: 999-NONE-TEST"
+        override_entry = {"quota": None, "rationale": "test: force quota to SQL NULL"}
+
+        pairs = [
+            _make_pair(hunt_code=hunt_code, quota=10),
+            _make_pair(hunt_code=hunt_code, quota=20),
+        ]
+
+        patched_overrides = {
+            **_KNOWN_CROSS_LISTING_OVERRIDES,
+            (hunt_code, 2026): override_entry,
+        }
+
+        import states.montana.load_draw_specs as _lds  # noqa: PLC0415
+
+        with _patch.object(_lds, "_KNOWN_CROSS_LISTING_OVERRIDES", patched_overrides):
+            result = _validate_cross_listing_consistency(pairs)
+
+        assert len(result) == 2, f"Expected 2 resolved pairs; got {len(result)}"
+        for _, spec in result:
+            assert spec.quota is None, (
+                f"explicit-None override must force spec.quota to None; got {spec.quota!r}"
+            )
+
+    def test_override_with_int_quota_succeeds_alongside_explicit_none_distinction(
+        self,
+    ) -> None:
+        """Confirm that `{"quota": 300}` (present-with-int) resolves normally,
+        distinguishing it from the explicit-None case tested above.
+        This is the paired positive-case lock: int-quota override rewrites
+        spec.quota to 300 (NOT None). tag.quota rewrite via real LicenseTag is
+        covered by test_override_rewrites_both_tag_and_spec_quota using real data.
+        """
+        hunt_code = "Elk B License: 210-03"
+        assert (hunt_code, 2026) in _KNOWN_CROSS_LISTING_OVERRIDES, (
+            "Test precondition: int-quota override must exist for this PK"
+        )
+        override = _KNOWN_CROSS_LISTING_OVERRIDES[(hunt_code, 2026)]
+        assert override.get("quota") == 300, (
+            f"Test precondition: override quota must be 300; got {override.get('quota')!r}"
+        )
+
+        pairs = [
+            _make_pair(hunt_code=hunt_code, quota=300),
+            _make_pair(hunt_code=hunt_code, quota=200),  # conflict
+        ]
+        result = _validate_cross_listing_consistency(pairs)
+
+        assert len(result) == 2
+        for _, spec in result:
+            assert spec.quota == 300, (
+                f"int-quota override must resolve spec.quota to 300; got {spec.quota!r}"
+            )
+            # Crucially NOT None — distinguishes from the explicit-None case
+            assert spec.quota is not None
+
     def test_real_artifact_hd_210_license_tag_quota_rewritten(
         self,
         real_dea_artifact: list[dict],
