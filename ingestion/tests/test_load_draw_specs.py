@@ -424,16 +424,16 @@ class TestFrontMatterLookupSafetyNet:
 
 
 class TestCountGuard:
-    # Expected=390; lower=int(390*0.7)=273; upper=int(390*1.3)=507
+    # Expected=388; lower=int(388*0.7)=271; upper=int(388*1.3)=504
 
     def test_count_at_baseline_passes(self) -> None:
-        _assert_draw_spec_count_within_guard(390)
+        _assert_draw_spec_count_within_guard(388)
 
     def test_count_at_lower_bound_passes(self) -> None:
-        _assert_draw_spec_count_within_guard(273)
+        _assert_draw_spec_count_within_guard(271)
 
     def test_count_at_upper_bound_passes(self) -> None:
-        _assert_draw_spec_count_within_guard(507)
+        _assert_draw_spec_count_within_guard(504)
 
     def test_count_below_band_raises(self) -> None:
         with pytest.raises(RuntimeError, match="draw_spec count guard"):
@@ -454,36 +454,36 @@ class TestCountGuard:
 
 
 class TestArtifactCountsRealData:
-    def test_real_artifact_yields_390_draw_specs(
+    def test_real_artifact_yields_388_draw_specs(
         self, real_dea_artifact: list[dict], real_dea_citation: SourceCitation
     ) -> None:
         pairs = _build_dea_draw_specs(real_dea_artifact, real_dea_citation)
-        assert len(pairs) == 390, (
-            f"Expected 390 draw_spec pairs; got {len(pairs)}. "
+        assert len(pairs) == 388, (
+            f"Expected 388 draw_spec pairs; got {len(pairs)}. "
             "Drift signal — investigate T1's OTC-wins heuristic or dedup."
         )
 
-    def test_real_artifact_otc_kind_count_is_160(
+    def test_real_artifact_otc_kind_count_is_162(
         self, real_dea_artifact: list[dict], real_dea_citation: SourceCitation
     ) -> None:
         from states.montana.load_seasons_and_licenses import _build_dea_license_tags  # type: ignore[import-untyped]
         tags = _build_dea_license_tags(real_dea_artifact, real_dea_citation)
         deduped = {t.id: t.kind for t in tags}
         otc_count = sum(1 for k in deduped.values() if k == "over_the_counter")
-        assert otc_count == 160, (
-            f"Expected 160 over_the_counter identities; got {otc_count}. "
+        assert otc_count == 162, (
+            f"Expected 162 over_the_counter identities; got {otc_count}. "
             "Drift signal — investigate T1's OTC-wins heuristic."
         )
 
-    def test_real_artifact_limited_draw_kind_count_is_390(
+    def test_real_artifact_limited_draw_kind_count_is_388(
         self, real_dea_artifact: list[dict], real_dea_citation: SourceCitation
     ) -> None:
         from states.montana.load_seasons_and_licenses import _build_dea_license_tags  # type: ignore[import-untyped]
         tags = _build_dea_license_tags(real_dea_artifact, real_dea_citation)
         deduped = {t.id: t.kind for t in tags}
         ld_count = sum(1 for k in deduped.values() if k == "limited_draw")
-        assert ld_count == 390, (
-            f"Expected 390 limited_draw identities; got {ld_count}. "
+        assert ld_count == 388, (
+            f"Expected 388 limited_draw identities; got {ld_count}. "
             "Drift signal — investigate T1's OTC-wins heuristic."
         )
 
@@ -684,6 +684,56 @@ class TestCrossListingConsistency:
                 "Deadline must be preserved unchanged when override doesn't specify it"
             )
 
+    def test_deadline_conflict_with_quota_only_override_raises(self) -> None:
+        """Override specifying quota-only but constituents ALSO disagree on deadline
+        → RuntimeError naming `application_deadline` and the override gap.
+
+        Locks the P3 cubic-review fix: a partial override (covers quota but not
+        deadline) that leaves a deadline conflict unresolved must fail loud rather
+        than silently produce last-write-wins via UPSERT.
+
+        Synthetic scenario: PK=("Elk B License: 210-03", 2026) has an existing
+        quota-only override. We feed it constituents with BOTH quota AND deadline
+        conflicts. The validator must detect that the override doesn't cover the
+        deadline conflict and raise RuntimeError naming 'application_deadline'.
+        """
+        hunt_code = "Elk B License: 210-03"
+        assert (hunt_code, 2026) in _KNOWN_CROSS_LISTING_OVERRIDES, (
+            "Test precondition: quota-only override must exist for this PK"
+        )
+        override = _KNOWN_CROSS_LISTING_OVERRIDES[(hunt_code, 2026)]
+        assert "quota" in override, "Test precondition: override specifies quota"
+        assert "application_deadline" not in override, (
+            "Test precondition: override must NOT specify application_deadline"
+        )
+
+        # Both quota AND deadline conflict — but override only covers quota
+        pairs = [
+            _make_pair(
+                hunt_code=hunt_code,
+                quota=300,
+                application_deadline=datetime.date(2026, 6, 1),
+            ),
+            _make_pair(
+                hunt_code=hunt_code,
+                quota=200,
+                application_deadline=datetime.date(2026, 4, 1),  # different!
+            ),
+        ]
+        with pytest.raises(RuntimeError) as exc_info:
+            _validate_cross_listing_consistency(pairs)
+
+        error_msg = str(exc_info.value)
+        assert "application_deadline" in error_msg, (
+            f"RuntimeError must name 'application_deadline' as the uncovered "
+            f"conflicting field; got: {error_msg!r}"
+        )
+        # Must also mention the override gap (not just a generic no-override error)
+        assert "override" in error_msg.lower(), (
+            f"RuntimeError must indicate the issue is with the override coverage; "
+            f"got: {error_msg!r}"
+        )
+
     def test_real_artifact_hd_210_override_applied(
         self,
         real_dea_artifact: list[dict],
@@ -845,8 +895,8 @@ class TestMain:
             exit_code = main(["--dry-run"])
         assert exit_code == 0
         # The dry-run log must mention the draw_spec count
-        assert "390" in caplog.text, (
-            f"Expected '390' in dry-run log output; got: {caplog.text!r}"
+        assert "388" in caplog.text, (
+            f"Expected '388' in dry-run log output; got: {caplog.text!r}"
         )
 
     def test_dry_run_does_not_call_db_connect(self) -> None:
@@ -855,6 +905,35 @@ class TestMain:
             exit_code = main(["--dry-run"])
         assert exit_code == 0
         mock_connect.assert_not_called()
+
+    def test_dry_run_fails_on_fallback_hits(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Fallback-hit check fires for dry-run, not only for real runs.
+
+        Locks the P2 cubic-review fix: the _lookup_fallback_hits guard must
+        fire BEFORE the dry-run short-circuit so CI smoke cannot silently
+        pass while a real ingest would abort on missing per-row deadlines.
+
+        Strategy: monkeypatch _build_dea_draw_specs to set _lookup_fallback_hits
+        to a non-zero value after the real builder runs (simulating a new license
+        type that bypasses per-row apply_by), then call main(["--dry-run"]) and
+        assert RuntimeError is raised before return 0.
+        """
+        original_build = lds._build_dea_draw_specs
+
+        def build_with_fallback_hit(
+            dea_artifact: list[dict], dea_citation: object
+        ) -> list[tuple]:
+            result = original_build(dea_artifact, dea_citation)
+            # Simulate one fallback hit that the builder would have counted
+            lds._lookup_fallback_hits = 1
+            return result
+
+        monkeypatch.setattr(lds, "_build_dea_draw_specs", build_with_fallback_hit)
+
+        with pytest.raises(RuntimeError, match="fallback"):
+            main(["--dry-run"])
 
     def test_db_connect_failure_aborts_before_writes(self) -> None:
         """connect() raising → exception propagates; no upsert calls."""

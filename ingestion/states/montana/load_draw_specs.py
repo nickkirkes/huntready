@@ -8,18 +8,20 @@ Either all writes succeed and are committed, or nothing is committed.
 Phase 1 — Re-upsert DEA license_tags.
     S03.7 wrote every DEA license_tag with ``draw_spec_key=None``.  T1 of
     S03.8 amended ``_build_dea_license_tags`` in ``load_seasons_and_licenses.py``
-    with the OTC-wins discipline: any (species_group, hd_number, license_code)
-    identity that appears in at least one DEA artifact row whose ``apply_by``
-    cell contains the substring ``"OTC"`` (i.e., the over-the-counter purchase
-    pattern, e.g., ``"OTC:\nJun 15"``) is reclassified from ``limited_draw``
-    to ``over_the_counter`` for all rows of that identity.  This reclassifies
-    160 license_tag identities (PM-confirmed baseline 2026-05-17).  Phase 1
-    pushes those corrected ``kind`` values
-    into the DB via the existing ``upsert_license_tag``'s
-    ``kind = EXCLUDED.kind`` clause.  No schema change is required.
+    with the OTC-wins discipline: any license_code that appears in at least one
+    DEA artifact row (across ANY HD section) whose ``apply_by`` cell contains
+    the substring ``"OTC"`` (i.e., the over-the-counter purchase pattern, e.g.,
+    ``"OTC:\nJun 15"``) is reclassified from ``limited_draw`` to
+    ``over_the_counter`` for ALL rows of that license_code across ALL HD
+    sections.  This reclassifies 162 license_tag identities (corrected from
+    160: two license_codes that cross-list across HDs with mixed OTC/non-OTC
+    apply_by values are now consistently demoted).  Phase 1 pushes those
+    corrected ``kind`` values into the DB via the existing
+    ``upsert_license_tag``'s ``kind = EXCLUDED.kind`` clause.  No schema
+    change is required.
 
 Phase 2 — Upsert draw_specs.
-    Iterate over the 390 DEA ``license_tag`` rows whose post-T1 ``kind`` is
+    Iterate over the 388 DEA ``license_tag`` rows whose post-T1 ``kind`` is
     ``"limited_draw"`` (skipping ``900-20`` STATEWIDE, OTC B Licenses,
     General licenses, and bear, which have no draw mechanics in the DEA).
     For each identity, build a ``DrawSpec`` Pydantic model using the hardcoded
@@ -56,11 +58,11 @@ OTC-wins discipline
 S03.7's ``_build_dea_license_tags`` heuristic (amended in T1) is the
 canonical source of truth for ``license_tag.kind``.  S03.8 imports
 ``_build_dea_license_tags`` directly from ``load_seasons_and_licenses`` so
-the classification logic is not duplicated.  The cross-row OTC-wins check
-(any artifact row whose ``apply_by`` contains ``"OTC"`` → entire identity
-``(species, hd, license_code)`` reclassified as ``over_the_counter``)
-ensures that Phase 2 correctly skips all OTC rows
-when building draw_spec candidates; Phase 1's re-upsert then writes the
+the classification logic is not duplicated.  The cross-row AND cross-HD
+OTC-wins check (any artifact row whose ``apply_by`` contains ``"OTC"`` →
+the entire license_code reclassified as ``over_the_counter`` across ALL HD
+sections that cross-list it) ensures that Phase 2 correctly skips all OTC
+rows when building draw_spec candidates; Phase 1's re-upsert then writes the
 corrected ``kind`` value to rows already in the DB so the two tables remain
 consistent.
 
@@ -163,9 +165,12 @@ _DEA_DEADLINE_LOOKUP: dict[tuple[str, str], datetime.date] = {
 }
 
 # Row-count fail-loud guard (OQ7 — mirrors S03.6/S03.7 pattern).  Fires BEFORE
-# db.connect() in main().  Baseline: 390 limited_draw identities post-amended-
-# heuristic + dedup (PM-confirmed 2026-05-17).
-_EXPECTED_DRAW_SPEC_COUNT: int = 390
+# db.connect() in main().  Baseline: 388 limited_draw identities post-amended-
+# heuristic + dedup.  Corrected from 390 after the P1 cubic-review fix
+# broadened OTC-wins keying from (species, hd, license_code) to license_code
+# alone, demoting 2 additional cross-HD identities (Deer B License: 395-01;
+# Elk B License: 004-00) from limited_draw to over_the_counter.
+_EXPECTED_DRAW_SPEC_COUNT: int = 388
 _COUNT_GUARD_MIN_RATIO: float = 0.7
 _COUNT_GUARD_MAX_RATIO: float = 1.3
 
@@ -460,8 +465,11 @@ def _validate_cross_listing_consistency(
 
     For each PK with multiple constituent pairs:
     - If all constituents agree on every structural field: pass through.
-    - If they disagree AND an override is in _KNOWN_CROSS_LISTING_OVERRIDES: log
-      WARN, rewrite the conflicting field to the override value on every pair.
+    - If they disagree AND an override is in _KNOWN_CROSS_LISTING_OVERRIDES:
+      - For EACH disagreeing field, check whether the override specifies a
+        canonical value. If it does NOT, raise RuntimeError naming the field
+        and the missing override key (partial-override fail-loud).
+      - Apply the override values that ARE present; log WARN per PK.
     - If they disagree AND no override: raise RuntimeError naming the PK and
       the conflicting values (fail-loud discipline; operator must investigate).
 
@@ -470,7 +478,8 @@ def _validate_cross_listing_consistency(
 
     Raises:
         RuntimeError: if any PK has cross-listing structural conflict without
-                      a documented override.
+                      a documented override, OR if an override exists but does
+                      not cover a field that is actually in conflict.
     """
     # Group pairs by (hunt_code, year)
     by_pk: dict[tuple[str, int], list[tuple[LicenseTag, DrawSpec]]] = {}
@@ -506,9 +515,35 @@ def _validate_cross_listing_consistency(
             )
             raise RuntimeError(msg)
 
-        # Apply override — rewrite the affected field on every constituent
+        # Apply override — rewrite the affected field on every constituent.
+        # Field-by-field fail-loud: every DISAGREEING field MUST have a
+        # canonical value in the override entry. An override that specifies
+        # only one field but leaves another conflicting field unspecified
+        # would silently produce last-write-wins via UPSERT on the uncovered
+        # field — data drift without any operator signal.
         override_quota = override.get("quota")
         override_deadline = override.get("application_deadline")
+
+        if len(quotas) > 1 and override_quota is None:
+            msg = (
+                f"_validate_cross_listing_consistency: PK {pk!r} has "
+                f"{len(constituents)} constituents with conflicting `quota` "
+                f"values {quotas!r}, but the override entry in "
+                f"_KNOWN_CROSS_LISTING_OVERRIDES specifies no `quota` key. "
+                f"Add `'quota': <canonical_value>` to the override or fix "
+                f"the upstream data."
+            )
+            raise RuntimeError(msg)
+        if len(deadlines) > 1 and override_deadline is None:
+            msg = (
+                f"_validate_cross_listing_consistency: PK {pk!r} has "
+                f"{len(constituents)} constituents with conflicting "
+                f"`application_deadline` values {deadlines!r}, but the "
+                f"override entry in _KNOWN_CROSS_LISTING_OVERRIDES specifies "
+                f"no `application_deadline` key. Add it to the override or "
+                f"fix the upstream data."
+            )
+            raise RuntimeError(msg)
         rationale = override.get("rationale", "(no rationale recorded)")
         _LOGGER.warning(
             "Cross-listing override applied for PK %r: %d constituents with "
@@ -551,11 +586,11 @@ def _validate_cross_listing_consistency(
 
 
 def _assert_draw_spec_count_within_guard(written: int) -> None:
-    """Fail loud if the draw_spec queued count is outside ±30% band of 390.
+    """Fail loud if the draw_spec queued count is outside ±30% band of 388.
 
-    PM-confirmed baseline 2026-05-17: 390 DEA limited_draw identities
-    post-amended-heuristic (T1) + dedup. Concrete bounds after int()
-    truncation: [273, 507].
+    Baseline 388 DEA limited_draw identities post-amended-heuristic (T1) +
+    dedup. Corrected from 390 after the P1 cubic-review fix broadened OTC-wins
+    keying. Concrete bounds after int() truncation: [271, 504].
 
     Outside-band indicates a regression in T1's heuristic or in
     _build_dea_draw_specs's dedupe/filter logic. Investigate before re-running.
@@ -588,7 +623,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "(1) re-upsert DEA license_tags (OTC reclassification); "
             "(2) upsert draw_specs; "
             "(3) backfill draw_spec_key references.  "
-            "Writes ~390 draw_spec rows atomically (single commit)."
+            "Writes ~388 draw_spec rows atomically (single commit)."
         ),
     )
     parser.add_argument(
@@ -626,8 +661,8 @@ def main(argv: list[str] | None = None) -> int:
     """S03.8 entry point. Returns 0 on success, non-zero on error.
 
     Three-phase atomic transaction:
-      Phase 1 — Re-upsert DEA license_tags (reclassifies ~160 OTC rows).
-      Phase 2 — Upsert draw_specs (~390 limited_draw identities).
+      Phase 1 — Re-upsert DEA license_tags (reclassifies ~162 OTC rows).
+      Phase 2 — Upsert draw_specs (~388 limited_draw identities).
       Phase 3 — Backfill license_tag.draw_spec_key for each draw_spec written.
 
     Run from repo root:
@@ -698,10 +733,25 @@ def main(argv: list[str] | None = None) -> int:
         for tag in dea_license_tags
     ]
 
-    # 5. Row-count guard BEFORE db.connect()
+    # 5. Front-matter fallback drift guard. Fires for BOTH dry-run and real runs:
+    # the counter is final after the builder call, and a non-zero count indicates
+    # unexpected data state that an operator must investigate BEFORE writes
+    # (real run) or BEFORE claiming smoke-test success (dry run).
+    if _lookup_fallback_hits > 0:
+        msg = (
+            f"Front-matter deadline-lookup fallback fired {_lookup_fallback_hits} "
+            f"time(s). V1 baseline expects 0 hits — any firing is a drift signal "
+            f"indicating S03.3 extraction regression OR a new license type in a "
+            f"future PDF revision that bypasses per-row apply_by. Investigate "
+            f"before committing (the artifact, the front-matter chart values in "
+            f"docs/planning/epics/E03-confidence-findings/S03.8.md § 4, or both)."
+        )
+        raise RuntimeError(msg)
+
+    # 6. Row-count guard BEFORE db.connect()
     _assert_draw_spec_count_within_guard(len(draw_spec_pairs))
 
-    # 6. Dry-run short-circuit
+    # 7. Dry-run short-circuit (NOTE: fallback-hit check has already fired above)
     if args.dry_run:
         _LOGGER.info(
             "[dry-run] Would write %d DEA license_tag rows (re-upsert for "
@@ -714,10 +764,10 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    # 7. Open conn, three-phase atomic transaction
+    # 8. Open conn, three-phase atomic transaction
     conn = connect()
     try:
-        # Phase 1: re-upsert DEA license_tags (reclassifies 160 OTC rows)
+        # Phase 1: re-upsert DEA license_tags (reclassifies 162 OTC rows)
         _LOGGER.info("Phase 1: re-upserting %d DEA license_tags", len(dea_license_tags))
         for tag in dea_license_tags:
             upsert_license_tag(conn, tag)
@@ -748,18 +798,7 @@ def main(argv: list[str] | None = None) -> int:
             "Phase 3 complete: %d draw_spec_key backfills queued", len(draw_spec_pairs)
         )
 
-        # Fail loud on front-matter lookup fallback hits BEFORE commit — drift
-        # signal; V1 expects 0 hits; non-zero means an unexpected data state that
-        # an operator should review before committing writes to the DB.
-        if _lookup_fallback_hits > 0:
-            raise RuntimeError(
-                f"Front-matter-lookup fallback fired {_lookup_fallback_hits} time(s) "
-                f"— drift signal (V1 baseline expects 0). Investigate the artifact "
-                f"and verify the front-matter chart values haven't changed before "
-                f"re-running. Transaction has NOT been committed."
-            )
-
-        # Commit
+        # Commit (fallback-hit check already fired before this block)
         conn.commit()
         _LOGGER.info("Transaction committed.")
     except Exception:
@@ -769,7 +808,7 @@ def main(argv: list[str] | None = None) -> int:
     finally:
         conn.close()
 
-    # 8. Run summary
+    # 9. Run summary
     _LOGGER.info(
         "S03.8 load complete. license_tags re-upserted: %d. draw_specs written: %d. "
         "draw_spec_key backfills: %d. Front-matter-lookup fallback hits: %d.",

@@ -983,21 +983,27 @@ def _build_dea_license_tags(
     Kind heuristic (OQ-S7-7, first-match-wins):
     (a) hd_number == "STATEWIDE"         → "statewide"
     (b) license_code.startswith("General ") → "general"
-    (c) "B License" in license_code       → "over_the_counter" if (species, hd, license_code)
-                                             has any artifact row with "OTC" in its apply_by;
-                                             else "limited_draw"
+    (c) "B License" in license_code       → "over_the_counter" if license_code appears in
+                                             ANY artifact row (across ALL HD sections) with
+                                             "OTC" in its apply_by; else "limited_draw"
     (d) "Permit:" in license_code         → "limited_draw"
     (e) license_code.startswith("Antelope License:") → "limited_draw"
     (f) else: RuntimeError (fail-loud)
 
-    OTC-wins is cross-row: any artifact row's `apply_by` containing 'OTC' demotes ALL
-    rows of that (species_group, hd_number, license_code) identity to over_the_counter.
+    OTC-wins is cross-row AND cross-HD: any artifact row's `apply_by` containing
+    'OTC' demotes ALL rows of that license_code to over_the_counter, regardless
+    of which HD section they appear in.
 
     Raises:
         RuntimeError: if a license_code does not match any kind heuristic.
     """
-    _otc_identities: frozenset[tuple[str, str, str]] = frozenset(
-        (section["species_group"], section["hd_number"], row["license_code"])
+    # OTC-wins discipline is keyed by license_code (the physical-license identity)
+    # rather than by (species, hd, license_code) because the same license_code
+    # appears in multiple HD sections in the DEA booklet (cross-listing). All
+    # instances of one license_code must classify consistently — if ANY artifact
+    # row shows OTC for this license_code, ALL instances demote to over_the_counter.
+    _otc_license_codes: frozenset[str] = frozenset(
+        row["license_code"]
         for section in dea_artifact
         for row in section["rows"]
         if _row_has_otc(row)
@@ -1020,8 +1026,11 @@ def _build_dea_license_tags(
             elif license_code.startswith("General "):
                 kind = "general"
             elif "B License" in license_code:
-                identity = (species_group, hd_number, license_code)
-                kind = "over_the_counter" if identity in _otc_identities else "limited_draw"
+                kind = (
+                    "over_the_counter"
+                    if license_code in _otc_license_codes
+                    else "limited_draw"
+                )
             elif "Permit:" in license_code:
                 kind = "limited_draw"
             elif license_code.startswith("Antelope License:"):

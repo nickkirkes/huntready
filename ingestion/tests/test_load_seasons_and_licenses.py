@@ -1651,12 +1651,12 @@ class TestOtcCrossRowDiscrimination:
             f"Expected both tags to be limited_draw; got {[t.kind for t in tags]}"
         )
 
-    def test_otc_in_one_section_does_not_leak_to_another_hd(
+    def test_otc_in_one_section_does_not_leak_to_different_license_code(
         self, mock_dea_citation: SourceCitation
     ) -> None:
         # HD A has OTC apply_by; HD B has a drawing deadline apply_by.
-        # Both share the same license_code suffix but differ in hd_number.
-        # Identity tuple is (species, hd, license_code) — hd is part of the key.
+        # The two sections use DIFFERENT license_codes (410-00 vs 411-00).
+        # OTC propagates by license_code only — different codes must not affect each other.
         section_a = _make_b_license_section(
             hd_number="410",
             species_group="elk",
@@ -1685,7 +1685,7 @@ class TestOtcCrossRowDiscrimination:
     ) -> None:
         """OTC-wins is cross-row regardless of artifact row order.
 
-        The current implementation pre-computes _otc_identities by scanning all
+        The current implementation pre-computes _otc_license_codes by scanning all
         rows before classifying any row. This test locks against a refactor
         that moves the OTC check inline (which would make classification depend
         on row order).
@@ -1708,6 +1708,42 @@ class TestOtcCrossRowDiscrimination:
                 f"row-order regression: expected 'over_the_counter' for both rows "
                 f"of identity ('elk', '999', 'Elk B License: 999-99'); "
                 f"got {tag.kind!r} for tag.id={tag.id!r}"
+            )
+
+    def test_otc_propagates_across_different_hds_for_same_license_code(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        """OTC-wins discipline is cross-HD: if ANY HD section for a given license_code
+        has 'OTC' in its apply_by, ALL other HD sections sharing that license_code
+        must also classify as over_the_counter.
+
+        Locks the cross-HD invariant introduced by the P1 cubic-review fix:
+        _otc_license_codes is keyed by license_code alone (not by (species, hd,
+        license_code)), so the OTC signal from one HD propagates to every other HD
+        that cross-lists the same physical license.
+        """
+        # Section A: HD 801, "Elk B License: 801-00" — OTC apply_by
+        section_a = _make_b_license_section(
+            hd_number="801",
+            species_group="elk",
+            license_code="Elk B License: 801-00",
+            apply_by_values=["OTC:\nJun 15"],
+        )
+        # Section B: HD 802, SAME "Elk B License: 801-00" cross-listed — drawing deadline
+        section_b = _make_b_license_section(
+            hd_number="802",
+            species_group="elk",
+            license_code="Elk B License: 801-00",
+            apply_by_values=["Jun 1"],
+        )
+        tags = _build_dea_license_tags([section_a, section_b], mock_dea_citation)
+        assert len(tags) == 2
+        for tag in tags:
+            assert tag.kind == "over_the_counter", (
+                f"cross-HD propagation: expected 'over_the_counter' for BOTH HD 801 "
+                f"and HD 802 instances of 'Elk B License: 801-00'; "
+                f"got {tag.kind!r} for tag.id={tag.id!r}. "
+                f"OTC signal from HD 801 must demote HD 802 cross-listing."
             )
 
     def test_non_string_apply_by_raises_runtimeerror(self) -> None:
@@ -1773,11 +1809,17 @@ class TestRealArtifactKindCountsAfterOtcDiscrimination:
     """Real-artifact regression locks the PM-confirmed baseline.
 
     Post-amended-heuristic post-dedup counts MUST match (drift signal):
-    - 390 limited_draw
-    - 160 over_the_counter
+    - 388 limited_draw
+    - 162 over_the_counter
     - 239 general
     - 1 statewide
     Total: 790 DEA license_tag identities.
+
+    Baseline shift vs. S03.7: 390→388 limited_draw / 160→162 over_the_counter.
+    Two license_codes that appear in multiple HDs with MIXED OTC/non-OTC apply_by
+    values now correctly demote ALL their cross-HD instances to over_the_counter
+    (Deer B License: 395-01; Elk B License: 004-00).  Under the prior per-identity
+    keying, the non-OTC HD instances were incorrectly classified as limited_draw.
     """
 
     def test_real_artifact_kind_distribution(
@@ -1801,11 +1843,11 @@ class TestRealArtifactKindCountsAfterOtcDiscrimination:
         deduped: dict[str, str] = {t.id: t.kind for t in tags}
         kind_counts = Counter(deduped.values())
 
-        assert kind_counts["limited_draw"] == 390, (
-            f"Expected 390 limited_draw; got {kind_counts['limited_draw']}"
+        assert kind_counts["limited_draw"] == 388, (
+            f"Expected 388 limited_draw; got {kind_counts['limited_draw']}"
         )
-        assert kind_counts["over_the_counter"] == 160, (
-            f"Expected 160 over_the_counter; got {kind_counts['over_the_counter']}"
+        assert kind_counts["over_the_counter"] == 162, (
+            f"Expected 162 over_the_counter; got {kind_counts['over_the_counter']}"
         )
         assert kind_counts["general"] == 239, (
             f"Expected 239 general; got {kind_counts['general']}"
