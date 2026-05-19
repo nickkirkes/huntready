@@ -1,0 +1,54 @@
+ingestion/states/montana/load_seasons_and_licenses.py
+  s_c867ccd21eb3fa::t_8d7c4e2bc64a2f 986-988
+  s_c867ccd21eb3fa::t_107ce1205ae68e 993-995,1000-1006
+  s_c867ccd21eb3fa::t_28d7362df0a574 1029-1033
+ingestion/tests/test_load_draw_specs.py
+  s_c867ccd21eb3fa::t_655c8f7d2c36a3 427,430,433,436
+  s_c867ccd21eb3fa::t_68e1b0489ff09f 457,461-462,466,473-474,478,485-486
+  s_c867ccd21eb3fa::t_1db08fe3eaad92 687-736
+  s_c867ccd21eb3fa::t_7816acc7935374 898-899
+  s_c867ccd21eb3fa::t_de2830d982a960 909-937
+docs/planning/epics/E03-confidence-findings/S03.8.md
+  s_c867ccd21eb3fa::t_19222a12f89bcf 128
+  s_c867ccd21eb3fa::t_c80a023748e754 121
+  s_c867ccd21eb3fa::t_421ea8136baf98 154
+  s_c867ccd21eb3fa::t_75b2bcbe34bb7c 13
+  s_c867ccd21eb3fa::t_05d253a427ba2b 21,23,25,29-30,35
+  s_c867ccd21eb3fa::t_87d7e916f4fd55 3
+  s_c867ccd21eb3fa::t_53195fb627423a 40
+  s_c867ccd21eb3fa::t_61ac60630d88f6 143
+ingestion/states/montana/load_draw_specs.py
+  s_c867ccd21eb3fa::t_fbd3ec60c37e97 626
+  s_c867ccd21eb3fa::t_b2a39b338a2dee 736-751,754,767,770,801
+  s_c867ccd21eb3fa::t_ef52e13a8507b2 61-65
+  s_c867ccd21eb3fa::t_a8e3bd70503156 168-173
+  s_c867ccd21eb3fa::t_b2770ee6346bd7 468-472,481-482
+  s_c867ccd21eb3fa::t_9d3726aab47600 664-665
+  s_c867ccd21eb3fa::t_23dc9682e400ba 811
+  s_c867ccd21eb3fa::t_cb534dd11c0a78 518-523,526-546
+  s_c867ccd21eb3fa::t_ee88a11509926c 11-21,24
+  s_c867ccd21eb3fa::t_aedc35a7942711 589,591-593
+ingestion/tests/test_load_seasons_and_licenses.py
+  s_c867ccd21eb3fa::t_e63c33d40a8142 1688
+  s_c867ccd21eb3fa::t_36ca6a1b445a75 1725,1727,1729,1732,1734,1736,1743-1744,1746
+  s_c867ccd21eb3fa::t_eb0ae3ec22744f 1812-1813,1817-1822
+  s_c867ccd21eb3fa::t_4a726a9fc86fd8 1846-1847,1849-1850
+  s_c867ccd21eb3fa::t_408dde6d74ba04 1713-1724,1726,1728,1730-1731,1733,1735,1737-1742,1745,1747-1748
+  s_c867ccd21eb3fa::t_458f84788aba7e 1654,1658-1659
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.9",
+  "base_commit_sha": "d68b548d9ad57f066ed4f2a9e16acf0a598ac186",
+  "prompts": {},
+  "sessions": {
+    "s_c867ccd21eb3fa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "845e0d9a-015b-4dbc-a130-98f7d0bfcda6",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
