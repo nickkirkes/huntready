@@ -1,0 +1,36 @@
+ingestion/states/montana/load_reporting_obligations.py
+  s_e3c1c837a34c28::t_2890c2f767582b 180
+  s_e3c1c837a34c28::t_f31a0536b1ea5c 161
+ingestion/ingestion/lib/db.py
+  s_e3c1c837a34c28::t_af3250df917785 682
+docs/planning/epics/E03-confidence-findings/S03.9.md
+  s_e3c1c837a34c28::t_82b13897f022f6 167
+docs/plans/S03.9-reporting-obligation-ingestion-plan.md
+  s_e3c1c837a34c28::t_b6d7abe860ff74 385
+  s_e3c1c837a34c28::t_86ed5994be7eb2 115
+  s_e3c1c837a34c28::t_42dec91ad78ae4 232
+  s_e3c1c837a34c28::t_07be2a3bda0dd8 106
+ingestion/tests/test_load_reporting_obligations.py
+  s_e3c1c837a34c28::t_813fbd750fb34a 490,492
+  s_e3c1c837a34c28::t_09c96e41d9b1b1 569,577-578,581,584-586
+  s_e3c1c837a34c28::t_0d724560f962c3 640
+ingestion/tests/test_db.py
+  s_e3c1c837a34c28::t_e106bd85372d9f 362-365
+  s_e3c1c837a34c28::t_f5f968e7537a6c 309
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "2f5d6e4e83b5fd0b3bedb644ec46545421f7e247",
+  "prompts": {},
+  "sessions": {
+    "s_e3c1c837a34c28": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01af123c-fc7c-44b8-b34a-2b6f93215223",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
