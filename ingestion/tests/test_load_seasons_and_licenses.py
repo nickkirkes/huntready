@@ -49,6 +49,7 @@ from states.montana.load_seasons_and_licenses import (
     _license_tag_id,
     _parse_quota_range,
     _parse_window,
+    _row_has_otc,
     _season_definition_id,
     main,
 )
@@ -1536,3 +1537,324 @@ class TestMain:
             # Raises RuntimeError if any guard fails — test fails if so.
             exit_code = main(["--dry-run"])
         assert exit_code == 0
+
+
+# ---------------------------------------------------------------------------
+# TestOtcCrossRowDiscrimination
+# ---------------------------------------------------------------------------
+
+
+def _make_b_license_section(
+    hd_number: str,
+    species_group: str,
+    license_code: str,
+    apply_by_values: list[str | None],
+) -> dict:
+    """Build a minimal synthetic DEA section with one or more B License rows.
+
+    Each entry in apply_by_values produces one row with the same identity
+    (species_group, hd_number, license_code) but the given apply_by value.
+    """
+    rows = [
+        {
+            "license_code": license_code,
+            "opportunity": "Test Opportunity",
+            "apply_by": apply_by,
+            "quota": None,
+            "quota_range": None,
+            "season_coverage": {"general": True},
+            "season_windows": {
+                "general": {"window": "Oct 24-Nov 29", "weapon_type_override": None},
+            },
+            "weapon_types": ["any_legal_weapon"],
+            "extras": None,
+            "extraction_confidence": "high",
+            "page_reference": _BASE_PAGE_REF,
+        }
+        for apply_by in apply_by_values
+    ]
+    return {
+        "hd_number": hd_number,
+        "hd_name": f"HD {hd_number}",
+        "species_group": species_group,
+        "license_year": 2026,
+        "page_reference": _BASE_PAGE_REF,
+        "verbatim_text": f"HD {hd_number} {species_group} verbatim text",
+        "rows": rows,
+    }
+
+
+class TestOtcCrossRowDiscrimination:
+    """Locks the cross-row OTC-wins discipline in _DEA_LICENSE_KIND_HEURISTIC.
+
+    A B License identity (species, hd, license_code) classifies as 'over_the_counter'
+    if ANY artifact row for that identity has 'OTC' in its apply_by; else 'limited_draw'.
+    """
+
+    def test_single_b_license_drawing_classifies_limited_draw(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        section = _make_b_license_section(
+            hd_number="262",
+            species_group="elk",
+            license_code="Elk B License: 262-50",
+            apply_by_values=["Jun 1"],
+        )
+        tags = _build_dea_license_tags([section], mock_dea_citation)
+        assert len(tags) == 1
+        assert tags[0].kind == "limited_draw"
+
+    def test_single_b_license_otc_classifies_over_the_counter(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        section = _make_b_license_section(
+            hd_number="170",
+            species_group="deer",
+            license_code="Deer B License: 170-00",
+            apply_by_values=["OTC:\nJun 15"],
+        )
+        tags = _build_dea_license_tags([section], mock_dea_citation)
+        assert len(tags) == 1
+        assert tags[0].kind == "over_the_counter"
+
+    def test_duplicate_identity_otc_then_null_otc_wins(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        # Two rows with the SAME identity: row 1 has OTC apply_by, row 2 has None.
+        # OTC-wins: BOTH rows' tags must be over_the_counter.
+        section = _make_b_license_section(
+            hd_number="213",
+            species_group="deer",
+            license_code="Deer B License: 213-02",
+            apply_by_values=["OTC:\nJun 15", None],
+        )
+        tags = _build_dea_license_tags([section], mock_dea_citation)
+        assert len(tags) == 2
+        assert all(t.kind == "over_the_counter" for t in tags), (
+            f"Expected both tags to be over_the_counter; got {[t.kind for t in tags]}"
+        )
+
+    def test_duplicate_identity_drawing_then_null_stays_limited_draw(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        # Two rows with the SAME identity: row 1 has a drawing deadline, row 2 has None.
+        # No OTC in any apply_by → BOTH rows' tags must be limited_draw.
+        section = _make_b_license_section(
+            hd_number="300",
+            species_group="elk",
+            license_code="Elk B License: 300-00",
+            apply_by_values=["Jun 1", None],
+        )
+        tags = _build_dea_license_tags([section], mock_dea_citation)
+        assert len(tags) == 2
+        assert all(t.kind == "limited_draw" for t in tags), (
+            f"Expected both tags to be limited_draw; got {[t.kind for t in tags]}"
+        )
+
+    def test_otc_in_one_section_does_not_leak_to_different_license_code(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        # HD A has OTC apply_by; HD B has a drawing deadline apply_by.
+        # The two sections use DIFFERENT license_codes (410-00 vs 411-00).
+        # OTC propagates by license_code only — different codes must not affect each other.
+        section_a = _make_b_license_section(
+            hd_number="410",
+            species_group="elk",
+            license_code="Elk B License: 410-00",
+            apply_by_values=["OTC:\nJun 15"],
+        )
+        section_b = _make_b_license_section(
+            hd_number="411",
+            species_group="elk",
+            license_code="Elk B License: 411-00",
+            apply_by_values=["Jun 1"],
+        )
+        tags = _build_dea_license_tags([section_a, section_b], mock_dea_citation)
+        assert len(tags) == 2
+        tag_a = next(t for t in tags if t.license_code == "Elk B License: 410-00")
+        tag_b = next(t for t in tags if t.license_code == "Elk B License: 411-00")
+        assert tag_a.kind == "over_the_counter", (
+            f"HD 410 tag should be over_the_counter; got {tag_a.kind!r}"
+        )
+        assert tag_b.kind == "limited_draw", (
+            f"HD 411 tag should be limited_draw; got {tag_b.kind!r}"
+        )
+
+    def test_duplicate_identity_null_then_otc_still_otc_wins(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        """OTC-wins is cross-row regardless of artifact row order.
+
+        The current implementation pre-computes _otc_license_codes by scanning all
+        rows before classifying any row. This test locks against a refactor
+        that moves the OTC check inline (which would make classification depend
+        on row order).
+
+        Reversed fixture from test_duplicate_identity_otc_then_null_otc_wins:
+        Row 1 is null (no OTC signal); Row 2 has OTC apply_by. Both rows MUST
+        classify as over_the_counter — the OTC signal from the LATER row must
+        demote the EARLIER row.
+        """
+        section = _make_b_license_section(
+            hd_number="999",
+            species_group="elk",
+            license_code="Elk B License: 999-99",
+            apply_by_values=[None, "OTC:\nJun 15"],
+        )
+        tags = _build_dea_license_tags([section], mock_dea_citation)
+        assert len(tags) == 2
+        for tag in tags:
+            assert tag.kind == "over_the_counter", (
+                f"row-order regression: expected 'over_the_counter' for both rows "
+                f"of identity ('elk', '999', 'Elk B License: 999-99'); "
+                f"got {tag.kind!r} for tag.id={tag.id!r}"
+            )
+
+    def test_otc_propagates_across_different_hds_for_same_license_code(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        """OTC-wins discipline is cross-HD: if ANY HD section for a given license_code
+        has 'OTC' in its apply_by, ALL other HD sections sharing that license_code
+        must also classify as over_the_counter.
+
+        Locks the cross-HD invariant introduced by the P1 cubic-review fix:
+        _otc_license_codes is keyed by license_code alone (not by (species, hd,
+        license_code)), so the OTC signal from one HD propagates to every other HD
+        that cross-lists the same physical license.
+        """
+        # Section A: HD 801, "Elk B License: 801-00" — OTC apply_by
+        section_a = _make_b_license_section(
+            hd_number="801",
+            species_group="elk",
+            license_code="Elk B License: 801-00",
+            apply_by_values=["OTC:\nJun 15"],
+        )
+        # Section B: HD 802, SAME "Elk B License: 801-00" cross-listed — drawing deadline
+        section_b = _make_b_license_section(
+            hd_number="802",
+            species_group="elk",
+            license_code="Elk B License: 801-00",
+            apply_by_values=["Jun 1"],
+        )
+        tags = _build_dea_license_tags([section_a, section_b], mock_dea_citation)
+        assert len(tags) == 2
+        for tag in tags:
+            assert tag.kind == "over_the_counter", (
+                f"cross-HD propagation: expected 'over_the_counter' for BOTH HD 801 "
+                f"and HD 802 instances of 'Elk B License: 801-00'; "
+                f"got {tag.kind!r} for tag.id={tag.id!r}. "
+                f"OTC signal from HD 801 must demote HD 802 cross-listing."
+            )
+
+    def test_non_string_apply_by_raises_runtimeerror(self) -> None:
+        """Synthetic row with apply_by=42 (int) → RuntimeError naming apply_by and schema drift."""
+        bad_row = {
+            "license_code": "Elk B License: 999-00",
+            "apply_by": 42,  # int, not str|None — schema drift
+            "quota": None,
+            "quota_range": None,
+            "season_coverage": {"general": True},
+            "season_windows": {
+                "general": {"window": "Oct 24-Nov 29", "weapon_type_override": None},
+            },
+            "weapon_types": ["any_legal_weapon"],
+            "extras": None,
+            "extraction_confidence": "high",
+            "page_reference": _BASE_PAGE_REF,
+        }
+        with pytest.raises(RuntimeError, match="apply_by") as exc_info:
+            _row_has_otc(bad_row)
+        assert "schema drift" in str(exc_info.value), (
+            f"RuntimeError message must mention 'schema drift'; got: {exc_info.value!r}"
+        )
+
+    def test_absent_apply_by_key_raises_runtimeerror(self) -> None:
+        """Synthetic row WITHOUT an apply_by key entirely → RuntimeError.
+
+        Distinguishes "key removed from artifact schema" (drift) from
+        "key present with None value" (legitimate). The bare `.get()`
+        idiom collapses both cases to None silently; an absent-key check
+        surfaces schema drift loudly.
+        """
+        bad_row = {
+            "license_code": "Elk B License: 999-00",
+            # NOTE: no "apply_by" key at all (schema-drift scenario)
+            "quota": None,
+            "quota_range": None,
+            "season_coverage": {"general": True},
+            "season_windows": {
+                "general": {"window": "Oct 24-Nov 29", "weapon_type_override": None},
+            },
+            "weapon_types": ["any_legal_weapon"],
+            "extras": None,
+            "extraction_confidence": "high",
+            "page_reference": _BASE_PAGE_REF,
+        }
+        with pytest.raises(RuntimeError, match="apply_by") as exc_info:
+            _row_has_otc(bad_row)
+        assert "missing" in str(exc_info.value), (
+            f"RuntimeError message must mention 'missing'; got: {exc_info.value!r}"
+        )
+        assert "schema drift" in str(exc_info.value), (
+            f"RuntimeError message must mention 'schema drift'; got: {exc_info.value!r}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestRealArtifactKindCountsAfterOtcDiscrimination
+# ---------------------------------------------------------------------------
+
+
+class TestRealArtifactKindCountsAfterOtcDiscrimination:
+    """Real-artifact regression locks the PM-confirmed baseline.
+
+    Post-amended-heuristic post-dedup counts MUST match (drift signal):
+    - 388 limited_draw
+    - 162 over_the_counter
+    - 239 general
+    - 1 statewide
+    Total: 790 DEA license_tag identities.
+
+    Baseline shift vs. S03.7: 390→388 limited_draw / 160→162 over_the_counter.
+    Two license_codes that appear in multiple HDs with MIXED OTC/non-OTC apply_by
+    values now correctly demote ALL their cross-HD instances to over_the_counter
+    (Deer B License: 395-01; Elk B License: 004-00).  Under the prior per-identity
+    keying, the non-OTC HD instances were incorrectly classified as limited_draw.
+    """
+
+    def test_real_artifact_kind_distribution(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        import json
+        import pathlib
+        from collections import Counter
+
+        artifact_path = (
+            pathlib.Path(__file__).parent.parent
+            / "states" / "montana" / "extracted" / "dea-2026.json"
+        )
+        with artifact_path.open() as f:
+            dea_artifact = json.load(f)
+
+        tags = _build_dea_license_tags(dea_artifact, mock_dea_citation)
+
+        # Dedup by id (mirrors DB upsert behavior: last-write-wins on structural fields;
+        # only kind is needed here so any collision produces the same kind value).
+        deduped: dict[str, str] = {t.id: t.kind for t in tags}
+        kind_counts = Counter(deduped.values())
+
+        assert kind_counts["limited_draw"] == 388, (
+            f"Expected 388 limited_draw; got {kind_counts['limited_draw']}"
+        )
+        assert kind_counts["over_the_counter"] == 162, (
+            f"Expected 162 over_the_counter; got {kind_counts['over_the_counter']}"
+        )
+        assert kind_counts["general"] == 239, (
+            f"Expected 239 general; got {kind_counts['general']}"
+        )
+        assert kind_counts["statewide"] == 1, (
+            f"Expected 1 statewide; got {kind_counts['statewide']}"
+        )
+        assert sum(kind_counts.values()) == 790, (
+            f"Expected 790 total deduped tags; got {sum(kind_counts.values())}"
+        )

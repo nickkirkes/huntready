@@ -915,6 +915,50 @@ def _build_dea_season_definitions(
 
 
 # ---------------------------------------------------------------------------
+# OTC row helper (F6) — used by _build_dea_license_tags
+# ---------------------------------------------------------------------------
+
+
+def _row_has_otc(row: dict) -> bool:
+    """True if row's apply_by is a string containing the 'OTC' substring.
+
+    Fails loud on absent `apply_by` key OR non-str / non-None value —
+    artifact schema drift signal. The absent-key check distinguishes
+    "key removed from artifact schema" (drift, must surface) from
+    "key present with explicit None value" (legitimate absence of a
+    deadline, treated as no-OTC).
+
+    Args:
+        row: A single DEA artifact row dict.
+
+    Returns:
+        True if apply_by is a non-empty string containing 'OTC', False if
+        apply_by is None or a string not containing 'OTC'.
+
+    Raises:
+        RuntimeError: if the `apply_by` key is missing from `row` (schema
+            drift) or if its value is neither str nor None.
+    """
+    if "apply_by" not in row:
+        msg = (
+            f"_row_has_otc: `apply_by` key missing from artifact row "
+            f"with license_code={row.get('license_code')!r}. Artifact "
+            f"schema drift? Expected str|None."
+        )
+        raise RuntimeError(msg)
+    apply_by = row["apply_by"]
+    if apply_by is None:
+        return False
+    if not isinstance(apply_by, str):
+        msg = (
+            f"_row_has_otc: expected apply_by to be str|None, got "
+            f"{type(apply_by).__name__}: {apply_by!r}. Artifact schema drift?"
+        )
+        raise RuntimeError(msg)
+    return "OTC" in apply_by
+
+
+# ---------------------------------------------------------------------------
 # DEA license_tag builder (T6)
 # ---------------------------------------------------------------------------
 
@@ -939,14 +983,32 @@ def _build_dea_license_tags(
     Kind heuristic (OQ-S7-7, first-match-wins):
     (a) hd_number == "STATEWIDE"         → "statewide"
     (b) license_code.startswith("General ") → "general"
-    (c) "B License" in license_code       → "limited_draw"
+    (c) "B License" in license_code       → "over_the_counter" if license_code appears in
+                                             ANY artifact row (across ALL HD sections) with
+                                             "OTC" in its apply_by; else "limited_draw"
     (d) "Permit:" in license_code         → "limited_draw"
     (e) license_code.startswith("Antelope License:") → "limited_draw"
     (f) else: RuntimeError (fail-loud)
 
+    OTC-wins is cross-row AND cross-HD: any artifact row's `apply_by` containing
+    'OTC' demotes ALL rows of that license_code to over_the_counter, regardless
+    of which HD section they appear in.
+
     Raises:
         RuntimeError: if a license_code does not match any kind heuristic.
     """
+    # OTC-wins discipline is keyed by license_code (the physical-license identity)
+    # rather than by (species, hd, license_code) because the same license_code
+    # appears in multiple HD sections in the DEA booklet (cross-listing). All
+    # instances of one license_code must classify consistently — if ANY artifact
+    # row shows OTC for this license_code, ALL instances demote to over_the_counter.
+    _otc_license_codes: frozenset[str] = frozenset(
+        row["license_code"]
+        for section in dea_artifact
+        for row in section["rows"]
+        if _row_has_otc(row)
+    )
+
     tags: list[LicenseTag] = []
 
     for section in dea_artifact:
@@ -964,7 +1026,11 @@ def _build_dea_license_tags(
             elif license_code.startswith("General "):
                 kind = "general"
             elif "B License" in license_code:
-                kind = "limited_draw"
+                kind = (
+                    "over_the_counter"
+                    if license_code in _otc_license_codes
+                    else "limited_draw"
+                )
             elif "Permit:" in license_code:
                 kind = "limited_draw"
             elif license_code.startswith("Antelope License:"):
