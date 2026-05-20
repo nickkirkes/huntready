@@ -348,6 +348,41 @@ and when CO / WY data lands.
 
 ---
 
+## Q18: Does `reporting_obligation` model per-zone CWD sampling rules in V1?
+
+**Date opened:** 2026-05-20 (during S03.9 planning)
+**Status:** Open (M2 ADR candidate; V1 disposition: defer)
+
+### Context
+
+Montana V1 has 2 CWD zones (Kalispell, Libby). The 10-day-sampling sentence appears 5 times across 4 HDs (100/103/104/170) as per-license `extras` cells in `dea-2026.json`, already captured by S03.6 in `regulation_record.additional_rules`. The artifact pattern is **license-keyed**, not zone-keyed: HD 103's `Deer Permit: 103-50` (North Fisher Portion mule deer) carries the same sampling sentence, but that license is NOT inside the Libby CWD-zone overlap captured in `geometry-overlays.json`. The sampling mandate is bound to the LICENSE TYPE, not strictly geography.
+
+### Three sub-questions
+
+1. **Zone-keyed vs. license-keyed authority.** Joining `regulation_reporting` rows to `regulation_record` via CWD-zone-overlap from `geometry-overlays.json` would miss the `103-50` case. The license-keyed model is what's already in the artifact's per-row `extras`. If we promote CWD sampling to `reporting_obligation`, the join key from `regulation_reporting` is ambiguous.
+
+2. **Verbatim source duplication.** Each of the 4 HDs repeats the SAME sentence (Kalispell or Libby zone variant). If we write `reporting_obligation` rows from this, we get 4-5 near-duplicate rows differing only in the zone-name token. That's faithful to ADR-008 but is the wrong row shape.
+
+3. **What does V1 lose by deferring?** Per-HD CWD sampling rules ARE already in `regulation_record.additional_rules` after S03.6. Clients querying "what regulations apply to this HD?" already get the text. The only loss is the typed `kind="cwd_sample"` discrimination in `reporting_obligation`.
+
+### S03.9 disposition
+
+Ship 0 CWD-sampling `reporting_obligation` rows. Text is searchable via `regulation_record.additional_rules`. Revisit at M2 when Colorado lands a second CWD-state.
+
+### What moves this to a decision
+
+- Second CWD-state lands (Colorado) — confirms whether license-keyed vs. zone-keyed is a Montana quirk or a general pattern
+- M2 client requirement: does a consumer need to query "what CWD-sampling rules apply?" as a typed reporting_obligation, or is `regulation_record.additional_rules` containing the sentence sufficient?
+
+### Affected V1 entries
+
+Currently 5 verbatim occurrences across 4 HDs (100/103/104/170) in `regulation_record.additional_rules`. The 103-50 case is the canonical zone-vs-license edge case.
+
+**Working note:** [`docs/planning/epics/E03-confidence-findings/S03.9.md`](planning/epics/E03-confidence-findings/S03.9.md) § "Probe 2 — CWD sampling"
+**Deferred-items entry:** [`docs/planning/epics/E03-deferred-items/cwd-sampling-modeling.md`](planning/epics/E03-deferred-items/cwd-sampling-modeling.md)
+
+---
+
 ## Parking lot
 
 ### P1. Observability and error tracking

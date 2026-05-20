@@ -804,7 +804,7 @@ Montana V1 reporting obligations:
 
 1. **CWD sampling** (statewide where applicable): post-harvest CWD sample submission for deer/elk in CWD zones; details from DEA + Legal Descriptions
 2. **Bear ID coursework** (statewide): mandatory online course for first-time black bear hunters; details from Black Bear booklet
-3. **Mandatory harvest reporting** (statewide): general reporting obligation for all V1 species
+3. **Mandatory harvest reporting for black bear** (statewide): 48-hour personal harvest report. Carried into S03.9 as the STATEWIDE `harvest_report` row from the bear booklet. **Note:** the per-source authoritative list of mandatory-report species in Montana (per `fwp.mt.gov/hunt/regulations`) is black bear, wolf, marten, and migratory swans — deer / elk / pronghorn / mountain lion / moose / sheep / goat have no mandatory statewide reporting. The FWP Harvest Survey (DEA p. 31) is a voluntary telephone sampling program, not a `reporting_obligation`.
 4. **Region-specific bear inspection** — the R1 vs R2-7 distinction from S03.4
 
 **Region-1 inspection — TWO rows per S03.9:**
@@ -851,6 +851,52 @@ The R1 obligation has two distinct deadlines (48-hour report + 10-day teeth subm
 - [ ] Working note `docs/planning/epics/E03-confidence-findings/S03.9.md` records the HD→region mapping used for the R1 lookup (and any anomalies)
 - [ ] `ruff check`, `mypy` clean
 - [ ] Unit tests cover: applies_to_regions array construction, R1-split-row generation (2 rows), R2-7 row generation (1 row), CWD-overlap regulation_record selection
+
+---
+
+### S03.6.1: MT-STATEWIDE-bear anchor with Bear ID Test (queued post-S03.9)
+
+**Status:** queued post-S03.9 close; do not interleave. Carved out of S03.9 scope 2026-05-19 after Probe 1 (Bear ID coursework source-audit) showed the verbatim text is on page 2 of the bear booklet but `reporting_obligation` is the wrong target table — Bear ID Test is a **pre-purchase licensing prerequisite**, not a post-harvest or in-season duty.
+
+**As a** developer recording Montana's pre-purchase licensing prerequisites for black bear
+**I want** an `MT-STATEWIDE-bear` regulation_record carrying the Bear Identification Test requirement in `additional_rules`
+**So that** the rule lives with the regulation_record decomposed-entity story, not as a synthetic `reporting_obligation` that misrepresents its semantics
+
+**Pattern reference:** mirrors `MT-STATEWIDE-antelope` (S03.6 STATEWIDE anchor for DEA `900-20`). Pattern extension: antelope's anchor has populated `additional_rules` already (2 NOTE entries from in-section NOTE-prefixed lines via `_extract_note_lines`, confirmed 2026-05-20 pre-discovery verification). MT-STATEWIDE-bear's data shape differs — the Bear ID Test rule is page-2 right-column PROSE (not NOTE-prefixed), so a new extraction path is needed. Target-table pattern identical; extraction path novel. Surface as a pattern extension in S03.6.1 discovery, not a pure replay.
+
+**Verbatim text** (from Probe 1, 2026-05-19, `mt-fwp-black-bear-2026-booklet-2026-04-27.pdf` p. 2 right column under "Obtain a License"):
+
+> A hunter may purchase only one Black Bear License per year. A free Black Bear Identification Test Certificate is required to obtain a license. A hunter must take and pass a "Black Bear Identification test" before purchasing a Black Bear Hunting license. A hunter must present a certificate of completion issued by FWP at the time of purchase. The test is available online at: fwp.mt.gov/hunt/education/bear-identification
+
+**Upstream change (extraction):** Narrow amendment to `ingestion/states/montana/extract_black_bear.py` adding a page-2 right-column bbox + 2 regex anchors for the Bear ID Test paragraph. Page 2 is currently outside the scanned region (`_extract_reporting_obligations` is hard-scoped to `_CLOSURE_PROSE_PAGE = 7` right-column only — confirmed by Probe 1, 2026-05-19). The output artifact gets a new top-level field (e.g., `statewide_rules: list[StatewideRuleCandidate]` — exact shape part of S03.6.1's discovery); do NOT add a 4th entry to `reporting_obligations` since the target table is regulation_record.
+
+**Adapter change (S03.6 amendment):** Update `ingestion/states/montana/load_regulation_records.py` to recognize the new artifact field and emit one `RegulationRecord` row with:
+
+- `jurisdiction_code="MT-STATEWIDE-bear"`
+- `species_group="bear"`
+- `additional_rules` containing one `Rule` entry derived from the Bear ID Test verbatim text
+- Standard `SourceCitation` referencing the bear booklet at page 2
+
+**Row-count impact:** S03.6's `regulation_record` total goes from 436 → 437. Update `_REGULATION_RECORD_COUNT_GUARD` proportionally. S03.10 (jurisdiction_binding) consumes this new anchor too — verify whether `MT-STATEWIDE-bear` needs `MT-STATEWIDE-geom` as its parent geometry (per ADR-018 §3 statewide-anchor pattern, mirroring antelope's existing binding) or whether S03.10 already handles this generically.
+
+**Depends on:** S03.6 (already merged), S03.9 (must close first — do NOT interleave).
+
+**Estimated size:** small (~200-300 LOC across extraction + adapter + tests).
+
+**Working-note pointer:** see [`docs/planning/epics/E03-confidence-findings/S03.9.md`](E03-confidence-findings/S03.9.md) § "Probe 1 — Bear ID coursework" for the design-target rationale (target-table = regulation_record, not reporting_obligation) and the pre-discovery verification.
+
+**Acceptance Criteria (placeholder — refine at story start):**
+
+- [ ] `extract_black_bear.py` reads page-2 right-column verbatim text via new bbox + regex anchors; existing page-7-only scoping preserved
+- [ ] `black-bear-2026.json` carries the new field (shape TBD in S03.6.1 discovery); base + correction + merged manifests regenerated
+- [ ] `load_regulation_records.py` emits one new `RegulationRecord` with `jurisdiction_code="MT-STATEWIDE-bear"` and `species_group="bear"`, with the Bear ID Test rule in `additional_rules`
+- [ ] S03.6's row-count guard band updated (436 → 437)
+- [ ] Idempotency: rerunning the loader does not duplicate the row
+- [ ] Pre-discovery verification of `MT-STATEWIDE-antelope` `additional_rules` state recorded in S03.6.1 working note (pattern extension, not pure replay)
+- [ ] S03.10 jurisdiction_binding implication for `MT-STATEWIDE-bear` confirmed (or flagged for follow-up)
+- [ ] `ruff check`, `mypy` clean
+- [ ] Unit tests cover: page-2 bbox extraction, new artifact field shape, MT-STATEWIDE-bear row construction, idempotency
+- [ ] CLAUDE.md updated with row-count delta and S03.6.1 close note
 
 ---
 
@@ -1136,12 +1182,13 @@ PRD 001 § "Success criteria for the milestone" lists the 8 UAT-level criteria f
 - S03.11 → S03.12 (UAT criterion #8 needs the ADR — may already be ADR-017 unchanged, may be amendment)
 - All → S03.12 (milestone exit)
 
-**Recommended merge order:** S03.0 → S03.1 → S03.2 → S03.3 → S03.4 → S03.5 → S03.6 → S03.7 → S03.8 → S03.9 → S03.10 → S03.11 → S03.12
+**Recommended merge order:** S03.0 → S03.1 → S03.2 → S03.3 → S03.4 → S03.5 → S03.6 → S03.7 → S03.8 → S03.9 → S03.6.1 → S03.10 → S03.11 → S03.12
 
 **Parallelization opportunities:**
 - S03.3, S03.4, S03.5 are genuinely parallelizable: different booklets, disjoint output artifacts, no shared write keys.
 - S03.7, S03.8, S03.9 are partially parallel: S03.8 depends on S03.7; S03.9 is independent of both.
-- S03.10 needs S03.6 only (not S03.7-S03.9) for binding generation.
+- S03.6.1 is queued post-S03.9 (carved out 2026-05-19 — see § S03.6.1 placeholder); MUST NOT interleave with S03.9.
+- S03.10 needs S03.6 only (not S03.7-S03.9) for binding generation; if S03.10 starts before S03.6.1 ships, the `MT-STATEWIDE-bear` binding lands in a follow-up.
 - S03.11's draft can begin as soon as S03.7-S03.10 are at least partially in flight; finalization waits for them all.
 
 ---

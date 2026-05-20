@@ -527,6 +527,39 @@ Surfaced by S03.8 Stage 2 discovery probe on 2026-05-17.
 
 Surfaced by S03.8 Stage 2 B4 probe on 2026-05-17.
 
+### E03 story discovery — source-audit upstream artifacts for every epic-required row type before planning
+
+**Symptom:** An epic spec enumerates N output rows ("ingest 3-4 statewide reporting obligations: CWD sampling, Bear ID coursework, mandatory reporting, …"), but during implementation the upstream extraction artifact is missing the source text for one or more of them. Mid-pipeline gate decisions, scope-down probes, and unplanned upstream-amendment carve-outs result.
+
+**Cause:** Story specs are authored against expected source content (often based on prior-year PDFs or web pages); the upstream-artifact extraction job that S03.X depends on may not have captured each named row type. Without a pre-plan audit, the mismatch surfaces only after the discovery agent's codebase trace — late, expensive, and gate-blocking.
+
+**Fix:** The discovery agent's FIRST action for any S03.X story should be: enumerate the row types named in the epic spec, then grep the named upstream extraction artifacts for keywords matching each. Cheap (one grep per row type), catches scope mismatches before they reach the plan-review stage. Pattern bit twice — S03.8 B5 (Permit-row sub-rows missing from artifact), S03.9 three-blocker (Bear ID coursework, CWD sampling unified section, all-species mandatory reporting all missing from artifact).
+
+Surfaced by S03.9 Stage 2 three-blocker probe on 2026-05-19.
+
+### `reporting_obligation.kind` semantic boundary — post-harvest / in-season only
+
+**Symptom:** A rule that is a pre-purchase licensing prerequisite (e.g., Bear Identification Test, hunter education certification) gets modeled as a `reporting_obligation` row with `kind="mandatory_check"` or a new `kind="education"` enum value.
+
+**Cause:** `reporting_obligation` is defined in CLAUDE.md as "post-harvest/in-season duties." Pre-purchase prerequisites are operationally distinct — the hunter must complete them BEFORE they can buy the license, not AFTER they harvest an animal. Conflating the two would mis-answer consumer queries like "what mandatory checks does a successful hunter perform?" because the same `kind="mandatory_check"` value would mix check-station physical inspection of harvested animals with one-time pre-purchase certification.
+
+**Fix:** Pre-purchase prerequisites belong in `regulation_record.additional_rules` keyed by a STATEWIDE anchor (e.g., `MT-STATEWIDE-bear`), mirroring the existing `MT-STATEWIDE-antelope` pattern from S03.6. The decomposed-entity story (ADR-010) is the right home for STATEWIDE pre-purchase rules; do not extend `reporting_obligation` to carry rules that aren't reporting or obligations. Concrete carve-out example: S03.6.1 (queued post-S03.9) writes `MT-STATEWIDE-bear` with the Bear ID Test verbatim text in `additional_rules`.
+
+Surfaced by S03.9 Probe 1 on 2026-05-19 (PM reversed the initial "fold into S03.9" recommendation after the target-table mismatch was identified).
+
+### `submission_method` interpretation for multi-modal source text
+
+**Symptom:** A `reporting_obligation`'s verbatim source text lists multiple submission channels (e.g., "deliver in person or by mail," "call 1-877-FWPWILD or use MyFWP portal at fwp.mt.gov"), but the schema `submission_method` Literal accepts ONE value. Picking arbitrarily creates audit-trail ambiguity; picking the wrong primary modality embeds wrong operational guidance.
+
+**Cause:** Schema design is single-modality but real source text is multi-modality. The structured field is a lossy summary of the verbatim text.
+
+**Fix:** Pick the FIRST channel mentioned in the verbatim (the headlined modality — the one the source authors led with). The full `verbatim_rule` preserves the source faithfully so the choice is non-lossy at the data layer; the structured `submission_method` is a hint, not authority. Document the call in the working note (which channel was picked, why, and what alternatives the verbatim lists). Concrete examples in V1 Montana bear reporting:
+
+- STATEWIDE harvest_report: verbatim leads "Harvest Reporting ................. 1-877-FWPWILD or 1-877-397-9453 or 406-444-0356 or through the MyFWP portal at fwp.mt.gov" → pick `"phone"` (toll-free phone is headlined). `submission_phone="1-877-FWPWILD"`; `submission_url="https://fwp.mt.gov"` for the MyFWP-portal hint.
+- R1 tooth_submission: verbatim says "deliver them to an FWP office within 10 days, either in person or by mail" → pick `"agency_office"` (FWP office leads; mail is the alternative).
+
+Surfaced by S03.9 Probe 1 on 2026-05-19.
+
 ## Conventions — Pre-commit & secrets
 
 ### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings
