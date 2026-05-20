@@ -487,9 +487,9 @@ class TestBuildRegulationReportingLinks:
         real_obligations: list[ReportingObligation],
         real_bear_artifact: dict,
     ) -> None:
-        """Every link must have state='MT' and license_year=2026."""
+        """Every link must have state='US-MT' (ISO 3166-2 per DDL) and license_year=2026."""
         links = _build_regulation_reporting_links(real_obligations, real_bear_artifact)
-        bad_state = [link for link in links if link.state != "MT"]
+        bad_state = [link for link in links if link.state != "US-MT"]
         bad_year = [link for link in links if link.license_year != 2026]
         assert bad_state == [], f"Links with wrong state: {bad_state[:3]}"
         assert bad_year == [], f"Links with wrong license_year: {bad_year[:3]}"
@@ -566,7 +566,7 @@ class TestBuildRegulationReportingLinks:
 
 
 class TestCountGuards:
-    # reporting_obligation band: expected=3, lo=2, hi=5
+    # reporting_obligation band: expected=3, lo=2, hi=4 (strict ±30% — floor(2.1)=2, ceil(3.9)=4)
 
     def test_reporting_obligation_band_passes_at_3(self) -> None:
         _assert_reporting_obligation_count_within_guard(3)  # baseline — must not raise
@@ -574,16 +574,16 @@ class TestCountGuards:
     def test_reporting_obligation_band_passes_at_2(self) -> None:
         _assert_reporting_obligation_count_within_guard(2)  # lower bound
 
-    def test_reporting_obligation_band_passes_at_5(self) -> None:
-        _assert_reporting_obligation_count_within_guard(5)  # upper bound
+    def test_reporting_obligation_band_passes_at_4(self) -> None:
+        _assert_reporting_obligation_count_within_guard(4)  # upper bound
 
     def test_reporting_obligation_band_raises_below_2(self) -> None:
-        with pytest.raises(RuntimeError, match=r"\[2, 5\]"):
+        with pytest.raises(RuntimeError, match=r"\[2, 4\]"):
             _assert_reporting_obligation_count_within_guard(1)
 
-    def test_reporting_obligation_band_raises_above_5(self) -> None:
-        with pytest.raises(RuntimeError, match=r"\[2, 5\]"):
-            _assert_reporting_obligation_count_within_guard(6)
+    def test_reporting_obligation_band_raises_above_4(self) -> None:
+        with pytest.raises(RuntimeError, match=r"\[2, 4\]"):
+            _assert_reporting_obligation_count_within_guard(5)
 
     # regulation_reporting band: expected=70, lo=49, hi=91
 
@@ -637,7 +637,7 @@ class TestMain:
             raise AssertionError("db.connect must NOT be called when guard fails")
 
         monkeypatch.setattr(lro.db, "connect", _no_connect)
-        # Return empty list → 0 obligations → guard band [2, 5] violated
+        # Return empty list → 0 obligations → guard band [2, 4] violated
         monkeypatch.setattr(
             lro,
             "_build_reporting_obligations",

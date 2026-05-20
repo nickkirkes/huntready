@@ -306,7 +306,7 @@ def _make_r2to7_obligation() -> ReportingObligation:
 
 def _make_regulation_reporting_link() -> RegulationReporting:
     return RegulationReporting(
-        state="MT",
+        state="US-MT",
         jurisdiction_code="MT-HD-bear-100",
         species_group="bear",
         license_year=2026,
@@ -359,8 +359,10 @@ class TestUpsertReportingObligation:
         # source is the last param (index 10)
         source_param = params[10]
         assert isinstance(source_param, Json)
-        # The dict inside must match model_dump(mode="json")
-        assert source_param.obj == obligation.source.model_dump(mode="json")
+        # The dict inside must match model_dump(exclude_none=True) — matches every
+        # other jsonb writer in db.py and avoids emitting explicit JSON nulls for
+        # optional SourceCitation fields (supersedes=None, etc.).
+        assert source_param.obj == obligation.source.model_dump(exclude_none=True)
 
     def test_upsert_handles_nullable_fields(self) -> None:
         """Nullable fields must pass through as None to psycopg.

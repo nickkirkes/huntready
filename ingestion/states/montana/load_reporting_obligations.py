@@ -158,7 +158,7 @@ _LOGGER = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-_MT_STATE_CODE: Final[str] = "MT"
+_MT_STATE_CODE: Final[str] = "US-MT"
 _LICENSE_YEAR: Final[int] = 2026
 _BEAR_SPECIES_GROUP: Final[str] = "bear"  # DB value; artifact top-level is "black_bear" — do not confuse
 
@@ -177,7 +177,7 @@ _EXPECTED_REPORTING_OBLIGATION_COUNT: Final[int] = 3
 _EXPECTED_REGULATION_REPORTING_COUNT: Final[int] = 70
 
 # ±30% bands fire BEFORE db.connect()
-_REPORTING_OBLIGATION_COUNT_GUARD_BAND: Final[tuple[int, int]] = (2, 5)
+_REPORTING_OBLIGATION_COUNT_GUARD_BAND: Final[tuple[int, int]] = (2, 4)
 _REGULATION_REPORTING_COUNT_GUARD_BAND: Final[tuple[int, int]] = (49, 91)
 
 

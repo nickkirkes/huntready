@@ -679,7 +679,7 @@ def upsert_reporting_obligation(
         conn: An open psycopg3 connection.
         obligation: The ``ReportingObligation`` instance to persist.
     """
-    source_json = Json(obligation.source.model_dump(mode="json"))
+    source_json = Json(obligation.source.model_dump(exclude_none=True))
     params: tuple[object, ...] = (
         obligation.id,
         obligation.kind,
