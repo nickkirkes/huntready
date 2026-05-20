@@ -1,0 +1,64 @@
+docs/planning/epics/E03-deferred-items/README.md
+  s_e3c1c837a34c28::t_8b7a6b1861b3de 22-23
+docs/planning/epics/E03-confidence-findings/S03.9.md
+  s_e3c1c837a34c28::t_dec0a50b9ef56c 1-200
+docs/plans/S03.9-reporting-obligation-ingestion-plan.md
+  s_e3c1c837a34c28::t_35160dc75686e5 227
+  s_e3c1c837a34c28::t_7d1ee7ca24d22e 1-59,61,63-226,228-327,329-485
+  s_e3c1c837a34c28::t_e992275f94de1f 328
+  s_e3c1c837a34c28::t_ce4ecb13aa53f3 60,62
+ingestion/ingestion/lib/db.py
+  s_e3c1c837a34c28::t_fbd3005e2d4072 48,51,53
+  s_e3c1c837a34c28::t_77b38f68660949 194-217
+  s_e3c1c837a34c28::t_3e2d98918f8179 656-739
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_e3c1c837a34c28::t_915d4ada73d989 857-902
+  s_e3c1c837a34c28::t_7578bd8953f074 1185,1190-1191
+  s_e3c1c837a34c28::t_d46b1da5d46be4 807
+ingestion/states/montana/load_reporting_obligations.py
+  s_e3c1c837a34c28::t_d3e82204308862 154
+  s_e3c1c837a34c28::t_8059beca062584 370-424,434-488
+  s_e3c1c837a34c28::t_af9928e1907fc8 140
+  s_e3c1c837a34c28::t_c3bfe0ad3941e1 1-135,137-139,141,143-145,147-153,155-184,257-261,364-369,489-491,493,508,510,512,526,528,551-553,559-561,622-625
+  s_e3c1c837a34c28::t_9eb402a07a38c1 492,494-507,509,511,513-525,527,529-550,554-558,562-621
+  s_e3c1c837a34c28::t_2bb73166d88f0b 200-207,210-212
+  s_e3c1c837a34c28::t_2fd917007d8f1d 185-199,208-209,213-256
+  s_e3c1c837a34c28::t_88028178ddc2bd 262-296,305-334,336-340,342-343,345-363
+  s_e3c1c837a34c28::t_05ec4d33af3f0f 136,142
+  s_e3c1c837a34c28::t_7ee4dc56a7fe6d 297-304
+  s_e3c1c837a34c28::t_1a9257afab1b48 335,341,344
+  s_e3c1c837a34c28::t_870412bf687cbd 146
+  s_e3c1c837a34c28::t_b3ba3e2e321a2c 425-433
+docs/planning/epics/E03-deferred-items/cwd-sampling-modeling.md
+  s_e3c1c837a34c28::t_8e7811bf42c347 1-44
+ingestion/tests/test_load_reporting_obligations.py
+  s_e3c1c837a34c28::t_bade6176784be2 1-26,28-692
+  s_e3c1c837a34c28::t_5772358f2e34ae 27
+.roughly/known-pitfalls.md
+  s_e3c1c837a34c28::t_910705372a5089 530-562
+docs/open-questions.md
+  s_e3c1c837a34c28::t_7c001d05d80424 351-385
+ingestion/tests/test_db.py
+  s_e3c1c837a34c28::t_a1a67f15428bf8 231-250,252-256,260-269,271,273-274,276-279,281-288,290,292-293,295-365,367,378,380-385,396-458
+  s_e3c1c837a34c28::t_7a9af71751e6fa 251,257-259,270,272,275,280,289,291,294
+  s_e3c1c837a34c28::t_82942d8fcf7a1c 10-17
+  s_e3c1c837a34c28::t_719a66741fb222 366,368-377,379,386-395
+CLAUDE.md
+  s_e3c1c837a34c28::t_aba649230f19d2 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.10",
+  "base_commit_sha": "136454d62f4dec4fd72a0fbf29a6ac29fa85c95e",
+  "prompts": {},
+  "sessions": {
+    "s_e3c1c837a34c28": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01af123c-fc7c-44b8-b34a-2b6f93215223",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
