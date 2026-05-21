@@ -322,6 +322,53 @@ class TestBuildReportingObligations:
         with pytest.raises(RuntimeError, match=r"unknown source_id"):
             _build_reporting_obligations(artifact)
 
+    def test_source_entry_missing_id_key_raises_with_diagnostic(self) -> None:
+        """A source entry missing the 'id' key fails loud with index + keys present.
+
+        Defensive guard against opaque KeyError from the sources_by_id
+        comprehension. The reviewer flagged this site in cubic-review round 4
+        (2026-05-21).
+        """
+        artifact = _make_minimal_artifact()
+        # Drop the "id" key from the single source entry
+        del artifact["sources"][0]["id"]
+        with pytest.raises(
+            RuntimeError,
+            match=r"sources\[0\] missing required key 'id'",
+        ):
+            _build_reporting_obligations(artifact)
+
+    def test_source_entry_not_a_dict_raises_with_diagnostic(self) -> None:
+        """A non-dict source entry fails loud naming the index + type."""
+        artifact = _make_minimal_artifact()
+        artifact["sources"][0] = "not a dict"  # type: ignore[index]
+        with pytest.raises(
+            RuntimeError,
+            match=r"sources\[0\] is not a dict.*got str",
+        ):
+            _build_reporting_obligations(artifact)
+
+    def test_source_dict_missing_required_citation_field_raises_with_diagnostic(
+        self,
+    ) -> None:
+        """SourceCitation construction fails loud naming the bad source_id + missing key.
+
+        Defensive guard against opaque KeyError when source_dict has the 'id'
+        key (so the comprehension succeeds) but is missing a required
+        SourceCitation field like 'agency'.
+        """
+        artifact = _make_minimal_artifact()
+        # Drop "agency" — required by SourceCitation
+        del artifact["sources"][0]["agency"]
+        with pytest.raises(
+            RuntimeError,
+            match=(
+                r"source entry id='mt-fwp-black-bear-2026-booklet' missing "
+                r"required key 'agency'"
+            ),
+        ):
+            _build_reporting_obligations(artifact)
+
     def test_missing_reporting_obligations_key_raises(self) -> None:
         with pytest.raises(RuntimeError, match=r"reporting_obligations"):
             _build_reporting_obligations({})

@@ -409,7 +409,30 @@ def _build_reporting_obligations(bear_artifact: dict) -> list[ReportingObligatio
             f"re-run extract_black_bear.py and inspect the artifact"
         )
 
-    sources_by_id: dict[str, dict] = {s["id"]: s for s in raw_sources}
+    # Build sources_by_id with per-element shape validation. Bare comprehension
+    # `{s["id"]: s for s in raw_sources}` raises an opaque KeyError if any
+    # source entry is missing the "id" key — wrap with explicit diagnostics so
+    # operators can identify the malformed entry by index. Same fail-loud
+    # discipline applied to `raw_rows` row entries in
+    # _build_regulation_reporting_links.
+    sources_by_id: dict[str, dict] = {}
+    for source_index, source_entry in enumerate(raw_sources):
+        if not isinstance(source_entry, dict):
+            raise RuntimeError(
+                f"bear artifact sources[{source_index}] is not a dict "
+                f"(got {type(source_entry).__name__}); "
+                f"re-run extract_black_bear.py and inspect the artifact"
+            )
+        try:
+            entry_id = source_entry["id"]
+        except KeyError as exc:
+            raise RuntimeError(
+                f"bear artifact sources[{source_index}] missing required key "
+                f"{exc.args[0]!r}; entry keys present: "
+                f"{sorted(source_entry.keys())!r}; "
+                f"re-run extract_black_bear.py and inspect the artifact"
+            ) from exc
+        sources_by_id[entry_id] = source_entry
     if len(sources_by_id) != len(raw_sources):
         # ADR-001: silent overwrite of citation metadata would embed the wrong
         # authority URL in every downstream read. Fail loud on duplicate ids.
@@ -441,16 +464,28 @@ def _build_reporting_obligations(bear_artifact: dict) -> list[ReportingObligatio
         source_dict = sources_by_id[source_id]
         page_ref_str = pdf.page_reference_to_str(entry["page_reference"])
 
-        citation = SourceCitation(
-            id=source_dict["id"],
-            agency=source_dict["agency"],
-            title=source_dict["title"],
-            url=source_dict["url"],
-            publication_date=source_dict["publication_date"],
-            document_type=source_dict["document_type"],
-            supersedes=source_dict.get("supersedes"),
-            page_reference=page_ref_str,
-        )
+        # Bare key access on source_dict would raise an opaque KeyError if the
+        # source entry is missing a required SourceCitation field. Wrap with
+        # explicit diagnostic naming the bad source_id + missing key. The
+        # `supersedes` field is optional (defaults to None via .get).
+        try:
+            citation = SourceCitation(
+                id=source_dict["id"],
+                agency=source_dict["agency"],
+                title=source_dict["title"],
+                url=source_dict["url"],
+                publication_date=source_dict["publication_date"],
+                document_type=source_dict["document_type"],
+                supersedes=source_dict.get("supersedes"),
+                page_reference=page_ref_str,
+            )
+        except KeyError as exc:
+            raise RuntimeError(
+                f"bear artifact source entry id={source_id!r} missing required "
+                f"key {exc.args[0]!r}; entry keys present: "
+                f"{sorted(source_dict.keys())!r}; "
+                f"re-run extract_black_bear.py and inspect the artifact"
+            ) from exc
 
         obligation = ReportingObligation(
             id=f"{_ID_PREFIX}-{spec['id_suffix']}",
