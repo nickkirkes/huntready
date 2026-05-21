@@ -348,6 +348,31 @@ class TestBuildReportingObligations:
         ):
             _build_reporting_obligations(artifact)
 
+    def test_obligation_entry_not_a_dict_raises_with_diagnostic(self) -> None:
+        """A non-dict reporting_obligations entry fails loud naming the index + type."""
+        artifact = _make_minimal_artifact()
+        artifact["reporting_obligations"][0] = "not a dict"  # type: ignore[index]
+        with pytest.raises(
+            RuntimeError,
+            match=r"reporting_obligations\[0\] is not a dict.*got str",
+        ):
+            _build_reporting_obligations(artifact)
+
+    def test_obligation_entry_missing_required_key_raises_with_diagnostic(
+        self,
+    ) -> None:
+        """A reporting_obligations entry missing a required key fails loud."""
+        artifact = _make_minimal_artifact()
+        del artifact["reporting_obligations"][0]["verbatim_rule"]
+        with pytest.raises(
+            RuntimeError,
+            match=(
+                r"reporting_obligations\[0\] missing required key "
+                r"'verbatim_rule'"
+            ),
+        ):
+            _build_reporting_obligations(artifact)
+
     def test_source_dict_missing_required_citation_field_raises_with_diagnostic(
         self,
     ) -> None:
@@ -565,6 +590,27 @@ class TestBuildRegulationReportingLinks:
     ) -> None:
         with pytest.raises(RuntimeError, match=r"rows"):
             _build_regulation_reporting_links(real_obligations, {})
+
+    def test_row_entry_not_a_dict_raises_with_diagnostic(
+        self,
+        real_obligations: list[ReportingObligation],
+        real_bear_artifact: dict,
+    ) -> None:
+        """A non-dict rows entry fails loud BEFORE the KeyError handler runs.
+
+        The KeyError handler references `sorted(row.keys())` in its
+        diagnostic, which itself raises AttributeError if row is a non-dict.
+        The isinstance check must fire first.
+        """
+        # Deep-copy the artifact so we don't mutate the real fixture
+        import copy
+        artifact = copy.deepcopy(real_bear_artifact)
+        artifact["rows"][0] = "not a dict"  # type: ignore[index]
+        with pytest.raises(
+            RuntimeError,
+            match=r"rows\[0\] is not a dict.*got str",
+        ):
+            _build_regulation_reporting_links(real_obligations, artifact)
 
     def test_missing_expected_obligation_id_raises(
         self, real_bear_artifact: dict

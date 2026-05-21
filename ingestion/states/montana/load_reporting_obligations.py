@@ -443,9 +443,26 @@ def _build_reporting_obligations(bear_artifact: dict) -> list[ReportingObligatio
         )
 
     result: list[ReportingObligation] = []
-    for entry in raw_obligations:
-        region_scope = entry["region_scope"]
-        kind_hint = entry["kind_hint"]
+    for entry_index, entry in enumerate(raw_obligations):
+        if not isinstance(entry, dict):
+            raise RuntimeError(
+                f"bear artifact reporting_obligations[{entry_index}] is not a "
+                f"dict (got {type(entry).__name__}); "
+                f"re-run extract_black_bear.py and inspect the artifact"
+            )
+        try:
+            region_scope = entry["region_scope"]
+            kind_hint = entry["kind_hint"]
+            source_id = entry["source_id"]
+            page_reference = entry["page_reference"]
+            verbatim_rule = entry["verbatim_rule"]
+        except KeyError as exc:
+            raise RuntimeError(
+                f"bear artifact reporting_obligations[{entry_index}] missing "
+                f"required key {exc.args[0]!r}; entry keys present: "
+                f"{sorted(entry.keys())!r}; "
+                f"re-run extract_black_bear.py and inspect the artifact"
+            ) from exc
         spec_key = (region_scope, kind_hint)
 
         spec = _REPORTING_ROW_SPEC.get(spec_key)
@@ -455,14 +472,13 @@ def _build_reporting_obligations(bear_artifact: dict) -> list[ReportingObligatio
                 f"expected one of {sorted(_REPORTING_ROW_SPEC.keys())!r}"
             )
 
-        source_id = entry["source_id"]
         if source_id not in sources_by_id:
             raise RuntimeError(
                 f"reporting_obligation entry references unknown source_id={source_id!r}; "
                 f"artifact sources are {sorted(sources_by_id.keys())!r}"
             )
         source_dict = sources_by_id[source_id]
-        page_ref_str = pdf.page_reference_to_str(entry["page_reference"])
+        page_ref_str = pdf.page_reference_to_str(page_reference)
 
         # Bare key access on source_dict would raise an opaque KeyError if the
         # source entry is missing a required SourceCitation field. Wrap with
@@ -497,7 +513,7 @@ def _build_reporting_obligations(bear_artifact: dict) -> list[ReportingObligatio
             submission_phone=spec["submission_phone"],
             applies_to_regions=spec["applies_to_regions"],
             what_to_present=spec["what_to_present"],
-            verbatim_rule=entry["verbatim_rule"],
+            verbatim_rule=verbatim_rule,
             source=citation,
         )
         result.append(obligation)
@@ -574,6 +590,17 @@ def _build_regulation_reporting_links(
     all_valid_regions = _R1_REGIONS | _R2_TO_R7_REGIONS
 
     for row_index, row in enumerate(raw_rows):
+        if not isinstance(row, dict):
+            # Type-check BEFORE the KeyError handler — the handler references
+            # row.keys() in its diagnostic, which itself raises AttributeError
+            # if row is a non-dict (e.g., a string or list from a corrupted
+            # artifact). Fail loud with a descriptive message naming the index
+            # + actual type before any indexing is attempted.
+            raise RuntimeError(
+                f"bear artifact rows[{row_index}] is not a dict "
+                f"(got {type(row).__name__}); "
+                f"re-run extract_black_bear.py and inspect the artifact"
+            )
         try:
             bmu_number = row["bmu_number"]
             hd_region = row["hd_region"]
