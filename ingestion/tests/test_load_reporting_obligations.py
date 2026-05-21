@@ -6,6 +6,10 @@ Coverage:
 - TestBuildRegulationReportingLinks — artifact + obligations → 70 link rows
 - TestCountGuards                — OQ7 row-count bands (fire BEFORE db.connect())
 - TestMain                       — dry-run smoke + guard fires pre-connect + rollback
+- TestDispatchDictDriftGuard     — V1 belt-and-suspenders for the slug-encoded
+                                   UPSERT semantic-drift risk; see Q19 in
+                                   docs/open-questions.md for the project-wide
+                                   fix planned pre-M2
 
 The editable install adds ``ingestion/`` to sys.path so ``states.montana.*``
 is directly importable, the same way every sibling adapter test does it.
@@ -690,3 +694,123 @@ class TestMain:
         assert "DRY RUN" in caplog.text, (
             f"Expected 'DRY RUN' in log; got:\n{caplog.text}"
         )
+
+
+# ---------------------------------------------------------------------------
+# TestDispatchDictDriftGuard
+# ---------------------------------------------------------------------------
+
+
+class TestDispatchDictDriftGuard:
+    """V1 belt-and-suspenders for the slug-encoded UPSERT semantic-drift risk.
+
+    The ``reporting_obligation.id`` slug is hand-encoded as a string that bakes
+    in kind, deadline_hours, and region_scope (e.g.,
+    ``mt-bear-harvest-report-48hr-statewide``). The UPSERT in
+    ``db.upsert_reporting_obligation`` updates these slug-encoded fields under
+    the same id, so a future edit that changes one of those structured fields
+    without correspondingly updating ``id_suffix`` would silently rewrite the
+    meaning of existing rows that already have ``regulation_reporting`` links
+    pointing at them.
+
+    ``_assert_dispatch_dict_drift_free(_REPORTING_ROW_SPEC)`` fires at module
+    load to catch this drift. See Q19 in docs/open-questions.md for the
+    project-wide fix planned pre-M2.
+    """
+
+    def test_canonical_dispatch_dict_passes(self) -> None:
+        """The 3 production entries match _derive_expected_id_suffix output.
+
+        Module imported successfully → the guard already passed at module
+        load. Re-run the guard explicitly here to lock the behavior against
+        regression.
+        """
+        import importlib
+
+        # importlib.reload exercises the module-load guard end-to-end and
+        # establishes the "established pattern" reference; if the canonical
+        # spec drifts, this test fails at reload time.
+        importlib.reload(lro)
+        lro._assert_dispatch_dict_drift_free(lro._REPORTING_ROW_SPEC)
+
+    def test_drifted_id_suffix_raises_with_diagnostic(self) -> None:
+        """A drifted spec entry triggers RuntimeError naming the offending key."""
+        # Build a drifted copy: change R1's id_suffix without correspondingly
+        # updating kind/deadline_hours/region_scope. The slug-derivation
+        # function will produce the canonical "tooth-submission-r1-10day"
+        # while the entry carries the drifted suffix — assertion must raise.
+        drifted = dict(lro._REPORTING_ROW_SPEC)
+        drifted[("R1", "tooth_submission")] = {
+            **lro._REPORTING_ROW_SPEC[("R1", "tooth_submission")],
+            "id_suffix": "drifted-suffix-that-does-not-match",
+        }
+        with pytest.raises(
+            RuntimeError,
+            match=r"drift detected.*R1.*tooth_submission",
+        ):
+            lro._assert_dispatch_dict_drift_free(drifted)
+
+    def test_drifted_kind_raises_with_diagnostic(self) -> None:
+        """Changing kind without updating id_suffix triggers the guard."""
+        drifted = dict(lro._REPORTING_ROW_SPEC)
+        # Same id_suffix, but kind changed → derivation produces a different
+        # expected suffix than the entry's stale id_suffix.
+        drifted[("STATEWIDE", "harvest_report")] = {
+            **lro._REPORTING_ROW_SPEC[("STATEWIDE", "harvest_report")],
+            "kind": "mandatory_check",  # was "harvest_report"
+        }
+        with pytest.raises(
+            RuntimeError,
+            match=r"drift detected.*STATEWIDE.*harvest_report",
+        ):
+            lro._assert_dispatch_dict_drift_free(drifted)
+
+    def test_drifted_deadline_hours_raises_with_diagnostic(self) -> None:
+        """Changing deadline_hours without updating id_suffix triggers the guard."""
+        drifted = dict(lro._REPORTING_ROW_SPEC)
+        # 48 → 72 changes the "48hr" token in the derived suffix to "72hr".
+        drifted[("STATEWIDE", "harvest_report")] = {
+            **lro._REPORTING_ROW_SPEC[("STATEWIDE", "harvest_report")],
+            "deadline_hours": 72,  # was 48
+        }
+        with pytest.raises(RuntimeError, match=r"drift detected"):
+            lro._assert_dispatch_dict_drift_free(drifted)
+
+    def test_derive_function_rejects_unrepresentable_deadline(self) -> None:
+        """deadline_hours that doesn't fit the encoding raises with diagnostic.
+
+        Encoding: ``<= 48`` → ``"{N}hr"``; ``> 48 and % 24 == 0`` → ``"{N//24}day"``.
+        A value like 60 hours is > 48 AND 60 % 24 = 12, so it's neither
+        representable as hours (above the 48 threshold) nor as whole days.
+        """
+        with pytest.raises(
+            RuntimeError,
+            match=r"deadline_hours=60.*not representable",
+        ):
+            lro._derive_expected_id_suffix("harvest_report", 60, "STATEWIDE")
+
+    def test_derive_function_rejects_unknown_region(self) -> None:
+        """region_scope not in _REGION_SCOPE_SLUG raises with diagnostic."""
+        with pytest.raises(
+            RuntimeError,
+            match=r"region_scope='R8'.*not in",
+        ):
+            lro._derive_expected_id_suffix("harvest_report", 48, "R8")
+
+    def test_derive_function_known_kind_override_applied(self) -> None:
+        """hide_skull_presentation → 'hide-skull' (the _KIND_SLUG_OVERRIDES path)."""
+        assert lro._derive_expected_id_suffix(
+            "hide_skull_presentation", 240, "R2-7",
+        ) == "hide-skull-r2to7-10day"
+
+    def test_derive_function_kind_with_no_override_uses_simple_replacement(self) -> None:
+        """kind without an override gets _-to-- replacement only."""
+        assert lro._derive_expected_id_suffix(
+            "tooth_submission", 240, "R1",
+        ) == "tooth-submission-r1-10day"
+
+    def test_derive_function_statewide_suffix_positioning(self) -> None:
+        """STATEWIDE goes at the end; specific regions sit between kind and deadline."""
+        assert lro._derive_expected_id_suffix(
+            "harvest_report", 48, "STATEWIDE",
+        ) == "harvest-report-48hr-statewide"

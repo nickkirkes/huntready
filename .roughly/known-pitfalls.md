@@ -547,6 +547,24 @@ Surfaced by S03.9 Stage 2 three-blocker probe on 2026-05-19.
 
 Surfaced by S03.9 Probe 1 on 2026-05-19 (PM reversed the initial "fold into S03.9" recommendation after the target-table mismatch was identified).
 
+### `id text`-PK UPSERTs currently update slug-encoded fields on conflict — Q19 tracks the project-wide drift-guard fix
+
+**Symptom:** A dispatch-dict edit changes a slug-encoded structured field (e.g., `kind`, `deadline_hours`, `applies_to_regions`, `weapon_type`, `residency`, `license_code`, `species`) but the corresponding `id_suffix` / id-derivation stays the same — and the next re-ingestion run silently rewrites the meaning of existing rows under the same `id` via the helper's `ON CONFLICT (id) DO UPDATE` clause. Any link-table rows (`license_season`, `regulation_season`, `regulation_license`, `regulation_reporting`) already pointing at that id now reference an entity whose semantics shifted.
+
+**Affected helpers** (all in `ingestion/ingestion/lib/db.py`):
+
+- `_UPSERT_SEASON_DEFINITION_SQL` (S03.7) — updates `name`, `weapon_type`, `residency` on conflict
+- `_UPSERT_LICENSE_TAG_SQL` (S03.7) — updates `license_code`, `name`, `kind`, `species` on conflict
+- `_UPSERT_REPORTING_OBLIGATION_SQL` (S03.9) — updates `kind`, `deadline`, `applies_to_regions` on conflict
+
+**Cause:** For all three `id text`-PK tables, the `id` slug is a hand-encoded string built from a subset of the entity's structured fields (e.g., `mt-bear-harvest-report-48hr-statewide` encodes kind+deadline+scope). The UPSERT has no way to know "the slug came from these fields, but the fields have changed" — both states satisfy the conflict clause; DO UPDATE wins by definition. The risk is dormant during initial V1 ingestion (fresh DB, no conflicts) but becomes load-bearing on the first year-over-year re-ingestion run.
+
+**V1-safe right now:** Closed compile-time dispatch dicts (no operator-runtime mutation path); unit tests lock canonical slug↔field pairings; V1 ingestion runs once against fresh artifacts. S03.9 ships a **local drift guard** at module load (`_assert_dispatch_dict_drift_free(_REPORTING_ROW_SPEC)` in `load_reporting_obligations.py`) as belt-and-suspenders — calls `_derive_expected_id_suffix(kind, deadline_hours, region_scope)` and raises `RuntimeError` if any spec entry's `id_suffix` doesn't match the derivation. This is S03.9-LOCAL by design — Q19 tracks the project-wide fix; **do NOT propagate this pattern to new helpers without addressing Q19**.
+
+**Fix:** Q19 in `docs/open-questions.md` is a pre-M2 blocker. Leading candidate is Option A (derive-and-assert): define `id` (or `id_suffix`) as a deterministic function of slug-encoded fields and assert at module load that every dispatch dict entry matches the derivation — drift becomes impossible by construction. Project-wide fix MUST land in a single PR before first year-over-year re-ingestion run; ADR will formalize the convention across all three tables.
+
+Surfaced by S03.9 cubic-review round 3 on 2026-05-21.
+
 ### `submission_method` interpretation for multi-modal source text
 
 **Symptom:** A `reporting_obligation`'s verbatim source text lists multiple submission channels (e.g., "deliver in person or by mail," "call 1-877-FWPWILD or use MyFWP portal at fwp.mt.gov"), but the schema `submission_method` Literal accepts ONE value. Picking arbitrarily creates audit-trail ambiguity; picking the wrong primary modality embeds wrong operational guidance.

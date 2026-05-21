@@ -254,6 +254,122 @@ _REPORTING_ROW_SPEC: Final[dict[tuple[str, str], _RowSpec]] = {
 
 
 # ---------------------------------------------------------------------------
+# Drift guard for _REPORTING_ROW_SPEC's id_suffix encoding (V1 belt-and-suspenders)
+# ---------------------------------------------------------------------------
+#
+# The reporting_obligation.id is hand-encoded as a slug that bakes in kind,
+# deadline_hours, and region_scope (e.g., "mt-bear-harvest-report-48hr-
+# statewide" encodes all three). The UPSERT in db.upsert_reporting_obligation
+# updates these slug-encoded fields under the same id — so if a future spec
+# edit changes one of those structured fields without correspondingly
+# updating id_suffix, the DO UPDATE clause would silently rewrite the meaning
+# of an existing row that already has regulation_reporting links pointing at
+# it. The two states would both satisfy ON CONFLICT (id); the new field
+# values win.
+#
+# V1 risk is theoretical (closed compile-time dispatch dict, no operator-
+# runtime mutation path, unit tests lock canonical pairings) but worth
+# guarding against here at module load. This guard is S03.9-LOCAL — see Q19
+# in docs/open-questions.md for the project-wide fix planned pre-M2, which
+# will generalize the pattern across season_definition + license_tag +
+# reporting_obligation.
+
+_KIND_SLUG_OVERRIDES: Final[dict[str, str]] = {
+    # Drop the "_presentation" suffix for the R2-7 row's slug — the canonical
+    # encoding is "hide-skull-r2to7-10day", not
+    # "hide-skull-presentation-r2to7-10day". If a future kind value introduces
+    # a similarly verbose suffix, add it here.
+    "hide_skull_presentation": "hide-skull",
+}
+
+_REGION_SCOPE_SLUG: Final[dict[str, str]] = {
+    "STATEWIDE": "statewide",
+    "R1": "r1",
+    "R2-7": "r2to7",
+}
+
+
+def _derive_expected_id_suffix(
+    kind: str, deadline_hours: int, region_scope: str,
+) -> str:
+    """Derive the canonical id_suffix from the slug-encoded fields.
+
+    Mirrors the encoding currently locked in ``_REPORTING_ROW_SPEC``:
+
+    - kind: ``_`` → ``-``; verbose kinds (e.g., ``hide_skull_presentation``)
+      consult ``_KIND_SLUG_OVERRIDES`` for shortened forms.
+    - deadline_hours: ``<= 48`` → ``"{N}hr"``; otherwise ``"{N//24}day"``.
+      Must divide evenly into days for the > 48 branch (raises otherwise —
+      the encoding doesn't represent fractional days).
+    - region_scope: looked up in ``_REGION_SCOPE_SLUG``.
+    - Ordering: ``STATEWIDE`` is suffix-positioned (``{kind}-{deadline}-statewide``);
+      specific regions sit between kind and deadline
+      (``{kind}-{region}-{deadline}``).
+
+    Raises ``RuntimeError`` if region_scope is unknown or deadline_hours
+    doesn't fit the encoding's representable range.
+    """
+    kind_token = _KIND_SLUG_OVERRIDES.get(kind, kind).replace("_", "-")
+
+    if deadline_hours <= 48:
+        deadline_token = f"{deadline_hours}hr"
+    elif deadline_hours % 24 == 0:
+        deadline_token = f"{deadline_hours // 24}day"
+    else:
+        raise RuntimeError(
+            f"deadline_hours={deadline_hours!r} not representable in the "
+            f"slug encoding (must be <= 48 for hours form, or a multiple of "
+            f"24 for days form); update _derive_expected_id_suffix() to "
+            f"reflect a deliberate encoding extension"
+        )
+
+    region_token = _REGION_SCOPE_SLUG.get(region_scope)
+    if region_token is None:
+        raise RuntimeError(
+            f"region_scope={region_scope!r} not in _REGION_SCOPE_SLUG; "
+            f"expected one of {sorted(_REGION_SCOPE_SLUG.keys())!r}"
+        )
+
+    if region_scope == "STATEWIDE":
+        return f"{kind_token}-{deadline_token}-{region_token}"
+    return f"{kind_token}-{region_token}-{deadline_token}"
+
+
+def _assert_dispatch_dict_drift_free(
+    spec_dict: dict[tuple[str, str], _RowSpec],
+) -> None:
+    """Assert every entry's id_suffix matches its derived slug.
+
+    Fires at module load to catch drift between ``_REPORTING_ROW_SPEC``'s
+    hand-encoded ``id_suffix`` and the slug derivation implied by its
+    ``kind``/``deadline_hours``/region_scope (the tuple-key element).
+
+    Raises ``RuntimeError`` with a diagnostic naming the drifted entry.
+    """
+    for spec_key, spec in spec_dict.items():
+        region_scope, _kind_hint = spec_key
+        expected = _derive_expected_id_suffix(
+            spec["kind"], spec["deadline_hours"], region_scope,
+        )
+        if spec["id_suffix"] != expected:
+            raise RuntimeError(
+                f"_REPORTING_ROW_SPEC drift detected for {spec_key!r}: "
+                f"id_suffix={spec['id_suffix']!r} but slug derivation produces "
+                f"{expected!r} from kind={spec['kind']!r}, "
+                f"deadline_hours={spec['deadline_hours']!r}, "
+                f"region_scope={region_scope!r}; either update id_suffix to "
+                f"match or update _derive_expected_id_suffix() to reflect a "
+                f"deliberate slug-encoding change. See Q19 in "
+                f"docs/open-questions.md for the project-wide fix planned pre-M2."
+            )
+
+
+# V1 drift guard — see Q19 in docs/open-questions.md for the project-wide
+# fix planned pre-M2.
+_assert_dispatch_dict_drift_free(_REPORTING_ROW_SPEC)
+
+
+# ---------------------------------------------------------------------------
 # Stub functions (populated in T3/T4/T5)
 # ---------------------------------------------------------------------------
 
