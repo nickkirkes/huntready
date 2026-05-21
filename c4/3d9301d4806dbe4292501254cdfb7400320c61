@@ -1,0 +1,31 @@
+ingestion/tests/test_load_reporting_obligations.py
+  s_e3c1c837a34c28::t_19dc1cbfcdb904 9-12
+  s_e3c1c837a34c28::t_1becfd63d94551 780-785,788,790
+  s_e3c1c837a34c28::t_a404aa205eb097 697-779,786-787,789,791-816
+docs/open-questions.md
+  s_e3c1c837a34c28::t_98d72a91f2a64a 386-438
+docs/planning/epics/E03-confidence-findings/S03.9.md
+  s_e3c1c837a34c28::t_29591e5716a690 182-193
+.roughly/known-pitfalls.md
+  s_e3c1c837a34c28::t_f529523d610184 550-567
+.secrets.baseline
+  s_e3c1c837a34c28::t_8ebc10a24cc61a 136,284
+ingestion/states/montana/load_reporting_obligations.py
+  s_e3c1c837a34c28::t_8a30062f1e5037 257-371
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "c43d9301d4806dbe4292501254cdfb7400320c61",
+  "prompts": {},
+  "sessions": {
+    "s_e3c1c837a34c28": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01af123c-fc7c-44b8-b34a-2b6f93215223",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
