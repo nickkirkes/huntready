@@ -1,0 +1,22 @@
+docs/planning/epics/E03-regulation-text-ingestion.md
+  s_e3c1c837a34c28::t_b113f1226f6657 844-855
+docs/plans/S03.9-reporting-obligation-ingestion-plan.md
+  s_e3c1c837a34c28::t_674efac897c60f 109
+  s_e3c1c837a34c28::t_7633fa37cfa708 189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.4.11",
+  "base_commit_sha": "25adb40c7f43b475973a6b6f5060ff4e779be927",
+  "prompts": {},
+  "sessions": {
+    "s_e3c1c837a34c28": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01af123c-fc7c-44b8-b34a-2b6f93215223",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
