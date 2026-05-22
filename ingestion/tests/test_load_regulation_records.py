@@ -768,6 +768,38 @@ class TestBuildStatewideBearRecord:
         msg = str(exc_info.value)
         assert "regenerate" in msg or "extract_black_bear.py" in msg
 
+    def test_source_id_mismatch_raises_runtime_error(self) -> None:
+        """Provenance guard: if the artifact's source_id does not match the
+        bear_citation.id loaded from sources.yaml, the builder must raise —
+        otherwise the loader would silently attribute the rule to the wrong
+        source."""
+        artifact = _make_statewide_bear_artifact(
+            statewide_rules=[
+                _make_statewide_rule_entry(source_id="mt-fwp-some-other-pdf"),
+            ],
+        )
+        with pytest.raises(RuntimeError) as exc_info:
+            lrr._build_statewide_bear_record(artifact, _make_bear_citation())
+        msg = str(exc_info.value)
+        assert "source_id" in msg
+        assert "mt-fwp-some-other-pdf" in msg
+        assert "provenance mismatch" in msg
+
+    def test_source_publication_date_mismatch_raises_runtime_error(self) -> None:
+        """Provenance guard: if the artifact's source_publication_date does not
+        match the bear_citation.publication_date, the builder must raise."""
+        artifact = _make_statewide_bear_artifact(
+            statewide_rules=[
+                _make_statewide_rule_entry(source_publication_date="2025-04-27"),
+            ],
+        )
+        with pytest.raises(RuntimeError) as exc_info:
+            lrr._build_statewide_bear_record(artifact, _make_bear_citation())
+        msg = str(exc_info.value)
+        assert "source_publication_date" in msg
+        assert "2025-04-27" in msg
+        assert "provenance mismatch" in msg
+
 
 # ---------------------------------------------------------------------------
 # TestBuildStatewideBearBinding

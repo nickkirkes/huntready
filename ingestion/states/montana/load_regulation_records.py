@@ -471,6 +471,28 @@ def _build_statewide_bear_record(
             "V1 contract; M2 may relax"
         )
     statewide_rule = raw_statewide[0]
+
+    # Provenance check: the artifact's source_id + source_publication_date
+    # MUST match the bear_citation loaded from sources.yaml. A mismatch means
+    # the extractor emitted a different source for this rule than the loader
+    # is about to attribute it to — silent provenance corruption. V1 contract:
+    # the single statewide rule is the Bear ID Test from the bear booklet.
+    rule_source_id = statewide_rule["source_id"]
+    if rule_source_id != bear_citation.id:
+        raise RuntimeError(
+            f"statewide_rules[0] source_id={rule_source_id!r} does not match "
+            f"bear_citation.id={bear_citation.id!r} — provenance mismatch; "
+            "extractor and loader disagree on the source of the rule"
+        )
+    rule_publication_date = statewide_rule["source_publication_date"]
+    if rule_publication_date != bear_citation.publication_date:
+        raise RuntimeError(
+            f"statewide_rules[0] source_publication_date={rule_publication_date!r} "
+            f"does not match bear_citation.publication_date="
+            f"{bear_citation.publication_date!r} — provenance mismatch; "
+            "extractor and loader disagree on the source publication date"
+        )
+
     page_ref_str = pdf.page_reference_to_str(statewide_rule["page_reference"])
     bear_citation_at_page = bear_citation.model_copy(
         update={"page_reference": page_ref_str},

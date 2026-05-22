@@ -582,7 +582,11 @@ class TestUpsertJurisdictionBinding:
         assert source_param.obj == binding.source.model_dump(exclude_none=True)
 
     def test_fail_loud_on_zero_rowcount(self) -> None:
-        """upsert_jurisdiction_binding must raise RuntimeError containing 'cur.rowcount == 0' and the binding id when the cursor rowcount is 0."""
+        """Schema-drift tripwire: if the SQL ever changes to DO NOTHING and a
+        conflict suppresses the write, the guard must raise with the binding id
+        so the loader bug surfaces immediately instead of silently dropping
+        writes. For the current DO UPDATE SQL this branch is unreachable;
+        monkeypatching rowcount=0 simulates the post-drift state."""
         binding = _make_jurisdiction_binding()
         mock_conn, mock_cursor = _make_mock_conn()
         mock_cursor.rowcount = 0

@@ -781,13 +781,18 @@ def upsert_jurisdiction_binding(
     freely on re-ingest — they are NOT id-encoded and therefore NOT in the
     conflict discriminator.
 
-    Fails loud on ``cur.rowcount == 0``: raises ``RuntimeError`` with the
-    unmatched binding id. This catches loader bugs where the adapter derives
-    a binding id that touches no rows (should be structurally impossible for a
-    correctly formed UPSERT, but guards against future schema drift).
-
     Note: ``jurisdiction_binding`` has no ``ingested_at`` column per DDL, so no
     exclusion clause is needed (contrast with ``_UPSERT_REGULATION_RECORD_SQL``).
+
+    Schema-drift guard: raises ``RuntimeError`` if ``cur.rowcount == 0`` after
+    execute. For the current ``INSERT ... ON CONFLICT (id) DO UPDATE SET ...``
+    SQL, psycopg always returns rowcount=1 (insert OR update branch), so this
+    guard is structurally unreachable today. It exists as a tripwire against a
+    future SQL change that accidentally switches to ``DO NOTHING`` — that
+    variant would silently return rowcount=0 on conflict, hiding loader bugs
+    where the binding id collides with an existing row but the new content
+    differs. Keeping the guard means a `DO NOTHING` regression fails loud at
+    the first conflicting row instead of silently dropping writes.
 
     Args:
         conn: An open psycopg3 connection.
@@ -810,8 +815,9 @@ def upsert_jurisdiction_binding(
         if cur.rowcount == 0:
             raise RuntimeError(
                 f"upsert_jurisdiction_binding: cur.rowcount == 0 for id={binding.id!r}"
-                " — UPSERT touched no rows; investigate possible PK collision with"
-                " mismatched content."
+                " — UPSERT touched no rows. The current SQL uses DO UPDATE so this"
+                " is structurally unreachable; reaching this branch indicates the"
+                " SQL has been changed to DO NOTHING (schema-drift tripwire)."
             )
     _logger.debug(
         "upserted jurisdiction_binding id=%s role=%s geom=%s",
