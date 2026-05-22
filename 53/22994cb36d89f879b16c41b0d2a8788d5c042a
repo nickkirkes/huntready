@@ -1,0 +1,26 @@
+ingestion/tests/test_db.py
+  s_faf8ba232341b4::t_48e135d7c88d75 626-635,637,641-643
+  s_faf8ba232341b4::t_29df50f6b48c05 607-625,636,638-640
+ingestion/ingestion/lib/db.py
+  s_faf8ba232341b4::t_d6747dd24399f4 230-240
+docs/plans/S03.6.1-mt-statewide-bear-anchor-plan.md
+  s_faf8ba232341b4::t_e583caa11d8e2a 24,91
+  s_faf8ba232341b4::t_fec9c9cf9547cf 28,184,214
+  s_faf8ba232341b4::t_fa2c9687e1bc89 26,118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "5322994cb36d89f879b16c41b0d2a8788d5c042a",
+  "prompts": {},
+  "sessions": {
+    "s_faf8ba232341b4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a32d513-60ae-4efe-9f02-481947747d26",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
