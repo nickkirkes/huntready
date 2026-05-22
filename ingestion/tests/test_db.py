@@ -604,3 +604,40 @@ class TestUpsertJurisdictionBinding:
         mock_conn, _mock_cursor = _make_mock_conn()
         upsert_jurisdiction_binding(mock_conn, binding)
         mock_conn.commit.assert_not_called()
+
+    def test_upsert_sql_does_not_update_identity_fields(self) -> None:
+        """Silent-repoint guard: the ON CONFLICT DO UPDATE SET clause must NOT
+        include any of the six identity-encoded fields. These fields are
+        encoded into ``id`` via ``_JURISDICTION_BINDING_ID_FORMAT`` in
+        ``load_regulation_records.py``; a stable ``id`` implies stable
+        identity. Including identity fields in the UPDATE clause would silently
+        repoint an existing row's identity if a future id-derivation bug
+        produced a collision between two semantically-different bindings."""
+        from ingestion.lib.db import _UPSERT_JURISDICTION_BINDING_SQL
+
+        identity_fields = (
+            "regulation_record_state",
+            "regulation_record_jurisdiction_code",
+            "regulation_record_species_group",
+            "regulation_record_license_year",
+            "geometry_id",
+            "role",
+        )
+        # Isolate the UPDATE SET clause: from "DO UPDATE SET" through the next
+        # SQL comment line ("--"). Identity fields appearing in the INSERT
+        # column list or in comments don't count as silent-repoint assignments.
+        marker = "DO UPDATE SET"
+        start = _UPSERT_JURISDICTION_BINDING_SQL.index(marker) + len(marker)
+        end = _UPSERT_JURISDICTION_BINDING_SQL.index("--", start)
+        update_assignments = _UPSERT_JURISDICTION_BINDING_SQL[start:end]
+        # Normalize whitespace so spacing variations don't defeat substring matching.
+        normalized = " ".join(update_assignments.split())
+
+        for field in identity_fields:
+            assert f"{field} = EXCLUDED.{field}" not in normalized, (
+                f"identity field {field!r} appears in UPDATE SET clause — "
+                "would silently repoint on id collision; remove from clause"
+            )
+        # And the two metadata-only fields MUST be present.
+        assert "verbatim_rule = EXCLUDED.verbatim_rule" in normalized
+        assert "source = EXCLUDED.source" in normalized

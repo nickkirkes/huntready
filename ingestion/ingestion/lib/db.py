@@ -223,16 +223,21 @@ INSERT INTO jurisdiction_binding (
     geometry_id, role, verbatim_rule, source
 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
 ON CONFLICT (id) DO UPDATE SET
-    regulation_record_state              = EXCLUDED.regulation_record_state,
-    regulation_record_jurisdiction_code  = EXCLUDED.regulation_record_jurisdiction_code,
-    regulation_record_species_group      = EXCLUDED.regulation_record_species_group,
-    regulation_record_license_year       = EXCLUDED.regulation_record_license_year,
-    geometry_id                          = EXCLUDED.geometry_id,
-    role                                 = EXCLUDED.role,
     verbatim_rule                        = EXCLUDED.verbatim_rule,
     source                               = EXCLUDED.source
 -- id (PK) is intentionally NOT in the UPDATE clause: same discipline as
 -- _UPSERT_SEASON_DEFINITION_SQL above.
+-- The six identity-encoded fields (regulation_record_state,
+-- regulation_record_jurisdiction_code, regulation_record_species_group,
+-- regulation_record_license_year, geometry_id, role) are ALSO intentionally
+-- omitted: they are encoded into `id` via _JURISDICTION_BINDING_ID_FORMAT in
+-- load_regulation_records.py, so a stable `id` implies stable identity. If a
+-- future id-derivation bug ever produces an `id` collision between two
+-- semantically-different bindings, including identity fields in the UPDATE
+-- clause would silently repoint the existing row to the new (incorrect)
+-- identity. Omitting them means a collision is contained: the existing row's
+-- identity is preserved (no silent repoint); only verbatim_rule and source
+-- — the legitimately-mutable metadata fields — are updated on conflict.
 -- No ingested_at column on jurisdiction_binding per DDL
 -- supabase/migrations/20260425000000_initial_schema.sql:193-216.
 """
