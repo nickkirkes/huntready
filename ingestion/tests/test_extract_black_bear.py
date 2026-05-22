@@ -1678,6 +1678,7 @@ class TestExtractStatewideRules:
 
         results = m._extract_statewide_rules(
             mock_pdf,
+            "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf",
             "mt-fwp-black-bear-2026-booklet",
             "2026-04-27",
             "2026-05-22T10:00:00+00:00",
@@ -1699,6 +1700,7 @@ class TestExtractStatewideRules:
 
         results = m._extract_statewide_rules(
             mock_pdf,
+            "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf",
             "mt-fwp-black-bear-2026-booklet",
             "2026-04-27",
             "2026-05-22T10:00:00+00:00",
@@ -1716,6 +1718,7 @@ class TestExtractStatewideRules:
         with pytest.raises(RuntimeError, match="end anchor missing"):
             m._extract_statewide_rules(
                 mock_pdf,
+                "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf",
                 "mt-fwp-black-bear-2026-booklet",
                 "2026-04-27",
                 "2026-05-22T10:00:00+00:00",
@@ -1738,6 +1741,7 @@ class TestExtractStatewideRules:
 
         results = m._extract_statewide_rules(
             mock_pdf,
+            "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf",
             "mt-fwp-black-bear-2026-booklet",
             "2026-04-27",
             "2026-05-22T10:00:00+00:00",
@@ -1759,6 +1763,7 @@ class TestExtractStatewideRules:
 
         results = m._extract_statewide_rules(
             mock_pdf,
+            "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf",
             "mt-fwp-black-bear-2026-booklet",
             "2026-04-27",
             extracted_at,
@@ -1766,6 +1771,28 @@ class TestExtractStatewideRules:
 
         assert len(results) == 1
         assert results[0]["page_reference"]["extracted_at"] == extracted_at
+
+    def test_pdf_filename_parameter_threads_through_page_reference(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """pdf_filename parameter is preserved verbatim in page_reference —
+        protects against the synthetic-name antipattern (deriving the filename
+        from source_id + publication_date would silently lie about provenance
+        on custom ``--booklet-pdf`` operator runs)."""
+        page_text = _make_statewide_rules_page_text()
+        mock_pdf = self._setup_monkeypatch(monkeypatch, page_text)
+        custom_filename = "operator-override-name.pdf"
+
+        results = m._extract_statewide_rules(
+            mock_pdf,
+            custom_filename,
+            "mt-fwp-black-bear-2026-booklet",
+            "2026-04-27",
+            "2026-05-22T10:00:00+00:00",
+        )
+
+        assert len(results) == 1
+        assert results[0]["page_reference"]["pdf_filename"] == custom_filename
 
     def test_real_artifact_round_trip(self) -> None:
         """black-bear-2026.json statewide_rules has 1 entry with expected content."""

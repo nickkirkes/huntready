@@ -1368,6 +1368,7 @@ _BEAR_ID_END_RE = re.compile(r"fwp\.mt\.gov/hunt/education/bear-identification")
 
 def _extract_statewide_rules(
     pdf: PdfDocument,
+    pdf_filename: str,
     source_id: str,
     source_publication_date: str,
     extracted_at: str,
@@ -1380,6 +1381,11 @@ def _extract_statewide_rules(
 
     Args:
         pdf: Already-open PdfDocument for the bear booklet.
+        pdf_filename: Real PDF basename, threaded from the orchestrator via
+            ``booklet_pdf.filename`` (same convention as
+            ``_extract_reporting_obligations``). Do NOT synthesize from
+            source_id + publication_date — that would leak the canonical name
+            into custom ``--booklet-pdf`` operator runs, hiding the actual file.
         source_id: Source citation id string (e.g. "mt-fwp-black-bear-2026-booklet").
         source_publication_date: ISO-8601 date string from the source citation.
         extracted_at: ISO-8601 datetime string from the manifest, threaded from
@@ -1399,8 +1405,6 @@ def _extract_statewide_rules(
     "Statewide-rule body whitespace collapse" in the module docstring cleanup
     rules) — ADR-008-safe extras-only whitespace normalisation.
     """
-    pdf_filename = f"{source_id}-{source_publication_date}.pdf"
-
     right_col_text: str | None = None
     for _page_num, page in iter_pages(pdf, _STATEWIDE_RULES_PAGE, _STATEWIDE_RULES_PAGE):
         right_col_text = extract_text(page, bbox=_RIGHT_COLUMN_BBOX)
@@ -1561,6 +1565,7 @@ def _extract_base(
 
     statewide_rules = _extract_statewide_rules(
         booklet_pdf,
+        booklet_pdf.filename,
         source_citation["id"],
         source_citation["publication_date"],
         extracted_at,
