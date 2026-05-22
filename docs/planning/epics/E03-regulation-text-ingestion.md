@@ -862,15 +862,15 @@ The R1 obligation has two distinct deadlines (48-hour report + 10-day teeth subm
 
 ---
 
-### S03.6.1: MT-STATEWIDE-bear anchor with Bear ID Test (queued post-S03.9)
+### S03.6.1: MT-STATEWIDE-bear anchor with Bear ID Test + jurisdiction_binding to MT-STATEWIDE-geom (queued post-S03.9)
 
-**Status:** queued post-S03.9 close; do not interleave. Carved out of S03.9 scope 2026-05-19 after Probe 1 (Bear ID coursework source-audit) showed the verbatim text is on page 2 of the bear booklet but `reporting_obligation` is the wrong target table — Bear ID Test is a **pre-purchase licensing prerequisite**, not a post-harvest or in-season duty.
+**Status:** queued post-S03.9 close; do not interleave. Carved out of S03.9 scope 2026-05-19 after Probe 1 (Bear ID coursework source-audit) showed the verbatim text is on page 2 of the bear booklet but `reporting_obligation` is the wrong target table — Bear ID Test is a **pre-purchase licensing prerequisite**, not a post-harvest or in-season duty. Scope expanded 2026-05-21 (PM decision) to include the corresponding `jurisdiction_binding` row to `MT-STATEWIDE-geom`, so the statewide-anchor entity + binding land together in one atomic story rather than splitting the binding into S03.10.
 
 **As a** developer recording Montana's pre-purchase licensing prerequisites for black bear
-**I want** an `MT-STATEWIDE-bear` regulation_record carrying the Bear Identification Test requirement in `additional_rules`
-**So that** the rule lives with the regulation_record decomposed-entity story, not as a synthetic `reporting_obligation` that misrepresents its semantics
+**I want** an `MT-STATEWIDE-bear` `regulation_record` carrying the Bear Identification Test requirement in `additional_rules`, plus the corresponding `jurisdiction_binding` row tying it to `MT-STATEWIDE-geom` with `role='primary_unit'`
+**So that** the statewide-anchor entity is fully bound at story close (no orphan regulation_record waiting for S03.10), the rule lives with the regulation_record decomposed-entity story (not as a synthetic `reporting_obligation` that misrepresents its semantics), and S03.10 inherits a tested `db.upsert_jurisdiction_binding` helper from this story
 
-**Pattern reference:** mirrors `MT-STATEWIDE-antelope` (S03.6 STATEWIDE anchor for DEA `900-20`). Pattern extension: antelope's anchor has populated `additional_rules` already (2 NOTE entries from in-section NOTE-prefixed lines via `_extract_note_lines`, confirmed 2026-05-20 pre-discovery verification). MT-STATEWIDE-bear's data shape differs — the Bear ID Test rule is page-2 right-column PROSE (not NOTE-prefixed), so a new extraction path is needed. Target-table pattern identical; extraction path novel. Surface as a pattern extension in S03.6.1 discovery, not a pure replay.
+**Pattern reference:** mirrors `MT-STATEWIDE-antelope` (S03.6 STATEWIDE anchor for DEA `900-20`). Pattern extension: antelope's anchor has populated `additional_rules` already (2 NOTE entries from in-section NOTE-prefixed lines via `_extract_note_lines`, confirmed 2026-05-20 pre-discovery verification). MT-STATEWIDE-bear's data shape differs — the Bear ID Test rule is page-2 right-column PROSE (not NOTE-prefixed), so a new extraction path is needed. Target-table pattern identical; extraction path novel. The antelope binding to `MT-STATEWIDE-geom` does NOT yet exist (S03.10 will derive it via overlay-fixture generation); S03.6.1's bear binding intentionally lands earlier to keep the bear anchor self-contained. Surface as a pattern extension in S03.6.1 discovery, not a pure replay.
 
 **Verbatim text** (from Probe 1, 2026-05-19, `mt-fwp-black-bear-2026-booklet-2026-04-27.pdf` p. 2 right column under "Obtain a License"):
 
@@ -878,33 +878,76 @@ The R1 obligation has two distinct deadlines (48-hour report + 10-day teeth subm
 
 **Upstream change (extraction):** Narrow amendment to `ingestion/states/montana/extract_black_bear.py` adding a page-2 right-column bbox + 2 regex anchors for the Bear ID Test paragraph. Page 2 is currently outside the scanned region (`_extract_reporting_obligations` is hard-scoped to `_CLOSURE_PROSE_PAGE = 7` right-column only — confirmed by Probe 1, 2026-05-19). The output artifact gets a new top-level field (e.g., `statewide_rules: list[StatewideRuleCandidate]` — exact shape part of S03.6.1's discovery); do NOT add a 4th entry to `reporting_obligations` since the target table is regulation_record.
 
-**Adapter change (S03.6 amendment):** Update `ingestion/states/montana/load_regulation_records.py` to recognize the new artifact field and emit one `RegulationRecord` row with:
+**Adapter change part 1 — `regulation_record` (S03.6 amendment):** Update `ingestion/states/montana/load_regulation_records.py` to recognize the new artifact field and emit one new `RegulationRecord` row with:
 
+- `state="US-MT"` (per the DDL state-code convention; not `"MT"` — see S03.9 cubic-review round 2)
+- `license_year=2026`
+- `schema_version=2`
 - `jurisdiction_code="MT-STATEWIDE-bear"`
 - `species_group="bear"`
-- `additional_rules` containing one `Rule` entry derived from the Bear ID Test verbatim text
-- Standard `SourceCitation` referencing the bear booklet at page 2
+- `additional_rules` containing one `Rule` entry derived from the Bear ID Test verbatim text (`Rule.kind`-equivalent value to be confirmed during S03.6.1 discovery; pattern reference is S03.6's NOTE-line `Rule` construction)
+- `source` jsonb `SourceCitation` referencing `mt-fwp-black-bear-2026-booklet` at page 2 (`page_reference` collapsed via `pdf.page_reference_to_str`)
+- `confidence="medium"` (heading-anchored prose per ADR-017's tier definitions; matches the bear booklet's pre-existing medium-confidence corpus per S03.4/S03.6 closure notes)
 
-**Row-count impact:** S03.6's `regulation_record` total goes from 436 → 437. Update `_REGULATION_RECORD_COUNT_GUARD` proportionally. S03.10 (jurisdiction_binding) consumes this new anchor too — verify whether `MT-STATEWIDE-bear` needs `MT-STATEWIDE-geom` as its parent geometry (per ADR-018 §3 statewide-anchor pattern, mirroring antelope's existing binding) or whether S03.10 already handles this generically.
+**Adapter change part 2 — `jurisdiction_binding` (new helper + new row, same atomic transaction):**
 
-**Depends on:** S03.6 (already merged), S03.9 (must close first — do NOT interleave).
+1. **Introduce `db.upsert_jurisdiction_binding(conn, binding)` helper** in `ingestion/ingestion/lib/db.py` — no-commit, UPSERT by `id` text PK, JSON-serializes `source` via the existing `Json(...)` jsonb convention used by `upsert_regulation_record`. S03.10 reuses this helper for the broader overlay-derived binding generation; introducing it here mirrors the S03.6 pattern of introducing `update_legal_description` ahead of its broader S03.8 reuse.
+2. **Build one `JurisdictionBinding` row** in `load_regulation_records.py` immediately after building the `MT-STATEWIDE-bear` regulation_record:
+   - `id`: deterministic encoding of `(regulation_record composite PK, geometry_id, role)`. **Recommended format:** `f"{state}-{jurisdiction_code}-{species_group}-{license_year}-{role}-{geometry_id}"` → for V1 bear: `"US-MT-MT-STATEWIDE-bear-bear-2026-primary_unit-MT-STATEWIDE-geom"`. Exact format part of S03.6.1 discovery; lock by test. **Constraint**: encoding MUST be deterministic + reproducible across re-runs (UPSERT-by-id depends on it).
+   - `regulation_record_state="US-MT"`, `regulation_record_jurisdiction_code="MT-STATEWIDE-bear"`, `regulation_record_species_group="bear"`, `regulation_record_license_year=2026` (composite-FK reference)
+   - `geometry_id="MT-STATEWIDE-geom"` (created by S03.0 per ADR-018 §3; existing row in `geometry` table)
+   - `role="primary_unit"` (matches what S03.10 would have derived for a statewide-anchor → statewide-geometry binding per ADR-018 §3)
+   - `verbatim_rule=None` (nullable per DDL line 207; null = no binding-specific rule text, since the rule text lives on the `regulation_record`)
+   - `source`: same `SourceCitation` as the regulation_record
+3. **Write both rows in the same `with db.connect() as conn:` block** — regulation_record + jurisdiction_binding commit atomically or roll back together. The existing S03.6 transaction structure extends cleanly; no new transaction shape needed.
 
-**Estimated size:** small (~200-300 LOC across extraction + adapter + tests).
+**Idempotency:** rerunning the loader is a no-op for both writes (UPSERT-by-PK on regulation_record; UPSERT-by-id on jurisdiction_binding). S03.10's overlay-derived binding generation will independently arrive at the same `MT-STATEWIDE-bear → MT-STATEWIDE-geom` binding row; the UPSERT-by-id means S03.10's re-write is also a no-op against this row (identical content). Document this overlap in S03.10's working note when it ships.
+
+**Row-count impact:**
+- `regulation_record`: 436 → **437**. Update `_REGULATION_RECORD_COUNT_GUARD` band to `[int(437 × 0.70), int(437 × 1.30)] = [305, 568]` (was `[305, 566]` per current ±30% with 436 baseline; tiny shift).
+- `jurisdiction_binding`: 0 → **1** (first binding row in the table). Introduce a new `_JURISDICTION_BINDING_COUNT_GUARD` band sized for the single-row write expected from S03.6.1 alone (e.g., exact-match band `[1, 1]` since this story writes exactly one binding; S03.10 will broaden the band when it ships).
+
+**Depends on:**
+- S03.0 (`MT-STATEWIDE-geom` row must exist in the `geometry` table — confirmed present per S03.0 closure note 2026-05-04)
+- S03.6 (already merged; `load_regulation_records.py` is the adapter being amended)
+- S03.9 (must close first per the original carve-out sequencing — do NOT interleave; PM-closed 2026-05-21)
+
+**Estimated size:** small-to-medium (~300-400 LOC across extraction + adapter + tests + the new db helper). Slightly larger than the original placeholder estimate due to the added binding work + helper introduction.
+
+**Implications for S03.10 (jurisdiction_binding generation):**
+- S03.6.1 introduces the `db.upsert_jurisdiction_binding` helper that S03.10 reuses.
+- S03.6.1 writes 1 binding row; S03.10 writes the remaining bindings (HD-level + portion + restricted_area + CWD-zone + the `MT-STATEWIDE-antelope → MT-STATEWIDE-geom` binding that S03.10 will derive symmetrically).
+- S03.10 must arrive at the same `MT-STATEWIDE-bear → MT-STATEWIDE-geom` binding row via its overlay-derived logic; UPSERT-by-id idempotency means the re-write is a no-op. S03.10's row-count guard band starts from a baseline of 1 (the bear binding already present) plus its derived bindings; document this carry-over in S03.10's working note.
+- The `id` encoding S03.6.1 chooses MUST be the same encoding S03.10 derives for its bindings. Lock the encoding (format + test) as part of S03.6.1.
 
 **Working-note pointer:** see [`docs/planning/epics/E03-confidence-findings/S03.9.md`](E03-confidence-findings/S03.9.md) § "Probe 1 — Bear ID coursework" for the design-target rationale (target-table = regulation_record, not reporting_obligation) and the pre-discovery verification.
 
-**Acceptance Criteria (placeholder — refine at story start):**
+**Acceptance Criteria:**
 
-- [ ] `extract_black_bear.py` reads page-2 right-column verbatim text via new bbox + regex anchors; existing page-7-only scoping preserved
-- [ ] `black-bear-2026.json` carries the new field (shape TBD in S03.6.1 discovery); base + correction + merged manifests regenerated
-- [ ] `load_regulation_records.py` emits one new `RegulationRecord` with `jurisdiction_code="MT-STATEWIDE-bear"` and `species_group="bear"`, with the Bear ID Test rule in `additional_rules`
-- [ ] S03.6's row-count guard band updated (436 → 437)
-- [ ] Idempotency: rerunning the loader does not duplicate the row
-- [ ] Pre-discovery verification of `MT-STATEWIDE-antelope` `additional_rules` state recorded in S03.6.1 working note (pattern extension, not pure replay)
-- [ ] S03.10 jurisdiction_binding implication for `MT-STATEWIDE-bear` confirmed (or flagged for follow-up)
-- [ ] `ruff check`, `mypy` clean
-- [ ] Unit tests cover: page-2 bbox extraction, new artifact field shape, MT-STATEWIDE-bear row construction, idempotency
-- [ ] CLAUDE.md updated with row-count delta and S03.6.1 close note
+- [ ] `extract_black_bear.py` reads page-2 right-column verbatim text via new bbox + regex anchors; existing page-7-only scoping preserved; existing 35 BMU extractions unchanged
+- [ ] `black-bear-2026.json` carries the new top-level field (shape decided in S03.6.1 discovery and recorded in working note); base + correction + merged artifacts regenerated; SHA-256 deterministic across re-runs
+- [ ] `load_regulation_records.py` emits **1 new** `RegulationRecord` with `state="US-MT"`, `license_year=2026`, `schema_version=2`, `jurisdiction_code="MT-STATEWIDE-bear"`, `species_group="bear"`, the Bear ID Test rule in `additional_rules`, `source` jsonb pointing at bear booklet page 2, `confidence="medium"`
+- [ ] **`db.upsert_jurisdiction_binding` helper added** to `ingestion/ingestion/lib/db.py` — no-commit, UPSERT by `id` text PK, `source` jsonb-wrapped via `Json(...)`; mirrors the existing `upsert_regulation_record` shape; locked by `TestUpsertJurisdictionBinding` (parity with `TestUpsertRegulationRecord`)
+- [ ] `load_regulation_records.py` writes **1 new** `JurisdictionBinding` row in the same atomic transaction: `regulation_record_*` composite-FK references the new MT-STATEWIDE-bear regulation_record; `geometry_id="MT-STATEWIDE-geom"`; `role="primary_unit"`; `verbatim_rule=None`; `source` same as the regulation_record
+- [ ] **`id` encoding is deterministic** and reproducible across re-runs (lock the chosen format in a unit test); S03.10 will reuse the same encoding for its broader binding generation
+- [ ] **Row-count guard bands updated**: `_REGULATION_RECORD_COUNT_GUARD` band reflects 437 (or proportional ±30% band); new `_JURISDICTION_BINDING_COUNT_GUARD` band introduced sized for S03.6.1's single-row write. Both guards fire BEFORE `db.connect()` per OQ7 discipline.
+- [ ] **Atomic transaction**: the new regulation_record row + the new jurisdiction_binding row commit together; rollback on either failure is verified by a deliberate fault-injection test (mirrors S03.6/S03.7/S03.8 rollback-on-failure tests)
+- [ ] **Idempotency**: rerunning the loader is a no-op for both writes (UPSERT-by-PK on regulation_record; UPSERT-by-id on jurisdiction_binding); locked by `test_idempotent_rerun` against synthetic + real artifact paths
+- [ ] **Pre-discovery verification of `MT-STATEWIDE-antelope` `additional_rules`** state recorded in the S03.6.1 working note (pattern extension, not pure replay; documents that antelope's binding to `MT-STATEWIDE-geom` does NOT exist yet — S03.10 derives it)
+- [ ] **Sources reference verified**: `mt-fwp-black-bear-2026-booklet` citation exists in `sources.yaml` (confirmed present per S03.4 closure); page_reference uses `pdf.page_reference_to_str` (`mt-fwp-black-bear-2026-booklet-2026-04-27.pdf:p2`)
+- [ ] `ruff check` clean
+- [ ] `mypy` clean per-file across affected source files (`ingestion/lib/db.py`, `states/montana/load_regulation_records.py`, `states/montana/extract_black_bear.py`) — re-run per the S03.7 discipline-reminder; PM-verify before claiming clean
+- [ ] **Unit tests cover** (mirror the S03.6/S03.7/S03.8 testing patterns):
+  - page-2 bbox extraction + regex anchor matching (synthetic + real-PDF probe)
+  - new artifact field shape (`statewide_rules` or whatever final name) round-trips through serialization
+  - MT-STATEWIDE-bear `RegulationRecord` row construction (all required fields populated; `additional_rules` non-empty)
+  - `db.upsert_jurisdiction_binding` (success path; UPSERT-by-id idempotency; fault injection)
+  - MT-STATEWIDE-bear `JurisdictionBinding` row construction (composite-FK fields correct; role=`primary_unit`; deterministic id)
+  - Atomic-transaction rollback (deliberate fault → both rows absent)
+  - Real-artifact integration smoke (full pipeline writes both rows; counts match guard bands)
+  - State-agnostic-clean AST guard for any new code paths
+- [ ] **Working note** at `docs/planning/epics/E03-confidence-findings/S03.6.1.md` records: artifact-shape decision, `id` encoding choice with rationale, antelope-binding-absence verification, S03.10 carry-over implications. Deletes at m1 tag per ADR-017 §6.
+- [ ] **CLAUDE.md updated** with row-count delta + S03.6.1 close note + S03.10 implications (helper inherited, binding-id encoding locked)
 
 ---
 
