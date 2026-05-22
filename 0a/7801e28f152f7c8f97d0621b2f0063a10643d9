@@ -1,0 +1,30 @@
+ingestion/tests/test_extract_black_bear.py
+  s_faf8ba232341b4::t_e2a42d97710a8c 1766,1775-1795
+  s_faf8ba232341b4::t_4f660350f7a638 1681
+  s_faf8ba232341b4::t_0336c202352163 1744
+  s_faf8ba232341b4::t_fbc27ea176cabd 1703
+  s_faf8ba232341b4::t_2dd2ab8742d954 1721
+docs/plans/S03.6.1-mt-statewide-bear-anchor-plan.md
+  s_faf8ba232341b4::t_a9f3a812a9fa13 50
+  s_faf8ba232341b4::t_20090c59990590 71
+ingestion/states/montana/extract_black_bear.py
+  s_faf8ba232341b4::t_afc106016f551c 1568
+  s_faf8ba232341b4::t_328dc98cd21e52 1371
+  s_faf8ba232341b4::t_9ff786882b67ac 1384-1388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "0a7801e28f152f7c8f97d0621b2f0063a10643d9",
+  "prompts": {},
+  "sessions": {
+    "s_faf8ba232341b4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a32d513-60ae-4efe-9f02-481947747d26",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
