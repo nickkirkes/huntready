@@ -373,6 +373,26 @@ class TestBuildReportingObligations:
         ):
             _build_reporting_obligations(artifact)
 
+    def test_in_band_short_count_does_not_raise_at_build_time(self) -> None:
+        """OQ7 band [2, 4] permits in-band drift; build function must not reject.
+
+        Locks the fix from cubic-review round 6: the in-builder exact-count
+        check (``len(result) != _EXPECTED_REPORTING_OBLIGATION_COUNT``) was
+        removed because it contradicted the OQ7 ±30% band semantics — a count
+        of 2 (in-band) would have wrongly raised at build time before the
+        OQ7 guard in main() could evaluate. The OQ7 guard is the canonical
+        count authority.
+        """
+        # Use the minimal artifact (1 reporting_obligation entry). Build must
+        # succeed with 1 entry — even though 1 is OUT-of-band per the OQ7
+        # guard, the build function itself must not enforce count semantics.
+        # The OQ7 guard fires in main(), not here.
+        artifact = _make_minimal_artifact()
+        result = _build_reporting_obligations(artifact)
+        assert len(result) == 1, (
+            "build must not enforce expected-count; OQ7 guard is the authority"
+        )
+
     def test_source_dict_missing_required_citation_field_raises_with_diagnostic(
         self,
     ) -> None:
@@ -590,6 +610,32 @@ class TestBuildRegulationReportingLinks:
     ) -> None:
         with pytest.raises(RuntimeError, match=r"rows"):
             _build_regulation_reporting_links(real_obligations, {})
+
+    def test_structural_invariant_holds_for_subset_artifact(
+        self,
+        real_obligations: list[ReportingObligation],
+        real_bear_artifact: dict,
+    ) -> None:
+        """OQ7 band [49, 91] permits in-band drift; build emits 2 links per row.
+
+        Locks the fix from cubic-review round 6: the in-builder exact-count
+        check (``len(result) != _EXPECTED_REGULATION_REPORTING_COUNT``) was
+        replaced with the actual structural invariant
+        ``len(result) == 2 * len(raw_rows)``. A future artifact with, e.g.,
+        36 bear rows produces 72 links — in-band per OQ7 [49, 91] AND
+        invariant-satisfying (72 == 2 * 36). The build function must accept
+        this without raising; the OQ7 guard in main() validates drift.
+        """
+        import copy
+        artifact = copy.deepcopy(real_bear_artifact)
+        # Drop one row → 34 rows → expected 68 links. 68 IS in-band per the
+        # OQ7 [49, 91] guard, AND satisfies the structural invariant
+        # (68 == 2 * 34). Build must accept without raising.
+        artifact["rows"] = artifact["rows"][:34]
+        result = _build_regulation_reporting_links(real_obligations, artifact)
+        assert len(result) == 68, (
+            f"expected 2 links per row * 34 rows = 68; got {len(result)}"
+        )
 
     def test_row_entry_not_a_dict_raises_with_diagnostic(
         self,

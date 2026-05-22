@@ -518,15 +518,13 @@ def _build_reporting_obligations(bear_artifact: dict) -> list[ReportingObligatio
         )
         result.append(obligation)
 
-    if len(result) != _EXPECTED_REPORTING_OBLIGATION_COUNT:
-        # Defensive fast-fail; the OQ7 guard in T5 is the formal check
-        raise RuntimeError(
-            f"expected {_EXPECTED_REPORTING_OBLIGATION_COUNT} reporting_obligation "
-            f"rows from bear artifact, got {len(result)}; "
-            f"if the source PDF changed, update _EXPECTED_REPORTING_OBLIGATION_COUNT "
-            f"and the guard band, then verify the dispatch dict still covers all combos"
-        )
-
+    # NOTE: no in-builder exact-count check here. The OQ7 guard in main()
+    # (_assert_reporting_obligation_count_within_guard) is the canonical
+    # count authority — it permits the full ±30% band [2, 4]. A prior
+    # `len(result) != _EXPECTED_REPORTING_OBLIGATION_COUNT` check here
+    # would have wrongly rejected in-band drift (e.g., 2 or 4 valid entries)
+    # before the OQ7 guard could evaluate. Removed 2026-05-21 per
+    # cubic-review round 6.
     return result
 
 
@@ -554,7 +552,9 @@ def _build_regulation_reporting_links(
     - any required key is missing from the obligation list (T3 regression)
     - bear_artifact['rows'] is missing or not a list
     - any bear row has an unknown hd_region (not in R1-R7)
-    - the final row count != _EXPECTED_REGULATION_REPORTING_COUNT
+    - the structural invariant ``len(result) == 2 * len(raw_rows)`` is
+      violated (a code bug in this function, not artifact drift; the
+      OQ7 [49, 91] band guard in main() handles drift detection)
     - any composite PK collides (indicates a duplicate bmu_number in the artifact)
 
     Returns 70 RegulationReporting rows in source-row iteration order
@@ -642,12 +642,22 @@ def _build_regulation_reporting_links(
             reporting_obligation_id=region_obligation_id,
         ))
 
-    # Step 4: Post-condition checks (defensive — formal guard is in T5)
-    if len(result) != _EXPECTED_REGULATION_REPORTING_COUNT:
+    # Step 4: Structural invariant — every bear row produces exactly 2 link rows
+    # (STATEWIDE + region-specific). This is a correctness check on the loop's
+    # arithmetic, independent of the OQ7 [49, 91] band guard in main() which
+    # validates artifact-shape drift. If a future artifact has, e.g., 36 bear
+    # rows instead of 35, the structural invariant (72 == 2 * 36) still holds
+    # and the OQ7 guard accepts 72 as in-band. Removed the prior
+    # `!= _EXPECTED_REGULATION_REPORTING_COUNT` check 2026-05-21 per cubic-review
+    # round 6 (it duplicated the OQ7 guard with stricter exact-count semantics).
+    expected_link_count = 2 * len(raw_rows)
+    if len(result) != expected_link_count:
         raise RuntimeError(
-            f"expected {_EXPECTED_REGULATION_REPORTING_COUNT} regulation_reporting rows, "
-            f"got {len(result)} (bear rows: {len(raw_rows)}); "
-            f"the formula is 2 links per bear row (STATEWIDE + region-specific)"
+            f"regulation_reporting structural invariant violated: "
+            f"got {len(result)} links from {len(raw_rows)} bear rows but the "
+            f"loop should emit exactly 2 links per row (STATEWIDE + region-"
+            f"specific), expected {expected_link_count}; this indicates a "
+            f"code bug in _build_regulation_reporting_links, not artifact drift"
         )
 
     # Composite-PK uniqueness guard (each BMU produces 2 distinct obligation_ids, so no dupes
