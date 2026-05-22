@@ -525,6 +525,33 @@ def _build_reporting_obligations(bear_artifact: dict) -> list[ReportingObligatio
     # would have wrongly rejected in-band drift (e.g., 2 or 4 valid entries)
     # before the OQ7 guard could evaluate. Removed 2026-05-21 per
     # cubic-review round 6.
+    #
+    # Duplicate-id guard (added round 7): the dispatch dict has 3 unique
+    # (region_scope, kind_hint) keys; an artifact with 4+ entries MUST
+    # contain a duplicate dispatch key, producing two ReportingObligation
+    # rows with the same `id`. Without this guard, the OQ7 band [2, 4]
+    # would accept the count and db.upsert_reporting_obligation's
+    # ON CONFLICT (id) DO UPDATE would silently overwrite the first row
+    # with the second at DB write time — corrupting data. Fail loud here
+    # at build time, before any write attempt.
+    seen_ids: set[str] = set()
+    duplicate_ids: set[str] = set()
+    for obligation in result:
+        if obligation.id in seen_ids:
+            duplicate_ids.add(obligation.id)
+        seen_ids.add(obligation.id)
+    if duplicate_ids:
+        raise RuntimeError(
+            f"_build_reporting_obligations produced duplicate ReportingObligation "
+            f"ids: {sorted(duplicate_ids)!r}; this indicates the bear artifact's "
+            f"'reporting_obligations' list has multiple entries mapping to the "
+            f"same (region_scope, kind_hint) dispatch key. The dispatch dict "
+            f"has 3 unique keys; ingesting duplicates would silently overwrite "
+            f"each other via ON CONFLICT (id) DO UPDATE in "
+            f"db.upsert_reporting_obligation. "
+            f"Re-run extract_black_bear.py and inspect the artifact."
+        )
+
     return result
 
 

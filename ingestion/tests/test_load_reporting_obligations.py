@@ -373,6 +373,31 @@ class TestBuildReportingObligations:
         ):
             _build_reporting_obligations(artifact)
 
+    def test_duplicate_obligation_ids_raise_with_diagnostic(self) -> None:
+        """Two artifact entries mapping to the same dispatch key fail loud.
+
+        Locks the round-7 cubic-review fix: the OQ7 band [2, 4] permits 4
+        reporting_obligation entries, but the dispatch dict has only 3 unique
+        (region_scope, kind_hint) keys — so a 4th valid entry MUST be a
+        duplicate of one of the 3. Without the duplicate-id guard, the
+        duplicate ReportingObligation rows would silently overwrite each
+        other via ON CONFLICT (id) DO UPDATE at DB write time.
+        """
+        artifact = _make_minimal_artifact()  # 1 STATEWIDE harvest_report
+        # Add a second entry with the same (region_scope, kind_hint) — this
+        # produces the same id_suffix → same final id → duplicate
+        duplicate_entry = dict(artifact["reporting_obligations"][0])
+        duplicate_entry["verbatim_rule"] = "different text but same dispatch key"
+        artifact["reporting_obligations"].append(duplicate_entry)
+        with pytest.raises(
+            RuntimeError,
+            match=(
+                r"duplicate ReportingObligation ids.*"
+                r"mt-bear-harvest-report-48hr-statewide"
+            ),
+        ):
+            _build_reporting_obligations(artifact)
+
     def test_in_band_short_count_does_not_raise_at_build_time(self) -> None:
         """OQ7 band [2, 4] permits in-band drift; build function must not reject.
 
