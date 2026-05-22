@@ -44,6 +44,7 @@ from ingestion.lib.schema import (
     DrawSpec,
     DrawSpecKey,
     Geometry,
+    JurisdictionBinding,
     LicenseSeason,
     LicenseTag,
     RegulationLicense,
@@ -214,6 +215,27 @@ ON CONFLICT (id) DO UPDATE SET
 """
 
 _INSERT_REGULATION_REPORTING_SQL = "INSERT INTO regulation_reporting (state, jurisdiction_code, species_group, license_year, reporting_obligation_id) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
+
+_UPSERT_JURISDICTION_BINDING_SQL = """
+INSERT INTO jurisdiction_binding (
+    id, regulation_record_state, regulation_record_jurisdiction_code,
+    regulation_record_species_group, regulation_record_license_year,
+    geometry_id, role, verbatim_rule, source
+) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (id) DO UPDATE SET
+    regulation_record_state              = EXCLUDED.regulation_record_state,
+    regulation_record_jurisdiction_code  = EXCLUDED.regulation_record_jurisdiction_code,
+    regulation_record_species_group      = EXCLUDED.regulation_record_species_group,
+    regulation_record_license_year       = EXCLUDED.regulation_record_license_year,
+    geometry_id                          = EXCLUDED.geometry_id,
+    role                                 = EXCLUDED.role,
+    verbatim_rule                        = EXCLUDED.verbatim_rule,
+    source                               = EXCLUDED.source
+-- id (PK) is intentionally NOT in the UPDATE clause: same discipline as
+-- _UPSERT_SEASON_DEFINITION_SQL above.
+-- No ingested_at column on jurisdiction_binding per DDL
+-- supabase/migrations/20260425000000_initial_schema.sql:193-216.
+"""
 
 
 def connect() -> psycopg.Connection[tuple[object, ...]]:
@@ -736,4 +758,62 @@ def write_regulation_reporting(
         link.state, link.jurisdiction_code,
         link.species_group, link.license_year,
         link.reporting_obligation_id,
+    )
+
+
+def upsert_jurisdiction_binding(
+    conn: psycopg.Connection[tuple[object, ...]],
+    binding: JurisdictionBinding,
+) -> None:
+    """INSERT … ON CONFLICT UPDATE a single ``JurisdictionBinding`` row.
+
+    DDL table: jurisdiction_binding (supabase/migrations/20260425000000_initial_schema.sql:193-216)
+
+    Persists the overlay relationship between a ``geometry`` row and a
+    ``regulation_record`` row, including the binding ``role`` and optional
+    ``verbatim_rule``.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Idempotent: ON CONFLICT (id) DO UPDATE SET overwrites all mutable fields
+    on re-runs; re-runs with byte-identical ``binding`` are a no-op at the
+    observable side-effect level. ``verbatim_rule`` and ``source`` may update
+    freely on re-ingest — they are NOT id-encoded and therefore NOT in the
+    conflict discriminator.
+
+    Fails loud on ``cur.rowcount == 0``: raises ``RuntimeError`` with the
+    unmatched binding id. This catches loader bugs where the adapter derives
+    a binding id that touches no rows (should be structurally impossible for a
+    correctly formed UPSERT, but guards against future schema drift).
+
+    Note: ``jurisdiction_binding`` has no ``ingested_at`` column per DDL, so no
+    exclusion clause is needed (contrast with ``_UPSERT_REGULATION_RECORD_SQL``).
+
+    Args:
+        conn: An open psycopg3 connection.
+        binding: The ``JurisdictionBinding`` instance to persist.
+    """
+    source_json = Json(binding.source.model_dump(exclude_none=True))
+    params: tuple[object, ...] = (
+        binding.id,
+        binding.regulation_record_state,
+        binding.regulation_record_jurisdiction_code,
+        binding.regulation_record_species_group,
+        binding.regulation_record_license_year,
+        binding.geometry_id,
+        binding.role,
+        binding.verbatim_rule,  # may be None — psycopg encodes as SQL NULL
+        source_json,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_UPSERT_JURISDICTION_BINDING_SQL, params)
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"upsert_jurisdiction_binding: cur.rowcount == 0 for id={binding.id!r}"
+                " — UPSERT touched no rows; investigate possible PK collision with"
+                " mismatched content."
+            )
+    _logger.debug(
+        "upserted jurisdiction_binding id=%s role=%s geom=%s",
+        binding.id, binding.role, binding.geometry_id,
     )

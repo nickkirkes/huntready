@@ -42,6 +42,7 @@ from ingestion.lib import db, pdf
 from ingestion.lib.pdf import ConfidenceTier
 from ingestion.lib.schema import (
     Confidence,
+    JurisdictionBinding,
     RegulationRecord,
     SourceCitation,
     VerbatimRule,
@@ -69,10 +70,11 @@ _LICENSE_YEAR = 2026
 _SCHEMA_VERSION = 2
 
 # Per-record-count fail-loud guard (OQ7 resolution). Acceptable range is
-# 70%-130% of the spec estimate ~514 (epic line 542) — written count outside
+# 70%-130% of the actual baseline of 437 (= 436 baseline from S03.6 close +
+# 1 MT-STATEWIDE-bear anchor added by S03.6.1) — written count outside
 # the band indicates a catastrophic regression in one of the extraction
-# artifacts. Concrete bounds after int() truncation: [359, 668].
-_SPEC_ESTIMATE_TOTAL = 514
+# artifacts. Concrete bounds after int() truncation: [305, 568].
+_SPEC_ESTIMATE_TOTAL = 437
 _COUNT_GUARD_MIN_RATIO = 0.70
 _COUNT_GUARD_MAX_RATIO = 1.30
 
@@ -81,8 +83,39 @@ _COUNT_GUARD_MAX_RATIO = 1.30
 # Concrete bounds after int() truncation: [159, 296].
 _LEGAL_DESC_EXPECTED_TOTAL = 228
 
+# jurisdiction_binding count guard. S03.6.1 writes exactly one binding row
+# (MT-STATEWIDE-bear → MT-STATEWIDE-geom). S03.10 will broaden this band
+# when it ships its overlay-derived binding generation. Per spec line 908:
+# exact-match [1, 1] for the single-row write expected from S03.6.1 alone.
+_JURISDICTION_BINDING_EXPECTED_TOTAL = 1
+_JURISDICTION_BINDING_GUARD_MIN = 1
+_JURISDICTION_BINDING_GUARD_MAX = 1
+
 _DEA_CITATION_ID = "mt-fwp-dea-2026-booklet"
 _LEGAL_DESC_CITATION_ID = "mt-fwp-legal-descriptions-2026-2027"
+
+# S03.6.1 statewide bear anchor constants.
+_BEAR_BOOKLET_CITATION_ID = "mt-fwp-black-bear-2026-booklet"
+
+# Geometry id for the MT-STATEWIDE row created by S03.0 (ADR-018 §3).
+_MT_STATEWIDE_GEOM_ID = "MT-STATEWIDE-geom"
+
+# Binding id format for jurisdiction_binding rows produced by this adapter
+# and by S03.10 (which must use the same format so that S03.10 UPSERTs are
+# no-ops for bindings already written here).
+#
+# Encoded: PK-equivalent fields (state, jurisdiction_code, species_group,
+# license_year) + role + geometry_id.  Fields that may update freely without
+# a PK change (verbatim_rule, source) are intentionally NOT encoded — a slug
+# that embeds a mutable field would silently create a new row on every
+# re-ingestion run instead of updating in place (Q19 risk).
+#
+# S03.10 carry-over note: use this exact format string when deriving binding
+# ids for the overlay-fan-out bindings so that the statewide bear binding
+# written by S03.6.1 is a stable UPSERT no-op when S03.10 re-derives it.
+_JURISDICTION_BINDING_ID_FORMAT = (
+    "{state}-{jurisdiction_code}-{species_group}-{license_year}-{role}-{geometry_id}"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +152,7 @@ def _load_citation_from_sources_yaml(citation_id: str) -> SourceCitation:
             url=entry["url"],
             publication_date=entry["publication_date"],
             document_type=entry["document_type"],
-            supersedes=None,
+            supersedes=entry.get("supersedes"),
             page_reference=None,
         )
 
@@ -334,6 +367,17 @@ def _build_bear_records(bear_artifact: dict) -> list[RegulationRecord]:
             f"re-run extract_black_bear.py and inspect the artifact"
         )
     sources_by_id: dict[str, dict] = {s["id"]: s for s in raw_sources}
+    if len(sources_by_id) != len(raw_sources):
+        seen: set[str] = set()
+        duplicates: list[str] = []
+        for s in raw_sources:
+            if s["id"] in seen:
+                duplicates.append(s["id"])
+            seen.add(s["id"])
+        raise RuntimeError(
+            f"bear artifact 'sources' has duplicate ids: {sorted(set(duplicates))!r} — "
+            "indicates artifact regeneration produced collision; investigate before re-running"
+        )
     records: list[RegulationRecord] = []
     for row in raw_rows:
         source_id = row["source_id"]
@@ -374,6 +418,107 @@ def _build_bear_records(bear_artifact: dict) -> list[RegulationRecord]:
             ),
         ))
     return records
+
+
+# ---------------------------------------------------------------------------
+# S03.6.1 — MT-STATEWIDE-bear anchor + jurisdiction_binding builder
+# ---------------------------------------------------------------------------
+
+
+def _build_statewide_bear_record(
+    bear_artifact: dict,
+    bear_citation: SourceCitation,
+) -> RegulationRecord:
+    """Build the MT-STATEWIDE-bear regulation_record anchor from the bear artifact.
+
+    Reads ``bear_artifact["statewide_rules"]`` — a list expected to contain
+    exactly one ``StatewideRuleCandidate`` entry (the Bear ID Test requirement
+    from page 2 of the Black Bear booklet).
+
+    Fail-loud cases:
+    - Missing ``statewide_rules`` key → RuntimeError (regenerate extraction).
+    - Empty list → RuntimeError (extraction regression; investigate).
+    - More than 1 entry → RuntimeError (V1 contract; M2 may relax).
+
+    The single ``StatewideRuleCandidate``'s ``verbatim_text`` is written to
+    ``additional_rules`` as a raw ``VerbatimRule`` — no NOTE: or REQUIREMENT:
+    prefix is added; the adapter preserves the source text verbatim per ADR-008.
+
+    ``confidence="medium"`` matches the bear per-BMU rows: all rows were
+    demoted HIGH→MEDIUM by S03.4's correction-touched single-demote-one-tier
+    pass; the statewide anchor carries the same calibration.
+    """
+    raw_statewide = bear_artifact.get("statewide_rules")
+    if raw_statewide is None:
+        raise RuntimeError(
+            "bear artifact missing 'statewide_rules' field — "
+            "regenerate via extract_black_bear.py"
+        )
+    if not isinstance(raw_statewide, list):
+        raise RuntimeError(
+            f"bear artifact 'statewide_rules' is not a list (got {type(raw_statewide).__name__!r}) — "
+            "artifact schema corruption; regenerate via extract_black_bear.py"
+        )
+    if len(raw_statewide) == 0:
+        raise RuntimeError(
+            "bear artifact 'statewide_rules' is empty — "
+            "extraction regression; investigate before re-running"
+        )
+    n = len(raw_statewide)
+    if n > 1:
+        raise RuntimeError(
+            f"bear artifact 'statewide_rules' has {n} entries (expected 1) — "
+            "V1 contract; M2 may relax"
+        )
+    statewide_rule = raw_statewide[0]
+    page_ref_str = pdf.page_reference_to_str(statewide_rule["page_reference"])
+    bear_citation_at_page = bear_citation.model_copy(
+        update={"page_reference": page_ref_str},
+    )
+    verbatim_rule_obj = VerbatimRule(
+        text=statewide_rule["verbatim_text"],
+        page_reference=page_ref_str,
+        confidence=cast(Confidence, ConfidenceTier(statewide_rule["extraction_confidence"])),
+        source=bear_citation_at_page,
+    )
+    return RegulationRecord(
+        state=_MT_STATE_CODE,
+        license_year=_LICENSE_YEAR,
+        jurisdiction_code="MT-STATEWIDE-bear",
+        species_group="bear",
+        schema_version=_SCHEMA_VERSION,
+        additional_rules=[verbatim_rule_obj],
+        source=bear_citation_at_page,
+        confidence="medium",
+    )
+
+
+def _build_statewide_bear_binding(record: RegulationRecord) -> JurisdictionBinding:
+    """Build the jurisdiction_binding linking MT-STATEWIDE-bear to MT-STATEWIDE-geom.
+
+    The binding id is derived via ``_JURISDICTION_BINDING_ID_FORMAT`` — the
+    same format S03.10 must use when re-deriving bindings in its overlay
+    fan-out, so this row is a stable UPSERT no-op when S03.10 runs.
+    """
+    binding_id = _JURISDICTION_BINDING_ID_FORMAT.format(
+        state=record.state,
+        jurisdiction_code=record.jurisdiction_code,
+        species_group=record.species_group,
+        license_year=record.license_year,
+        role="primary_unit",
+        geometry_id=_MT_STATEWIDE_GEOM_ID,
+    )
+    return JurisdictionBinding(
+        id=binding_id,
+        regulation_record_state=record.state,
+        regulation_record_jurisdiction_code=record.jurisdiction_code,
+        regulation_record_species_group=record.species_group,
+        regulation_record_license_year=record.license_year,
+        geometry_id=_MT_STATEWIDE_GEOM_ID,
+        role="primary_unit",
+        verbatim_rule=None,
+        source=record.source,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -433,9 +578,10 @@ def _assert_legal_desc_count_within_guard(written: int) -> None:
 
 def _assert_count_within_guard(written: int) -> None:
     """Fail loud if the regulation_record write count is outside the 70%-130%
-    band of the spec estimate (514). Concrete bounds after int() truncation:
-    [359, 668]. Below or above indicates a catastrophic regression in one of
-    the extraction artifacts — investigate before re-running.
+    band of the actual baseline (437 = 436 from S03.6 + 1 MT-STATEWIDE-bear
+    from S03.6.1). Concrete bounds after int() truncation: [305, 568]. Below
+    or above indicates a catastrophic regression in one of the extraction
+    artifacts — investigate before re-running.
     """
     lower = int(_SPEC_ESTIMATE_TOTAL * _COUNT_GUARD_MIN_RATIO)
     upper = int(_SPEC_ESTIMATE_TOTAL * _COUNT_GUARD_MAX_RATIO)
@@ -443,9 +589,24 @@ def _assert_count_within_guard(written: int) -> None:
         raise RuntimeError(
             f"regulation_record count guard failed: wrote {written} rows; "
             f"expected approximately {_SPEC_ESTIMATE_TOTAL} (acceptable range "
-            f"{lower}-{upper}, ±30% of spec estimate). This indicates a "
+            f"{lower}-{upper}, ±30% of baseline). This indicates a "
             f"catastrophic regression in one of the extraction artifacts. "
             f"Investigate before re-running."
+        )
+
+
+def _assert_jurisdiction_binding_count_within_guard(written: int) -> None:
+    """Fail loud if the jurisdiction_binding build count is outside the
+    exact-match [1, 1] band. S03.6.1 ships the first binding row only
+    (MT-STATEWIDE-bear → MT-STATEWIDE-geom); S03.10 will broaden this band
+    when it ships its overlay-derived binding generation.
+    """
+    if not (_JURISDICTION_BINDING_GUARD_MIN <= written <= _JURISDICTION_BINDING_GUARD_MAX):
+        raise RuntimeError(
+            f"jurisdiction_binding count guard failed: built {written} rows; "
+            f"expected exactly {_JURISDICTION_BINDING_EXPECTED_TOTAL} "
+            "(S03.6.1 ships the first binding row only; S03.10 will broaden "
+            "this band). Investigate before re-running."
         )
 
 
@@ -513,8 +674,8 @@ def main(argv: list[str] | None = None) -> int:
             "Load Montana regulation_record rows from the DEA + Black Bear "
             "extraction artifacts and populate geometry.legal_description from "
             "the Legal Descriptions extraction artifact. Writes "
-            "~436 regulation_record rows + ~228 geometry UPDATE statements "
-            "atomically (single commit)."
+            "~437 regulation_record rows + ~228 geometry UPDATE statements + "
+            "1 jurisdiction_binding row atomically (single commit)."
         ),
     )
     parser.add_argument(
@@ -535,6 +696,7 @@ def main(argv: list[str] | None = None) -> int:
 
     logger.info("loading sources.yaml citations")
     dea_citation = _load_citation_from_sources_yaml(_DEA_CITATION_ID)
+    bear_citation = _load_citation_from_sources_yaml(_BEAR_BOOKLET_CITATION_ID)
     # legal_desc_citation isn't directly used by the loader — it's already
     # baked into the legal-descriptions JSON artifact as `source_id`. We load
     # it here for the fail-loud guard (raises if the citation id is missing
@@ -552,13 +714,19 @@ def main(argv: list[str] | None = None) -> int:
         legal_desc_artifact = json.load(f)
 
     logger.info("building regulation_record rows")
+    statewide_bear_record = _build_statewide_bear_record(bear_artifact, bear_citation)
     records = (
         _build_dea_records(dea_artifact, dea_citation)
         + _build_bear_records(bear_artifact)
+        + [statewide_bear_record]
     )
     logger.info("built %d regulation_record rows", len(records))
 
     _assert_count_within_guard(len(records))
+
+    bindings = [_build_statewide_bear_binding(statewide_bear_record)]
+    logger.info("built %d jurisdiction_binding rows", len(bindings))
+    _assert_jurisdiction_binding_count_within_guard(len(bindings))
 
     legal_writes = _legal_description_writes(legal_desc_artifact)
     logger.info("queued %d geometry.legal_description updates", len(legal_writes))
@@ -570,17 +738,21 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     with db.connect() as conn:
+        # FK ordering: regulation_record must be written before
+        # jurisdiction_binding (the binding's composite-FK references the
+        # parent record's PK). Single atomic commit — all-or-nothing.
         for record in records:
             db.upsert_regulation_record(conn, record)
+        for binding in bindings:
+            db.upsert_jurisdiction_binding(conn, binding)
         for geom_id, text in legal_writes:
             db.update_legal_description(conn, geom_id, text)
-        # Single atomic commit — all-or-nothing: a failure mid-write rolls
-        # back regulation_record rows + legal_description updates together.
         conn.commit()
 
     logger.info(
-        "loaded %d regulation_record rows + %d legal_description updates",
-        len(records), len(legal_writes),
+        "loaded %d regulation_record rows + %d jurisdiction_binding rows + "
+        "%d legal_description updates",
+        len(records), len(bindings), len(legal_writes),
     )
     _log_summary(records, legal_writes, logger)
     return 0

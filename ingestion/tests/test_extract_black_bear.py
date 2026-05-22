@@ -1037,6 +1037,7 @@ def _make_base_extraction(
         rows=rows,
         closures=[],
         reporting_obligations=[],
+        statewide_rules=[],
     )
 
 
@@ -1596,6 +1597,198 @@ class TestDeterministicJsonOutput:
         nested_path = tmp_path / "subdir" / "nested" / "output.json"
         _write_deterministic_json(nested_path, {"key": "val"})
         assert nested_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# T5: TestExtractStatewideRules
+# ---------------------------------------------------------------------------
+
+# Canonical Bear ID Test paragraph (modulo whitespace collapse).
+# The PDF uses Unicode curly/smart quotes (“ / ”) around
+# "Black Bear Identification test" — these are preserved verbatim per ADR-008.
+_BEAR_ID_PARAGRAPH = (
+    "A hunter may purchase only one Black Bear License per year. "
+    "A free Black Bear Identification Test Certificate is required to obtain a license. "
+    "A hunter must take and pass a “Black Bear Identification test” before purchasing a "
+    "Black Bear Hunting license. A hunter must present a certificate of completion issued "
+    "by FWP at the time of purchase. The test is available online at: "
+    "fwp.mt.gov/hunt/education/bear-identification"
+)
+
+
+def _make_statewide_rules_page_text(
+    include_start: bool = True,
+    include_end: bool = True,
+) -> str:
+    """Synthesize realistic p. 2 right-column prose for statewide-rules tests.
+
+    Uses the same Unicode curly quotes as the real PDF so the extracted
+    ``verbatim_text`` matches ``_BEAR_ID_PARAGRAPH`` byte-for-byte.
+    """
+    if not include_start:
+        return "Some unrelated right-column text without the Bear ID anchor."
+    body = (
+        "A hunter may purchase only one Black Bear License per year. "
+        "A free Black Bear Identification Test Certificate is required to obtain a license. "
+        "A hunter must take and pass a “Black Bear Identification test” before purchasing a "
+        "Black Bear Hunting license. A hunter must present a certificate of completion issued "
+        "by FWP at the time of purchase. The test is available online at:"
+    )
+    if not include_end:
+        return body + " (URL omitted)"
+    return body + " fwp.mt.gov/hunt/education/bear-identification"
+
+
+class TestExtractStatewideRules:
+    """Tests for ``_extract_statewide_rules`` — p. 2 right-column Bear ID Test extraction."""
+
+    def _setup_monkeypatch(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        page_text: str,
+    ) -> MagicMock:
+        """Wire monkeypatch for iter_pages + extract_text; return a mock PDF."""
+
+        def fake_iter_pages(
+            pdf: object, start: int, end: int
+        ) -> list[tuple[int, MagicMock]]:
+            mock_page = MagicMock()
+            mock_page.crop.return_value = mock_page
+            mock_page.extract_text.return_value = page_text
+            return [(2, mock_page)]
+
+        def fake_extract_text(
+            page: object, bbox: object = None
+        ) -> str:
+            return page_text  # type: ignore[return-value]
+
+        monkeypatch.setattr(m, "iter_pages", fake_iter_pages)
+        monkeypatch.setattr(m, "extract_text", fake_extract_text)
+
+        mock_pdf = MagicMock()
+        mock_pdf.filename = "test-black-bear.pdf"
+        return mock_pdf
+
+    def test_extracts_bear_id_test_paragraph(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Synthetic p. 2 right-column text yields exactly 1 StatewideRuleCandidate."""
+        page_text = _make_statewide_rules_page_text()
+        mock_pdf = self._setup_monkeypatch(monkeypatch, page_text)
+
+        results = m._extract_statewide_rules(
+            mock_pdf,
+            "mt-fwp-black-bear-2026-booklet",
+            "2026-04-27",
+            "2026-05-22T10:00:00+00:00",
+        )
+
+        assert len(results) == 1
+        candidate = results[0]
+        assert candidate["verbatim_text"] == _BEAR_ID_PARAGRAPH
+        assert candidate["rule_hint"] == "pre_purchase_prerequisite"
+        assert candidate["extraction_confidence"] == "medium"
+        assert candidate["page_reference"]["page_num_1based"] == 2
+
+    def test_start_anchor_missing_returns_empty_list(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Missing start anchor → empty list (downstream row-count guard fires)."""
+        page_text = _make_statewide_rules_page_text(include_start=False)
+        mock_pdf = self._setup_monkeypatch(monkeypatch, page_text)
+
+        results = m._extract_statewide_rules(
+            mock_pdf,
+            "mt-fwp-black-bear-2026-booklet",
+            "2026-04-27",
+            "2026-05-22T10:00:00+00:00",
+        )
+
+        assert results == []
+
+    def test_end_anchor_missing_raises_runtime_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Start anchor found but end anchor absent → RuntimeError with 'end anchor missing'."""
+        page_text = _make_statewide_rules_page_text(include_end=False)
+        mock_pdf = self._setup_monkeypatch(monkeypatch, page_text)
+
+        with pytest.raises(RuntimeError, match="end anchor missing"):
+            m._extract_statewide_rules(
+                mock_pdf,
+                "mt-fwp-black-bear-2026-booklet",
+                "2026-04-27",
+                "2026-05-22T10:00:00+00:00",
+            )
+
+    def test_whitespace_collapse_extras_only(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Multi-line / tab / multi-space input collapses to single-space-separated text."""
+        # Input deliberately contains \n\n, \t, and runs of spaces.
+        page_text = (
+            "A hunter may purchase only one Black Bear License per year.\n\n"
+            "\tA free   Black Bear Identification Test Certificate is required to obtain a license. "
+            "A hunter must take and pass a Black Bear Identification test before purchasing a "
+            "Black Bear Hunting license. A hunter must present a certificate of completion issued "
+            "by FWP at the time of purchase. The test is available online at: "
+            "fwp.mt.gov/hunt/education/bear-identification"
+        )
+        mock_pdf = self._setup_monkeypatch(monkeypatch, page_text)
+
+        results = m._extract_statewide_rules(
+            mock_pdf,
+            "mt-fwp-black-bear-2026-booklet",
+            "2026-04-27",
+            "2026-05-22T10:00:00+00:00",
+        )
+
+        assert len(results) == 1
+        cleaned = results[0]["verbatim_text"]
+        assert "\n" not in cleaned, f"newline found in verbatim_text: {cleaned!r}"
+        assert "\t" not in cleaned, f"tab found in verbatim_text: {cleaned!r}"
+        assert "  " not in cleaned, f"double-space found in verbatim_text: {cleaned!r}"
+
+    def test_extracted_at_threads_through_page_reference(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """extracted_at parameter is preserved verbatim in page_reference."""
+        page_text = _make_statewide_rules_page_text()
+        mock_pdf = self._setup_monkeypatch(monkeypatch, page_text)
+        extracted_at = "2026-05-22T10:00:00+00:00"
+
+        results = m._extract_statewide_rules(
+            mock_pdf,
+            "mt-fwp-black-bear-2026-booklet",
+            "2026-04-27",
+            extracted_at,
+        )
+
+        assert len(results) == 1
+        assert results[0]["page_reference"]["extracted_at"] == extracted_at
+
+    def test_real_artifact_round_trip(self) -> None:
+        """black-bear-2026.json statewide_rules has 1 entry with expected content."""
+        artifact_path = (
+            Path(__file__).resolve().parents[1]
+            / "states" / "montana" / "extracted" / "black-bear-2026.json"
+        )
+        assert artifact_path.exists(), (
+            f"Artifact not found at {artifact_path}. "
+            "Run extract_black_bear.py to regenerate."
+        )
+        with artifact_path.open(encoding="utf-8") as fh:
+            data = json.load(fh)
+
+        rules: list[Any] = data.get("statewide_rules", [])
+        assert isinstance(rules, list)
+        assert len(rules) == 1, f"Expected 1 statewide rule, got {len(rules)}"
+
+        rule = rules[0]
+        assert rule["source_id"] == "mt-fwp-black-bear-2026-booklet"
+        assert rule["verbatim_text"] == _BEAR_ID_PARAGRAPH
+        assert rule["rule_hint"] == "pre_purchase_prerequisite"
+        assert rule["extraction_confidence"] == "medium"
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,8 @@ Coverage:
 - TestLegalDescriptionWrites — geometry.legal_description matched-array writes
 - TestCountGuard — row-count fail-loud guard (OQ7)
 - TestMain — main() wiring with mocked DB
+- TestAtomicTransaction — rollback-on-failure + idempotency + dry-run smoke
+- TestNoLibImports — state-agnostic-clean AST guard (bidirectional)
 
 The editable install adds ``ingestion/`` to sys.path so ``states.montana.*``
 is directly importable, the same way every sibling adapter test does it.
@@ -14,7 +16,9 @@ is directly importable, the same way every sibling adapter test does it.
 
 from __future__ import annotations
 
+import ast
 import json
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -584,20 +588,20 @@ class TestLegalDescriptionWrites:
 
 class TestCountGuard:
     def test_count_within_range_passes(self) -> None:
-        # Actual artifact-derived count
-        lrr._assert_count_within_guard(436)
-        # Lower bound int(514 * 0.70) = 359
-        lrr._assert_count_within_guard(359)
-        # Upper bound int(514 * 1.30) = 668
-        lrr._assert_count_within_guard(668)
+        # Actual artifact-derived count (437 = 436 baseline + 1 MT-STATEWIDE-bear)
+        lrr._assert_count_within_guard(437)
+        # Lower bound int(437 * 0.70) = 305
+        lrr._assert_count_within_guard(305)
+        # Upper bound int(437 * 1.30) = 568
+        lrr._assert_count_within_guard(568)
 
     def test_count_below_lower_raises(self) -> None:
         with pytest.raises(RuntimeError, match="count guard failed"):
-            lrr._assert_count_within_guard(358)
+            lrr._assert_count_within_guard(304)
 
     def test_count_above_upper_raises(self) -> None:
         with pytest.raises(RuntimeError, match="count guard failed"):
-            lrr._assert_count_within_guard(669)
+            lrr._assert_count_within_guard(569)
 
     def test_zero_rows_raises(self) -> None:
         """Catastrophic regression: zero rows must fail loud."""
@@ -608,8 +612,8 @@ class TestCountGuard:
         with pytest.raises(RuntimeError) as exc_info:
             lrr._assert_count_within_guard(0)
         msg = str(exc_info.value)
-        assert "359-668" in msg
-        assert "514" in msg
+        assert "305-568" in msg
+        assert "437" in msg
 
     def test_legal_desc_count_within_range_passes(self) -> None:
         # Actual artifact baseline
@@ -632,6 +636,257 @@ class TestCountGuard:
         matched entries must fail loud before any DB writes."""
         with pytest.raises(RuntimeError, match="legal_description count"):
             lrr._assert_legal_desc_count_within_guard(0)
+
+
+# ---------------------------------------------------------------------------
+# Fixtures for S03.6.1 statewide bear anchor tests
+# ---------------------------------------------------------------------------
+
+
+def _make_statewide_rule_entry(
+    *,
+    verbatim_text: str = (
+        "All persons born on or after January 1, 1985 must show proof of "
+        "satisfactory completion of a hunter education course, or a Bear ID "
+        "test, prior to purchasing a black bear license."
+    ),
+    pdf_filename: str = "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf",
+    page_num_1based: int = 2,
+    extraction_confidence: str = "medium",
+    source_id: str = "mt-fwp-black-bear-2026-booklet",
+    source_publication_date: str = "2026-04-27",
+) -> dict:
+    """Synthetic minimal statewide_rules entry for the bear artifact."""
+    return {
+        "rule_hint": "pre_purchase_prerequisite",
+        "verbatim_text": verbatim_text,
+        "page_reference": {
+            "pdf_filename": pdf_filename,
+            "page_num_1based": page_num_1based,
+            "bbox": [306.0, 0.0, 612.0, 792.0],
+            "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        },
+        "source_id": source_id,
+        "source_publication_date": source_publication_date,
+        "extraction_confidence": extraction_confidence,
+    }
+
+
+def _make_bear_citation() -> SourceCitation:
+    """Synthetic SourceCitation for the black bear booklet — mirrors what
+    ``_load_citation_from_sources_yaml(_BEAR_BOOKLET_CITATION_ID)`` returns."""
+    return SourceCitation(
+        id="mt-fwp-black-bear-2026-booklet",
+        agency="Montana Fish, Wildlife & Parks",
+        title="Montana 2026 Black Bear Regulations",
+        url="https://fwp.mt.gov/hunt/regulations/black-bear",
+        publication_date="2026-04-27",
+        document_type="annual_regulations",
+        supersedes=None,
+        page_reference=None,
+    )
+
+
+def _make_statewide_bear_artifact(
+    statewide_rules: list[dict] | None = None,
+) -> dict:
+    """Bear artifact dict containing only the statewide_rules key — the
+    minimum surface read by ``_build_statewide_bear_record``."""
+    if statewide_rules is None:
+        statewide_rules = [_make_statewide_rule_entry()]
+    return {"statewide_rules": statewide_rules}
+
+
+# ---------------------------------------------------------------------------
+# TestBuildStatewideBearRecord
+# ---------------------------------------------------------------------------
+
+
+class TestBuildStatewideBearRecord:
+    def test_constructs_mt_statewide_bear_record(self) -> None:
+        """Fixture with exactly 1 statewide_rules entry; helper returns a
+        RegulationRecord with all expected scalar fields."""
+        artifact = _make_statewide_bear_artifact()
+        citation = _make_bear_citation()
+        record = lrr._build_statewide_bear_record(artifact, citation)
+        assert record.state == "US-MT"
+        assert record.jurisdiction_code == "MT-STATEWIDE-bear"
+        assert record.species_group == "bear"
+        assert record.license_year == 2026
+        assert record.schema_version == 2
+        assert record.confidence == "medium"
+        assert len(record.additional_rules) == 1
+
+    def test_additional_rules_carry_verbatim_text(self) -> None:
+        """The VerbatimRule.text must equal the input verbatim_text byte-for-byte."""
+        canonical_text = (
+            "All persons born on or after January 1, 1985 must show proof of "
+            "satisfactory completion of a hunter education course, or a Bear ID "
+            "test, prior to purchasing a black bear license."
+        )
+        artifact = _make_statewide_bear_artifact(
+            statewide_rules=[_make_statewide_rule_entry(verbatim_text=canonical_text)],
+        )
+        citation = _make_bear_citation()
+        record = lrr._build_statewide_bear_record(artifact, citation)
+        assert record.additional_rules[0].text == canonical_text
+
+    def test_source_page_reference_is_p2(self) -> None:
+        """The source citation page_reference must be collapsed to the
+        ``<filename>:p<n>`` format for page 2 of the booklet."""
+        artifact = _make_statewide_bear_artifact()
+        citation = _make_bear_citation()
+        record = lrr._build_statewide_bear_record(artifact, citation)
+        assert record.source.page_reference == (
+            "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf:p2"
+        )
+
+    def test_empty_statewide_rules_raises_runtime_error(self) -> None:
+        """An empty statewide_rules list is an extraction regression — fail loud."""
+        artifact = _make_statewide_bear_artifact(statewide_rules=[])
+        with pytest.raises(RuntimeError, match="statewide_rules"):
+            lrr._build_statewide_bear_record(artifact, _make_bear_citation())
+
+    def test_multiple_statewide_rules_raises_runtime_error(self) -> None:
+        """More than 1 entry violates the V1 contract — fail loud. M2 may relax."""
+        artifact = _make_statewide_bear_artifact(
+            statewide_rules=[
+                _make_statewide_rule_entry(),
+                _make_statewide_rule_entry(verbatim_text="Another rule."),
+            ],
+        )
+        with pytest.raises(RuntimeError):
+            lrr._build_statewide_bear_record(artifact, _make_bear_citation())
+
+    def test_missing_statewide_rules_field_raises_runtime_error(self) -> None:
+        """Artifact dict lacking the 'statewide_rules' key entirely must raise
+        with a message pointing to regeneration (mentions 'regenerate' or
+        'extract_black_bear.py')."""
+        artifact: dict = {}  # no 'statewide_rules' key
+        with pytest.raises(RuntimeError) as exc_info:
+            lrr._build_statewide_bear_record(artifact, _make_bear_citation())
+        msg = str(exc_info.value)
+        assert "regenerate" in msg or "extract_black_bear.py" in msg
+
+
+# ---------------------------------------------------------------------------
+# TestBuildStatewideBearBinding
+# ---------------------------------------------------------------------------
+
+
+class TestBuildStatewideBearBinding:
+    def _make_record(self) -> lrr.RegulationRecord:
+        """Build a canonical MT-STATEWIDE-bear RegulationRecord for binding tests."""
+        artifact = _make_statewide_bear_artifact()
+        return lrr._build_statewide_bear_record(artifact, _make_bear_citation())
+
+    def test_constructs_binding_with_correct_composite_fk(self) -> None:
+        """All four regulation_record_* FK fields must match the record's PK fields."""
+        record = self._make_record()
+        binding = lrr._build_statewide_bear_binding(record)
+        assert binding.regulation_record_state == record.state
+        assert binding.regulation_record_jurisdiction_code == record.jurisdiction_code
+        assert binding.regulation_record_species_group == record.species_group
+        assert binding.regulation_record_license_year == record.license_year
+
+    def test_role_is_primary_unit(self) -> None:
+        binding = lrr._build_statewide_bear_binding(self._make_record())
+        assert binding.role == "primary_unit"
+
+    def test_geometry_id_is_mt_statewide_geom(self) -> None:
+        binding = lrr._build_statewide_bear_binding(self._make_record())
+        assert binding.geometry_id == "MT-STATEWIDE-geom"
+
+    def test_verbatim_rule_is_none(self) -> None:
+        binding = lrr._build_statewide_bear_binding(self._make_record())
+        assert binding.verbatim_rule is None
+
+    def test_source_matches_regulation_record_source(self) -> None:
+        record = self._make_record()
+        binding = lrr._build_statewide_bear_binding(record)
+        assert binding.source == record.source
+
+    def test_id_encoding_is_deterministic(self) -> None:
+        """Builder must produce a byte-identical id on repeated calls.
+        Also locks the exact encoded value so S03.10's symmetric derivation
+        produces a stable UPSERT no-op for this binding row."""
+        record = self._make_record()
+        binding_a = lrr._build_statewide_bear_binding(record)
+        binding_b = lrr._build_statewide_bear_binding(record)
+        assert binding_a.id == binding_b.id
+        assert binding_a.id == (
+            "US-MT-MT-STATEWIDE-bear-bear-2026-primary_unit-MT-STATEWIDE-geom"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestJurisdictionBindingCountGuard
+# ---------------------------------------------------------------------------
+
+
+class TestJurisdictionBindingCountGuard:
+    def test_passes_when_count_is_one(self) -> None:
+        """The S03.6.1 contract is exactly 1 binding row — guard does not raise."""
+        lrr._assert_jurisdiction_binding_count_within_guard(1)  # must not raise
+
+    def test_raises_when_count_is_zero(self) -> None:
+        """Zero bindings means the builder silently failed — fail loud."""
+        with pytest.raises(RuntimeError, match="jurisdiction_binding count guard"):
+            lrr._assert_jurisdiction_binding_count_within_guard(0)
+
+    def test_raises_when_count_exceeds_band(self) -> None:
+        """More than 1 binding is unexpected for S03.6.1 — fail loud.
+        S03.10 will broaden this band when it ships its overlay-derived
+        binding generation."""
+        with pytest.raises(RuntimeError, match="jurisdiction_binding count guard"):
+            lrr._assert_jurisdiction_binding_count_within_guard(2)
+
+
+# ---------------------------------------------------------------------------
+# TestRegulationRecordCount — integration-level row-count lock
+# ---------------------------------------------------------------------------
+
+
+class TestRegulationRecordCount:
+    def test_total_record_count_is_437(self) -> None:
+        """Run the full build path (DEA + bear per-BMU + MT-STATEWIDE-bear) against
+        the real artifacts and assert the total is 437. This is the integration-level
+        row-count lock that catches catastrophic regressions in any of the three
+        extraction artifacts.
+
+        Expected breakdown:
+          129 mule_deer + 129 whitetail (deer fan-out)
+          + 112 elk
+          + 31 pronghorn
+          + 35 bear (per-BMU)
+          + 1 MT-STATEWIDE-bear anchor
+          = 437
+        """
+        from collections import Counter
+
+        dea = json.loads(lrr._DEA_ARTIFACT.read_text())
+        bear = json.loads(lrr._BEAR_ARTIFACT.read_text())
+        dea_citation = lrr._load_citation_from_sources_yaml(lrr._DEA_CITATION_ID)
+        bear_citation = lrr._load_citation_from_sources_yaml(lrr._BEAR_BOOKLET_CITATION_ID)
+
+        statewide_bear = lrr._build_statewide_bear_record(bear, bear_citation)
+        records = (
+            lrr._build_dea_records(dea, dea_citation)
+            + lrr._build_bear_records(bear)
+            + [statewide_bear]
+        )
+        assert len(records) == 437, (
+            f"regulation_record count drift: expected 437, got {len(records)}. "
+            "Investigate DEA / Bear extraction artifacts and statewide anchor."
+        )
+        sg = Counter(r.species_group for r in records)
+        assert sg == {
+            "mule_deer": 129,
+            "whitetail": 129,
+            "elk": 112,
+            "pronghorn": 31,
+            "bear": 36,  # 35 per-BMU + 1 MT-STATEWIDE-bear
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -749,3 +1004,236 @@ class TestMain:
                 lrr.main([])
         # Guard fires before DB; connect must not have been called.
         mock_connect.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TestAtomicTransaction — rollback shape, idempotency, dry-run smoke
+# ---------------------------------------------------------------------------
+
+
+class TestAtomicTransaction:
+    """Integration-level smoke tests for the atomic transaction shape.
+
+    All DB helpers are monkeypatched — no real DB is touched.
+    """
+
+    def _full_run_patches(
+        self,
+        monkeypatch,
+        *,
+        binding_side_effect=None,
+        record_side_effect=None,
+    ):
+        """Return (mock_conn, connect_cm, mock_upsert_record, mock_upsert_binding,
+        mock_update_ld) with the connect CM and all three write helpers patched."""
+        mock_conn = Mock()
+
+        connect_cm = Mock()
+        connect_cm.__enter__ = Mock(return_value=mock_conn)
+        connect_cm.__exit__ = Mock(return_value=None)
+
+        mock_upsert_record = Mock(side_effect=record_side_effect)
+        mock_upsert_binding = Mock(side_effect=binding_side_effect)
+        mock_update_ld = Mock()
+
+        monkeypatch.setattr(lrr.db, "connect", Mock(return_value=connect_cm))
+        monkeypatch.setattr(lrr.db, "upsert_regulation_record", mock_upsert_record)
+        monkeypatch.setattr(lrr.db, "upsert_jurisdiction_binding", mock_upsert_binding)
+        monkeypatch.setattr(lrr.db, "update_legal_description", mock_update_ld)
+
+        return mock_conn, mock_upsert_record, mock_upsert_binding, mock_update_ld
+
+    def test_rollback_on_binding_failure_does_not_commit(self, monkeypatch) -> None:
+        """If upsert_jurisdiction_binding raises, commit must NOT be called.
+
+        The ``with db.connect() as conn:`` context manager handles rollback
+        implicitly on exception; we verify commit() is absent and that at
+        least one regulation_record upsert was issued before the failure.
+        """
+        mock_conn, mock_upsert_record, _, _ = self._full_run_patches(
+            monkeypatch,
+            binding_side_effect=RuntimeError("simulated binding failure"),
+        )
+
+        with pytest.raises(RuntimeError, match="simulated binding failure"):
+            lrr.main([])
+
+        # No commit on failure path.
+        mock_conn.commit.assert_not_called()
+        # regulation_record upserts must have run before the binding loop.
+        assert mock_upsert_record.call_count > 0, (
+            "Expected at least one upsert_regulation_record call before binding failure"
+        )
+
+    def test_rollback_on_record_failure_does_not_commit(self, monkeypatch) -> None:
+        """If upsert_regulation_record raises on an early call, commit must NOT
+        be called and the error propagates out of main().
+
+        We raise on the very first call so the binding loop is never reached.
+        """
+        mock_conn, mock_upsert_record, mock_upsert_binding, _ = self._full_run_patches(
+            monkeypatch,
+            record_side_effect=RuntimeError("simulated record failure"),
+        )
+
+        with pytest.raises(RuntimeError, match="simulated record failure"):
+            lrr.main([])
+
+        # No commit on failure path.
+        mock_conn.commit.assert_not_called()
+        # Record upsert was attempted at least once.
+        assert mock_upsert_record.call_count >= 1
+        # Binding upsert was never reached.
+        mock_upsert_binding.assert_not_called()
+
+    def test_idempotent_rerun_invokes_same_binding_args(self, monkeypatch) -> None:
+        """Two successive main([]) runs must invoke upsert_jurisdiction_binding
+        with the same JurisdictionBinding id and role, confirming build-side
+        determinism (the UPSERT-by-id contract is tested separately at the
+        helper level).
+        """
+        mock_conn = Mock()
+        connect_cm = Mock()
+        connect_cm.__enter__ = Mock(return_value=mock_conn)
+        connect_cm.__exit__ = Mock(return_value=None)
+
+        captured_bindings: list = []
+
+        def capture_binding(conn, binding):
+            captured_bindings.append(binding)
+
+        monkeypatch.setattr(lrr.db, "connect", Mock(return_value=connect_cm))
+        monkeypatch.setattr(lrr.db, "upsert_regulation_record", Mock())
+        monkeypatch.setattr(lrr.db, "upsert_jurisdiction_binding", capture_binding)
+        monkeypatch.setattr(lrr.db, "update_legal_description", Mock())
+
+        lrr.main([])
+        lrr.main([])
+
+        # Each run emits exactly 1 binding (MT-STATEWIDE-bear anchor).
+        assert len(captured_bindings) == 2
+        b1, b2 = captured_bindings
+        assert b1.id == b2.id, (
+            f"binding id changed between runs: {b1.id!r} != {b2.id!r}"
+        )
+        assert b1.role == b2.role, (
+            f"binding role changed between runs: {b1.role!r} != {b2.role!r}"
+        )
+        assert b1.geometry_id == b2.geometry_id, (
+            f"binding geometry_id changed between runs: {b1.geometry_id!r} != {b2.geometry_id!r}"
+        )
+
+    def test_real_artifact_integration_smoke_dry_run(self, caplog) -> None:
+        """main(['--dry-run']) exits 0, logs expected counts, and never touches
+        the DB."""
+        import logging
+
+        with patch.object(lrr.db, "connect") as mock_connect:
+            with caplog.at_level(logging.INFO):
+                exit_code = lrr.main(["--dry-run"])
+
+        assert exit_code == 0
+        mock_connect.assert_not_called()
+
+        # Verify the two key count log lines are present.
+        messages = [r.message for r in caplog.records]
+        assert any("built 437 regulation_record rows" in m for m in messages), (
+            f"Expected 'built 437 regulation_record rows' in log. Messages: {messages}"
+        )
+        assert any("built 1 jurisdiction_binding rows" in m for m in messages), (
+            f"Expected 'built 1 jurisdiction_binding rows' in log. Messages: {messages}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestNoLibImports — state-agnostic-clean AST guard (bidirectional)
+# ---------------------------------------------------------------------------
+
+
+class TestNoLibImports:
+    """State-agnostic-clean AST guard (bidirectional).
+
+    ``load_regulation_records.py`` is a state adapter — it may import only
+    from ``ingestion.lib.*``.  The reverse also holds: ``ingestion.lib.db``
+    must NOT import from this state adapter.
+    """
+
+    def _parse_adapter(self) -> ast.Module:
+        source_path = Path(lrr.__file__)
+        return ast.parse(source_path.read_text(encoding="utf-8"))
+
+    def test_no_sibling_state_adapter_imports(self) -> None:
+        """No imports from any other Montana adapter or sibling state."""
+        tree = self._parse_adapter()
+        violations: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                # Block any import from states.montana.* (other adapters)
+                if "states.montana" in module and "load_regulation_records" not in module:
+                    violations.append(
+                        f"line {node.lineno}: cross-adapter import from {module!r}"
+                    )
+                # Block cross-state imports
+                if "states.colorado" in module or "states.wyoming" in module:
+                    violations.append(
+                        f"line {node.lineno}: cross-state import from {module!r}"
+                    )
+        assert not violations, (
+            "load_regulation_records.py has forbidden cross-adapter imports:\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )
+
+    def test_no_relative_imports(self) -> None:
+        """No relative imports (``from .`` or ``from ..``)."""
+        tree = self._parse_adapter()
+        violations: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                if node.level and node.level > 0:
+                    violations.append(
+                        f"line {node.lineno}: relative import (level={node.level})"
+                    )
+        assert not violations, (
+            "load_regulation_records.py uses relative imports:\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )
+
+    def test_only_lib_db_public_api_imported(self) -> None:
+        """All ``from ingestion.lib.db import`` must use only public names."""
+        tree = self._parse_adapter()
+        violations: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if module == "ingestion.lib.db":
+                    for alias in node.names:
+                        if alias.name.startswith("_"):
+                            violations.append(
+                                f"line {node.lineno}: private name {alias.name!r} "
+                                f"imported from ingestion.lib.db"
+                            )
+        assert not violations, (
+            "load_regulation_records.py leaks private ingestion.lib.db names:\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )
+
+    def test_db_lib_does_not_import_from_adapter(self) -> None:
+        """Reverse check: ingestion/lib/db.py must NOT import from this adapter.
+
+        State-agnostic posture is bidirectional — lib must not depend on adapters.
+        """
+        db_path = Path(lrr.__file__).parent.parent.parent / "ingestion" / "lib" / "db.py"
+        tree = ast.parse(db_path.read_text(encoding="utf-8"))
+        violations: list[str] = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if "load_regulation_records" in module:
+                    violations.append(
+                        f"line {node.lineno}: db.py imports from state adapter {module!r}"
+                    )
+        assert not violations, (
+            "ingestion/lib/db.py imports from state adapter (bidirectional violation):\n"
+            + "\n".join(f"  - {v}" for v in violations)
+        )
