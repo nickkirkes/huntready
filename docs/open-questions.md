@@ -348,6 +348,94 @@ and when CO / WY data lands.
 
 ---
 
+## Q18: Does `reporting_obligation` model per-zone CWD sampling rules in V1?
+
+**Date opened:** 2026-05-20 (during S03.9 planning)
+**Status:** Open (M2 ADR candidate; V1 disposition: defer)
+
+### Context
+
+Montana V1 has 2 CWD zones (Kalispell, Libby). The 10-day-sampling sentence appears 5 times across 4 HDs (100/103/104/170) as per-license `extras` cells in `dea-2026.json`, already captured by S03.6 in `regulation_record.additional_rules`. The artifact pattern is **license-keyed**, not zone-keyed: HD 103's `Deer Permit: 103-50` (North Fisher Portion mule deer) carries the same sampling sentence, but that license is NOT inside the Libby CWD-zone overlap captured in `geometry-overlays.json`. The sampling mandate is bound to the LICENSE TYPE, not strictly geography.
+
+### Three sub-questions
+
+1. **Zone-keyed vs. license-keyed authority.** Joining `regulation_reporting` rows to `regulation_record` via CWD-zone-overlap from `geometry-overlays.json` would miss the `103-50` case. The license-keyed model is what's already in the artifact's per-row `extras`. If we promote CWD sampling to `reporting_obligation`, the join key from `regulation_reporting` is ambiguous.
+
+2. **Verbatim source duplication.** Each of the 4 HDs repeats the SAME sentence (Kalispell or Libby zone variant). If we write `reporting_obligation` rows from this, we get 4-5 near-duplicate rows differing only in the zone-name token. That's faithful to ADR-008 but is the wrong row shape.
+
+3. **What does V1 lose by deferring?** Per-HD CWD sampling rules ARE already in `regulation_record.additional_rules` after S03.6. Clients querying "what regulations apply to this HD?" already get the text. The only loss is the typed `kind="cwd_sample"` discrimination in `reporting_obligation`.
+
+### S03.9 disposition
+
+Ship 0 CWD-sampling `reporting_obligation` rows. Text is searchable via `regulation_record.additional_rules`. Revisit at M2 when Colorado lands a second CWD-state.
+
+### What moves this to a decision
+
+- Second CWD-state lands (Colorado) — confirms whether license-keyed vs. zone-keyed is a Montana quirk or a general pattern
+- M2 client requirement: does a consumer need to query "what CWD-sampling rules apply?" as a typed reporting_obligation, or is `regulation_record.additional_rules` containing the sentence sufficient?
+
+### Affected V1 entries
+
+Currently 5 verbatim occurrences across 4 HDs (100/103/104/170) in `regulation_record.additional_rules`. The 103-50 case is the canonical zone-vs-license edge case.
+
+**Working note:** [`docs/planning/epics/E03-confidence-findings/S03.9.md`](planning/epics/E03-confidence-findings/S03.9.md) § "Probe 2 — CWD sampling"
+**Deferred-items entry:** [`docs/planning/epics/E03-deferred-items/cwd-sampling-modeling.md`](planning/epics/E03-deferred-items/cwd-sampling-modeling.md)
+
+---
+
+## Q19: Should `id text`-PK UPSERTs forbid updating slug-encoded fields to prevent silent semantic drift?
+
+**Date opened:** 2026-05-21 (during S03.9 cubic-review round 3)
+**Status:** Pre-M2 blocker (open; V1-safe via S03.9-local belt-and-suspenders; project-wide fix MUST land in a single PR before first year-over-year re-ingestion run)
+
+### Context
+
+Three `id text`-PK UPSERT helpers in `ingestion/ingestion/lib/db.py` currently update slug-encoded fields under the same `id` on conflict:
+
+| Helper | DDL line | Slug-encoded fields updated on conflict |
+|---|---|---|
+| `_UPSERT_SEASON_DEFINITION_SQL` ([`db.py:110`](../ingestion/ingestion/lib/db.py#L110), S03.7) | season_definition | `name`, `weapon_type`, `residency` |
+| `_UPSERT_LICENSE_TAG_SQL` ([`db.py:132`](../ingestion/ingestion/lib/db.py#L132), S03.7) | license_tag | `license_code`, `name`, `kind`, `species` |
+| `_UPSERT_REPORTING_OBLIGATION_SQL` ([`db.py:194`](../ingestion/ingestion/lib/db.py#L194), S03.9) | reporting_obligation | `kind`, `deadline`, `applies_to_regions` |
+
+For all three tables, the `id` slug is hand-encoded as a deterministic string built from a subset of the entity's structured fields (e.g., `reporting_obligation.id = "mt-bear-harvest-report-48hr-statewide"` encodes kind, deadline, and scope). If a future spec edit changes one of those structured fields without correspondingly updating the slug, the same `id` would silently carry different semantics under DO UPDATE — and any link-table rows (`license_season`, `regulation_season`, `regulation_license`, `regulation_reporting`) already pointing at that `id` would now reference an entity whose meaning has shifted.
+
+### The risk
+
+Drift between slug-derivation logic and the structured fields under the same `id` silently rewrites the meaning of existing rows that already have link-table references pointing at them. The UPSERT is the load-bearing point: it has no way to know that "the slug came from these fields, but the fields have changed since the slug was minted." Both states satisfy the conflict clause; the DO UPDATE wins by definition.
+
+### Why it's V1-safe right now
+
+- All three dispatch dicts (`_REPORTING_ROW_SPEC` in `load_reporting_obligations.py`; the corresponding spec constructions in `load_seasons_and_licenses.py`) are closed compile-time constants — there is no operator-runtime mutation path.
+- Unit tests lock canonical slug↔field pairings (e.g., `test_statewide_harvest_report_fields`, `test_r1_tooth_submission_fields`, `test_r2to7_hide_skull_fields` for S03.9; similar assertions in S03.7 tests).
+- V1 ingestion runs once against fresh artifacts; the first conflict in production would not occur until a year-over-year re-ingestion against a mutated dispatch dict.
+- S03.9 ships a **local drift-guard at module load** (`load_reporting_obligations.py:_assert_dispatch_dict_drift_free`) as belt-and-suspenders — the assertion calls `_derive_expected_id_suffix(kind, deadline_hours, region_scope)` and raises `RuntimeError` if any spec entry's `id_suffix` doesn't match the derivation. This is S03.9-only by design — Q19 tracks the project-wide fix; do not propagate this pattern to new helpers without addressing Q19.
+
+### Trigger for resolution
+
+**The first year-over-year re-ingestion run.** This is when source documents change (e.g., MT FWP 2027 booklet) and adapters re-execute against an existing populated DB. Before then, the UPSERT's DO UPDATE clause never fires for slug-encoded fields. The architectural fix MUST land across all three helpers in a single PR before M2 ingestion runs begin.
+
+### Leading option
+
+**Option A — derive-and-assert (recommended).** Define `id_suffix` (or the full `id`) as a deterministic function of the slug-encoded structured fields, and assert at module load that every dispatch dict entry's `id` matches the derivation. Drift becomes impossible by construction. This is the right invariant for compile-time dispatch dicts. ADR will be needed at resolution to formalize the convention across `season_definition` / `license_tag` / `reporting_obligation`.
+
+### Alternatives considered
+
+- **Option B — no-update slug fields:** Remove slug-encoded fields from the UPDATE clause; allow only "refinement" fields (verbatim_rule, source, submission_url, etc.) to update on conflict. Effect: a spec edit that changes slug-encoded fields would mint a new `id` via INSERT, leaving the old row + its link-table references orphaned. Trades semantic-drift risk for orphan-link risk; not a clean improvement.
+- **Option C — drop UPSERT:** Require operators to TRUNCATE the affected tables before re-runs. Trades idempotency for safety. Acceptable for V1 ergonomics but loses the "re-run without disruption" property that S03.6/S03.7/S03.8 explicitly cultivated.
+
+### What moves this to a decision
+
+- M2 planning lands and the project-wide ingestion-pattern PR is scoped (covers all three helpers in one commit).
+- ADR drafted formalizing the slug-derivation convention.
+- The local drift-guard in `load_reporting_obligations.py` is generalized into a shared helper and applied to the S03.7 dispatch dicts.
+
+**Affected V1 entries:** 3 dispatch entries in `_REPORTING_ROW_SPEC` (S03.9); the S03.7 dispatch surface is broader (978 `season_definition` + 1225 `license_tag` rows derived from compile-time slug encodings — see S03.7 closure note for the breakdown).
+
+**Working note:** [`docs/planning/epics/E03-confidence-findings/S03.9.md`](planning/epics/E03-confidence-findings/S03.9.md) § "Q19 / drift-guard decision"
+
+---
+
 ## Parking lot
 
 ### P1. Observability and error tracking

@@ -7,8 +7,14 @@ from unittest.mock import MagicMock
 import pytest
 from psycopg.types.json import Json
 
-from ingestion.lib.db import connect, upsert_geometries, upsert_geometry
-from ingestion.lib.schema import Geometry, SourceCitation
+from ingestion.lib.db import (
+    connect,
+    upsert_geometries,
+    upsert_geometry,
+    upsert_reporting_obligation,
+    write_regulation_reporting,
+)
+from ingestion.lib.schema import Geometry, RegulationReporting, ReportingObligation, SourceCitation
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -222,3 +228,233 @@ def test_upsert_geometries_returns_count() -> None:
     ]
     result = upsert_geometries(mock_conn, geoms)
     assert result == 3
+
+
+# ---------------------------------------------------------------------------
+# Fixtures — shared by TestUpsertReportingObligation + TestWriteRegulationReporting
+# ---------------------------------------------------------------------------
+
+def _make_bear_source() -> SourceCitation:
+    return SourceCitation(
+        id="mt-fwp-black-bear-2026-booklet",
+        agency="Montana FWP",
+        title="Black Bear Booklet 2026",
+        url="https://fwp.mt.gov/test",
+        publication_date="2026-04-27",
+        document_type="annual_regulations",
+        supersedes=None,
+        page_reference="p. 7",
+    )
+
+
+def _make_statewide_obligation() -> ReportingObligation:
+    """STATEWIDE 48-hour harvest_report — values match production _REPORTING_ROW_SPEC."""
+    return ReportingObligation(
+        id="mt-bear-harvest-report-48hr-statewide",
+        kind="harvest_report",
+        deadline="48 hours",
+        deadline_hours=48,
+        submission_method="phone",
+        submission_url="https://fwp.mt.gov",
+        submission_phone="1-877-FWPWILD",
+        applies_to_regions=None,
+        what_to_present=None,
+        verbatim_rule=(
+            "Hunters must report their harvest within 48 hours of killing a bear."
+        ),
+        source=_make_bear_source(),
+    )
+
+
+def _make_r1_obligation() -> ReportingObligation:
+    """Region 1 tooth_submission — values match production _REPORTING_ROW_SPEC."""
+    return ReportingObligation(
+        id="mt-bear-tooth-submission-r1-10day",
+        kind="tooth_submission",
+        deadline="10 days",
+        deadline_hours=240,
+        submission_method="agency_office",
+        submission_url=None,
+        submission_phone=None,
+        applies_to_regions=["R1"],
+        what_to_present=["both premolar teeth"],
+        verbatim_rule=(
+            "Region 1 hunters must submit a tooth within 10 days of harvest."
+        ),
+        source=_make_bear_source(),
+    )
+
+
+def _make_r2to7_obligation() -> ReportingObligation:
+    """Regions 2-7 hide_skull_presentation — values match production _REPORTING_ROW_SPEC."""
+    return ReportingObligation(
+        id="mt-bear-hide-skull-r2to7-10day",
+        kind="hide_skull_presentation",
+        deadline="10 days",
+        deadline_hours=240,
+        submission_method="in_person_check_station",
+        submission_url=None,
+        submission_phone=None,
+        applies_to_regions=["R2", "R3", "R4", "R5", "R6", "R7"],
+        what_to_present=["hide", "skull"],
+        verbatim_rule=(
+            "Regions 2-7 hunters must present the hide and skull within 10 days."
+        ),
+        source=_make_bear_source(),
+    )
+
+
+def _make_regulation_reporting_link() -> RegulationReporting:
+    return RegulationReporting(
+        state="US-MT",
+        jurisdiction_code="MT-HD-bear-100",
+        species_group="bear",
+        license_year=2026,
+        reporting_obligation_id="mt-bear-harvest-report-48hr-statewide",
+    )
+
+
+# ---------------------------------------------------------------------------
+# TestUpsertReportingObligation
+# ---------------------------------------------------------------------------
+
+
+class TestUpsertReportingObligation:
+    """Tests for db.upsert_reporting_obligation."""
+
+    def test_upsert_executes_expected_sql_and_params(self) -> None:
+        """upsert_reporting_obligation must issue INSERT INTO reporting_obligation … ON CONFLICT (id) DO UPDATE."""
+        obligation = _make_statewide_obligation()
+        mock_conn, mock_cursor = _make_mock_conn()
+        upsert_reporting_obligation(mock_conn, obligation)
+
+        sql: str = mock_cursor.execute.call_args[0][0]
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+
+        assert "INSERT INTO reporting_obligation" in sql
+        assert "ON CONFLICT (id) DO UPDATE" in sql
+        assert len(params) == 11
+        assert params[0] == obligation.id
+        assert isinstance(params[10], Json)  # source is the last param, Json-wrapped
+
+    def test_upsert_does_not_commit(self) -> None:
+        """upsert_reporting_obligation must NOT call conn.commit() — caller controls txn."""
+        mock_conn, _mock_cursor = _make_mock_conn()
+        upsert_reporting_obligation(mock_conn, _make_statewide_obligation())
+        mock_conn.commit.assert_not_called()
+
+    def test_upsert_does_not_rollback(self) -> None:
+        """upsert_reporting_obligation must NOT call conn.rollback()."""
+        mock_conn, _mock_cursor = _make_mock_conn()
+        upsert_reporting_obligation(mock_conn, _make_statewide_obligation())
+        mock_conn.rollback.assert_not_called()
+
+    def test_json_wrap_for_source(self) -> None:
+        """The source column param must be wrapped with Json (not Jsonb)."""
+        obligation = _make_statewide_obligation()
+        mock_conn, mock_cursor = _make_mock_conn()
+        upsert_reporting_obligation(mock_conn, obligation)
+
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+        # source is the last param (index 10)
+        source_param = params[10]
+        assert isinstance(source_param, Json)
+        # The dict inside must match model_dump(exclude_none=True) — matches every
+        # other jsonb writer in db.py and avoids emitting explicit JSON nulls for
+        # optional SourceCitation fields (supersedes=None, etc.).
+        assert source_param.obj == obligation.source.model_dump(exclude_none=True)
+
+    def test_upsert_handles_nullable_fields(self) -> None:
+        """Nullable fields must pass through as None to psycopg.
+
+        Uses R1 fixture (production dispatch values): submission_url=None and
+        submission_phone=None on R1. (what_to_present is populated on R1 with
+        the premolar teeth list, so test_upsert_handles_list_fields covers that
+        path via R2-7.) STATEWIDE applies_to_regions=None is also asserted via
+        a second sub-case below to cover all three None positions.
+        """
+        # R1 case — submission_url and submission_phone are None
+        r1 = _make_r1_obligation()
+        assert r1.submission_url is None
+        assert r1.submission_phone is None
+        mock_conn, mock_cursor = _make_mock_conn()
+        upsert_reporting_obligation(mock_conn, r1)
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+        # param order: id, kind, deadline, deadline_hours, submission_method,
+        #              submission_url, submission_phone, applies_to_regions,
+        #              what_to_present, verbatim_rule, source
+        assert params[5] is None   # submission_url
+        assert params[6] is None   # submission_phone
+
+        # STATEWIDE case — applies_to_regions=None and what_to_present=None
+        statewide = _make_statewide_obligation()
+        assert statewide.applies_to_regions is None
+        assert statewide.what_to_present is None
+        mock_conn2, mock_cursor2 = _make_mock_conn()
+        upsert_reporting_obligation(mock_conn2, statewide)
+        params2: tuple[object, ...] = mock_cursor2.execute.call_args[0][1]
+        assert params2[7] is None   # applies_to_regions
+        assert params2[8] is None   # what_to_present
+
+    def test_upsert_handles_list_fields(self) -> None:
+        """applies_to_regions and what_to_present are passed as Python lists (psycopg adapts to text[])."""
+        obligation = _make_r2to7_obligation()
+        mock_conn, mock_cursor = _make_mock_conn()
+        upsert_reporting_obligation(mock_conn, obligation)
+
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+        # param order: id, kind, deadline, deadline_hours, submission_method,
+        #              submission_url, submission_phone, applies_to_regions,
+        #              what_to_present, verbatim_rule, source
+        assert params[7] == ["R2", "R3", "R4", "R5", "R6", "R7"]
+        assert params[8] == ["hide", "skull"]
+
+
+# ---------------------------------------------------------------------------
+# TestWriteRegulationReporting
+# ---------------------------------------------------------------------------
+
+
+class TestWriteRegulationReporting:
+    """Tests for db.write_regulation_reporting."""
+
+    def test_insert_executes_expected_sql_and_params(self) -> None:
+        """write_regulation_reporting must issue INSERT INTO regulation_reporting … ON CONFLICT DO NOTHING."""
+        link = _make_regulation_reporting_link()
+        mock_conn, mock_cursor = _make_mock_conn()
+        write_regulation_reporting(mock_conn, link)
+
+        sql: str = mock_cursor.execute.call_args[0][0]
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+
+        assert "INSERT INTO regulation_reporting" in sql
+        assert "ON CONFLICT DO NOTHING" in sql
+        assert len(params) == 5
+        assert params == (
+            link.state,
+            link.jurisdiction_code,
+            link.species_group,
+            link.license_year,
+            link.reporting_obligation_id,
+        )
+
+    def test_write_does_not_commit(self) -> None:
+        """write_regulation_reporting must NOT call conn.commit() — caller controls txn."""
+        mock_conn, _mock_cursor = _make_mock_conn()
+        write_regulation_reporting(mock_conn, _make_regulation_reporting_link())
+        mock_conn.commit.assert_not_called()
+
+    def test_write_does_not_rollback(self) -> None:
+        """write_regulation_reporting must NOT call conn.rollback()."""
+        mock_conn, _mock_cursor = _make_mock_conn()
+        write_regulation_reporting(mock_conn, _make_regulation_reporting_link())
+        mock_conn.rollback.assert_not_called()
+
+    def test_idempotent_on_conflict_do_nothing(self) -> None:
+        """SQL must contain ON CONFLICT DO NOTHING and must NOT contain DO UPDATE."""
+        import re
+        mock_conn, mock_cursor = _make_mock_conn()
+        write_regulation_reporting(mock_conn, _make_regulation_reporting_link())
+        sql: str = mock_cursor.execute.call_args[0][0]
+        assert "ON CONFLICT DO NOTHING" in sql
+        assert not re.search(r"\bDO UPDATE\b", sql)

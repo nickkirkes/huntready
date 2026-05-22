@@ -44,11 +44,13 @@ from ingestion.lib.schema import (
     DrawSpec,
     DrawSpecKey,
     Geometry,
-    LicenseTag,
     LicenseSeason,
+    LicenseTag,
     RegulationLicense,
     RegulationRecord,
+    RegulationReporting,
     RegulationSeason,
+    ReportingObligation,
     SeasonDefinition,
 )
 
@@ -188,6 +190,30 @@ _INSERT_LICENSE_SEASON_SQL = "INSERT INTO license_season (license_tag_id, season
 _INSERT_REGULATION_SEASON_SQL = "INSERT INTO regulation_season (state, jurisdiction_code, species_group, license_year, season_definition_id) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
 
 _INSERT_REGULATION_LICENSE_SQL = "INSERT INTO regulation_license (state, jurisdiction_code, species_group, license_year, license_tag_id) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
+
+_UPSERT_REPORTING_OBLIGATION_SQL = """
+INSERT INTO reporting_obligation (
+    id, kind, deadline, deadline_hours, submission_method,
+    submission_url, submission_phone, applies_to_regions,
+    what_to_present, verbatim_rule, source
+) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (id) DO UPDATE SET
+    kind               = EXCLUDED.kind,
+    deadline           = EXCLUDED.deadline,
+    deadline_hours     = EXCLUDED.deadline_hours,
+    submission_method  = EXCLUDED.submission_method,
+    submission_url     = EXCLUDED.submission_url,
+    submission_phone   = EXCLUDED.submission_phone,
+    applies_to_regions = EXCLUDED.applies_to_regions,
+    what_to_present    = EXCLUDED.what_to_present,
+    verbatim_rule      = EXCLUDED.verbatim_rule,
+    source             = EXCLUDED.source
+-- id (PK) is intentionally NOT in the UPDATE clause: same discipline as
+-- _UPSERT_SEASON_DEFINITION_SQL above.
+-- ingested_at is NOT present on this table (no auto-timestamp column).
+"""
+
+_INSERT_REGULATION_REPORTING_SQL = "INSERT INTO regulation_reporting (state, jurisdiction_code, species_group, license_year, reporting_obligation_id) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
 
 
 def connect() -> psycopg.Connection[tuple[object, ...]]:
@@ -626,4 +652,88 @@ def write_regulation_license(
         link.state, link.jurisdiction_code,
         link.species_group, link.license_year,
         link.license_tag_id,
+    )
+
+
+def upsert_reporting_obligation(
+    conn: psycopg.Connection[tuple[object, ...]],
+    obligation: ReportingObligation,
+) -> None:
+    """INSERT … ON CONFLICT UPDATE a single ``ReportingObligation`` row.
+
+    DDL table: reporting_obligation
+
+    Persists post-harvest or in-season reporting duties (check stations,
+    tooth submissions, harvest reports, etc.) to the ``reporting_obligation``
+    table. Written by S03.9 as part of the decomposed entity population.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Idempotent: ON CONFLICT (id) DO UPDATE SET overwrites all mutable fields
+    on re-runs; re-runs preserve row identity without duplicating rows.
+
+    References ADR-010 (decomposed entity model) and ADR-017 (no confidence
+    column on child entities — confidence lives on regulation_record only).
+
+    Args:
+        conn: An open psycopg3 connection.
+        obligation: The ``ReportingObligation`` instance to persist.
+    """
+    source_json = Json(obligation.source.model_dump(exclude_none=True))
+    params: tuple[object, ...] = (
+        obligation.id,
+        obligation.kind,
+        obligation.deadline,
+        obligation.deadline_hours,
+        obligation.submission_method,
+        obligation.submission_url,
+        obligation.submission_phone,
+        obligation.applies_to_regions,
+        obligation.what_to_present,
+        obligation.verbatim_rule,
+        source_json,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_UPSERT_REPORTING_OBLIGATION_SQL, params)
+    _logger.debug(
+        "upserted reporting_obligation id=%s kind=%s",
+        obligation.id, obligation.kind,
+    )
+
+
+def write_regulation_reporting(
+    conn: psycopg.Connection[tuple[object, ...]],
+    link: RegulationReporting,
+) -> None:
+    """INSERT … ON CONFLICT DO NOTHING for a ``regulation_reporting`` link row.
+
+    DDL table: regulation_reporting
+
+    Part of the canonical decomposed-entity link-table pattern (ADR-010).
+    Written by S03.9 to link regulation_record rows to reporting_obligation
+    entities.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Idempotent: ON CONFLICT DO NOTHING skips duplicate inserts; re-runs are
+    safe without pre-deletion.
+
+    Args:
+        conn: An open psycopg3 connection.
+        link: The ``RegulationReporting`` instance to persist.
+    """
+    params: tuple[object, ...] = (
+        link.state,
+        link.jurisdiction_code,
+        link.species_group,
+        link.license_year,
+        link.reporting_obligation_id,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_INSERT_REGULATION_REPORTING_SQL, params)
+    _logger.debug(
+        "inserted regulation_reporting state=%s code=%s species=%s year=%d obligation=%s",
+        link.state, link.jurisdiction_code,
+        link.species_group, link.license_year,
+        link.reporting_obligation_id,
     )

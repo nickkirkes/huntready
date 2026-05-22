@@ -19,6 +19,8 @@ Each file represents a class of items that E03 surfaced but V1 explicitly defers
 | File | Tracks |
 |------|--------|
 | [`draw-mechanics.md`](draw-mechanics.md) | Q12 / `parameters` escape-hatch deferrals surfaced during E03 |
+| [`closure-temporal-anchors.md`](closure-temporal-anchors.md) | Spring Season Closure "at any point after May 31"-style temporal anchors needing a structured field (M2 ADR candidate) |
+| [`cwd-sampling-modeling.md`](cwd-sampling-modeling.md) | Q18 / whether `reporting_obligation` models per-zone CWD sampling rules in V1; deferred to M2 with Colorado |
 
 Additional files may be added if E03 surfaces other deferral classes.
 
