@@ -1,0 +1,21 @@
+ingestion/states/montana/load_reporting_obligations.py
+  s_e3c1c837a34c28::t_2d2af7d6e6502e 528-554
+ingestion/tests/test_load_reporting_obligations.py
+  s_e3c1c837a34c28::t_f185d4f70023fd 376-400
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "63923b87727328ef36fb0114fcb588b8c50e2110",
+  "prompts": {},
+  "sessions": {
+    "s_e3c1c837a34c28": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "01af123c-fc7c-44b8-b34a-2b6f93215223",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
