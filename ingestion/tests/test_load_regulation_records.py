@@ -1195,18 +1195,28 @@ class TestNoLibImports:
         return ast.parse(source_path.read_text(encoding="utf-8"))
 
     def test_no_sibling_state_adapter_imports(self) -> None:
-        """No imports from any other Montana adapter or sibling state."""
+        """No imports from any other Montana adapter or sibling state.
+
+        Walks BOTH ``ast.ImportFrom`` (``from foo import bar``) and
+        ``ast.Import`` (``import foo``) — a bare ``import
+        ingestion.states.montana.other_adapter`` would otherwise bypass the
+        guard.
+        """
         tree = self._parse_adapter()
         violations: list[str] = []
         for node in ast.walk(tree):
+            modules: list[str] = []
             if isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-                # Block any import from states.montana.* (other adapters)
+                modules.append(node.module or "")
+            elif isinstance(node, ast.Import):
+                modules.extend(alias.name for alias in node.names)
+            else:
+                continue
+            for module in modules:
                 if "states.montana" in module and "load_regulation_records" not in module:
                     violations.append(
                         f"line {node.lineno}: cross-adapter import from {module!r}"
                     )
-                # Block cross-state imports
                 if "states.colorado" in module or "states.wyoming" in module:
                     violations.append(
                         f"line {node.lineno}: cross-state import from {module!r}"
@@ -1254,13 +1264,22 @@ class TestNoLibImports:
         """Reverse check: ingestion/lib/db.py must NOT import from this adapter.
 
         State-agnostic posture is bidirectional — lib must not depend on adapters.
+        Walks BOTH ``ast.ImportFrom`` and ``ast.Import`` so a bare
+        ``import ingestion.states.montana.load_regulation_records`` would not
+        bypass the guard.
         """
         db_path = Path(lrr.__file__).parent.parent.parent / "ingestion" / "lib" / "db.py"
         tree = ast.parse(db_path.read_text(encoding="utf-8"))
         violations: list[str] = []
         for node in ast.walk(tree):
+            modules: list[str] = []
             if isinstance(node, ast.ImportFrom):
-                module = node.module or ""
+                modules.append(node.module or "")
+            elif isinstance(node, ast.Import):
+                modules.extend(alias.name for alias in node.names)
+            else:
+                continue
+            for module in modules:
                 if "load_regulation_records" in module:
                     violations.append(
                         f"line {node.lineno}: db.py imports from state adapter {module!r}"
