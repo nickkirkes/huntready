@@ -1,0 +1,77 @@
+ingestion/tests/test_load_regulation_records.py
+  s_faf8ba232341b4::t_2d3d468706357d 10-11,19,21
+  s_faf8ba232341b4::t_30ce84e0327909 591-596,600,604,615-616
+  s_faf8ba232341b4::t_addc0513a838ce 642-828,831-891
+  s_faf8ba232341b4::t_a6eb99e1ae82ba 829-830
+  s_faf8ba232341b4::t_307156cb0b5c7f 1007-1239
+ingestion/states/montana/load_regulation_records.py
+  s_faf8ba232341b4::t_4c2b235e6030d4 370-380
+  s_faf8ba232341b4::t_7c9e8e67455db8 73-74,76-77,86-92
+  s_faf8ba232341b4::t_a6ef8e3b24dc92 581-584,592,598-609
+  s_faf8ba232341b4::t_75d6f19e377d96 457-462
+  s_faf8ba232341b4::t_6ad3b3037f5a17 424-456,463-480,482-523
+  s_faf8ba232341b4::t_c87bfdac352a07 481
+  s_faf8ba232341b4::t_9323ce739b8167 677-678
+  s_faf8ba232341b4::t_2c9711abdd347c 699,717,721,727-730,741-743,746-747,753-755
+  s_faf8ba232341b4::t_39a99cdb5d5874 155
+  s_faf8ba232341b4::t_197d3effac8705 97-119
+  s_faf8ba232341b4::t_f8400b3f49c678 45
+ingestion/states/montana/extract_black_bear.py
+  s_faf8ba232341b4::t_99fc0eb536d403 1562-1568,1579
+  s_faf8ba232341b4::t_b9ccb37a2830c5 364
+  s_faf8ba232341b4::t_d294f06a68de6a 1885
+  s_faf8ba232341b4::t_30ad32e7fe43c4 1441
+  s_faf8ba232341b4::t_76d01060baa88c 1445
+  s_faf8ba232341b4::t_159ce7597c8a2e 61-71
+  s_faf8ba232341b4::t_5f2afa028be80c 341
+  s_faf8ba232341b4::t_6eb691bc749a11 163-164
+  s_faf8ba232341b4::t_9103597303383d 306-313,315-316
+  s_faf8ba232341b4::t_5103a36a970b13 1359-1372,1374-1379,1387-1416,1422-1440,1442-1444,1446-1449
+  s_faf8ba232341b4::t_877d21a5ba0c63 314
+  s_faf8ba232341b4::t_3b8611645fcb00 1417-1421
+  s_faf8ba232341b4::t_df00c3e7a6f9d9 1373,1380-1386
+ingestion/ingestion/lib/db.py
+  s_faf8ba232341b4::t_b7d6da962550bc 762-819
+  s_faf8ba232341b4::t_463ad6209d2b35 47
+  s_faf8ba232341b4::t_3d9a0203905e56 219-239
+docs/planning/epics/E03-confidence-findings/S03.6.1.md
+  s_faf8ba232341b4::t_63b0fff41043e2 1-120
+ingestion/tests/test_db.py
+  s_faf8ba232341b4::t_a54a0645c6e7ac 468-602
+  s_faf8ba232341b4::t_0297995df400aa 14,18-24
+CLAUDE.md
+  s_faf8ba232341b4::t_a80c5ad8f1fc00 11
+ingestion/states/montana/extracted/black-bear-2026.json
+  s_faf8ba232341b4::t_ec53f03100836b 1480-1500
+ingestion/states/montana/extracted/black-bear-2026-base.json
+  s_faf8ba232341b4::t_ec53f03100836b 1470-1490
+ingestion/tests/test_extract_black_bear.py
+  s_faf8ba232341b4::t_90c738a541b8c3 1603-1606,1609,1616-1622,1628-1632,1634-1793
+  s_faf8ba232341b4::t_dd1ac72fa662e2 1623-1627,1633
+  s_faf8ba232341b4::t_e4e8820822ec50 1040
+  s_faf8ba232341b4::t_adfbefaa7056ae 1607-1608,1610-1615
+docs/plans/S03.6.1-mt-statewide-bear-anchor-plan.md
+  s_faf8ba232341b4::t_ea11b7855abf3c 1-138,140-293
+  s_faf8ba232341b4::t_3de228f8b6dfe9 139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "7d7b67f595c03e68ddfede446b24b5971473b49d",
+  "prompts": {},
+  "humans": {
+    "h_5c32ae20a746c8": {
+      "author": "Nick Kirkes"
+    }
+  },
+  "sessions": {
+    "s_faf8ba232341b4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a32d513-60ae-4efe-9f02-481947747d26",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
