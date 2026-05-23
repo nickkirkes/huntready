@@ -1,0 +1,19 @@
+ingestion/tests/test_extract_black_bear.py
+  s_faf8ba232341b4::t_cdd7484fcab28a 1870-1881
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "ed3b6cc78bd7306577bca007ed4c259147fa36ee",
+  "prompts": {},
+  "sessions": {
+    "s_faf8ba232341b4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8a32d513-60ae-4efe-9f02-481947747d26",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
