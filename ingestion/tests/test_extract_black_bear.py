@@ -1867,13 +1867,18 @@ class TestExtractStatewideRules:
             "2026-05-22T10:00:00+00:00",
         )
         assert len(results) == 1
-        # The whitespace collapse on the captured body should turn the wrapped
-        # URL back into the single-hyphen form (since `-\n` becomes `- `, but
-        # then `\s+ -> ' '` is the established cleanup rule; the result still
-        # contains the hyphen + a space). Lock that the URL is present in some
-        # form so the rule isn't dropped.
-        assert "bear" in results[0]["verbatim_text"]
-        assert "identification" in results[0]["verbatim_text"]
+        verbatim_text = results[0]["verbatim_text"]
+        # The whitespace collapse on the captured body turns the wrapped URL
+        # `bear-\nidentification` into `bear- identification` (the `\n`
+        # collapses to a single space via `re.sub(r"\s+", " ", body)`; the
+        # hyphen stays). Assert on the URL-specific fragment, not just
+        # "bear" + "identification" which both appear elsewhere in the prose
+        # ("Black Bear License", "Black Bear Identification Test").
+        assert "fwp.mt.gov/hunt/education/bear- identification" in verbatim_text, (
+            f"end anchor URL fragment missing from captured body — "
+            f"line-wrap defense regressed. verbatim_text tail: "
+            f"{verbatim_text[-100:]!r}"
+        )
 
     def test_start_anchor_missing_warning_names_pdf_filename(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
