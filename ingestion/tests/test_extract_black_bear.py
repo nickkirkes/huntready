@@ -1794,6 +1794,114 @@ class TestExtractStatewideRules:
         assert len(results) == 1
         assert results[0]["page_reference"]["pdf_filename"] == custom_filename
 
+    def test_start_anchor_tolerates_layout_whitespace_shifts(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Anchor regexes use ``\\s+`` between tokens so benign layout shifts
+        (extra spaces, line breaks mid-sentence) don't drop statewide rule
+        extraction. Verifies three pdfplumber-plausible variations of the
+        start anchor."""
+        variants = [
+            # Extra internal spacing (e.g., justified text widening gaps).
+            (
+                "A  hunter   may purchase only one  Black Bear License per year.\n"
+                "A free Black Bear Identification Test Certificate is required to obtain a license. "
+                "A hunter must take and pass a Black Bear Identification test before purchasing a "
+                "Black Bear Hunting license. A hunter must present a certificate of completion issued "
+                "by FWP at the time of purchase. The test is available online at: "
+                "fwp.mt.gov/hunt/education/bear-identification"
+            ),
+            # Hard line-break mid-sentence (column wrap).
+            (
+                "A hunter may purchase only one\nBlack Bear License per year.\n"
+                "A free Black Bear Identification Test Certificate is required to obtain a license. "
+                "A hunter must take and pass a Black Bear Identification test before purchasing a "
+                "Black Bear Hunting license. A hunter must present a certificate of completion issued "
+                "by FWP at the time of purchase. The test is available online at: "
+                "fwp.mt.gov/hunt/education/bear-identification"
+            ),
+            # Tab character introduced between tokens (unusual but possible).
+            (
+                "A\thunter may purchase only one Black Bear License per year.\n"
+                "A free Black Bear Identification Test Certificate is required to obtain a license. "
+                "A hunter must take and pass a Black Bear Identification test before purchasing a "
+                "Black Bear Hunting license. A hunter must present a certificate of completion issued "
+                "by FWP at the time of purchase. The test is available online at: "
+                "fwp.mt.gov/hunt/education/bear-identification"
+            ),
+        ]
+        for variant_text in variants:
+            mock_pdf = self._setup_monkeypatch(monkeypatch, variant_text)
+            results = m._extract_statewide_rules(
+                mock_pdf,
+                "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf",
+                "mt-fwp-black-bear-2026-booklet",
+                "2026-04-27",
+                "2026-05-22T10:00:00+00:00",
+            )
+            assert len(results) == 1, (
+                f"flexible anchor failed on layout variant; first 80 chars: "
+                f"{variant_text[:80]!r}"
+            )
+
+    def test_end_anchor_tolerates_url_hyphen_line_wrap(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End anchor URL pattern uses ``[-\\s]+`` around the hyphen so a
+        pdfplumber line-wrap at ``bear-\\nidentification`` doesn't drop the
+        match."""
+        page_text = (
+            "A hunter may purchase only one Black Bear License per year. "
+            "A free Black Bear Identification Test Certificate is required to obtain a license. "
+            "A hunter must take and pass a Black Bear Identification test before purchasing a "
+            "Black Bear Hunting license. A hunter must present a certificate of completion issued "
+            "by FWP at the time of purchase. The test is available online at: "
+            "fwp.mt.gov/hunt/education/bear-\nidentification"
+        )
+        mock_pdf = self._setup_monkeypatch(monkeypatch, page_text)
+        results = m._extract_statewide_rules(
+            mock_pdf,
+            "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf",
+            "mt-fwp-black-bear-2026-booklet",
+            "2026-04-27",
+            "2026-05-22T10:00:00+00:00",
+        )
+        assert len(results) == 1
+        # The whitespace collapse on the captured body should turn the wrapped
+        # URL back into the single-hyphen form (since `-\n` becomes `- `, but
+        # then `\s+ -> ' '` is the established cleanup rule; the result still
+        # contains the hyphen + a space). Lock that the URL is present in some
+        # form so the rule isn't dropped.
+        assert "bear" in results[0]["verbatim_text"]
+        assert "identification" in results[0]["verbatim_text"]
+
+    def test_start_anchor_missing_warning_names_pdf_filename(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When the start anchor is absent, the warning log must name the
+        ``pdf_filename`` (not the citation ``source_id``) so operators chasing
+        an extraction regression see the actual file on disk."""
+        page_text = _make_statewide_rules_page_text(include_start=False)
+        mock_pdf = self._setup_monkeypatch(monkeypatch, page_text)
+        custom_filename = "operator-override-name.pdf"
+
+        with caplog.at_level("WARNING"):
+            results = m._extract_statewide_rules(
+                mock_pdf,
+                custom_filename,
+                "mt-fwp-black-bear-2026-booklet",
+                "2026-04-27",
+                "2026-05-22T10:00:00+00:00",
+            )
+
+        assert results == []
+        warning_records = [r for r in caplog.records if r.levelname == "WARNING"]
+        assert warning_records, "expected a WARNING log on absent start anchor"
+        warning_msg = warning_records[0].getMessage()
+        assert custom_filename in warning_msg, (
+            f"warning should name pdf_filename {custom_filename!r}; got: {warning_msg!r}"
+        )
+
     def test_real_artifact_round_trip(self) -> None:
         """black-bear-2026.json statewide_rules has 1 entry with expected content."""
         artifact_path = (

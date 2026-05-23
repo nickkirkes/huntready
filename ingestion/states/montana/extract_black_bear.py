@@ -1362,8 +1362,19 @@ def _extract_reporting_obligations(
 # Anchors for the Bear ID Test paragraph on p. 2 right column.
 # Start: the opening sentence of the Bear ID Test requirement.
 # End:   the FWP education URL that closes the paragraph.
-_BEAR_ID_START_RE = re.compile(r"A hunter may purchase only one Black Bear License per year\.")
-_BEAR_ID_END_RE = re.compile(r"fwp\.mt\.gov/hunt/education/bear-identification")
+#
+# Whitespace flexibility: ``\s+`` between tokens (start anchor) and
+# ``[-\s]+`` around the URL hyphen (end anchor) defend against benign
+# pdfplumber layout shifts — extra spaces, line breaks mid-sentence, or
+# the URL wrapping at its hyphen. The S03.5 closure note documents the
+# same class of regression ("anchor-phrase line wrap"). Whitespace
+# normalization inside the captured body still happens via
+# ``re.sub(r"\\s+", " ", body)`` after the anchors locate the bounds; the
+# regex flexibility ensures we don't drop the rule entirely on layout drift.
+_BEAR_ID_START_RE = re.compile(
+    r"A\s+hunter\s+may\s+purchase\s+only\s+one\s+Black\s+Bear\s+License\s+per\s+year\."
+)
+_BEAR_ID_END_RE = re.compile(r"fwp\.mt\.gov/hunt/education/bear[-\s]+identification")
 
 
 def _extract_statewide_rules(
@@ -1421,7 +1432,7 @@ def _extract_statewide_rules(
         _logger.warning(
             "statewide rules: start anchor not found on p%d of %s — "
             "statewide_rules will be empty (downstream row-count guard will fire)",
-            _STATEWIDE_RULES_PAGE, source_id,
+            _STATEWIDE_RULES_PAGE, pdf_filename,
         )
         return []
 
