@@ -11,10 +11,17 @@ from ingestion.lib.db import (
     connect,
     upsert_geometries,
     upsert_geometry,
+    upsert_jurisdiction_binding,
     upsert_reporting_obligation,
     write_regulation_reporting,
 )
-from ingestion.lib.schema import Geometry, RegulationReporting, ReportingObligation, SourceCitation
+from ingestion.lib.schema import (
+    Geometry,
+    JurisdictionBinding,
+    RegulationReporting,
+    ReportingObligation,
+    SourceCitation,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -458,3 +465,179 @@ class TestWriteRegulationReporting:
         sql: str = mock_cursor.execute.call_args[0][0]
         assert "ON CONFLICT DO NOTHING" in sql
         assert not re.search(r"\bDO UPDATE\b", sql)
+
+
+# ---------------------------------------------------------------------------
+# Fixture — shared by TestUpsertJurisdictionBinding
+# ---------------------------------------------------------------------------
+
+
+def _make_bear_booklet_source_p2() -> SourceCitation:
+    """Minimal SourceCitation for the Black Bear booklet, page 2."""
+    return SourceCitation(
+        id="mt-fwp-black-bear-2026-booklet",
+        agency="Montana FWP",
+        title="Black Bear Booklet 2026",
+        url="https://fwp.mt.gov/hunt/regulations",
+        publication_date="2026-04-27",
+        document_type="annual_regulations",
+        supersedes=None,
+        page_reference="p. 2",
+    )
+
+
+def _make_jurisdiction_binding(
+    *,
+    verbatim_rule: str | None = None,
+) -> JurisdictionBinding:
+    """Canonical test fixture for JurisdictionBinding (MT-STATEWIDE-bear anchor)."""
+    return JurisdictionBinding(
+        id="US-MT-MT-STATEWIDE-bear-bear-2026-primary_unit-MT-STATEWIDE-geom",
+        regulation_record_state="US-MT",
+        regulation_record_jurisdiction_code="MT-STATEWIDE-bear",
+        regulation_record_species_group="bear",
+        regulation_record_license_year=2026,
+        geometry_id="MT-STATEWIDE-geom",
+        role="primary_unit",
+        verbatim_rule=verbatim_rule,
+        source=_make_bear_booklet_source_p2(),
+    )
+
+
+# ---------------------------------------------------------------------------
+# TestUpsertJurisdictionBinding
+# ---------------------------------------------------------------------------
+
+
+class TestUpsertJurisdictionBinding:
+    """Tests for db.upsert_jurisdiction_binding."""
+
+    def test_inserts_new_row(self) -> None:
+        """upsert_jurisdiction_binding must issue INSERT INTO jurisdiction_binding … ON CONFLICT (id) DO UPDATE."""
+        binding = _make_jurisdiction_binding()
+        mock_conn, mock_cursor = _make_mock_conn()
+        upsert_jurisdiction_binding(mock_conn, binding)
+
+        sql: str = mock_cursor.execute.call_args[0][0]
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+
+        assert "INSERT INTO jurisdiction_binding" in sql
+        assert "ON CONFLICT (id) DO UPDATE" in sql
+        # 9 params: id, reg_state, reg_jcode, reg_species, reg_year,
+        #            geom_id, role, verbatim_rule, source
+        assert len(params) == 9
+        assert params[0] == binding.id
+        assert params[1] == binding.regulation_record_state
+        assert params[2] == binding.regulation_record_jurisdiction_code
+        assert params[3] == binding.regulation_record_species_group
+        assert params[4] == binding.regulation_record_license_year
+        assert params[5] == binding.geometry_id
+        assert params[6] == binding.role
+        assert params[7] == binding.verbatim_rule  # None → SQL NULL
+        # params[8] is source — Json-wrapped (asserted separately)
+
+    def test_upserts_existing_row(self) -> None:
+        """Writing a second time with a different verbatim_rule must succeed without PK violation.
+
+        Both writes must execute the ON CONFLICT DO UPDATE SQL; the second write's
+        verbatim_rule value (index 7) must reflect the updated content.
+        """
+        binding_v1 = _make_jurisdiction_binding(verbatim_rule=None)
+        binding_v2 = _make_jurisdiction_binding(
+            verbatim_rule="Bear ID test completion required before hunting."
+        )
+        mock_conn, mock_cursor = _make_mock_conn()
+
+        upsert_jurisdiction_binding(mock_conn, binding_v1)
+        upsert_jurisdiction_binding(mock_conn, binding_v2)
+
+        assert mock_cursor.execute.call_count == 2
+        params_v2: tuple[object, ...] = mock_cursor.execute.call_args_list[1][0][1]
+        assert params_v2[7] == binding_v2.verbatim_rule
+
+    def test_idempotent_rerun(self) -> None:
+        """Writing the same JurisdictionBinding twice must succeed; row content is identical after both writes."""
+        binding = _make_jurisdiction_binding()
+        mock_conn, mock_cursor = _make_mock_conn()
+
+        upsert_jurisdiction_binding(mock_conn, binding)
+        upsert_jurisdiction_binding(mock_conn, binding)
+
+        assert mock_cursor.execute.call_count == 2
+        params_first: tuple[object, ...] = mock_cursor.execute.call_args_list[0][0][1]
+        params_second: tuple[object, ...] = mock_cursor.execute.call_args_list[1][0][1]
+        # All scalar params must be byte-identical across both calls
+        for i in range(8):  # indices 0-7 (exclude Json-wrapped source at 8)
+            assert params_first[i] == params_second[i], f"param[{i}] differs between runs"
+
+    def test_jsonb_wrap_source(self) -> None:
+        """The source parameter (index 8) must be wrapped via Json(binding.source.model_dump(exclude_none=True))."""
+        binding = _make_jurisdiction_binding()
+        mock_conn, mock_cursor = _make_mock_conn()
+        upsert_jurisdiction_binding(mock_conn, binding)
+
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+        source_param = params[8]
+        assert isinstance(source_param, Json)
+        assert source_param.obj == binding.source.model_dump(exclude_none=True)
+
+    def test_fail_loud_on_zero_rowcount(self) -> None:
+        """Schema-drift tripwire: if the SQL ever changes to DO NOTHING and a
+        conflict suppresses the write, the guard must raise with the binding id
+        so the loader bug surfaces immediately instead of silently dropping
+        writes. For the current DO UPDATE SQL this branch is unreachable;
+        monkeypatching rowcount=0 simulates the post-drift state."""
+        binding = _make_jurisdiction_binding()
+        mock_conn, mock_cursor = _make_mock_conn()
+        mock_cursor.rowcount = 0
+
+        with pytest.raises(RuntimeError) as exc_info:
+            upsert_jurisdiction_binding(mock_conn, binding)
+
+        error_msg = str(exc_info.value)
+        assert "cur.rowcount == 0" in error_msg
+        assert binding.id in error_msg
+
+    def test_no_commit_by_helper(self) -> None:
+        """upsert_jurisdiction_binding must NOT call conn.commit() — caller controls the transaction boundary."""
+        binding = _make_jurisdiction_binding()
+        mock_conn, _mock_cursor = _make_mock_conn()
+        upsert_jurisdiction_binding(mock_conn, binding)
+        mock_conn.commit.assert_not_called()
+
+    def test_upsert_sql_does_not_update_identity_fields(self) -> None:
+        """Silent-repoint guard: the ON CONFLICT DO UPDATE SET clause must NOT
+        include any of the six identity-encoded fields. These fields are
+        encoded into ``id`` via ``_JURISDICTION_BINDING_ID_FORMAT`` in
+        ``load_regulation_records.py``; a stable ``id`` implies stable
+        identity. Including identity fields in the UPDATE clause would silently
+        repoint an existing row's identity if a future id-derivation bug
+        produced a collision between two semantically-different bindings."""
+        from ingestion.lib.db import _UPSERT_JURISDICTION_BINDING_SQL
+
+        identity_fields = (
+            "regulation_record_state",
+            "regulation_record_jurisdiction_code",
+            "regulation_record_species_group",
+            "regulation_record_license_year",
+            "geometry_id",
+            "role",
+        )
+        # Isolate the UPDATE SET clause: from "DO UPDATE SET" through the next
+        # SQL comment line ("--"). Identity fields appearing in the INSERT
+        # column list or in comments don't count as silent-repoint assignments.
+        marker = "DO UPDATE SET"
+        start = _UPSERT_JURISDICTION_BINDING_SQL.index(marker) + len(marker)
+        end = _UPSERT_JURISDICTION_BINDING_SQL.index("--", start)
+        update_assignments = _UPSERT_JURISDICTION_BINDING_SQL[start:end]
+        # Normalize whitespace so spacing variations don't defeat substring matching.
+        normalized = " ".join(update_assignments.split())
+
+        for field in identity_fields:
+            assert f"{field} = EXCLUDED.{field}" not in normalized, (
+                f"identity field {field!r} appears in UPDATE SET clause — "
+                "would silently repoint on id collision; remove from clause"
+            )
+        # And the two metadata-only fields MUST be present.
+        assert "verbatim_rule = EXCLUDED.verbatim_rule" in normalized
+        assert "source = EXCLUDED.source" in normalized

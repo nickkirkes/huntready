@@ -44,6 +44,7 @@ from ingestion.lib.schema import (
     DrawSpec,
     DrawSpecKey,
     Geometry,
+    JurisdictionBinding,
     LicenseSeason,
     LicenseTag,
     RegulationLicense,
@@ -214,6 +215,32 @@ ON CONFLICT (id) DO UPDATE SET
 """
 
 _INSERT_REGULATION_REPORTING_SQL = "INSERT INTO regulation_reporting (state, jurisdiction_code, species_group, license_year, reporting_obligation_id) VALUES (%s, %s, %s, %s, %s) ON CONFLICT DO NOTHING"
+
+_UPSERT_JURISDICTION_BINDING_SQL = """
+INSERT INTO jurisdiction_binding (
+    id, regulation_record_state, regulation_record_jurisdiction_code,
+    regulation_record_species_group, regulation_record_license_year,
+    geometry_id, role, verbatim_rule, source
+) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+ON CONFLICT (id) DO UPDATE SET
+    verbatim_rule                        = EXCLUDED.verbatim_rule,
+    source                               = EXCLUDED.source
+-- id (PK) is intentionally NOT in the UPDATE clause: same discipline as
+-- _UPSERT_SEASON_DEFINITION_SQL above.
+-- The six identity-encoded fields (regulation_record_state,
+-- regulation_record_jurisdiction_code, regulation_record_species_group,
+-- regulation_record_license_year, geometry_id, role) are ALSO intentionally
+-- omitted: they are encoded into `id` via _JURISDICTION_BINDING_ID_FORMAT in
+-- load_regulation_records.py, so a stable `id` implies stable identity. If a
+-- future id-derivation bug ever produces an `id` collision between two
+-- semantically-different bindings, including identity fields in the UPDATE
+-- clause would silently repoint the existing row to the new (incorrect)
+-- identity. Omitting them means a collision is contained: the existing row's
+-- identity is preserved (no silent repoint); only verbatim_rule and source
+-- — the legitimately-mutable metadata fields — are updated on conflict.
+-- No ingested_at column on jurisdiction_binding per DDL
+-- supabase/migrations/20260425000000_initial_schema.sql:193-216.
+"""
 
 
 def connect() -> psycopg.Connection[tuple[object, ...]]:
@@ -736,4 +763,68 @@ def write_regulation_reporting(
         link.state, link.jurisdiction_code,
         link.species_group, link.license_year,
         link.reporting_obligation_id,
+    )
+
+
+def upsert_jurisdiction_binding(
+    conn: psycopg.Connection[tuple[object, ...]],
+    binding: JurisdictionBinding,
+) -> None:
+    """INSERT … ON CONFLICT UPDATE a single ``JurisdictionBinding`` row.
+
+    DDL table: jurisdiction_binding (supabase/migrations/20260425000000_initial_schema.sql:193-216)
+
+    Persists the overlay relationship between a ``geometry`` row and a
+    ``regulation_record`` row, including the binding ``role`` and optional
+    ``verbatim_rule``.
+
+    Does NOT commit — the caller controls the transaction boundary.
+
+    Idempotent: ON CONFLICT (id) DO UPDATE SET overwrites all mutable fields
+    on re-runs; re-runs with byte-identical ``binding`` are a no-op at the
+    observable side-effect level. ``verbatim_rule`` and ``source`` may update
+    freely on re-ingest — they are NOT id-encoded and therefore NOT in the
+    conflict discriminator.
+
+    Note: ``jurisdiction_binding`` has no ``ingested_at`` column per DDL, so no
+    exclusion clause is needed (contrast with ``_UPSERT_REGULATION_RECORD_SQL``).
+
+    Schema-drift guard: raises ``RuntimeError`` if ``cur.rowcount == 0`` after
+    execute. For the current ``INSERT ... ON CONFLICT (id) DO UPDATE SET ...``
+    SQL, psycopg always returns rowcount=1 (insert OR update branch), so this
+    guard is structurally unreachable today. It exists as a tripwire against a
+    future SQL change that accidentally switches to ``DO NOTHING`` — that
+    variant would silently return rowcount=0 on conflict, hiding loader bugs
+    where the binding id collides with an existing row but the new content
+    differs. Keeping the guard means a `DO NOTHING` regression fails loud at
+    the first conflicting row instead of silently dropping writes.
+
+    Args:
+        conn: An open psycopg3 connection.
+        binding: The ``JurisdictionBinding`` instance to persist.
+    """
+    source_json = Json(binding.source.model_dump(exclude_none=True))
+    params: tuple[object, ...] = (
+        binding.id,
+        binding.regulation_record_state,
+        binding.regulation_record_jurisdiction_code,
+        binding.regulation_record_species_group,
+        binding.regulation_record_license_year,
+        binding.geometry_id,
+        binding.role,
+        binding.verbatim_rule,  # may be None — psycopg encodes as SQL NULL
+        source_json,
+    )
+    with conn.cursor() as cur:
+        cur.execute(_UPSERT_JURISDICTION_BINDING_SQL, params)
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"upsert_jurisdiction_binding: cur.rowcount == 0 for id={binding.id!r}"
+                " — UPSERT touched no rows. The current SQL uses DO UPDATE so this"
+                " is structurally unreachable; reaching this branch indicates the"
+                " SQL has been changed to DO NOTHING (schema-drift tripwire)."
+            )
+    _logger.debug(
+        "upserted jurisdiction_binding id=%s role=%s geom=%s",
+        binding.id, binding.role, binding.geometry_id,
     )

@@ -58,6 +58,17 @@ Cleanup rules (applied only to structured ``rows`` cells, never to
       ``verbatim_text`` field at the section level carries pdfplumber's output
       without additional normalization per ADR-008.
 
+  Statewide-rule body whitespace collapse (page-2 right-column prose only):
+      ``re.sub(r"\\s+", " ", body)``
+      Scope: the substring of page-2 right-column text bounded between
+      ``_BEAR_ID_START_RE`` and ``_BEAR_ID_END_RE`` anchors only.
+      Rationale: extras-only whitespace collapse. pdfplumber's word-grouping
+      can introduce multi-space or newline runs within paragraph prose; the
+      collapse is ADR-008-safe because paraphrase prevention applies to lexical
+      content and numeric tokens, not incidental whitespace runs.
+      Tests that lock this rule:
+        ``TestExtractStatewideRules::test_whitespace_collapse_extras_only``
+
   Dash sentinel:
       ``-`` in season/quota cells means "absent" — handled by
       ``_is_season_cell_absent``, identical semantics to ``extract_dea``.
@@ -149,6 +160,8 @@ _BMU_TABLE_PAGES = (9, 12)
 
 # Closure prose + reporting prose page (right column).
 _CLOSURE_PROSE_PAGE = 7
+# "Obtain a License" / Bear ID Test page (right column, same letter-page geometry).
+_STATEWIDE_RULES_PAGE = 2
 # Right-column bbox for two-column page layouts (left col 0–306, right
 # col 306–612). 612 is the standard letter-size width in PDF units.
 _RIGHT_COLUMN_BBOX: tuple[float, float, float, float] = (306.0, 0.0, 612.0, 792.0)
@@ -290,6 +303,17 @@ class ReportingObligationCandidate(TypedDict):
     extraction_confidence: ConfidenceTier
 
 
+class StatewideRuleCandidate(TypedDict):
+    """Carries statewide pre-purchase prerequisites (e.g., Bear ID Test) extracted from prose outside the BMU table."""
+
+    rule_hint: str
+    verbatim_text: str
+    page_reference: PageReference
+    source_id: str
+    source_publication_date: str
+    extraction_confidence: ConfidenceTier
+
+
 class CorrectionOperation(TypedDict):
     """A single cell-level correction operation parsed from the correction PDF prose."""
 
@@ -314,6 +338,7 @@ class BlackBearBaseExtraction(TypedDict):
     rows: list[BmuRowExtraction]
     closures: list[ClosurePredicateCandidate]
     reporting_obligations: list[ReportingObligationCandidate]
+    statewide_rules: list[StatewideRuleCandidate]
 
 
 class CorrectionExtraction(TypedDict):
@@ -336,6 +361,7 @@ class BlackBearMergedExtraction(TypedDict):
     rows: list[BmuRowExtraction]         # rows with applied_correction tags + demoted confidence
     closures: list[ClosurePredicateCandidate]
     reporting_obligations: list[ReportingObligationCandidate]
+    statewide_rules: list[StatewideRuleCandidate]
 
 
 def _load_citation_from_sources_yaml(citation_id: str) -> SourceCitationDict:
@@ -1330,6 +1356,113 @@ def _extract_reporting_obligations(
 
 
 # ---------------------------------------------------------------------------
+# T2: Statewide rules extraction (page 2 right column — Bear ID Test)
+# ---------------------------------------------------------------------------
+
+# Anchors for the Bear ID Test paragraph on p. 2 right column.
+# Start: the opening sentence of the Bear ID Test requirement.
+# End:   the FWP education URL that closes the paragraph.
+#
+# Whitespace flexibility: ``\s+`` between tokens (start anchor) and
+# ``[-\s]+`` around the URL hyphen (end anchor) defend against benign
+# pdfplumber layout shifts — extra spaces, line breaks mid-sentence, or
+# the URL wrapping at its hyphen. The S03.5 closure note documents the
+# same class of regression ("anchor-phrase line wrap"). Whitespace
+# normalization inside the captured body still happens via
+# ``re.sub(r"\\s+", " ", body)`` after the anchors locate the bounds; the
+# regex flexibility ensures we don't drop the rule entirely on layout drift.
+_BEAR_ID_START_RE = re.compile(
+    r"A\s+hunter\s+may\s+purchase\s+only\s+one\s+Black\s+Bear\s+License\s+per\s+year\."
+)
+_BEAR_ID_END_RE = re.compile(r"fwp\.mt\.gov/hunt/education/bear[-\s]+identification")
+
+
+def _extract_statewide_rules(
+    pdf: PdfDocument,
+    pdf_filename: str,
+    source_id: str,
+    source_publication_date: str,
+    extracted_at: str,
+) -> list[StatewideRuleCandidate]:
+    """Extract statewide pre-purchase prerequisite prose from p. 2 right column.
+
+    Locates the Bear ID Test paragraph using two compiled regex anchors
+    (``_BEAR_ID_START_RE`` / ``_BEAR_ID_END_RE``) and returns a single
+    ``StatewideRuleCandidate`` carrying the verbatim text.
+
+    Args:
+        pdf: Already-open PdfDocument for the bear booklet.
+        pdf_filename: Real PDF basename, threaded from the orchestrator via
+            ``booklet_pdf.filename`` (same convention as
+            ``_extract_reporting_obligations``). Do NOT synthesize from
+            source_id + publication_date — that would leak the canonical name
+            into custom ``--booklet-pdf`` operator runs, hiding the actual file.
+        source_id: Source citation id string (e.g. "mt-fwp-black-bear-2026-booklet").
+        source_publication_date: ISO-8601 date string from the source citation.
+        extracted_at: ISO-8601 datetime string from the manifest, threaded from
+            the orchestrator (same convention as ``_extract_reporting_obligations``).
+
+    Return value:
+      - Exactly one element on success.
+      - Empty list if the start anchor is absent (operator-visible via the
+        row-count guard ``[1, 1]`` band downstream — fail-loud without a
+        RuntimeError here because an absent start anchor may mean the page
+        layout shifted rather than a code bug).
+      - Raises ``RuntimeError`` if the start anchor is found but the end anchor
+        is absent — that combination is a code or PDF-structure bug that
+        requires investigation before re-running.
+
+    The captured body is collapsed with ``re.sub(r"\\s+", " ", body)`` (see
+    "Statewide-rule body whitespace collapse" in the module docstring cleanup
+    rules) — ADR-008-safe extras-only whitespace normalisation.
+    """
+    right_col_text: str | None = None
+    for _page_num, page in iter_pages(pdf, _STATEWIDE_RULES_PAGE, _STATEWIDE_RULES_PAGE):
+        right_col_text = extract_text(page, bbox=_RIGHT_COLUMN_BBOX)
+
+    if right_col_text is None:
+        raise PdfExtractionError(
+            f"statewide rules: iter_pages yielded no pages for p. {_STATEWIDE_RULES_PAGE} "
+            f"of {pdf_filename!r} — check that the booklet PDF is on disk and the page "
+            "range is valid"
+        )
+
+    start_match = _BEAR_ID_START_RE.search(right_col_text)
+    if start_match is None:
+        _logger.warning(
+            "statewide rules: start anchor not found on p%d of %s — "
+            "statewide_rules will be empty (downstream row-count guard will fire)",
+            _STATEWIDE_RULES_PAGE, pdf_filename,
+        )
+        return []
+
+    end_match = _BEAR_ID_END_RE.search(right_col_text, pos=start_match.start())
+    if end_match is None:
+        raise RuntimeError(
+            f"_extract_statewide_rules: end anchor missing on p{_STATEWIDE_RULES_PAGE}. "
+            "Source PDF may have changed; investigate before re-running."
+        )
+
+    raw_body = right_col_text[start_match.start() : end_match.end()]
+    body = re.sub(r"\s+", " ", raw_body)
+
+    candidate: StatewideRuleCandidate = {
+        "rule_hint": "pre_purchase_prerequisite",
+        "verbatim_text": body,
+        "page_reference": {
+            "pdf_filename": pdf_filename,
+            "page_num_1based": _STATEWIDE_RULES_PAGE,
+            "bbox": _RIGHT_COLUMN_BBOX,
+            "extracted_at": extracted_at,
+        },
+        "source_id": source_id,
+        "source_publication_date": source_publication_date,
+        "extraction_confidence": ConfidenceTier.MEDIUM,
+    }
+    return [candidate]
+
+
+# ---------------------------------------------------------------------------
 # T10: Pass-1 base extraction orchestrator → BlackBearBaseExtraction
 # ---------------------------------------------------------------------------
 
@@ -1441,6 +1574,14 @@ def _extract_base(
         source_citation,
     )
 
+    statewide_rules = _extract_statewide_rules(
+        booklet_pdf,
+        booklet_pdf.filename,
+        source_citation["id"],
+        source_citation["publication_date"],
+        extracted_at,
+    )
+
     return BlackBearBaseExtraction(
         state="MT",
         species_group="black_bear",
@@ -1451,6 +1592,7 @@ def _extract_base(
         rows=rows,
         closures=closures,
         reporting_obligations=reporting_obligations,
+        statewide_rules=statewide_rules,
     )
 
 
@@ -1756,6 +1898,7 @@ def _merge_with_corrections(
         rows=merged_rows,
         closures=base["closures"],
         reporting_obligations=base["reporting_obligations"],
+        statewide_rules=base["statewide_rules"],
     )
 
 

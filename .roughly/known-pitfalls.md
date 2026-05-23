@@ -578,6 +578,16 @@ Surfaced by S03.9 cubic-review round 3 on 2026-05-21.
 
 Surfaced by S03.9 Probe 1 on 2026-05-19.
 
+### Fail-soft extractor paths that defer loud failure to a downstream row-count guard must emit a visible warning at extraction time
+
+**Symptom:** An extractor function that uses a regex anchor to locate a PDF region returns `[]` silently when the anchor doesn't match (anchor has shifted or PDF was regenerated from a stale source). The downstream row-count guard eventually raises `RuntimeError`, but by then extraction and loading may have run in separate sessions — hours or days apart.
+
+**Cause:** Fail-soft early-return paths (`return []` instead of `raise`) are sometimes correct (anchor absence is a recoverable condition, not a programmer error). But "recoverable" does NOT mean "quiet." Without an extraction-time warning, the diagnostic latency between the silent extraction failure and the downstream OQ7-band RuntimeError is measured in sessions, not milliseconds.
+
+**Fix:** When an extractor's fail-soft path defers loud failure to a downstream row-count guard, the extractor MUST emit `_logger.warning(...)` before the early return. The warning should name (a) the page number or page range probed, (b) the source PDF / source-id, and (c) a pointer to which downstream guard will catch the regression. This rule applies only to fail-soft returns — `raise RuntimeError` paths are already loud and need no additional warning. Reference: `_extract_statewide_rules` in `ingestion/states/montana/extract_black_bear.py` (S03.6.1 review — silent-failure-hunter W2 finding).
+
+Surfaced by S03.6.1 Stage 6 review on 2026-05-22.
+
 ## Conventions — Pre-commit & secrets
 
 ### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings

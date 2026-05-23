@@ -1467,5 +1467,25 @@
     "url": "https://fwp.mt.gov/binaries/content/assets/fwp/hunt/regulations/2026/2026-black-bear-final-for-web.pdf"
   },
   "species_group": "black_bear",
-  "state": "MT"
+  "state": "MT",
+  "statewide_rules": [
+    {
+      "extraction_confidence": "medium",
+      "page_reference": {
+        "bbox": [
+          306.0,
+          0.0,
+          612.0,
+          792.0
+        ],
+        "extracted_at": "2026-05-08T00:21:59.830109+00:00",
+        "page_num_1based": 2,
+        "pdf_filename": "mt-fwp-black-bear-2026-booklet-2026-04-27.pdf"
+      },
+      "rule_hint": "pre_purchase_prerequisite",
+      "source_id": "mt-fwp-black-bear-2026-booklet",
+      "source_publication_date": "2026-04-27",
+      "verbatim_text": "A hunter may purchase only one Black Bear License per year. A free Black Bear Identification Test Certificate is required to obtain a license. A hunter must take and pass a “Black Bear Identification test” before purchasing a Black Bear Hunting license. A hunter must present a certificate of completion issued by FWP at the time of purchase. The test is available online at: fwp.mt.gov/hunt/education/bear-identification"
+    }
+  ]
 }
