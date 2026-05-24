@@ -565,17 +565,27 @@ def _query_nearby_hds_for_zone(
     Supabase project; all ST_* functions must be `extensions.`-qualified or
     they fail to resolve.
     """
+    # `hd.state = %s` is load-bearing: in M2+ when Colorado geometry rows land,
+    # an out-of-state HD whose geom is within 5km of a Montana orphan zone
+    # (e.g., a CO HD near a MT/CO border zone) would be returned here, but its
+    # id (`CO-GMU-*-geom`) doesn't appear as a key in `rrs_by_parent` (which is
+    # built only from Montana reg_records).  The downstream
+    # `rrs_by_parent.get(out_of_state_hd_id, [])` lookup silently returns [],
+    # and the zero-nearby fail-loud guard doesn't fire because `nearby_hd_ids`
+    # is non-empty.  Filter at the SQL layer so the guard's semantics are
+    # actually preserved (non-empty result = at least one in-scope HD).
     sql = """
         SELECT DISTINCT hd.id
         FROM geometry zone
         JOIN geometry hd
           ON hd.kind = 'hunting_district'
+          AND hd.state = %s
           AND extensions.ST_DWithin(zone.geom, hd.geom, %s)
         WHERE zone.id = %s
         ORDER BY hd.id
     """
     with conn.cursor() as cur:
-        cur.execute(sql, (_NO_HUNT_ZONE_NEARBY_DISTANCE_M, zone_id))
+        cur.execute(sql, (_STATE, _NO_HUNT_ZONE_NEARBY_DISTANCE_M, zone_id))
         return [str(row[0]) for row in cur.fetchall()]
 
 

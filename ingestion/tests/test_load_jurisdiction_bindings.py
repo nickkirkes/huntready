@@ -875,12 +875,18 @@ class TestQueryNearbyHdsForZone:
         # _query_nearby_hds_for_zone for the V1-Montana verification.
         assert "kind = 'hunting_district'" in sql
         assert "'portion'" not in sql, "portions must NOT be in the nearby filter"
+        # State filter: prevents out-of-state HDs (M2+ Colorado data) from
+        # polluting the nearby query and silently producing zero bindings.
+        assert "hd.state = %s" in sql, "SQL must filter HDs by state"
         # No ST_Touches, no ST_Centroid, no ::geometry casts (Spec Deviation #4)
         assert "ST_Touches" not in sql
         assert "ST_Centroid" not in sql
         assert "::geometry" not in sql
-        # Distance param is the constant value
-        assert params[0] == _NO_HUNT_ZONE_NEARBY_DISTANCE_M
+        # Params: (state, distance, zone_id) — order matches the %s placeholders
+        assert params == ("US-MT", _NO_HUNT_ZONE_NEARBY_DISTANCE_M, "some-zone-geom"), (
+            f"Expected ('US-MT', {_NO_HUNT_ZONE_NEARBY_DISTANCE_M}, 'some-zone-geom'), "
+            f"got {params}"
+        )
 
     def test_returns_empty_list_when_no_nearby_hds(self) -> None:
         conn = MagicMock()
@@ -914,6 +920,32 @@ class TestQueryNearbyHdsForZone:
         )
         # Positive: only 'hunting_district' is queried
         assert "kind = 'hunting_district'" in sql
+
+    def test_sql_filters_by_state_regression_guard(self) -> None:
+        """The nearby query MUST filter HDs by state.
+
+        Without `hd.state = %s`, in M2+ when Colorado geometry rows land, an
+        out-of-state HD whose geom is near a Montana orphan zone (e.g., a CO
+        HD near the MT/CO border) would be returned. Its id wouldn't match any
+        Montana reg_record's parent_gid, so the downstream
+        `rrs_by_parent.get(out_of_state_id, [])` returns [] silently. The
+        zero-nearby fail-loud guard would NOT fire because `nearby_hd_ids` is
+        non-empty.  Result: silent under-binding for zones with out-of-state
+        nearby HDs.  This test locks the state-filter invariant."""
+        conn = MagicMock()
+        cur = conn.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = []
+        _query_nearby_hds_for_zone(conn, "any-zone")
+        sql: str = cur.execute.call_args[0][0]
+        params: tuple[object, ...] = cur.execute.call_args[0][1]
+        assert "hd.state = %s" in sql, (
+            "SQL must filter HDs by `hd.state = %s` to prevent out-of-state "
+            "geometries from silently producing zero bindings in M2+ Colorado data."
+        )
+        # The first parameter must be the state code ('US-MT')
+        assert params[0] == "US-MT", (
+            f"First parameter must be _STATE ('US-MT'), got {params[0]!r}"
+        )
 
     def test_sql_uses_extensions_prefix_not_bare_name(self) -> None:
         """Regression: bare ST_DWithin fails to resolve in Supabase extensions schema."""
