@@ -96,6 +96,30 @@ Surfaced by S03.0 silent-failure-hunter review on 2026-05-04.
 
 ## Integration — Supabase / PostGIS
 
+### `geometry` table DDL column is `geom`, not `geog`
+
+The actual DDL column name is `geom geography(MultiPolygon, 4326)` (see `supabase/migrations/20260425000000_initial_schema.sql:201`). CLAUDE.md uses "geog" colloquially in one sentence ("all geometries use `geography(MultiPolygon, 4326)`") but that phrase refers to the type, not the column name. Raw SQL that uses `zone.geog` or `hd.geog` receives `ERROR: column "geog" does not exist`. All hand-written queries must use `geom`.
+
+Surfaced 2026-05-23 during S03.10 T0 probe (initial SQL block used `geog`; corrected before any execution). Reference: `S03.10.md` DDL findings section.
+
+### PostGIS functions must use `extensions.` schema prefix in Supabase projects
+
+The Supabase project installs PostGIS with `CREATE EXTENSION IF NOT EXISTS postgis SCHEMA extensions;` (see `supabase/migrations/20260425000000_initial_schema.sql` near the top). The `extensions` schema is NOT on the connection's default search_path, so bare names fail: `ERROR: function st_dwithin(geography, geography, integer) does not exist` (or equivalent for `ST_Touches`, `ST_Centroid`, etc.). Every raw-SQL PostGIS function call must be prefixed: `extensions.ST_DWithin(...)`, `extensions.ST_Touches(...)`, etc.
+
+This is a Supabase-project-specific configuration choice, not a missing extension — the function exists but is only resolvable via the explicit schema qualifier. Reference: S03.10 schema-prefix audit section in `S03.10.md`; ADR-016 `statement_timeout` note also implied geography-native calls were needed. Locked in S03.10 by `TestQueryNearbyHdsForZone::test_sql_uses_extensions_prefix_not_bare_name`.
+
+Surfaced previously (E02) and again 2026-05-23 during S03.10 T0 (the `load_jurisdiction_bindings.py` query required the prefix from the first draft).
+
+### Centroid-to-centroid `ST_DWithin` produces zero matches for large national-park polygons
+
+**Symptom:** `ST_DWithin(ST_Centroid(zone.geom), ST_Centroid(hd.geom), 5000)` returns 0 matches for all three Montana no-hunt zones (Glacier NP, Sun River Game Preserve, Yellowstone NP) even at a 5 km threshold — every HD is classified as "not nearby" and no bindings are written.
+
+**Cause:** National-park and game-preserve polygons are large; their centroid is many kilometres from any HD boundary. Yellowstone NP's centroid is roughly 30 km inside the park, far from the nearest HD centroid. Centroid-to-centroid distance is only meaningful for compact, roughly-circular polygons.
+
+**Fix:** Use boundary-to-boundary geography `extensions.ST_DWithin(zone.geom, hd.geom, distance_meters)` directly on the native `geography` columns. This covers the ST_Touches case (touching = 0 m distance), avoids geometry casts, and works correctly for large polygons. Reference: `load_jurisdiction_bindings.py::_query_nearby_hds_for_zone`; Deviation #4 footnote in S03.10 epic.
+
+Surfaced 2026-05-23 during S03.10 T0 probe; confirmed via live-DB counts (centroid: 0/0/0; boundary-to-boundary: 8/8/13 matches).
+
 ### `geom::geometry` direct cast not enabled
 
 Supabase's bundled PostGIS does not allow direct `geom::geometry` casts on `geography` columns — `SELECT ... FROM geometry WHERE NOT ST_IsValid(geom::geometry)` returns `cannot cast type geography to geometry`. The S02.6/S02.7 epic verification SQL uses this cast pattern (and so do the docs/runbook examples). Operators running those queries against a Supabase project will hit the error.
@@ -587,6 +611,65 @@ Surfaced by S03.9 Probe 1 on 2026-05-19.
 **Fix:** When an extractor's fail-soft path defers loud failure to a downstream row-count guard, the extractor MUST emit `_logger.warning(...)` before the early return. The warning should name (a) the page number or page range probed, (b) the source PDF / source-id, and (c) a pointer to which downstream guard will catch the regression. This rule applies only to fail-soft returns — `raise RuntimeError` paths are already loud and need no additional warning. Reference: `_extract_statewide_rules` in `ingestion/states/montana/extract_black_bear.py` (S03.6.1 review — silent-failure-hunter W2 finding).
 
 Surfaced by S03.6.1 Stage 6 review on 2026-05-22.
+
+### `with db.connect()` context manager commits on clean exit — explicit `conn.commit()` inside is the real gate
+
+psycopg3's `Connection.__exit__` calls `self.commit()` on a clean exit and `self.rollback()` on an exception. The project adapter pattern calls explicit `conn.commit()` inside the `with` block before `__exit__` runs; the implicit context-manager commit is therefore a no-op (the transaction is already closed). This is safe but can be confusing to a reader who asks "is there a double-commit risk?" There is not — the explicit `conn.commit()` is the real gate; the `with` is the rollback-on-exception safety net. The ordering must be documented in every adapter's commit site so a refactor doesn't accidentally remove the explicit call (believing the `with` covers it) and lose the fail-loud "commit only after all loops complete" discipline.
+
+Surfaced 2026-05-23 during S03.10 Stage 6 silent-failure-hunter review. Reference: `load_jurisdiction_bindings.py::main()` commit site comment.
+
+### Per-builder dedup sets miss cross-builder collisions — add a global dedup check in `main()`
+
+**Symptom:** An adapter has two or more binding/entity builders, each maintaining its own `seen_ids: set[str]` for duplicate detection. A cross-builder collision — same `id` produced by two different builders — is invisible to both per-builder sets and produces a second UPSERT call rather than failing.
+
+**Fix:** After collecting all built entities (`all_entities = builder_a_results + builder_b_results + ...`), run a global dedup check before the write phase:
+
+```python
+all_ids = [e.id for e in all_entities]
+if len(all_ids) != len(set(all_ids)):
+    dupes = [i for i in all_ids if all_ids.count(i) > 1]
+    raise RuntimeError(f"Cross-builder id collision: {dupes}")
+```
+
+The per-builder sets remain useful for detecting intra-builder collisions early (fail at construction time, not write time). The global check is the final gate. Reference: `load_jurisdiction_bindings.py::main()` pre-write global dedup.
+
+Surfaced 2026-05-23 during S03.10 Stage 6 code-review. Relevant for any adapter with 2+ builders producing the same entity type (S03.6.1 had separate statewide + per-HD builders; S03.10 has statewide + overlay + no-hunt-zone builders).
+
+### `Model.model_validate(...)` inside a dict-comprehension swallows row identity on failure
+
+**Symptom:** A Pydantic `ValidationError` surfaces with the raw field path but no indication of which source row, geometry ID, or dict key triggered it. A comprehension like `{str(row[0]): SomeModel.model_validate(row[1]) for row in rows}` loses the outer iteration variable when it raises.
+
+**Fix:** Refactor any `model_validate` call inside a comprehension to an explicit for-loop with a try/except that wraps the identity:
+
+```python
+result: dict[str, SomeModel] = {}
+for row in rows:
+    entity_id = str(row[0])
+    try:
+        result[entity_id] = SomeModel.model_validate(row[1])
+    except Exception as exc:
+        raise RuntimeError(f"entity {entity_id!r} has malformed source jsonb: {exc}") from exc
+```
+
+Apply this pattern for any `model_validate` call that iterates over DB rows, artifact dicts, or YAML entries — the diagnostic value of knowing WHICH item failed is worth the extra lines. Reference: `load_jurisdiction_bindings.py::_fetch_geometry_sources` post-S03.10 review fix.
+
+Surfaced 2026-05-23 during S03.10 Stage 6 code-review.
+
+### Live-DB write is operator-driven — closure-note row counts describe dry-run-verified shape, not DB state
+
+**Symptom:** A story's S03.X implementation plan or pre-flight probe runs `SELECT count(*) FROM regulation_record` and gets 0, even though earlier closure notes in CLAUDE.md describe "437 regulation_record rows" written at S03.6 close.
+
+**Cause:** The CLAUDE.md closure narrative describes the adapter's output shape as verified by the dry-run path. Live writes only happen when an operator explicitly invokes the loader script. In the single-developer workflow, earlier story loaders may never have been invoked live (only dry-run); the T0 probe for S03.10 confirmed `regulation_record=0` and `jurisdiction_binding=0` despite 11 completed prior stories.
+
+**Fix:** Any story that depends on prior loaders' DB state (e.g., S03.10 joining `regulation_record` to build bindings) must include an explicit operator pre-flight step to run the prior loaders in FK order. The T16 prerequisites block in `S03.10.md` is the canonical checklist format:
+
+```bash
+ingestion/.venv/bin/python ingestion/states/montana/load_state_boundary.py
+ingestion/.venv/bin/python ingestion/states/montana/load_regulation_records.py
+# ... in FK-safe order; then the current story's loader
+```
+
+Do not assume the DB matches the closure-note narrative. Probe DB state with a COUNT query at plan time. Surfaced 2026-05-23 during S03.10 T0 pre-flight probe.
 
 ## Conventions — Pre-commit & secrets
 
