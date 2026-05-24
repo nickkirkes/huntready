@@ -786,6 +786,24 @@ class TestBuildOverlayBindings:
     def test_empty_inputs_return_empty_list(self) -> None:
         assert _build_overlay_bindings([], [], {}) == []
 
+    def test_reg_record_with_no_overlay_entries_fails_loud(self) -> None:
+        """If a reg_record's derived parent_geometry_id has zero overlay-fixture
+        entries (no self-row, no portions, no overlays), fail loud rather than
+        silently producing 0 bindings for that reg_record.
+
+        Every HD-keyed reg_record's parent geometry MUST have at least a self-row
+        (primary_unit) in the overlay fixture per E02 invariant.  A missing entry
+        means a structural fixture / reg_record sync bug — silently skipping
+        would drop ALL bindings (self + portions + overlays) for that record."""
+        rr = self._make_rr("MT-HD-bear-999", "bear")
+        # Overlay fixture has rows for HD 101 but NOT for HD 999
+        overlay = [self._row("MT-HD-bear-101-geom", "MT-HD-bear-101-geom",
+                             role_for_e03="primary_unit",
+                             child_kind="hunting_district")]
+        sources = {"MT-HD-bear-101-geom": self._make_source()}
+        with pytest.raises(RuntimeError, match="no overlay-fixture entries"):
+            _build_overlay_bindings([rr], overlay, sources)
+
     def test_binding_fields_are_fully_populated(self) -> None:
         """Spot-check all JurisdictionBinding fields on a single emitted binding."""
         rr = self._make_rr("MT-HD-deer-elk-lion-262", "elk")
@@ -1253,15 +1271,27 @@ class TestQueryAllMontanaRegulationRecords:
         records = _query_all_montana_regulation_records(conn)
         assert records == []
 
-    def test_queries_only_mt_state(self) -> None:
-        """Verifies the SQL WHERE state = %s clause is parameterised with _STATE."""
+    def test_queries_only_mt_state_and_current_license_year(self) -> None:
+        """Verifies the SQL is parameterised with both `_STATE` AND `_LICENSE_YEAR`.
+
+        The license_year filter is load-bearing: without it, a multi-year DB
+        (post year-over-year re-ingestion) would silently fan out bindings
+        across years, blowing past the count guard and writing cross-year
+        bindings that violate the UPSERT contract.  See `_query_all_montana_
+        regulation_records` docstring + commit history.
+        """
+        from states.montana.load_jurisdiction_bindings import _LICENSE_YEAR
         conn = MagicMock()
         cur = conn.cursor.return_value.__enter__.return_value
         cur.fetchall.return_value = []
         _query_all_montana_regulation_records(conn)
         call_args = cur.execute.call_args
+        sql: str = call_args[0][0]
         params: tuple[object, ...] = call_args[0][1]
-        assert params == ("US-MT",), f"Expected ('US-MT',), got {params}"
+        assert "license_year = %s" in sql, "SQL must filter by license_year"
+        assert params == ("US-MT", _LICENSE_YEAR), (
+            f"Expected ('US-MT', {_LICENSE_YEAR}), got {params}"
+        )
 
     def test_null_additional_rules_coerced_to_empty_list(self) -> None:
         conn = MagicMock()
@@ -1485,6 +1515,29 @@ class TestMain:
         with patch.object(_db_module, "connect", return_value=conn_mock), \
              patch.object(_ljb, "_query_all_montana_regulation_records", return_value=partial_statewide):
             with pytest.raises(RuntimeError, match="missing.*MT-STATEWIDE-bear"):
+                _ljb.main([])
+
+    def test_unexpected_statewide_reg_record_fails_loud(self) -> None:
+        """Symmetric to test_missing_statewide_reg_record_fails_loud: any
+        UNEXPECTED statewide code (e.g., MT-STATEWIDE-mountain_lion added in
+        the future without an ADR-018 amendment) must fail loud rather than
+        being silently bound by `_build_statewide_bindings`.
+
+        V1 expects exactly {MT-STATEWIDE-antelope, MT-STATEWIDE-bear}; new
+        statewide anchors require ADR-018 amendment + S03.10 spec update."""
+        conn_mock = self._make_conn_mock()
+        unexpected_rr = RegulationRecord(
+            state="US-MT",
+            jurisdiction_code="MT-STATEWIDE-mountain_lion",
+            species_group="mountain_lion",
+            license_year=2026,
+            source=_make_minimal_source(),
+            confidence="high",
+        )
+        all_statewide = _make_minimal_statewide_reg_records() + [unexpected_rr]
+        with patch.object(_db_module, "connect", return_value=conn_mock), \
+             patch.object(_ljb, "_query_all_montana_regulation_records", return_value=all_statewide):
+            with pytest.raises(RuntimeError, match="unexpected statewide.*MT-STATEWIDE-mountain_lion"):
                 _ljb.main([])
 
     def test_cross_builder_duplicate_id_fails_loud(self) -> None:

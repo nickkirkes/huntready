@@ -450,7 +450,22 @@ def _build_overlay_bindings(
 
     for rr in non_statewide_reg_records:
         parent_gid = _derive_parent_geometry_id(rr)
-        for row in rows_by_parent.get(parent_gid, []):
+        parent_rows = rows_by_parent.get(parent_gid)
+        if parent_rows is None:
+            # Every HD-keyed reg_record's parent geometry must have at least a
+            # self-row (primary_unit) in the overlay fixture per E02 invariant.
+            # A missing entry means a structural fixture / reg_record sync bug —
+            # silently skipping would lose ALL bindings (self-row + portions +
+            # overlays) for this reg_record without diagnostic.  Fail loud.
+            raise RuntimeError(
+                f"_build_overlay_bindings: regulation_record "
+                f"({rr.state}, {rr.jurisdiction_code}, {rr.species_group}, "
+                f"{rr.license_year}) has parent_geometry_id {parent_gid!r} but "
+                f"no overlay-fixture entries reference it as a parent. "
+                f"Either the geometry-overlays.json fixture is stale, or a "
+                f"regulation_record was inserted for a non-existent HD."
+            )
+        for row in parent_rows:
             role_e03 = row["role_for_e03"]
             # Unknown-role guard MUST fire before is_binding_eligible so a
             # malformed fixture row fails loud even if the filter would have
@@ -696,16 +711,24 @@ def _query_all_montana_regulation_records(
     Returns one RegulationRecord per row, ordered deterministically so the
     binding-build pass is reproducible across runs.
     """
+    # license_year filter is load-bearing: the binding loader is sized + count-
+    # guarded for V1 (_LICENSE_YEAR = 2026).  Without this clause, a future
+    # year-over-year re-ingestion (when 2027 rows land) would silently fan out
+    # bindings across both years, blowing past the count guard and writing
+    # cross-year bindings that violate the (reg_record, geometry, role) UPSERT
+    # contract.  Filter at the SQL layer, not in Python, so the count guard
+    # narrows to the in-year set.
     sql = """
         SELECT
             state, jurisdiction_code, species_group, license_year,
             schema_version, confidence, additional_rules, ingested_at, source
         FROM regulation_record
         WHERE state = %s
+          AND license_year = %s
         ORDER BY jurisdiction_code, species_group, license_year
     """
     with conn.cursor() as cur:
-        cur.execute(sql, (_STATE,))
+        cur.execute(sql, (_STATE, _LICENSE_YEAR))
         rows = cur.fetchall()
     records: list[RegulationRecord] = []
     for row in rows:
@@ -781,6 +804,20 @@ def main(argv: list[str] | None = None) -> int:
                 f"expected statewide regulation_records {sorted(expected_statewide)} "
                 f"but found only {sorted(present_statewide)}; missing: "
                 f"{sorted(missing_statewide)}. Ensure S03.6 + S03.6.1 ran fully."
+            )
+        # Symmetric check: any UNEXPECTED statewide code must fail loud too.
+        # `_build_statewide_bindings` would happily emit a binding for an unknown
+        # code, but downstream species filtering + UAT spot-checks assume only
+        # the V1 set.  A new statewide anchor (e.g., MT-STATEWIDE-mountain_lion)
+        # requires an ADR amendment per ADR-018; until then, surface it loudly.
+        unexpected_statewide = present_statewide - expected_statewide
+        if unexpected_statewide:
+            raise RuntimeError(
+                f"unexpected statewide regulation_records: "
+                f"{sorted(unexpected_statewide)}. V1 Montana expects only "
+                f"{sorted(expected_statewide)}; any new statewide anchor "
+                f"requires an ADR-018 amendment + S03.10 spec update before "
+                f"this loader can bind it correctly."
             )
         non_statewide_rrs = [
             rr for rr in reg_records
