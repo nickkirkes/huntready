@@ -524,8 +524,8 @@ def _query_nearby_hds_for_zone(
     conn: psycopg.Connection[tuple[object, ...]],
     zone_id: str,
 ) -> list[str]:
-    """Return the geometry ids of every HD (incl. portions) whose boundary is
-    within `_NO_HUNT_ZONE_NEARBY_DISTANCE_M` meters of the zone's boundary.
+    """Return the geometry ids of every HD whose boundary is within
+    `_NO_HUNT_ZONE_NEARBY_DISTANCE_M` meters of the zone's boundary.
 
     Per Spec Deviation #4 (plan § "Spec deviations" #4): single-clause
     extensions.ST_DWithin on native geography type.  This supersedes the spec's
@@ -533,6 +533,18 @@ def _query_nearby_hds_for_zone(
     (a) the centroid-to-centroid clause empirically returned 0 matches for all
     3 orphan zones at 5km, and (b) boundary-to-boundary at 5000m covers
     ST_Touches (touching = 0m distance) and "near" simultaneously.
+
+    **Filter is `kind = 'hunting_district'` — portions intentionally excluded.**
+    `regulation_record` is HD-keyed in V1 (every reg_record's jurisdiction_code
+    resolves to an HD-shaped parent_geometry_id via `_derive_parent_geometry_id`;
+    portion ids never appear as keys in `rrs_by_parent`).  Including portions in
+    this query would silently produce 0 bindings for every portion match (the
+    downstream `rrs_by_parent.get(portion_id, [])` lookup returns `[]`).  In
+    V1 Montana every nearby portion's parent HD is also nearby (verified at
+    2026-05-24 against Yellowstone NP's 4 portion matches — all share HDs 310
+    or 314, both of which are in the nearby HD list), so HD-only filter loses
+    zero bindings.  Future state work that introduces portion-keyed reg_records
+    must also extend `_derive_parent_geometry_id` and revisit this filter.
 
     Schema-prefix discipline: PostGIS lives in the `extensions` schema in this
     Supabase project; all ST_* functions must be `extensions.`-qualified or
@@ -542,7 +554,7 @@ def _query_nearby_hds_for_zone(
         SELECT DISTINCT hd.id
         FROM geometry zone
         JOIN geometry hd
-          ON hd.kind IN ('hunting_district', 'portion')
+          ON hd.kind = 'hunting_district'
           AND extensions.ST_DWithin(zone.geom, hd.geom, %s)
         WHERE zone.id = %s
         ORDER BY hd.id

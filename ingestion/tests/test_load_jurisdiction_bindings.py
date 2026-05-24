@@ -850,7 +850,13 @@ class TestQueryNearbyHdsForZone:
         params: tuple[object, ...] = call_args[0][1]
         # Spec Deviation #4 — single-clause geography-native ST_DWithin
         assert "extensions.ST_DWithin" in sql, "SQL must use extensions-qualified ST_DWithin"
-        assert "kind IN ('hunting_district', 'portion')" in sql
+        # HD-only filter: portions are intentionally excluded because
+        # regulation_record is HD-keyed in V1 (portion ids never appear as
+        # keys in `rrs_by_parent` from `_derive_parent_geometry_id`).  Including
+        # portions would silently drop bindings.  See module docstring of
+        # _query_nearby_hds_for_zone for the V1-Montana verification.
+        assert "kind = 'hunting_district'" in sql
+        assert "'portion'" not in sql, "portions must NOT be in the nearby filter"
         # No ST_Touches, no ST_Centroid, no ::geometry casts (Spec Deviation #4)
         assert "ST_Touches" not in sql
         assert "ST_Centroid" not in sql
@@ -864,6 +870,32 @@ class TestQueryNearbyHdsForZone:
         cur.fetchall.return_value = []
         result = _query_nearby_hds_for_zone(conn, "some-remote-zone-geom")
         assert result == []
+
+    def test_sql_excludes_portions_regression_guard(self) -> None:
+        """The nearby query MUST NOT include portion geometries.
+
+        regulation_record is HD-keyed in V1 (see _derive_parent_geometry_id);
+        portion ids never appear as keys in `rrs_by_parent`.  If the SQL ever
+        re-introduces portions, the downstream `rrs_by_parent.get(portion_id, [])`
+        lookup silently returns `[]` and the portion's contribution is dropped
+        without diagnostic — a real silent-failure mode caught during review.
+
+        This test locks the HD-only invariant.  If you legitimately need to
+        include portions in the nearby query, also extend
+        `_derive_parent_geometry_id` to produce portion-shaped ids, then update
+        this test."""
+        conn = MagicMock()
+        cur = conn.cursor.return_value.__enter__.return_value
+        cur.fetchall.return_value = []
+        _query_nearby_hds_for_zone(conn, "any-zone")
+        sql: str = cur.execute.call_args[0][0]
+        assert "'portion'" not in sql, (
+            "SQL must not include 'portion' kind — portion ids don't map to "
+            "regulation_records via _derive_parent_geometry_id and would be "
+            "silently dropped by _build_no_hunt_zone_bindings."
+        )
+        # Positive: only 'hunting_district' is queried
+        assert "kind = 'hunting_district'" in sql
 
     def test_sql_uses_extensions_prefix_not_bare_name(self) -> None:
         """Regression: bare ST_DWithin fails to resolve in Supabase extensions schema."""
