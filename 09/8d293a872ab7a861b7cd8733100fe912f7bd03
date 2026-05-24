@@ -1,0 +1,24 @@
+ingestion/tests/test_load_jurisdiction_bindings.py
+  s_4eae86d374fa32::t_f10ea703566fd3 853-859
+  s_4eae86d374fa32::t_8d38634311bb0e 874-899
+ingestion/states/montana/load_jurisdiction_bindings.py
+  s_4eae86d374fa32::t_fcaf040d74ce58 527-528,537-548,557
+docs/planning/epics/E03-confidence-findings/S03.10.md
+  s_4eae86d374fa32::t_31ea1bdacfd762 95-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "098d293a872ab7a861b7cd8733100fe912f7bd03",
+  "prompts": {},
+  "sessions": {
+    "s_4eae86d374fa32": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2958524e-8c43-44ae-9509-73046ec6f0eb",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
