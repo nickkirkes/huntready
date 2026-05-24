@@ -1,0 +1,30 @@
+docs/plans/S03.10-jurisdiction-binding-generation-plan.md
+  s_4eae86d374fa32::t_3c48e7e3411df3 526-538
+  s_4eae86d374fa32::t_922b927b0ee15d 544,549-554
+  s_4eae86d374fa32::t_89be79bed57c0e 30
+ingestion/states/montana/load_jurisdiction_bindings.py
+  s_4eae86d374fa32::t_4db08b1a8a1178 714-720,727,731
+  s_4eae86d374fa32::t_b3a7930e75318d 808-821
+  s_4eae86d374fa32::t_f722307708d318 453-468
+ingestion/tests/test_load_jurisdiction_bindings.py
+  s_4eae86d374fa32::t_6c04a6446feb76 1274-1282,1289,1291-1294
+  s_4eae86d374fa32::t_d9afdf2e2df6b1 1520-1542
+  s_4eae86d374fa32::t_236561282be1cb 789-806
+  s_4eae86d374fa32::t_ca57cbb4cda9b6 1283
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "30e0c1ecc783ff1ea8c854107e29db94bedbaa1c",
+  "prompts": {},
+  "sessions": {
+    "s_4eae86d374fa32": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2958524e-8c43-44ae-9509-73046ec6f0eb",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
