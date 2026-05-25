@@ -1,0 +1,26 @@
+docs/plans/S03.10-jurisdiction-binding-generation-plan.md
+  s_4eae86d374fa32::t_c073ed8124e624 559
+  s_4eae86d374fa32::t_d5e02a9be35f22 513,515
+  s_4eae86d374fa32::t_0f3f6cc44f89ca 60
+ingestion/states/montana/load_jurisdiction_bindings.py
+  s_4eae86d374fa32::t_6c76b463010bd3 806-821,824-828,830-835
+  s_4eae86d374fa32::t_e0f6e5114d7d3c 838-843
+ingestion/tests/test_load_jurisdiction_bindings.py
+  s_4eae86d374fa32::t_26dbf594f41b9f 1575-1607
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.0",
+  "base_commit_sha": "94dfd060f02eca21478c3a2a7d4a8d47eea1accf",
+  "prompts": {},
+  "sessions": {
+    "s_4eae86d374fa32": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2958524e-8c43-44ae-9509-73046ec6f0eb",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
