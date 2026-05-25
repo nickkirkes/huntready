@@ -1572,6 +1572,39 @@ class TestMain:
             with pytest.raises(RuntimeError, match="unexpected statewide.*MT-STATEWIDE-mountain_lion"):
                 _ljb.main([])
 
+    def test_statewide_jurisdiction_code_with_wrong_species_fails_loud(self) -> None:
+        """The statewide guard validates the full (jurisdiction_code, species_group)
+        pair, not just jurisdiction_code.
+
+        A row with jurisdiction_code='MT-STATEWIDE-antelope' but
+        species_group='bear' (a real corruption scenario — wrong species_group
+        column value) would otherwise pass a jurisdiction-only check and
+        `_build_statewide_bindings` would emit a binding with id
+        `...-MT-STATEWIDE-antelope-bear-...` that the DB happily accepts
+        (no FK / CHECK constraint catches the mismatch).
+
+        The pair-aware guard catches this both as missing (the expected
+        antelope/pronghorn pair is absent) AND as unexpected (the antelope/bear
+        pair is not in the V1 set)."""
+        conn_mock = self._make_conn_mock()
+        # Antelope jurisdiction code paired with WRONG species (bear) +
+        # correct bear pair.  Expected antelope/pronghorn pair is missing →
+        # the "missing" guard fires first.
+        wrong_species_antelope = RegulationRecord(
+            state="US-MT",
+            jurisdiction_code="MT-STATEWIDE-antelope",
+            species_group="bear",  # WRONG — should be 'pronghorn'
+            license_year=2026,
+            source=_make_minimal_source(),
+            confidence="high",
+        )
+        bear_rr = _make_minimal_statewide_reg_records()[1]  # the correct bear one
+        with patch.object(_db_module, "connect", return_value=conn_mock), \
+             patch.object(_ljb, "_query_all_montana_regulation_records",
+                          return_value=[wrong_species_antelope, bear_rr]):
+            with pytest.raises(RuntimeError, match="missing.*MT-STATEWIDE-antelope.*pronghorn"):
+                _ljb.main([])
+
     def test_cross_builder_duplicate_id_fails_loud(self) -> None:
         """If two builders produce the same binding id (statewide + overlay,
         or no-hunt + overlay), main() must fail loud BEFORE the write loop —

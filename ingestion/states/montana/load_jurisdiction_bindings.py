@@ -803,31 +803,44 @@ def main(argv: list[str] | None = None) -> int:
             rr for rr in reg_records
             if rr.jurisdiction_code.startswith("MT-STATEWIDE-")
         ]
-        # V1 expects exactly 2 statewide reg_records: MT-STATEWIDE-antelope and
-        # MT-STATEWIDE-bear.  Their absence indicates either S03.6 / S03.6.1
-        # weren't fully run, or the schema invariant has drifted.
-        expected_statewide = {"MT-STATEWIDE-antelope", "MT-STATEWIDE-bear"}
-        present_statewide = {rr.jurisdiction_code for rr in statewide_rrs}
-        missing_statewide = expected_statewide - present_statewide
+        # V1 expects exactly 2 statewide reg_records: MT-STATEWIDE-antelope
+        # (pronghorn) and MT-STATEWIDE-bear (bear).  The guard validates the
+        # full (jurisdiction_code, species_group) pair, not just
+        # jurisdiction_code — a corrupt row with jurisdiction_code='MT-
+        # STATEWIDE-antelope' but species_group='bear' would otherwise pass
+        # the jurisdiction-only check, then `_build_statewide_bindings` would
+        # emit a binding with id `...-antelope-bear-...` that the DB happily
+        # accepts (no constraint catches the species mismatch).
+        expected_statewide_pairs: set[tuple[str, str]] = {
+            ("MT-STATEWIDE-antelope", "pronghorn"),
+            ("MT-STATEWIDE-bear", "bear"),
+        }
+        present_statewide_pairs = {
+            (rr.jurisdiction_code, rr.species_group) for rr in statewide_rrs
+        }
+        missing_statewide = expected_statewide_pairs - present_statewide_pairs
         if missing_statewide:
             raise RuntimeError(
-                f"expected statewide regulation_records {sorted(expected_statewide)} "
-                f"but found only {sorted(present_statewide)}; missing: "
-                f"{sorted(missing_statewide)}. Ensure S03.6 + S03.6.1 ran fully."
+                f"expected statewide (jurisdiction_code, species_group) pairs "
+                f"{sorted(expected_statewide_pairs)} but found only "
+                f"{sorted(present_statewide_pairs)}; missing: "
+                f"{sorted(missing_statewide)}. Ensure S03.6 + S03.6.1 ran fully "
+                f"and the species_group column on every statewide row is correct."
             )
-        # Symmetric check: any UNEXPECTED statewide code must fail loud too.
-        # `_build_statewide_bindings` would happily emit a binding for an unknown
-        # code, but downstream species filtering + UAT spot-checks assume only
-        # the V1 set.  A new statewide anchor (e.g., MT-STATEWIDE-mountain_lion)
-        # requires an ADR amendment per ADR-018; until then, surface it loudly.
-        unexpected_statewide = present_statewide - expected_statewide
+        # Symmetric check: any UNEXPECTED statewide pair must fail loud too.
+        # This catches (a) new statewide anchors added without an ADR-018
+        # amendment, (b) wrong species_group on an expected jurisdiction code
+        # (e.g., MT-STATEWIDE-antelope rows with species_group='bear'), and
+        # (c) any combination thereof.
+        unexpected_statewide = present_statewide_pairs - expected_statewide_pairs
         if unexpected_statewide:
             raise RuntimeError(
-                f"unexpected statewide regulation_records: "
-                f"{sorted(unexpected_statewide)}. V1 Montana expects only "
-                f"{sorted(expected_statewide)}; any new statewide anchor "
-                f"requires an ADR-018 amendment + S03.10 spec update before "
-                f"this loader can bind it correctly."
+                f"unexpected statewide (jurisdiction_code, species_group) "
+                f"pairs: {sorted(unexpected_statewide)}. V1 Montana expects "
+                f"only {sorted(expected_statewide_pairs)}; any new statewide "
+                f"anchor (or species mismatch on an existing anchor) requires "
+                f"an ADR-018 amendment + S03.10 spec update before this loader "
+                f"can bind it correctly."
             )
         non_statewide_rrs = [
             rr for rr in reg_records
