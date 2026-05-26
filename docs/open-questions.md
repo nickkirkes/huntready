@@ -88,6 +88,8 @@ For bear specifically: the per-BMU prose decomposes into `season_definition.verb
 
 ### Q11. How is `confidence` calibrated across state adapters?
 
+**Status (2026-05-26 via S03.11):** OPEN — amendment-pending user review. ADR-017 was drafted during E03 planning and applied to V1 Montana ingestion. S03.11's stratified audit (50/50 pass-rate) found `low` has 0 rows in V1 data; under the LITERAL reading of ADR-017 §7 Trigger 2, this fires partial-defer. PM has drafted a light-touch addition to ADR-017 §4 (LOW tier calibration deferred to M2 / Colorado) at [docs/adrs/ADR-017-amendment-DRAFT.md](adrs/ADR-017-amendment-DRAFT.md). Full audit + verdict at [docs/planning/epics/E03-confidence-calibration-synthesis.md](planning/epics/E03-confidence-calibration-synthesis.md). User reviews; no SLA. If user accepts amendment → Q11 resolves on amendment landing. If user picks INTENT reading → Q11 resolves as ADR-017 stands as-is.
+
 **Why it matters:** Every entity in the v2 schema carries a `confidence: "high" | "medium" | "low"` field assigned by the ingestion pipeline. The field is user-facing — it appears in `ResolvedTag`, `ResolvedSeasonWindow`, `ResolvedReportingObligation`, and on every verbatim rule — and it gates warnings in the response (`LOW_CONFIDENCE`). If Montana's adapter calibrates differently from Colorado's, the field degrades from signal to noise: a `medium` in one state means something different than a `medium` in another, and the user has no way to know.
 
 **Options:**
