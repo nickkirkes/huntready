@@ -1,0 +1,59 @@
+docs/planning/epics/E03-confidence-findings/S03.6.1.md
+  s_7f8830b893da15::t_0d1db555f233e8 121-130
+docs/plans/S03.11-confidence-calibration-audit-plan.md
+  s_7f8830b893da15::t_9f0767bf8b5a0d 1-38,40,51,53-83,90,101,104,106,108-115,118-123,125-127,131-154,156-157,163-167,171-228,230-281,283-333
+  s_7f8830b893da15::t_fe576b0d808eb2 128-130
+  s_7f8830b893da15::t_2677bad1a44e2e 229
+  s_7f8830b893da15::t_b91eb2167992e4 282
+  s_7f8830b893da15::t_8840e51dc0f1fb 39,41-50,52
+  s_7f8830b893da15::t_533ddba59efb0d 84-89,91-100,102-103,105,107
+  s_7f8830b893da15::t_ab089e2c9e8975 155,158-162,168-170
+  s_7f8830b893da15::t_c011b14fb31f53 116-117
+  s_7f8830b893da15::t_758be12eb3886b 124
+docs/planning/epics/E03-confidence-findings/S03.4.md
+  s_7f8830b893da15::t_92d54126bf0527 24-26
+  s_7f8830b893da15::t_9717962552d4fa 20-23,27-33
+docs/planning/epics/E03-confidence-findings/S03.3.md
+  s_7f8830b893da15::t_125ef41f127a60 211-215
+  s_7f8830b893da15::t_549d5828a25a52 205-210,216-220
+docs/planning/epics/E03-confidence-findings/S03.11.md
+  s_7f8830b893da15::t_4accc3f709ce9c 1-40
+docs/planning/epics/E03-confidence-calibration-synthesis.md
+  s_7f8830b893da15::t_f02e38446ddd68 55-57
+  s_7f8830b893da15::t_71f102f9a1403f 59-61
+  s_7f8830b893da15::t_6fd3008d6de7a0 144-229
+  s_7f8830b893da15::t_93c78baa727e04 63-65
+  s_7f8830b893da15::t_99c917ce80ba83 235-275
+  s_7f8830b893da15::t_b2ce9606708e3e 281,285-328,330-354,356
+  s_7f8830b893da15::t_8489ebf9edc1c1 1-24,28,32,36,42,46,50,54,58,62,66-143,230-234,276-280,282-284,329,355
+  s_7f8830b893da15::t_5251b96426ebef 25-27
+  s_7f8830b893da15::t_c473f665800684 29-31
+  s_7f8830b893da15::t_0614346b95d1c1 37-41
+  s_7f8830b893da15::t_9e3942133ddaa5 47-49
+  s_7f8830b893da15::t_0c93312602fc7d 33-35
+  s_7f8830b893da15::t_dd95370876cdbd 43-45
+  s_7f8830b893da15::t_a9823c2fd001ab 51-53
+docs/adrs/ADR-017-amendment-DRAFT.md
+  s_7f8830b893da15::t_1d1ade67191503 1-52
+docs/open-questions.md
+  s_7f8830b893da15::t_75861ca3959c35 91-92
+docs/planning/epics/E03-confidence-findings/S03.6.md
+  s_7f8830b893da15::t_b1c9e8cacaff0a 82-138,140-145,147,149-162
+  s_7f8830b893da15::t_cc0349742aec9e 139,146,148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b56e8eacc2d22c576ad3ac9b34a966647bf992bd",
+  "prompts": {},
+  "sessions": {
+    "s_7f8830b893da15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2d5d141-d731-4698-a0df-05b26d4f1cb5",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
