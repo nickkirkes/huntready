@@ -1,0 +1,19 @@
+.roughly/plans/S03.12-m1-uat-prep-plan.md
+  s_5bf81032589068::t_b471c73a8bf35c 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f8370b0a9628fc8f566b8977f52938162096bd22",
+  "prompts": {},
+  "sessions": {
+    "s_5bf81032589068": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6d839ddb-a580-4844-a745-7ecfedf24d0f",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
