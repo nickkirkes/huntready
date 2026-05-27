@@ -1,0 +1,19 @@
+docs/open-questions.md
+  s_7f8830b893da15::t_03d7e8da9c28b6 35,91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7021bda3202b55e97c0389e00dd24fbd2d355256",
+  "prompts": {},
+  "sessions": {
+    "s_7f8830b893da15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2d5d141-d731-4698-a0df-05b26d4f1cb5",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
