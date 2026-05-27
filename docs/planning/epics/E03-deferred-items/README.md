@@ -8,7 +8,7 @@ See the policy table at [`../E03-regulation-text-ingestion.md`](../E03-regulatio
 
 ## Retention policy
 
-Files in this directory are carried forward past M1 close into the M2 PM handoff. They are NOT deleted at the `m1` tag commit (contrast with `E03-confidence-findings/`, which is).
+Files in this directory are carried forward past M1 close into the M2 PM handoff. They are NOT deleted at the `m1` tag commit (contrast with `E03-confidence-findings/`, which was deleted at the m1 tag per ADR-017 §6; the durable record of S03.11's audit lives at `../E03-confidence-calibration-synthesis.md` outside the deletion target).
 
 Each file represents a class of items that E03 surfaced but V1 explicitly defers. The file is the durable record of what was deferred and why — M2 starts from it.
 
@@ -30,7 +30,7 @@ Additional files may be added if E03 surfaces other deferral classes.
 
 When a story spec says "flag X for PM review" or "flag-and-defer," the implementer MUST do all four of the following (source: E03 epic lines 34–43):
 
-1. **Structured anomaly artifact:** add an entry in the relevant file in this directory (`E03-deferred-items/<topic>.md`) for durable deferrals, OR under `docs/planning/epics/E03-confidence-findings/<story>.md` for calibration working notes. Deferred vs. calibration is the distinction — see the epic table.
+1. **Structured anomaly artifact:** add an entry in the relevant file in this directory (`E03-deferred-items/<topic>.md`) for durable deferrals, OR under `docs/planning/epics/<epic>-confidence-findings/<story>.md` for calibration working notes during a milestone (these per-milestone working-notes dirs are deleted at each milestone tag per ADR-017 §6; durable records migrate to the milestone's synthesis report). Deferred vs. calibration is the distinction — see the epic table.
 2. **WARN log** at ingestion time with sufficient context (row id, source span, pattern matched).
 3. **Open-questions entry** in `docs/open-questions.md`. Mechanical trigger: required whenever any file in this directory accumulates 2+ entries (one entry alone may be a one-off; two becomes a class). When the second entry lands in a file, the implementer adds a one-line `open-questions.md` pointer at the same time. PM (with user) consolidates and authors the actual question after review.
 4. **Non-silent commit:** the run summary surfaces the flagged count; the story PR description lists the flagged items by category.

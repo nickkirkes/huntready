@@ -199,8 +199,10 @@ def _dea_jurisdiction_code(species_group: str, hd_number: str) -> str:
                 f"DEA section {species_group!r} with hd_number='STATEWIDE' "
                 f"would map to MT-HD-deer-elk-lion-STATEWIDE, but only "
                 f"pronghorn has a sanctioned statewide anchor in V1. "
-                f"Surface this in docs/planning/epics/E03-confidence-findings/"
-                f"S03.6.md for PM review before adding the row autonomously."
+                f"Surface this for PM review per the flag-and-defer protocol in "
+                f"docs/planning/epics/E03-deferred-items/README.md "
+                f"(create or append to a topic file in that directory) "
+                f"before adding the row autonomously."
             )
         return f"MT-HD-deer-elk-lion-{hd_number}"
     if species_group == "pronghorn":
@@ -868,9 +870,10 @@ def _build_dea_season_definitions(
                     # season faithfulness is preserved at S03.3 extraction time, but
                     # season_definition is keyed by (HD, species, season_key) with no
                     # room for per-row variation in the canonical (opens, closes)
-                    # pair. First-occurrence-wins is the V1 simplification (see
-                    # docs/planning/epics/E03-confidence-findings/S03.3.md for the
-                    # "Elk B License: 699-01" canonical case). WARN-and-continue is
+                    # pair. First-occurrence-wins is the V1 simplification (the
+                    # "Elk B License: 699-01" canonical case is in the S03.3 closure
+                    # note in docs/planning/epics/E03-regulation-text-ingestion.md).
+                    # WARN-and-continue is
                     # the audit trail; NOT a regression signal. Do not promote to
                     # RuntimeError without a deliberate spec change — that would abort
                     # the load on legitimate per-row divergence.

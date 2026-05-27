@@ -44,3 +44,7 @@ supabase/.temp/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Working notes (deleted at milestone tags per ADR-017 §6)
+# Prevent accidental re-creation post-deletion
+docs/planning/epics/E03-confidence-findings/

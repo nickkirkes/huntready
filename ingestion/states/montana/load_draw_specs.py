@@ -70,7 +70,7 @@ Front-matter deadline lookup as defensive safety net
 ------------------------------------------------------
 ``_DEA_DEADLINE_LOOKUP`` is populated verbatim from DEA pp. 5/9/10/11.
 Page citations are recorded in
-``docs/planning/epics/E03-confidence-findings/S03.8.md``.  At runtime,
+DEA pp. 5/9/10/11 (see S03.8 closure note in ``docs/planning/epics/E03-regulation-text-ingestion.md``).  At runtime,
 deadline values are resolved from the extraction artifact where possible;
 ``_DEA_DEADLINE_LOOKUP`` is consulted only as a fallback when the artifact
 carries no deadline for a given (species, kind) pair.  Any runtime hit
@@ -153,8 +153,8 @@ _DEFAULT_DRAW_PHASE: Literal["primary"] = "primary"
 _PARAMETERS: None = None
 
 # Front-matter deadline lookup (defensive safety net; expected zero hits in V1).
-# Values lifted verbatim from DEA pp. 5/9/10/11. See
-# docs/planning/epics/E03-confidence-findings/S03.8.md for page citations.
+# Values lifted verbatim from DEA pp. 5/9/10/11 (see S03.8 closure note in
+# docs/planning/epics/E03-regulation-text-ingestion.md for page citations).
 _DEA_DEADLINE_LOOKUP: dict[tuple[str, str], datetime.date] = {
     ("deer",     "permit"):     datetime.date(2026, 4, 1),
     ("elk",      "permit"):     datetime.date(2026, 4, 1),
@@ -217,7 +217,7 @@ _APPLY_BY_RE: re.Pattern[str] = re.compile(
 # are dropped with a WARN log entry.
 #
 # V1 entries are documented in:
-#   docs/planning/epics/E03-confidence-findings/S03.8.md (page citations)
+#   docs/planning/epics/E03-deferred-items/draw-mechanics.md (per-HD-cap rationale)
 #   docs/open-questions.md (per-HD-cap M2 design question — Q17)
 #
 # Format: (hunt_code, year) -> {"quota": int | None, "rationale": str}
@@ -754,8 +754,10 @@ def main(argv: list[str] | None = None) -> int:
             f"time(s). V1 baseline expects 0 hits — any firing is a drift signal "
             f"indicating S03.3 extraction regression OR a new license type in a "
             f"future PDF revision that bypasses per-row apply_by. Investigate "
-            f"before committing (the artifact, the front-matter chart values in "
-            f"docs/planning/epics/E03-confidence-findings/S03.8.md § 4, or both)."
+            f"before committing: the artifact (DEA per-row apply_by values), the "
+            f"_DEA_DEADLINE_LOOKUP constant in this file (page-citation source: "
+            f"DEA pp. 5/9/10/11; see the S03.8 closure note in "
+            f"docs/planning/epics/E03-regulation-text-ingestion.md), or both."
         )
         raise RuntimeError(msg)
 

@@ -247,9 +247,9 @@ Five issues surfaced during T7's synthesis pass. None block the audit verdict (a
 
 ### §4.1 S03.9.md "Post-implementation findings" section is a placeholder
 
-`docs/planning/epics/E03-confidence-findings/S03.9.md` § "Post-implementation findings (Stage 5+ — to be filled in)" contains only the placeholder text: "[Populate during/after Stage 5 implementation with: any drift from this plan, ruff/mypy fixes, cubic-review iterations, test counts.]" — it was never populated with actual post-implementation observations.
+S03.9's working note (`S03.9.md`, deleted at m1 tag per ADR-017 §6) had a "Post-implementation findings (Stage 5+ — to be filled in)" section that contained only the placeholder text: "[Populate during/after Stage 5 implementation with: any drift from this plan, ruff/mypy fixes, cubic-review iterations, test counts.]" — it was never populated with actual post-implementation observations.
 
-This is a working-note completeness gap, not an F12 gap. `reporting_obligation` has no `confidence` column per ADR-017 §1, so S03.9 contributes no confidence-framework signal to the S03.11 audit. The empty section does not affect the audit verdict: all 50 sampled rows derive from entities that do carry confidence (regulation_record, via DEA and bear extraction paths), and `reporting_obligation` rows are excluded from the audit scope by design. The gap is noted here for the record; the working note deletes at m1 tag per ADR-017 §6.
+This was a working-note completeness gap, not an F12 gap. `reporting_obligation` has no `confidence` column per ADR-017 §1, so S03.9 contributes no confidence-framework signal to the S03.11 audit. The empty section did not affect the audit verdict: all 50 sampled rows derive from entities that do carry confidence (regulation_record, via DEA and bear extraction paths), and `reporting_obligation` rows are excluded from the audit scope by design. Noted here for the durable record after the working note was deleted at the m1 tag per ADR-017 §6.
 
 ---
 

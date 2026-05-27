@@ -13,9 +13,8 @@ The ``regulation_record`` table has no ``verbatim_rule`` column by design — se
 text decomposes into S03.7's ``season_definition.verbatim_rule`` and
 ``license_tag.verbatim_rule``. This loader writes only the row anchor (source +
 confidence + schema_version) plus ``additional_rules`` populated from NOTE-style
-lines in the DEA section's ``verbatim_text``. See ``docs/open-questions.md`` for
-the full rationale and ``docs/planning/epics/E03-confidence-findings/S03.6.md``
-for the working note.
+lines in the DEA section's ``verbatim_text``. See ``docs/open-questions.md`` Q15 for the full rationale and ADR-008 for the
+verbatim decomposition discipline.
 
 Run from the repo root:
     ingestion/.venv/bin/python ingestion/states/montana/load_regulation_records.py
@@ -266,8 +265,10 @@ def _dea_jurisdiction_code(species_group: str, hd_number: str) -> str:
                 f"DEA section {species_group!r} with hd_number='STATEWIDE' "
                 f"would map to MT-HD-deer-elk-lion-STATEWIDE, but only "
                 f"pronghorn has a sanctioned statewide anchor in V1. "
-                f"Surface this in docs/planning/epics/E03-confidence-findings/"
-                f"S03.6.md for PM review before adding the row autonomously."
+                f"Surface this for PM review per the flag-and-defer protocol in "
+                f"docs/planning/epics/E03-deferred-items/README.md "
+                f"(create or append to a topic file in that directory) "
+                f"before adding the row autonomously."
             )
         return f"MT-HD-deer-elk-lion-{hd_number}"
     if species_group == "pronghorn":

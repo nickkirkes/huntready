@@ -32,7 +32,7 @@ from ingestion.lib.schema import Geometry, SourceCitation
 
 # ---------------------------------------------------------------------------
 # Pinned source values (from T7 investigation — do not change without re-pinning
-# the SHA and updating docs/planning/epics/E03-confidence-findings/S03.0.md).
+# the SHA; see S03.0 closure note in docs/planning/epics/E03-regulation-text-ingestion.md).
 # ---------------------------------------------------------------------------
 
 STATE_BOUNDARY_URL = (
@@ -96,8 +96,9 @@ def _verify_sha256(payload: bytes, expected: str) -> str:
             f"  expected: {expected}\n"
             f"  observed: {observed}\n"
             "The Montana State Library may have updated layer 9. "
-            "Re-investigate, re-pin STATE_BOUNDARY_SHA256, and update "
-            "docs/planning/epics/E03-confidence-findings/S03.0.md before proceeding."
+            "Re-investigate the source URL, re-pin STATE_BOUNDARY_SHA256 in this file, "
+            "and record the change in the S03.0 closure note at "
+            "docs/planning/epics/E03-regulation-text-ingestion.md before proceeding."
         )
         raise RuntimeError(msg)
     return observed

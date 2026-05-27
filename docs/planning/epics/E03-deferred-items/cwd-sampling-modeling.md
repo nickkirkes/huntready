@@ -41,4 +41,4 @@ S03.6 has already captured all 5 verbatim occurrences in `regulation_record.addi
 ## Companion entries
 
 - **Open question:** `docs/open-questions.md` § Q18
-- **Working note:** `docs/planning/epics/E03-confidence-findings/S03.9.md` § "Probe 2 — CWD sampling"
+- **Working note:** S03.9.md (deleted at m1 tag per ADR-017 §6); the Probe 2 CWD sampling analysis is summarized in this file's body above.
