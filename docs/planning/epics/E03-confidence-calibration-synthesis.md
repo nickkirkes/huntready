@@ -308,7 +308,11 @@ The §3 audit confirms this empirically: all 50 sampled rows have `framework_pre
 
 ### §5.2 Trigger 2 — Any tier has 0 rows in Montana data
 
-**FIRES under the recommended LITERAL reading; does NOT fire under the alternative INTENT reading.**
+**FINAL DISPOSITION (user decision, 2026-05-27): DOES NOT FIRE.** The user selected the INTENT reading at amendment-review time, overriding PM's original LITERAL-reading recommendation. ADR-017 §7 Trigger 2 is interpreted as "absence-by-framework-gap," not "absence-by-data-property"; `low=0` is the latter and does not trigger deferral. The deliberation below is preserved as audit trail.
+
+---
+
+**PM's original deliberation (pre-user-review, 2026-05-26): FIRES under the recommended LITERAL reading; does NOT fire under the alternative INTENT reading.**
 
 The §3.1 tier distribution is unambiguous: `high=32, medium=405, low=0, total=437`. The `low` tier has zero rows in V1 Montana data. This is the live trigger condition per ADR-017 §7's text (lines 74-80): "Any tier has 0 rows in Montana data."
 
@@ -337,29 +341,30 @@ The §3 audit returned **50 matches out of 50 sampled rows: pass-rate = 50/50 = 
 
 ## §6 Verdict — finalize or defer (T8)
 
-**PM recommendation: PARTIAL DEFER** under the LITERAL reading of ADR-017 §7 Trigger 2.
+**FINAL VERDICT (user decision, 2026-05-27): FINALIZE.** ADR-017 stands as-is. Q11 is resolved. No amendment is needed. The ADR-017 amendment DRAFT was reviewed and rejected; the DRAFT file was deleted as part of the FINALIZE workflow.
 
-### What defers
+### Decision rationale
 
-ADR-017's §4 LOW tier definition is the affected section. The rule for LOW (empty `license_code` / empty `opportunity` / all-False `season_coverage` per `_assign_row_confidence`) is preserved as-written, but its real-world calibration is marked **deferred to M2**. M2's Colorado dataset is expected to exercise the rule (CO's richer GMU + species + license-type matrix increases the likelihood of corner-case rows that fall through to LOW).
+The user selected the INTENT reading of ADR-017 §7 Trigger 2: "absence-by-data-property" is not equivalent to "absence-by-framework-gap." The `low` tier's 0-row count in V1 Montana data reflects that no V1 extraction input satisfies the LOW-tier conditions (empty `license_code`, empty `opportunity`, or all-False `season_coverage`) — not that the LOW-tier rule is broken or missing. The rule exists in `_assign_row_confidence`, is unit-tested by `TestDemoteOneTier` in `tests/test_pdf.py`, and behaves correctly when its input conditions are present. V1 Montana data is simply well-formed enough that no row falls through to LOW. Treating absence-by-data as a deferral trigger would force amendments after every well-behaved dataset, which is not the spirit of ADR-017 §7's calibration mechanism.
 
-The deferral does not change the LOW-tier rule itself. It records that the rule has never been validated against real data that triggers it, and that M2 is the designated checkpoint for that validation.
+### What is unchanged
 
-### What does NOT change in V1
-
+- **ADR-017 itself: unchanged.** Status remains "Accepted"; all 7 numbered sections of the ADR ship operationally intact with the `m1` tag.
 - ADR-017 §1 (inherited confidence rule): unchanged.
 - ADR-017 §2 (no inherited confidence for spatial entities): unchanged.
 - ADR-017 §3 (per-VerbatimRule confidence): unchanged.
-- ADR-017 §4 HIGH and MEDIUM tier definitions: unchanged.
+- ADR-017 §4 (Three-tier framework including LOW definition): unchanged. The LOW-tier rule is preserved as-written and remains the canonical absence-marker for future ingestion.
 - ADR-017 §5 (MIN-aggregation rule): unchanged.
-- The V1 framework operationally ships as-is with the `m1` tag. No ingestion adapter, no DB schema, no MCP server code is affected by this partial deferral.
+- ADR-017 §7 (Q12 deferral path): unchanged. The §7 trigger text continues to read "any tier has 0 rows in Montana data" without qualification. Future audits will interpret it under the precedent set by this story (the INTENT reading).
+- V1 framework operationally ships as-is with the `m1` tag.
 
 ### M1→M2 handoff implications
 
-- `docs/open-questions.md` Q11 remains OPEN with status "ADR-017 amendment pending user review" — T11 will NOT update Q11 to "resolved" (T11 is skipped per the conditional in the plan).
-- S03.12's M1→M2 handoff document records the amendment-pending status. The user reviews the amendment (drafted by T9 in this story) on their own timeline; per ADR-017 §7 the `m1` tag does NOT block on review.
-- M2 first-week work: confirm whether CO data exercises the LOW tier rule. If yes, the amendment lands as-is. If no, the amendment expands to defer the LOW rule itself (not just its calibration) pending a dataset that exercises it.
+- `docs/open-questions.md` Q11: **resolved** as of 2026-05-27. Q11 status annotation updated to reflect the FINALIZE outcome.
+- S03.12's M1→M2 handoff document records Q11 as resolved with a pointer to this synthesis report as the durable audit trail.
+- M2 ingestion does **not** need to revisit confidence calibration. The framework is calibrated for V1 Montana data; M2 will apply it to Colorado data unchanged. If CO data introduces rows that fall through to LOW, the M2 audit (analogous to S03.11 for CO) will exercise the LOW path and produce its own pass-rate; no schema change, no ADR amendment, and no re-ingestion of MT data is required.
+- The MEDIUM→LOW demote path remains unit-tested-but-not-real-data-exercised. This is documented in §4.4 as an M2 calibration observation, not a calibration gap.
 
-### Alternative the user may select
+### Audit-trail note on the FINALIZE decision
 
-If the user prefers the INTENT reading of Trigger 2 ("0 rows by data property is not the same as 0 rows by framework gap"), the verdict flips to **FINALIZE** — ADR-017 stands as-is, Q11 is marked resolved, and no amendment is required. The framework's LOW-tier rule is unit-tested and implemented; V1 Montana data simply doesn't exercise it; that is not a gap warranting deferral. The user has full authority to make this call. The synthesis report's verdict here is PM's recommendation, not a commitment.
+PM's original recommendation (2026-05-26) was PARTIAL DEFER under the LITERAL reading. The user overrode to FINALIZE under the INTENT reading at amendment-review time (2026-05-27) after reviewing the DRAFT and the independent architectural review. Both readings were documented as defensible in §5.2; the user has full authority under the project's standing rule that PM does not commit ADR amendments autonomously. The PM recommendation is preserved in §5.2's deliberation block as audit trail; the user decision is the FINAL DISPOSITION.
