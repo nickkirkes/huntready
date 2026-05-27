@@ -1,0 +1,19 @@
+docs/planning/handoffs/M1-to-M2-handoff.md
+  s_5bf81032589068::t_5b077c375b1532 150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6071c49111cbe82216f2c15f827691d3450c0ad8",
+  "prompts": {},
+  "sessions": {
+    "s_5bf81032589068": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6d839ddb-a580-4844-a745-7ecfedf24d0f",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
