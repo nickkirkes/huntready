@@ -727,3 +727,22 @@ git commit -m "..."  # retry the original commit
 If the diff shows a new `results` entry (not just a line-number shift), inspect what triggered it — that's a real new finding, not the drift case.
 
 Surfaced repeatedly across stories (S03.6 wrap-up is the most recent); recurring whenever a story adds substantial content to a file that already has a tracked false-positive entry. The hook's behavior is correct and intentional — this entry exists to short-circuit the cognitive surprise of "wait, what just changed?"
+
+## Conventions — Documentation & planning discipline
+
+### Deferred open-question verdicts require an amendment-pending breadcrumb in `docs/open-questions.md`
+
+**Symptom:** An audit story yields a PARTIAL DEFER verdict on an open question (e.g., S03.11 on Q11: the `low` confidence tier has 0 rows in V1 Montana, so ADR-017 §7 Trigger 2 cannot be validated). A DRAFT amendment is authored (`docs/adrs/ADR-017-amendment-DRAFT.md`) and a working note is filed (`docs/planning/epics/E03-confidence-findings/S03.11.md`). The original Q11 entry in `docs/open-questions.md` is left unannotated. The working note deletes at the m1 tag commit per ADR-017 §6. After that deletion, no surviving-past-m1 signal flags that a DRAFT exists — a future reader scanning `docs/open-questions.md` sees Q11 in its original form and may silently let the DRAFT rot.
+
+**Cause:** Story plans that handle the RESOLVED path (T11: "update Q11 to resolved") do not automatically handle the DEFERRED path. The working note is the only record of amendment-pending status, and working notes are ephemeral by design.
+
+**Fix:** Any audit story whose verdict DEFERS (rather than RESOLVES) an open question MUST add a status annotation directly to the entry in `docs/open-questions.md` before the story closes. The annotation must be placed immediately under the question heading and include: (a) the date + gating story, (b) a markdown link to the DRAFT file, (c) a markdown link to the synthesis report, and (d) a sentence naming what user action closes the deferral. Example format:
+
+```text
+**Status (2026-05-26 via S03.11):** OPEN — amendment-pending user review.
+See [`docs/adrs/ADR-017-amendment-DRAFT.md`](docs/adrs/ADR-017-amendment-DRAFT.md) and
+[synthesis report](docs/planning/epics/E03-confidence-calibration-synthesis.md).
+Closes when user approves and commits the amendment as the official ADR-017 revision.
+```
+
+This annotation is the only breadcrumb that survives the m1 working-note deletion. Discovered by silent-failure-hunter MEDIUM finding during S03.11 code review (2026-05-26); applied as a post-merge fix to Q11.
