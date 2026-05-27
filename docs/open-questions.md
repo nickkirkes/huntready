@@ -32,7 +32,7 @@ For bear specifically: the per-BMU prose decomposes into `season_definition.verb
 
 **Known risk:** Free prose between rows that isn't a `NOTE:` line currently has no structured home in the DB. V1 Montana DEA is dense table data + `NOTE:` lines; this is expected to be empty set. S03.12 UAT spot-checks; S03.6's working note (`docs/planning/epics/E03-confidence-findings/S03.6.md`) flags any encountered cases for future planner attention.
 
-**Resolution home:** No new ADR (this is a refinement of ADR-008's decomposition story, not a new commitment). Epic E03 line 565 amended with footnote `[^oq1]`. Plan: [`docs/plans/S03.6-regulation-record-ingestion-plan.md`](plans/S03.6-regulation-record-ingestion-plan.md). Working note: [`docs/planning/epics/E03-confidence-findings/S03.6.md`](planning/epics/E03-confidence-findings/S03.6.md).
+**Resolution home:** No new ADR (this is a refinement of ADR-008's decomposition story, not a new commitment). Epic E03 line 565 amended with footnote `[^oq1]`. Plan: [`.roughly/plans/S03.6-regulation-record-ingestion-plan.md`](../.roughly/plans/S03.6-regulation-record-ingestion-plan.md). Working note: [`docs/planning/epics/E03-confidence-findings/S03.6.md`](planning/epics/E03-confidence-findings/S03.6.md).
 
 ---
 
@@ -87,6 +87,8 @@ For bear specifically: the per-BMU prose decomposes into `season_definition.verb
 ## Blocking M1 (surfaced by schema-v2 proposal)
 
 ### Q11. How is `confidence` calibrated across state adapters?
+
+**Status (2026-05-27 via S03.11): RESOLVED.** ADR-017 (Confidence Calibration and Parent-Inheritance Rule) stands as-is. S03.11's stratified audit ran 50 rows across 10 documented edge cases against V1 Montana data: 39/39 = 100% pass-rate on `regulation_record.confidence` (the only entity with a confidence column per ADR-017 §3); 6/6 on EC8 closure_predicate parent-inheritance; 5/5 on EC9 license_tag row-level extraction_confidence. Final tier distribution across 437 projected `regulation_record` rows: `high=32, medium=405, low=0`. The user selected the INTENT reading of ADR-017 §7 Trigger 2 at amendment-review time (`low=0` is absence-by-data-property, not absence-by-framework-gap; the LOW rule exists, is unit-tested, and behaves correctly when its input conditions are present — V1 Montana data simply doesn't exercise it). PM's amendment DRAFT was rejected; the DRAFT file was deleted. Full audit and rationale: [`docs/planning/epics/E03-confidence-calibration-synthesis.md`](planning/epics/E03-confidence-calibration-synthesis.md) (survives past M1).
 
 **Why it matters:** Every entity in the v2 schema carries a `confidence: "high" | "medium" | "low"` field assigned by the ingestion pipeline. The field is user-facing — it appears in `ResolvedTag`, `ResolvedSeasonWindow`, `ResolvedReportingObligation`, and on every verbatim rule — and it gates warnings in the response (`LOW_CONFIDENCE`). If Montana's adapter calibrates differently from Colorado's, the field degrades from signal to noise: a `medium` in one state means something different than a `medium` in another, and the user has no way to know.
 
