@@ -30,9 +30,9 @@ For bear specifically: the per-BMU prose decomposes into `season_definition.verb
 
 **Rationale:** Storing section-level text on `regulation_record` would denormalize the same prose at multiple levels (section + per-row), inviting drift between the two stored copies and violating ADR-010's decomposition principle. ADR-008's verbatim-preservation invariant is satisfied because every reg-bearing piece is faithfully stored on the entity it describes; the artifact's full `verbatim_text` field remains in the JSON artifact (committed to repo) as a debug/audit aid. Option (a) would have required a migration with three-place sync (DDL + Pydantic + TS types); option (b) would have required a `VerbatimRule.kind` discriminator the schema doesn't currently model.
 
-**Known risk:** Free prose between rows that isn't a `NOTE:` line currently has no structured home in the DB. V1 Montana DEA is dense table data + `NOTE:` lines; this is expected to be empty set. S03.12 UAT spot-checks; S03.6's working note (`docs/planning/epics/E03-confidence-findings/S03.6.md`) flags any encountered cases for future planner attention.
+**Known risk:** Free prose between rows that isn't a `NOTE:` line currently has no structured home in the DB. V1 Montana DEA is dense table data + `NOTE:` lines; this is expected to be empty set. S03.12 UAT spot-checks; S03.6's working note flagged any encountered cases (working note deleted at m1 tag per ADR-017 §6; no cases were observed in V1 Montana).
 
-**Resolution home:** No new ADR (this is a refinement of ADR-008's decomposition story, not a new commitment). Epic E03 line 565 amended with footnote `[^oq1]`. Plan: [`.roughly/plans/S03.6-regulation-record-ingestion-plan.md`](../.roughly/plans/S03.6-regulation-record-ingestion-plan.md). Working note: [`docs/planning/epics/E03-confidence-findings/S03.6.md`](planning/epics/E03-confidence-findings/S03.6.md).
+**Resolution home:** No new ADR (this is a refinement of ADR-008's decomposition story, not a new commitment). Epic E03 line 565 amended with footnote `[^oq1]`. Plan: [`.roughly/plans/S03.6-regulation-record-ingestion-plan.md`](../.roughly/plans/S03.6-regulation-record-ingestion-plan.md). Working note (S03.6.md) deleted at m1 tag per ADR-017 §6; durable record lives in [`docs/planning/epics/E03-confidence-calibration-synthesis.md`](planning/epics/E03-confidence-calibration-synthesis.md).
 
 ---
 
@@ -345,7 +345,7 @@ language — but the structured per-HD cap is invisible.
 Currently exactly 1 (HD 210). M2 should re-survey when MT 2027 booklet ships
 and when CO / WY data lands.
 
-**Working note:** [`docs/planning/epics/E03-confidence-findings/S03.8.md`](planning/epics/E03-confidence-findings/S03.8.md) § "Stage 6 PDF investigation: HD 210 cross-listing conflict"
+**Working note:** S03.8.md (deleted at m1 tag per ADR-017 §6); HD 210 cross-listing conflict captured in the deferred-items entry below.
 **Deferred-items entry:** [`docs/planning/epics/E03-deferred-items/draw-mechanics.md`](planning/epics/E03-deferred-items/draw-mechanics.md) § "Per-HD allocation caps for cross-listed B licenses"
 
 ---
@@ -380,7 +380,7 @@ Ship 0 CWD-sampling `reporting_obligation` rows. Text is searchable via `regulat
 
 Currently 5 verbatim occurrences across 4 HDs (100/103/104/170) in `regulation_record.additional_rules`. The 103-50 case is the canonical zone-vs-license edge case.
 
-**Working note:** [`docs/planning/epics/E03-confidence-findings/S03.9.md`](planning/epics/E03-confidence-findings/S03.9.md) § "Probe 2 — CWD sampling"
+**Working note:** S03.9.md (deleted at m1 tag per ADR-017 §6); the Probe 2 CWD sampling analysis is captured in the deferred-items entry below.
 **Deferred-items entry:** [`docs/planning/epics/E03-deferred-items/cwd-sampling-modeling.md`](planning/epics/E03-deferred-items/cwd-sampling-modeling.md)
 
 ---
@@ -434,7 +434,7 @@ Drift between slug-derivation logic and the structured fields under the same `id
 
 **Affected V1 entries:** 3 dispatch entries in `_REPORTING_ROW_SPEC` (S03.9); the S03.7 dispatch surface is broader (978 `season_definition` + 1225 `license_tag` rows derived from compile-time slug encodings — see S03.7 closure note for the breakdown).
 
-**Working note:** [`docs/planning/epics/E03-confidence-findings/S03.9.md`](planning/epics/E03-confidence-findings/S03.9.md) § "Q19 / drift-guard decision"
+**Working note:** S03.9.md (deleted at m1 tag per ADR-017 §6); Q19 / drift-guard decision narrative survives only via this open-question entry. The local module-load drift guard remains in `load_reporting_obligations.py::_assert_dispatch_dict_drift_free` as belt-and-suspenders until the project-wide fix lands.
 
 ---
 

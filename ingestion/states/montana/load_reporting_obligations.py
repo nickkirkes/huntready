@@ -192,8 +192,9 @@ class _RowSpec(TypedDict):
     The dispatch dict maps (region_scope, kind_hint) tuples to these specs.
     All structured-field interpretation lives in the dispatch dict; the build
     function reads verbatim_rule + source from the artifact and applies the
-    spec verbatim. See docs/planning/epics/E03-confidence-findings/S03.9.md
-    § "Row-by-row construction decisions" for the locked values.
+    spec verbatim. Locked values are in the S03.9 closure note at
+    docs/planning/epics/E03-regulation-text-ingestion.md; drift-guard discipline
+    is encoded in ``_assert_dispatch_dict_drift_free`` in this file.
     """
 
     id_suffix: str

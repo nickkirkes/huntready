@@ -120,6 +120,14 @@ Surfaced previously (E02) and again 2026-05-23 during S03.10 T0 (the `load_juris
 
 Surfaced 2026-05-23 during S03.10 T0 probe; confirmed via live-DB counts (centroid: 0/0/0; boundary-to-boundary: 8/8/13 matches).
 
+### Follow-up migrations must include their own RLS policies — the base RLS migration's flat IN-list does not auto-extend
+
+**Symptom:** A table added by a follow-up migration (e.g., `license_season` added by `20260504032424_e03_schema_additions.sql`) is silently permissive — no deny-all RLS policy covers it — because the original RLS migration (`20260425000001_rls_deny_all.sql`) uses a flat `table_name IN (...)` list that was never updated.
+
+**Cause:** Postgres tables are permissive-by-default when no RLS policy exists. The flat IN-list in the base RLS migration does not enumerate tables that didn't exist when it was written; re-running it would be a no-op on the existing tables and would not cover new ones.
+
+**Fix:** Every migration that adds a new table must include `CREATE POLICY` + `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` in the same migration file. Do not assume the base RLS migration will be updated. Audit gap detection: `SELECT tablename FROM pg_policies WHERE schemaname='public' GROUP BY tablename;` — compare against the full table list to surface any table with no policy. Surfaced by S03.12 UAT criterion #7 review on 2026-05-27.
+
 ### `geom::geometry` direct cast not enabled
 
 Supabase's bundled PostGIS does not allow direct `geom::geometry` casts on `geography` columns — `SELECT ... FROM geometry WHERE NOT ST_IsValid(geom::geometry)` returns `cannot cast type geography to geometry`. The S02.6/S02.7 epic verification SQL uses this cast pattern (and so do the docs/runbook examples). Operators running those queries against a Supabase project will hit the error.
@@ -746,3 +754,28 @@ Closes when user approves and commits the amendment as the official ADR-017 revi
 ```
 
 This annotation is the only breadcrumb that survives the m1 working-note deletion. Discovered by silent-failure-hunter MEDIUM finding during S03.11 code review (2026-05-26); applied as a post-merge fix to Q11.
+
+### File-deletion events require a paired grep-and-sweep for stale cross-references
+
+**Symptom:** A milestone-deletion commit removes a directory of working files (e.g., `docs/planning/epics/E03-confidence-findings/` deleted per ADR-017 §6 at S03.12 close). A T9 reference sweep surfaced 19 stale references across 11 surviving files — docstrings, comments, operator-facing `RuntimeError` f-strings, and policy descriptions in docs. The same pattern surfaced at S03.11 (`docs/plans/` → `.roughly/plans/` migration, 8 stale references).
+
+**Cause:** `git mv` and `git rm` move or remove the content but do not grep for references. Operator-facing error messages are highest-risk: they fire in production and point operators at paths that no longer exist.
+
+**Fix:** Before executing any deletion or rename, run a four-step sweep:
+
+1. Identify all references: `grep -rn <deletion-target> docs/ ingestion/ mcp-server/ web/`
+2. Audit the deletion target for downstream-dependent content (e.g., operator runbooks embedded in working notes must migrate to a surviving doc before deletion).
+3. Triage references: redirect to surviving doc, annotate with deletion note, or delete the cross-reference.
+4. For operator-facing `RuntimeError` / log messages: redirect is mandatory — leaving operators pointing at a 404 path is a production diagnostic failure.
+
+Surfaced by S03.12 T9 stale-reference sweep on 2026-05-27 (19 references in 11 files); prior instance S03.11 (8 references in 8 files).
+
+### When UAT runs against a PRD that has drifted from implementation, footnote each deviation — do not silently reframe
+
+**Symptom:** A UAT runbook is written against a PRD whose success criteria reference column names, query patterns, or story-specific details that were superseded during implementation. The runbook silently uses the "correct" query without noting the deviation, losing the audit trail between the PRD and the as-built system.
+
+**Cause:** PRDs serve as source-of-record and are not autonomously edited by PMs. When implementation deviates (schema decomposition, HD substitution, Makefile not yet built, etc.), the gap between PRD text and DB reality can be large enough to make individual success criteria non-executable as written.
+
+**Fix:** When authoring a UAT runbook against a drifted PRD, footnote each deviation inline. The footnote names: (a) what the PRD says, (b) what the as-built system actually has, and (c) the durable record of the decision (closure note, ADR reference, or OQ resolution). This preserves the PRD as source-of-record while making the runbook actionable. S03.12 surfaced 6 deviations: `jurisdiction_code` format (`HD-262` → `MT-HD-deer-elk-lion-262`); missing `verbatim_text` column (decomposed per Q15/OQ1); HD 262 elk asymmetric-coverage shift to HD 170 (S03.7 OQ-S7-3); `make ingest` Makefile nonexistent; `license_season` RLS gap; ADR-017 status resolved unmodified per S03.11. Reference: `docs/runbooks/M1-uat.md` footnote conventions.
+
+Surfaced by S03.12 UAT runbook authoring on 2026-05-27.

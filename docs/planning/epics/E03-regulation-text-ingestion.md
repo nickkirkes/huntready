@@ -1,11 +1,12 @@
 # E03: Montana Regulation Text Ingestion
 
-**Status:** In Progress (13/14 stories complete; S03.11 closed 2026-05-27 — verdict FINALIZE, ADR-017 unmodified, Q11 RESOLVED, synthesis report durable past m1; S03.12 remains as final M1 story; S03.10 T16 live UAT still operator-pending but does not gate m1)
+**Status:** Complete (all 14 stories closed including S03.6.1; 13 original + S03.6.1 carve-out; closed 2026-05-27 with S03.12 M1 UAT runbook + M1→M2 handoff + working-notes deletion per ADR-017 §6)
 **Milestone:** M1 — Montana Ingestion
 **Dependencies:** E01 (complete, merged 2026-04-28), E02 (complete and audited 2026-05-03)
 **Validated:** 2026-05-03
+**Completed:** 2026-05-27
 **Estimated Stories:** 13 original + S03.6.1 carved out during S03.9 → 14 total
-**UAT Gating:** S03.3 (UAT cleared 2026-05-08), S03.4 (UAT cleared 2026-05-12), S03.5 (UAT cleared 2026-05-14), S03.6 (UAT: no), S03.7 (data-layer UAT cleared 2026-05-16), S03.8 (UAT: no), S03.9 (UAT: no), S03.6.1 (UAT: no — pattern extension of S03.6; closed 2026-05-22), S03.10 (UAT T16: operator-pending — code-complete 2026-05-26; does not gate m1 tag), S03.11 (UAT: PM hands ADR-017 amendment to user — closed 2026-05-27 with FINALIZE verdict; ADR-017 unmodified), S03.12 (milestone exit)
+**UAT Gating:** S03.3 (UAT cleared 2026-05-08), S03.4 (UAT cleared 2026-05-12), S03.5 (UAT cleared 2026-05-14), S03.6 (UAT: no), S03.7 (data-layer UAT cleared 2026-05-16), S03.8 (UAT: no), S03.9 (UAT: no), S03.6.1 (UAT: no — pattern extension of S03.6; closed 2026-05-22), S03.10 (UAT T16: operator-pending — code-complete 2026-05-26; does not gate m1 tag), S03.11 (UAT: PM hands ADR-017 amendment to user — closed 2026-05-27 with FINALIZE verdict; ADR-017 unmodified), S03.12 (closed 2026-05-27 with UAT runbook ready for operator execution; user signs off + pushes m1 tag)
 
 ---
 
@@ -1249,6 +1250,8 @@ PRD 001 § "Success criteria for the milestone" lists the 8 UAT-level criteria f
 - [ ] CLAUDE.md, planning README, CHANGELOG all updated to reflect M1 closure (PM does this update; user pushes `m1` tag)
 - [ ] **UAT (milestone-level):** user runs the 8 UAT queries against Supabase; all 8 pass; user signs off
 - [ ] No new schema, code, or migration changes in this story — pure verification + documentation + cleanup
+
+**Closure note (closed 2026-05-27):** Final M1 story. Deliverables shipped: `docs/runbooks/M1-uat.md` (8 SQL query blocks per PRD success criteria, operator batch-run sequence extracted verbatim from S03.10 working note before deletion); `docs/planning/handoffs/M1-to-M2-handoff.md` (what M1 built, what M2 inherits, Q11 RESOLVED + Q19 pre-M2 blocker + 4 deferred-items files + 7 known issues for escalation); `docs/planning/epics/E03-confidence-findings/` deleted per ADR-017 §6 with `.gitignore` update to prevent re-creation; CLAUDE.md + planning README + CHANGELOG updated to reflect M1 closure. Synthesis report at `docs/planning/epics/E03-confidence-calibration-synthesis.md` survives (lives outside deletion target). S03.10 T16 live UAT folded into the M1 UAT runbook as the operator-prerequisite batch run. PM hands off to user for the actual `git tag m1` push action. **Six PRD-vs-actual deviations footnoted in `M1-uat.md`** (none requiring a PRD edit; PRD remains source-of-record): (1) `jurisdiction_code` format is `MT-HD-deer-elk-lion-262` not `HD-262` (derived by `_dea_jurisdiction_code()` in `load_regulation_records.py:244-276`); (2) `verbatim_text` column does not exist on `regulation_record` — section-level verbatim was decomposed per Q15/OQ1 to `season_definition.verbatim_rule` + `license_tag.verbatim_rule`; (3) HD 170 (Flathead River) substituted for HD 262 in the asymmetric A/B demonstrator — HD 262 elk lacks the asymmetric `license_season` pattern (locked by `TestBuildDeaLinkRows::test_license_season_asymmetric_coverage_m1_criterion`); (4) `make ingest STATE=montana` target does not exist — actual mechanism is individual `python ingestion/states/montana/load_*.py` invocations per the operator batch-run sequence; (5) `license_season` may have an RLS gap because the table was added by `20260504032424_e03_schema_additions.sql` AFTER the RLS deny-all migration `20260425000001_rls_deny_all.sql` — criterion #7 surfaces this; if no policies exist, M2 first-week work adds a follow-up RLS migration; (6) ADR-017 status `Accepted` unmodified per S03.11 FINALIZE satisfies criterion #8 as-is. **Test suite holds at 1128 + 2 skipped** (doc-only PR + working-notes deletion; no code or test changes; no regression).
 
 ---
 

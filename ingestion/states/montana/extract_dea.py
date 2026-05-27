@@ -245,7 +245,7 @@ class DeaRowExtraction(TypedDict):
     row inherits the ``page_reference`` of its enclosing section (the section's
     starting page). For multi-page HDs, continuation rows from page N+1 are
     tagged with page N's reference — per-row page-accurate provenance is a
-    deferred follow-up (see ``docs/planning/epics/E03-confidence-findings/S03.3.md``).
+    deferred follow-up (see S03.3 closure note in ``docs/planning/epics/E03-regulation-text-ingestion.md``).
     """
 
     license_code: str
@@ -475,8 +475,8 @@ def _weapon_override_for_column(header: str | None) -> str | None:
 # (e.g. "EARLY SEASON DATES", "ARCHERY ONLY SEASON DATES"), discovered during
 # T13 live inspection. Threshold of 4 keeps the match tolerant to minor column
 # variation while rejecting unrelated tables.
-# Tunable: if T13's live run shows false negatives, lower to 3 and add a note
-# in E03-confidence-findings/S03.3.md.
+# Tunable: if T13's live run shows false negatives, lower to 3 and record a note
+# in the S03.3 closure note at docs/planning/epics/E03-regulation-text-ingestion.md.
 _DEA_HEADER_SIGNATURE: frozenset[str] = frozenset(
     {
         "LICENSE/PERMIT",
