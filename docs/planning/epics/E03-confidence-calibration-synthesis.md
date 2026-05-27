@@ -209,9 +209,18 @@ S03.3.md § "Confidence assignment per ADR-017" provides the full decision table
 | 49 | MT-HD-bear-120 / bear | Same as row 11: structured rotated table cell, 3 transformation steps, correction_touched=True | Yes | medium | medium | ✓ | Same correction-touched demotion path as all 35 bear BMUs. BMU 120 is the EC3 random-fill row +1 (ascending BMU sort after BMU 110). Pre-demotion HIGH → MEDIUM per ADR-017 §4 correction-touched rule. |
 | 50 | MT-HD-bear-121 / bear | Same as row 11: structured rotated table cell, 3 transformation steps, correction_touched=True | Yes | medium | medium | ✓ | Same correction-touched demotion path. BMU 121 is the EC3 random-fill row +2. All 35 bear BMU rows share an identical F12 tuple (S03.4.md F12 table confirms this structural uniformity) and therefore identical framework_predicted = MEDIUM. |
 
-**Audit pass-rate: 50/50 = 100%.**
+**Audit pass-rates (scoped per ADR-017 §3):**
 
-Pass-rate is ≥ 80%, therefore Trigger 3 does **not** fire.
+ADR-017 §3 establishes that `regulation_record.confidence` is the **only** entity with a stored confidence column; child entities inherit at query time. The 50-row sample therefore audits three distinct properties at three different schema layers:
+
+| scope | rows | pass-rate | property verified |
+|-------|------|-----------|-------------------|
+| `regulation_record.confidence` (audit headline per ADR-017 §3) | 1–32 + 44–50 = **39** | **39/39 = 100%** | record-level confidence after section-MIN aggregation matches ADR-017 §4–§5 derivation |
+| EC8 closure_predicate parent-inheritance | 33–38 = 6 | 6/6 = 100% | child entity correctly inherits parent regulation_record.confidence per ADR-017 §3 |
+| EC9 license_tag row-level extraction_confidence (pre-MIN) | 39–43 = 5 | 5/5 = 100% | per-row artifact tier assignment matches ADR-017 §4 rules before section-MIN |
+| **combined (all 50 rows)** | **50** | **50/50 = 100%** | framework is internally consistent at all three schema layers |
+
+**The headline pass-rate for §7 Trigger 3 purposes is the regulation_record scope: 39/39 = 100%** (≥ 80%; Trigger 3 does **not** fire). The EC8 and EC9 rows are included in the sample to document edge cases that span ADR-017 §3's parent-inheritance rule — they verify *adjacent* framework properties, not the regulation_record.confidence column itself. The combined 50/50 figure remains useful as an "all framework layers verified" signal, but the §7 deferral test is scoped to regulation_record per the ADR.
 
 ---
 
