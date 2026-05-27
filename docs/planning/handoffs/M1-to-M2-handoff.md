@@ -147,7 +147,7 @@ The `docs/planning/epics/E03-deferred-items/` directory was designated at E03 ki
 
 - **`license_season` RLS gap (potential)** — `license_season` was added by `20260504032424_e03_schema_additions.sql` after the RLS deny-all migration `20260425000001_rls_deny_all.sql`. The deny-all policies cover only the original 10 tables. If UAT criterion #7 surfaces no policies on `license_season`, schedule a follow-up RLS migration as the first M2 work (or a pre-M2-blocker depending on exposure).
 
-- **PRD 001 jurisdiction_binding sequencing language** — PRD 001 lines 48, 90, 96, 111 still describe E02 as writing binding rows; the actual bindings are written by S03.6.1 and S03.10 (E03). The proposed reconciliation is captured in `docs/planning/epics/E02-geometry-ingestion.md` § "Known issues to escalate" #1. Carries forward to M2 PRD review.
+- **PRD 001 jurisdiction_binding sequencing language** — PRD 001 lines 48, 90, 96, 111 still describe E02 as writing binding rows; the actual bindings are written by S03.6.1 and S03.10 (E03). The proposed reconciliation is captured in `docs/planning/epics/completed/E02-geometry-ingestion.md` § "Known issues to escalate" #1. Carries forward to M2 PRD review.
 
 - **`role='other_overlay'` semantic awkwardness** — V1 no-hunt-zone bindings (Glacier NP, Sun River WMA, Yellowstone NP) use `role='other_overlay'` because no `no_hunt_zone` enum value exists in the DDL `role` CHECK constraint. M2 candidate: add `no_hunt_zone` to the `role` CHECK constraint via migration + ADR. Current `other_overlay` usage is correct per the DDL but semantically imprecise.
 
