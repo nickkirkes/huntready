@@ -1,0 +1,25 @@
+docs/planning/epics/E03-confidence-calibration-synthesis.md
+  s_7f8830b893da15::t_9fb1218149f74c 65
+docs/planning/epics/E03-confidence-findings/S03.3.md
+  s_7f8830b893da15::t_c6ae57d284e564 7
+  s_7f8830b893da15::t_2e67e311abfd13 40,42
+  s_7f8830b893da15::t_d5a5e41449c303 28,30-31
+  s_7f8830b893da15::t_7b1fb6c661cb9b 208
+  s_7f8830b893da15::t_4367c24d21a1ea 253-255
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6b644afdb6a51412b8ae87bc0f75247140605f65",
+  "prompts": {},
+  "sessions": {
+    "s_7f8830b893da15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2d5d141-d731-4698-a0df-05b26d4f1cb5",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
