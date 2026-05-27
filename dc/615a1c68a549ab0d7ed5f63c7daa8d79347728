@@ -1,0 +1,33 @@
+docs/planning/epics/E03-confidence-findings/S03.7.md
+  s_7f8830b893da15::t_ffc9d04a023ff2 25
+docs/planning/epics/E03-confidence-findings/S03.8.md
+  s_7f8830b893da15::t_fd4332521aaf39 179
+ingestion/tests/test_extract_black_bear.py
+  s_7f8830b893da15::t_e16c2292812a12 398
+.roughly/plans/S03.6-regulation-record-ingestion-plan.md
+  s_7f8830b893da15::t_94c999adcde4b0 505
+docs/open-questions.md
+  s_7f8830b893da15::t_0f4a27d65bd3e9 35
+ingestion/states/montana/load_seasons_and_licenses.py
+  s_7f8830b893da15::t_61694de1184bb4 27
+docs/planning/epics/E03-confidence-findings/S03.0.md
+  s_7f8830b893da15::t_52b812f690235a 109
+docs/planning/epics/E03-confidence-findings/S03.6.md
+  s_7f8830b893da15::t_80dcea69b129fe 165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "dc615a1c68a549ab0d7ed5f63c7daa8d79347728",
+  "prompts": {},
+  "sessions": {
+    "s_7f8830b893da15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2d5d141-d731-4698-a0df-05b26d4f1cb5",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
