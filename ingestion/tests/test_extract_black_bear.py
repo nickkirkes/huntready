@@ -395,7 +395,7 @@ class TestRegionTrackingLeftToRight:
         pytest.skip(
             "Region-tracking integration test deferred — the T13 real-PDF probe "
             "verifies 35 BMUs distribute correctly across R1–R7 (see "
-            "docs/plans/S03.4-black-bear-extraction-plan.md § T13). Mocking a "
+            ".roughly/plans/S03.4-black-bear-extraction-plan.md § T13). Mocking a "
             "full PdfDocument across 4 pages is too costly for a unit fixture."
         )
 

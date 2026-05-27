@@ -24,7 +24,7 @@ here in the same atomic transaction.
 limited-draw spec references once the draw_spec table is populated.
 
 Open-question decision codes OQ-S7-1 through OQ-S7-11 are documented in the
-full implementation plan at ``docs/plans/S03.7-season-license-ingestion-plan.md``.
+full implementation plan at ``.roughly/plans/S03.7-season-license-ingestion-plan.md``.
 
 Run from the repo root:
     ingestion/.venv/bin/python ingestion/states/montana/load_seasons_and_licenses.py

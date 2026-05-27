@@ -32,7 +32,7 @@ For bear specifically: the per-BMU prose decomposes into `season_definition.verb
 
 **Known risk:** Free prose between rows that isn't a `NOTE:` line currently has no structured home in the DB. V1 Montana DEA is dense table data + `NOTE:` lines; this is expected to be empty set. S03.12 UAT spot-checks; S03.6's working note (`docs/planning/epics/E03-confidence-findings/S03.6.md`) flags any encountered cases for future planner attention.
 
-**Resolution home:** No new ADR (this is a refinement of ADR-008's decomposition story, not a new commitment). Epic E03 line 565 amended with footnote `[^oq1]`. Plan: [`docs/plans/S03.6-regulation-record-ingestion-plan.md`](plans/S03.6-regulation-record-ingestion-plan.md). Working note: [`docs/planning/epics/E03-confidence-findings/S03.6.md`](planning/epics/E03-confidence-findings/S03.6.md).
+**Resolution home:** No new ADR (this is a refinement of ADR-008's decomposition story, not a new commitment). Epic E03 line 565 amended with footnote `[^oq1]`. Plan: [`.roughly/plans/S03.6-regulation-record-ingestion-plan.md`](../.roughly/plans/S03.6-regulation-record-ingestion-plan.md). Working note: [`docs/planning/epics/E03-confidence-findings/S03.6.md`](planning/epics/E03-confidence-findings/S03.6.md).
 
 ---
 
