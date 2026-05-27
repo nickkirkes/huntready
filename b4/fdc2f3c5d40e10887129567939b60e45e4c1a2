@@ -1,0 +1,23 @@
+docs/adrs/ADR-017-amendment-DRAFT.md
+  s_7f8830b893da15::t_bc7c2631fd421a 69-76
+  s_7f8830b893da15::t_3380a1e760ec91 6,8
+  s_7f8830b893da15::t_8113b7321ae6c1 12,22
+  s_7f8830b893da15::t_cdd9c09332c760 30-38,43-50,52
+  s_7f8830b893da15::t_98a36917bd453c 40,42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b4fdc2f3c5d40e10887129567939b60e45e4c1a2",
+  "prompts": {},
+  "sessions": {
+    "s_7f8830b893da15": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b2d5d141-d731-4698-a0df-05b26d4f1cb5",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
