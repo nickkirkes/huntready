@@ -1,0 +1,25 @@
+docs/runbooks/M1-uat-results-2026-05-28.md
+  s_9a9554132d1ded::t_a901bb4f9c0cc9 1-409
+docs/planning/handoffs/M1-to-M2-handoff.md
+  s_9a9554132d1ded::t_1cf376c3e506b3 177-194
+  s_9a9554132d1ded::t_3fc25be8433731 148-163
+  s_9a9554132d1ded::t_c11570f34b876c 171
+docs/runbooks/M1-uat.md
+  s_9a9554132d1ded::t_0403fa4a4d70ba 390-397,401,403
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c08a5049e802dde036ee5634b698fa2b3c43e600",
+  "prompts": {},
+  "sessions": {
+    "s_9a9554132d1ded": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9bc67134-844a-4b12-8f28-61866f4f391e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
