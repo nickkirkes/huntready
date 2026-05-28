@@ -398,7 +398,7 @@ Operator pastes final counts and a pass/fail per criterion after running UAT.
 
 **Milestone sign-off:**
 
-> All 8 M1 UAT criteria verified against the live Supabase project (batch run + idempotency re-run both completed 2026-05-28). Montana V1 ingestion complete: 435 regulation_record + 825 license_tag + 788 jurisdiction_binding + 350 geometry rows. One expected anomaly on criterion #7 (`license_season` RLS gap) carries forward to M2 week 1 per S03.12 pitfall #1; full audit at [`docs/runbooks/M1-uat-results-2026-05-28.md`](M1-uat-results-2026-05-28.md). M2 (Colorado) PM kickoff is now unblocked.
+> 7 of 8 M1 UAT criteria PASS against the live Supabase project (batch run + idempotency re-run both completed 2026-05-28). **Criterion #7 FAILed** — `license_season` has 14 privilege leaks to `anon`/`authenticated` and zero RLS policies. This failure was pre-classified by S03.12 pitfall #1 as an expected M2 week 1 carry-forward (root cause: `license_season` was added by `20260504032424_e03_schema_additions.sql` after the base RLS migration's flat IN-list); **does not block the m1 tag push** per the same pitfall. Fix-migration scope is recorded in [`docs/planning/handoffs/M1-to-M2-handoff.md`](../planning/handoffs/M1-to-M2-handoff.md) §8. Montana V1 ingestion complete: 435 regulation_record + 825 license_tag + 788 jurisdiction_binding + 350 geometry rows. Full audit at [`docs/runbooks/M1-uat-results-2026-05-28.md`](M1-uat-results-2026-05-28.md). M2 (Colorado) PM kickoff is now unblocked.
 
 Signed: Nick Kirkes  Date: 2026-05-28
 
