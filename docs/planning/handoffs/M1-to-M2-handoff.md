@@ -145,7 +145,22 @@ The `docs/planning/epics/E03-deferred-items/` directory was designated at E03 ki
 
   This is safe only because there have been no year-over-year re-ingestion runs. If a slug-encoded field changes (e.g., `weapon_type` for a season renamed in the 2027 booklet), the UPSERT will silently overwrite the old row with a new semantic, creating a ghost reference from any FK that pointed to the old semantics. **Must land as a single PR + ADR before M2 ingestion writes touch these tables.** Leading option: derive-and-assert pattern (derive `id` from encoded fields at run time and assert it matches the stored row before allowing UPDATE, generalizing S03.9's local module-load drift guard). Full context: `docs/open-questions.md` Q19.
 
-- **`license_season` RLS gap (potential)** — `license_season` was added by `20260504032424_e03_schema_additions.sql` after the RLS deny-all migration `20260425000001_rls_deny_all.sql`. The deny-all policies cover only the original 10 tables. If UAT criterion #7 surfaces no policies on `license_season`, schedule a follow-up RLS migration as the first M2 work (or a pre-M2-blocker depending on exposure).
+- **`license_season` RLS gap — CONFIRMED at M1 UAT 2026-05-28** — `license_season` was added by `20260504032424_e03_schema_additions.sql` after the RLS deny-all migration `20260425000001_rls_deny_all.sql`. UAT criterion #7 surfaced **14 privilege leaks** (`SELECT`/`INSERT`/`UPDATE`/`DELETE`/`REFERENCES`/`TRIGGER`/`TRUNCATE` × {`anon`, `authenticated`}) AND **zero RLS policies** on `license_season`. Anyone with the publishable (anon) Supabase key can read/write the table directly — real exploitable data-integrity surface, not theoretical. **Per S03.12 pitfall #1, this does not block the m1 tag push**, but is **M2 week 1 work**. Fix scope:
+
+  ```sql
+  -- New migration: <timestamp>_rls_license_season.sql
+  ALTER TABLE public.license_season ENABLE ROW LEVEL SECURITY;
+
+  CREATE POLICY "Deny all access for anon"
+    ON public.license_season FOR ALL TO anon
+    USING (false) WITH CHECK (false);
+
+  CREATE POLICY "Deny all access for authenticated"
+    ON public.license_season FOR ALL TO authenticated
+    USING (false) WITH CHECK (false);
+
+  REVOKE ALL ON public.license_season FROM anon, authenticated;
+  ```
 
 - **PRD 001 jurisdiction_binding sequencing language** — PRD 001 lines 48, 90, 96, 111 still describe E02 as writing binding rows; the actual bindings are written by S03.6.1 and S03.10 (E03). The proposed reconciliation is captured in `docs/planning/epics/completed/E02-geometry-ingestion.md` § "Known issues to escalate" #1. Carries forward to M2 PRD review.
 
@@ -153,11 +168,29 @@ The `docs/planning/epics/E03-deferred-items/` directory was designated at E03 ki
 
 - **Colorado adapter `_STATE='US-CO'` filter** — S03.10 established the cross-state spatial filter pattern in `_query_nearby_hds_for_zone` (`hd.state = 'US-MT'`). Colorado's `load_jurisdiction_bindings.py` must mirror this with `_STATE = 'US-CO'` to prevent cross-state spatial pollution once Colorado geometry is loaded. Pattern is established; not a blocker, but must not be overlooked at M2 adapter implementation time.
 
-- **S03.10 T16 live UAT** — operator-pending; runs as part of S03.12 batch sequence per `docs/runbooks/M1-uat.md`. First M2 activity narrows `_BINDING_COUNT_GUARD_BAND` in `load_jurisdiction_bindings.py` to ±30% around the T16-empirical count.
+- **S03.10 T16 live UAT — completed 2026-05-28.** Empirical jurisdiction_binding count: **788** (inside `[400, 1100]` guard band). Bear binding from S03.6.1 UPSERTed as no-op against the same id format as predicted. **First M2 PR narrows `_BINDING_COUNT_GUARD_BAND` to `[552, 1024]`** (±30% around 788) in `ingestion/states/montana/load_jurisdiction_bindings.py` and updates AC #1087 footnote in the E03 epic.
 
 - **Cell-level source attribution** — V1 attributes binding and regulation source at row level per ADR-019's V1 simplification. Multi-source provenance schema field would be needed if a future state has multi-source HDs within a single geometry row. M2 ADR-candidate if Colorado data surfaces this pattern.
 
 - **Free-prose non-NOTE HD-wide content in DEA** — currently has no structured DB home. V1 Montana DEA was expected to be empty-set (only `NOTE:` lines); S03.12 UAT spot-checks confirm this, but the gap is a known V1 simplification. M2 should verify Colorado DEA structure does not produce non-NOTE free prose that falls through.
+
+### Runbook fixes needed before next run
+
+Captured during M1 UAT 2026-05-28; flag-and-carry-forward only (the runbook was NOT modified during UAT — preserving audit trail of what was actually run). All edits land as part of M2-week-1 runbook hygiene PR.
+
+1. **`docs/runbooks/M1-uat.md` §2 deviation note #3** — extend to: "HD 262 has no elk regulation_record at all (not just no A/B asymmetric pattern; the 2026 DEA booklet publishes no elk section for HD 262, only a deer section that fans out to mule_deer + whitetail). HD 124 substitutes for criterion #1 and criterion #2 part (a); HD 170 substitutes for criterion #2 part (b)."
+
+2. **`docs/runbooks/M1-uat.md` §4 criterion #1 SQL** — change `jurisdiction_code = 'MT-HD-deer-elk-lion-262'` → `'MT-HD-deer-elk-lion-124'`. Update the section heading and PRD-text framing accordingly.
+
+3. **`docs/runbooks/M1-uat.md` §4 criterion #2 part (a) SQL** — change `rr.jurisdiction_code = 'MT-HD-deer-elk-lion-262'` → `'MT-HD-deer-elk-lion-124'`. Update the "confirms HD 262 has data" framing to "confirms HD 124 has data".
+
+4. **`docs/runbooks/M1-uat.md` §4 criterion #6 "Expected counts" table** — add a footnote distinguishing **build counts** (S03.7 reports 1225 license_tag / 3040 license_season at build time) from **post-UPSERT-collapse DB counts** (actual DB shows 825 license_tag / 2411 license_season after PK / link-row dedup). Both numbers are correct in their respective contexts; the runbook should make the distinction explicit so a future operator doesn't mark idempotency FAIL based on a build-count mismatch. Concrete deltas: regulation_record 437 build → 435 DB; license_tag 1225 build → 825 DB; license_season 3040 build → 2411 DB; regulation_license 1914 build → 1279 DB; regulation_season 1385 build → 1381 DB; draw_spec 388 build → 276 DB (S03.8 closure already noted the 388→278 collapse). Entity tables collapse via `INSERT … ON CONFLICT DO UPDATE`; link tables collapse via `ON CONFLICT DO NOTHING`.
+
+5. **`docs/runbooks/M1-uat.md` §1 Prerequisites** — `psql` is not in the standard local toolchain. Add either (a) a "Tool prerequisites" item recommending `brew install libpq && brew link --force libpq`, OR (b) a footnote pointing to the supabase CLI substitute `supabase db query --db-url "$DATABASE_URL" "<sql>"` (the substitute used in the 2026-05-28 UAT run).
+
+6. **`docs/runbooks/M1-uat.md` §4 criterion #8 bash command** — regex `grep -A1 -E '^(\*\*Status\*\*|Status):'` does not match the actual ADR-017 heading line `**Status:** Accepted` (asterisks wrap the colon, not just the word). Change to `grep -E '^\*\*Status:?\*\*'` or simpler `grep '^\*\*Status:\*\*'`.
+
+7. **`ingestion/states/montana/load_jurisdiction_bindings.py` `main()`** — add `logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')` at the top of `main()`. The other 6 loaders configure logging implicitly; `load_jurisdiction_bindings.py` does not, which makes `--dry-run` exit 0 silently with no visible cross-tab or count output. M1 UAT 2026-05-28 worked around this with a runpy wrapper; the proper fix lives in the loader.
 
 ---
 

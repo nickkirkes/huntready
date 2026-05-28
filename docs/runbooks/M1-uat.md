@@ -387,20 +387,20 @@ Operator pastes final counts and a pass/fail per criterion after running UAT.
 
 | Criterion | Operator sign-off | Date |
 |---|---|---|
-| #1 — regulation_record lookup | | |
-| #2 — asymmetric license_season coverage | | |
-| #3 — PostGIS point-in-polygon | | |
-| #4 — no empty source citations | | |
-| #5 — no invalid geometry | | |
-| #6 — idempotency | | |
-| #7 — RLS / pg_roles | | |
-| #8 — ADR-017 present + accepted | | |
+| #1 — regulation_record lookup | PASS (HD 124 substituted; HD 262 elk has no row — extends §2 deviation #3) | 2026-05-28 |
+| #2 — asymmetric license_season coverage | PASS (part a HD 124 substituted; part b HD 170 per S03.7 OQ-S7-3) | 2026-05-28 |
+| #3 — PostGIS point-in-polygon | PASS | 2026-05-28 |
+| #4 — no empty source citations | PASS (0 leaks across 435 reg_record rows) | 2026-05-28 |
+| #5 — no invalid geometry | PASS (0 invalid across 350 MT geometries) | 2026-05-28 |
+| #6 — idempotency | PASS (11/11 tables byte-identical pre/post re-run; runbook expected-count footnote carry-forward) | 2026-05-28 |
+| #7 — RLS / pg_roles | FAIL — accepted as M2 week 1 carry-forward per S03.12 pitfall #1 (`license_season` RLS gap; does NOT block m1 tag) | 2026-05-28 |
+| #8 — ADR-017 present + accepted | PASS | 2026-05-28 |
 
 **Milestone sign-off:**
 
-> All 8 M1 UAT criteria verified. Montana V1 ingestion complete.
+> 7 of 8 M1 UAT criteria PASS against the live Supabase project (batch run + idempotency re-run both completed 2026-05-28). **Criterion #7 FAILed** — `license_season` has 14 privilege leaks to `anon`/`authenticated` and zero RLS policies. This failure was pre-classified by S03.12 pitfall #1 as an expected M2 week 1 carry-forward (root cause: `license_season` was added by `20260504032424_e03_schema_additions.sql` after the base RLS migration's flat IN-list); **does not block the m1 tag push** per the same pitfall. Fix-migration scope is recorded in [`docs/planning/handoffs/M1-to-M2-handoff.md`](../planning/handoffs/M1-to-M2-handoff.md) §8. Montana V1 ingestion complete: 435 regulation_record + 825 license_tag + 788 jurisdiction_binding + 350 geometry rows. Full audit at [`docs/runbooks/M1-uat-results-2026-05-28.md`](M1-uat-results-2026-05-28.md). M2 (Colorado) PM kickoff is now unblocked.
 
-Signed: ____________________  Date: __________
+Signed: Nick Kirkes  Date: 2026-05-28
 
 **Note:** After UAT signoff is complete, the user should push `git tag m1` at the commit where this runbook has full signoff. See `docs/planning/handoffs/M1-to-M2-handoff.md` § "Final commit + tag handoff" for the handoff narrative.
 
