@@ -48,6 +48,7 @@ from pathlib import Path
 import yaml
 
 from ingestion.lib import db, pdf
+from ingestion.lib.drift_guard import assert_id_matches
 from ingestion.lib.schema import (
     ClosurePredicate,
     LicenseSeason,
@@ -572,20 +573,26 @@ def _build_bear_season_definitions(
             else:
                 closure_predicate = None
 
-            definitions.append(
-                SeasonDefinition(
-                    id=_bear_season_definition_id(bmu_number, season_key),
-                    name=season_name,
-                    opens=opens,
-                    closes=closes,
-                    weapon_type=weapon_type,
-                    residency=None,
-                    closure_predicate=closure_predicate,
-                    verbatim_rule=row["verbatim_text"],
-                    page_reference=page_ref_str,
-                    source=row_citation,
-                )
+            sd = SeasonDefinition(
+                id=_bear_season_definition_id(bmu_number, season_key),
+                name=season_name,
+                opens=opens,
+                closes=closes,
+                weapon_type=weapon_type,
+                residency=None,
+                closure_predicate=closure_predicate,
+                verbatim_rule=row["verbatim_text"],
+                page_reference=page_ref_str,
+                source=row_citation,
             )
+            # Construction-time drift guard — see ADR-020.
+            assert_id_matches(
+                sd.id,
+                _bear_season_definition_id(bmu_number, season_key),
+                helper_name="_build_bear_season_definitions",
+                context={"bmu_number": bmu_number, "season_key": season_key},
+            )
+            definitions.append(sd)
 
     return definitions
 
@@ -633,24 +640,30 @@ def _build_bear_license_tags(bear_artifact: dict) -> list[LicenseTag]:
         fall_quota = row.get("fall_quota") or {}
         quota_count: int | None = fall_quota.get("count")
 
-        tags.append(
-            LicenseTag(
-                id=_bear_license_tag_id(bmu_number),
-                license_code=f"MT-BMU-{bmu_number}-bear",
-                name="Black Bear License",
-                kind="general",
-                species="bear",
-                weapon_types=["any_legal_weapon"],
-                residency="both",
-                quota=quota_count,
-                quota_range=None,
-                purchase_url=_PURCHASE_URL,
-                draw_spec_key=None,
-                reserved_pools=[],
-                verbatim_rule=row["verbatim_text"],
-                source=row_citation,
-            )
+        lt = LicenseTag(
+            id=_bear_license_tag_id(bmu_number),
+            license_code=f"MT-BMU-{bmu_number}-bear",
+            name="Black Bear License",
+            kind="general",
+            species="bear",
+            weapon_types=["any_legal_weapon"],
+            residency="both",
+            quota=quota_count,
+            quota_range=None,
+            purchase_url=_PURCHASE_URL,
+            draw_spec_key=None,
+            reserved_pools=[],
+            verbatim_rule=row["verbatim_text"],
+            source=row_citation,
         )
+        # Construction-time drift guard — see ADR-020.
+        assert_id_matches(
+            lt.id,
+            _bear_license_tag_id(bmu_number),
+            helper_name="_build_bear_license_tags",
+            context={"bmu_number": bmu_number},
+        )
+        tags.append(lt)
 
     return tags
 
@@ -897,20 +910,34 @@ def _build_dea_season_definitions(
                     section["verbatim_text"],
                 )
 
-                definitions.append(
-                    SeasonDefinition(
-                        id=season_definition_id,
-                        name=name,
-                        opens=opens,
-                        closes=closes,
-                        weapon_type=weapon_type,
-                        residency=None,
-                        closure_predicate=None,
-                        verbatim_rule=verbatim_rule,
-                        page_reference=page_ref_str,
-                        source=section_citation,
-                    )
+                sd = SeasonDefinition(
+                    id=season_definition_id,
+                    name=name,
+                    opens=opens,
+                    closes=closes,
+                    weapon_type=weapon_type,
+                    residency=None,
+                    closure_predicate=None,
+                    verbatim_rule=verbatim_rule,
+                    page_reference=page_ref_str,
+                    source=section_citation,
                 )
+                # Construction-time drift guard — see ADR-020.
+                assert_id_matches(
+                    sd.id,
+                    _season_definition_id(
+                        section["species_group"],
+                        section["hd_number"],
+                        season_key,
+                    ),
+                    helper_name="_build_dea_season_definitions",
+                    context={
+                        "species": section["species_group"],
+                        "hd_number": section["hd_number"],
+                        "season_key": season_key,
+                    },
+                )
+                definitions.append(sd)
                 seen_ids.add(season_definition_id)
                 seen_window_by_id[season_definition_id] = season_window["window"]
 
@@ -1053,24 +1080,34 @@ def _build_dea_license_tags(
             page_ref_str = pdf.page_reference_to_str(row["page_reference"])
             row_citation = dea_citation.model_copy(update={"page_reference": page_ref_str})
 
-            tags.append(
-                LicenseTag(
-                    id=_license_tag_id(species_group, hd_number, license_code),
-                    license_code=license_code,
-                    name=name,
-                    kind=kind,  # type: ignore[arg-type]
-                    species=species_group,
-                    weapon_types=row["weapon_types"],
-                    residency="both",
-                    quota=row.get("quota"),
-                    quota_range=_parse_quota_range(row.get("quota_range")),
-                    purchase_url=_PURCHASE_URL,
-                    draw_spec_key=None,
-                    reserved_pools=[],
-                    verbatim_rule=verbatim_text,
-                    source=row_citation,
-                )
+            lt = LicenseTag(
+                id=_license_tag_id(species_group, hd_number, license_code),
+                license_code=license_code,
+                name=name,
+                kind=kind,  # type: ignore[arg-type]
+                species=species_group,
+                weapon_types=row["weapon_types"],
+                residency="both",
+                quota=row.get("quota"),
+                quota_range=_parse_quota_range(row.get("quota_range")),
+                purchase_url=_PURCHASE_URL,
+                draw_spec_key=None,
+                reserved_pools=[],
+                verbatim_rule=verbatim_text,
+                source=row_citation,
             )
+            # Construction-time drift guard — see ADR-020.
+            assert_id_matches(
+                lt.id,
+                _license_tag_id(species_group, hd_number, license_code),
+                helper_name="_build_dea_license_tags",
+                context={
+                    "species_group": species_group,
+                    "hd_number": hd_number,
+                    "license_code": license_code,
+                },
+            )
+            tags.append(lt)
 
     return tags
 
