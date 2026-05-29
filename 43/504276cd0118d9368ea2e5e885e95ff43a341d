@@ -1,0 +1,60 @@
+ingestion/ingestion/lib/drift_guard.py
+  s_b59b6ae664378f::t_13734d9268ad89 24-30
+  s_b59b6ae664378f::t_fccd04eb40e662 1-23,31-66
+ingestion/tests/test_drift_guard.py
+  s_b59b6ae664378f::t_3f3df870830ee7 12
+  s_b59b6ae664378f::t_cf327249ccebb8 218
+  s_b59b6ae664378f::t_d45dc0b2a81125 1-11,13-44,46,48,50-80,85-87,89-97,102-104,106-114,119-121,123-128,159-160,165-166,168-177,179-205,207,209,211-217,219-324
+  s_b59b6ae664378f::t_b71874e83827b9 81-84,88,98-101,105,115-118,122,161-164,167
+  s_b59b6ae664378f::t_c1cdd8b8d96ade 45,47,49
+  s_b59b6ae664378f::t_d7c94a79c5b228 142-144,149
+  s_b59b6ae664378f::t_4b6d8b976a72fe 206,208,210
+  s_b59b6ae664378f::t_cd225e87d03ad6 129-141,145-148,150-158
+  s_b59b6ae664378f::t_abd6c0bf3b922b 178
+ingestion/states/montana/load_reporting_obligations.py
+  s_b59b6ae664378f::t_936c36326acfd9 198-199
+  s_b59b6ae664378f::t_8551b18f19db74 341-349
+  s_b59b6ae664378f::t_d9ef35ede82925 143
+ingestion/tests/test_load_seasons_and_licenses.py
+  s_b59b6ae664378f::t_06f3a6882a9df7 24,26,28,32
+  s_b59b6ae664378f::t_b1797300c57f61 1865-2243
+docs/adrs/ADR-020-id-text-pk-slug-derivation.md
+  s_b59b6ae664378f::t_23307657d80859 24,26,28
+  s_b59b6ae664378f::t_7e912cf9634969 14,16
+  s_b59b6ae664378f::t_71bf5a943a41ee 12,32,34,41
+  s_b59b6ae664378f::t_d9d82a7c4319ee 1-11,13,15,17-23,25,27,29-31,33,35-39,43-45,49-51,55-64
+  s_b59b6ae664378f::t_f8aef9a9af0ebf 40,42,46-48,52-54
+.roughly/known-pitfalls.md
+  s_b59b6ae664378f::t_56c953b386d7a9 594,596,598
+ingestion/tests/test_load_reporting_obligations.py
+  s_b59b6ae664378f::t_b7d08887d178f3 945-952
+  s_b59b6ae664378f::t_ce8083c879d972 963-970
+  s_b59b6ae664378f::t_85599bf27f2b84 1010-1157
+  s_b59b6ae664378f::t_5be341f3cea21a 923-930
+  s_b59b6ae664378f::t_852e2775665098 31
+  s_b59b6ae664378f::t_099ff6822d7863 899-906
+docs/adrs/README.md
+  s_b59b6ae664378f::t_f9ef3dfca37fda 82
+ingestion/states/montana/load_seasons_and_licenses.py
+  s_b59b6ae664378f::t_7f440999cd6e4e 51
+  s_b59b6ae664378f::t_af1f0ae5cd742e 1083-1108,1110
+  s_b59b6ae664378f::t_417440a802ba27 576-593,595
+  s_b59b6ae664378f::t_8da58c95a1fa19 913-938,940
+  s_b59b6ae664378f::t_46ee8d3d9b8ed4 643-664,666
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "43504276cd0118d9368ea2e5e885e95ff43a341d",
+  "prompts": {},
+  "sessions": {
+    "s_b59b6ae664378f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8814d9b5-796e-448d-ba29-1faf40bd3c9c",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
