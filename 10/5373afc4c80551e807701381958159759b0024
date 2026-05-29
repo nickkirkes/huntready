@@ -1,0 +1,28 @@
+.roughly/plans/Q19-id-text-pk-slug-drift-plan.md
+  s_b59b6ae664378f::t_b29c14351aad36 326,331-345
+  s_b59b6ae664378f::t_d6af2022278aee 298
+  s_b59b6ae664378f::t_d5f708155e5bda 452,454-458,460
+  s_b59b6ae664378f::t_6f80f4ba130fc2 293-297,299
+  s_b59b6ae664378f::t_1640918ff9d11f 376,380-385,387,389,391,395-397,399-431
+  s_b59b6ae664378f::t_a6b879423432e2 1-2
+  s_b59b6ae664378f::t_7a5e807301ebce 3-217,224-292,300-325,327-330,346-352,360-375,377-379,386,388,390,392-394,398,432-451,453,459,461-523
+  s_b59b6ae664378f::t_66d5cfb5f77faf 218-221,223
+  s_b59b6ae664378f::t_2ba9cbb7d013fe 353-359
+  s_b59b6ae664378f::t_ee40fa55fb9e68 222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "105373afc4c80551e807701381958159759b0024",
+  "prompts": {},
+  "sessions": {
+    "s_b59b6ae664378f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8814d9b5-796e-448d-ba29-1faf40bd3c9c",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
