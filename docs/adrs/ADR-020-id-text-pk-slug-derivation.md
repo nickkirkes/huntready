@@ -1,7 +1,7 @@
 # ADR-020: Derive-and-Assert for id text-PK Slug Drift
 
 **Date:** 2026-05-28
-**Status:** Proposed
+**Status:** Accepted
 **Decider:** Nick Kirkes
 **Tags:** ingestion, storage
 

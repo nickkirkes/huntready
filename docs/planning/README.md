@@ -80,7 +80,7 @@ M1 delivers Montana regulations into Supabase Postgres, validated against the si
 
 None. M1 closed 2026-05-27. M2 (Colorado) kickoff queued.
 
-**Pre-M2 blocker (does not block m1 tag push, blocks first M2 ingestion run):** Q19 — id text-PK UPSERT slug-drift. Affects 3 helpers in `ingestion/ingestion/lib/db.py` (`_UPSERT_SEASON_DEFINITION_SQL`, `_UPSERT_LICENSE_TAG_SQL`, `_UPSERT_REPORTING_OBLIGATION_SQL`). Must land in a single PR before first year-over-year re-ingestion run. ADR required at resolution.
+**Pre-M2 blocker (Q19) — RESOLVED 2026-05-29** via PR #45 (`ccbe085`) per [ADR-020 (Accepted)](../adrs/ADR-020-id-text-pk-slug-derivation.md). New shared module `ingestion/ingestion/lib/drift_guard.py` ships `assert_dispatch_dict_drift_free` (compile-time S03.9 case) + `assert_id_matches` (runtime S03.7 case). The 3 SQL constants in `db.py` are unchanged — the assert lives at the dispatch-dict / row-construction layer. **M2 adapters writing to `season_definition`, `license_tag`, or `reporting_obligation` MUST adopt the pattern.** Test suite 1128 → 1165 + 2 skipped.
 
 See [`docs/planning/handoffs/M1-to-M2-handoff.md`](handoffs/M1-to-M2-handoff.md) § "Known issues to escalate" for the full carry-forward list.
 
