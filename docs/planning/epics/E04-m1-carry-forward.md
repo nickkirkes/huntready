@@ -365,7 +365,7 @@ The line numbers above are PRD-001 line numbers as of 2026-05-29. If the human's
 
 - [ ] All 5 stories complete (S04.1 through S04.5; S04.6 omitted per epic header)
 - [ ] `license_season` RLS posture is at full parity with the original 10 entity tables (`ENABLE` + `FORCE` + 2 deny-all policies + `REVOKE ALL ON TABLE`)
-- [ ] `_BINDING_COUNT_GUARD_BAND` in Montana's jurisdiction-binding loader is `(552, 1024)`; the S04.2 docstring update at lines 108-109 names T16 / 2026-05-28 / empirical 788 / ±30%; AC #1087 footnote in the closed E03 epic carries both the original 2026-05-23 paragraph and a new 2026-05-29 paragraph
+- [ ] `_BINDING_COUNT_GUARD_BAND` in Montana's jurisdiction-binding loader is `(552, 1024)`; **both** prose locations name T16 / 2026-05-28 / empirical 788 / ±30% — (a) the module-level constant comment at lines 108-109 immediately following the `_BINDING_COUNT_GUARD_BAND` declaration, AND (b) the `_assert_binding_count_within_guard` function docstring at lines 679-680; AC #1087 footnote in the closed E03 epic carries both the original 2026-05-23 paragraph and a new 2026-05-29 paragraph
 - [ ] `load_jurisdiction_bindings.py:main()` invokes `logging.basicConfig` at entry
 - [ ] All six M1 UAT runbook hygiene fixes per handoff §8 #1-#6 are landed; the §6 sign-off section is byte-identical pre/post **except** for the criterion #7 row's "RESOLVED M2-W1 via `<timestamp>_rls_license_season.sql`" annotation (mandatory 7th edit, naming S04.1's actual migration timestamp)
 - [ ] PRD 001 lines 90, 96, 111 reconciled (line 48 unchanged); the human confirmed the merge
