@@ -13,7 +13,7 @@ Three `id text`-PK UPSERT helpers in `ingestion/ingestion/lib/db.py` allow the D
 
 The risk is silent: changing one slug-encoded field without updating the id constructor causes the same `id` to UPSERT cleanly with shifted identity. Link-table rows already pointing at that `id` then reference an entity whose meaning has changed, with no error at write time.
 
-S03.9 cubic-review round 3 surfaced the risk and shipped a local guard in `load_reporting_obligations.py` as belt-and-suspenders; this ADR generalizes that seed. S03.7 differs: its id constructors are per-row callables inside four build functions, so the assert lives at construction time rather than module load. `db.upsert_jurisdiction_binding` (S03.6.1) excludes identity fields from UPDATE entirely; that schema-level exclusion is strictly stronger than an application-level assert, so the pattern does not extend there.
+S03.9 cubic-review round 3 surfaced the risk and shipped a local guard in `load_reporting_obligations.py`; this ADR generalizes that seed. S03.7 differs: its id constructors are per-row callables inside four build functions, so the assert lives at construction time rather than module load. `db.upsert_jurisdiction_binding` (S03.6.1) excludes identity fields from UPDATE entirely; that schema-level exclusion is strictly stronger than an application-level assert, so the pattern does not extend there.
 
 ## Decision
 
@@ -43,7 +43,7 @@ Two assert primitives serve different shapes: `assert_dispatch_dict_drift_free` 
 
 - Any legitimate id change requires updating the derivation callable and every call-site in the same commit
 - A CI configuration that skips importing the affected modules would not catch drift; mitigation is that the `test_load_*.py` files import their adapters at top level, so pytest collection fires the import-time assert before any test runs
-- The construction-time assert adds three lines per call-site (four total) in `load_seasons_and_licenses.py`
+- The construction-time assert adds three lines to each of four instrumented build functions in `load_seasons_and_licenses.py` (two DEA + two bear)
 
 ### Neutral
 
@@ -52,10 +52,10 @@ Two assert primitives serve different shapes: `assert_dispatch_dict_drift_free` 
 
 ## Links
 
-- [Q19 in `docs/open-questions.md`](../open-questions.md) — the originating risk analysis
-- [ADR-005](ADR-005-python-for-ingestion-typescript-for-serving.md) — state-agnostic-clean discipline that places the shared helper in `ingestion/ingestion/lib/`
-- [ADR-010](ADR-010-decomposed-entity-model.md) — decomposed entity model that introduces the entities Q19 protects
-- [ADR-019](ADR-019-doc-type-precedence-multi-source-merge.md) — prior fail-loud architectural pattern
+- [Q19 in `docs/open-questions.md`](../open-questions.md) — originating risk analysis
+- [ADR-005](ADR-005-python-for-ingestion-typescript-for-serving.md) — state-agnostic-clean discipline placing the helper in `ingestion/ingestion/lib/`
+- [ADR-010](ADR-010-decomposed-entity-model.md) — entity model introducing the entities Q19 protects
+- [ADR-019](ADR-019-doc-type-precedence-multi-source-merge.md) — prior fail-loud pattern
 - [`ingestion/ingestion/lib/drift_guard.py`](../../ingestion/ingestion/lib/drift_guard.py) — shared helper
 - [`ingestion/states/montana/load_reporting_obligations.py`](../../ingestion/states/montana/load_reporting_obligations.py) — dispatch-dict surface (S03.9 seed)
-- [`ingestion/states/montana/load_seasons_and_licenses.py`](../../ingestion/states/montana/load_seasons_and_licenses.py) — 4 construction-time surfaces
+- [`ingestion/states/montana/load_seasons_and_licenses.py`](../../ingestion/states/montana/load_seasons_and_licenses.py) — 4 instrumented build functions
