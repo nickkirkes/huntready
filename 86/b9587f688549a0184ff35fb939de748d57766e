@@ -1,0 +1,19 @@
+docs/planning/epics/completed/E03-regulation-text-ingestion.md
+  s_f7a8d795380577::t_9ba77f5fe388b0 1093
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "86b9587f688549a0184ff35fb939de748d57766e",
+  "prompts": {},
+  "sessions": {
+    "s_f7a8d795380577": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "831c1eeb-60ad-4dbd-ad43-e758d1893d05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
