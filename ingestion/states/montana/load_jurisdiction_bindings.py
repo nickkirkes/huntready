@@ -23,9 +23,8 @@ phase discipline is:
 
 OQ7 row-count guard
 -------------------
-Band: ``[400, 1100]`` — intentionally wide pending T16's empirical count
-(narrow to ±30% around the observed value after first live run).
-See plan § "Spec deviations" #2 for derivation rationale.
+Band: ``(552, 1024)`` — ±30% around T16's empirical 788 measured 2026-05-28
+(see handoff §8 sixth bullet).
 
 ID format
 ---------
@@ -104,9 +103,9 @@ from states.montana.load_regulation_records import _JURISDICTION_BINDING_ID_FORM
 _OVERLAY_FIXTURE_PATH: Final[Path] = (
     Path(__file__).parent / "fixtures" / "geometry-overlays.json"
 )
-_BINDING_COUNT_GUARD_BAND: Final[tuple[int, int]] = (400, 1100)
-# Intentionally wide pending T16's empirical count — narrow to ±30% after
-# first live run.  See plan § "Spec deviations" #2 for derivation rationale.
+_BINDING_COUNT_GUARD_BAND: Final[tuple[int, int]] = (552, 1024)
+# Band is (552, 1024) — ±30% around T16's empirical 788 measured 2026-05-28;
+# see handoff §8 sixth bullet.
 _MT_STATEWIDE_GEOM_ID: Final[str] = "MT-STATEWIDE-geom"
 _STATE: Final[str] = "US-MT"  # locked by S03.6.1's test_id_encoding_is_deterministic
 _LICENSE_YEAR: Final[int] = 2026
@@ -676,9 +675,9 @@ def _build_no_hunt_zone_bindings(
 def _assert_binding_count_within_guard(written: int) -> None:
     """OQ7 row-count guard for S03.10.
 
-    Band is ``_BINDING_COUNT_GUARD_BAND`` (currently ``(400, 1100)`` — intentionally
-    wide pending T16's empirical count; narrow to ±30% after first live run).
-    See plan § "Spec deviations" #2 for derivation rationale.
+    Band is ``_BINDING_COUNT_GUARD_BAND`` (currently ``(552, 1024)`` —
+    ±30% around T16's empirical 788 measured 2026-05-28; see handoff §8
+    sixth bullet).
     """
     lo, hi = _BINDING_COUNT_GUARD_BAND
     if not (lo <= written <= hi):

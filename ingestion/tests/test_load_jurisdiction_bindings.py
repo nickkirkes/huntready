@@ -1164,28 +1164,34 @@ import logging  # noqa: E402
 from ingestion.lib.schema import JurisdictionBinding  # noqa: E402
 from states.montana.load_jurisdiction_bindings import (  # noqa: E402
     _assert_binding_count_within_guard,
+    _BINDING_COUNT_GUARD_BAND,
     _log_summary,
     _query_all_montana_regulation_records,
 )
 
 
+_IN_BAND_SAMPLE_COUNT = 788  # T16 empirical jurisdiction_binding count, measured 2026-05-28.
+
+
 class TestCountGuard:
+    LOW, HIGH = _BINDING_COUNT_GUARD_BAND
+
     def test_low_band_raises(self) -> None:
         with pytest.raises(RuntimeError, match="outside expected band"):
-            _assert_binding_count_within_guard(399)
+            _assert_binding_count_within_guard(self.LOW - 1)
 
     def test_in_band_no_op(self) -> None:
-        _assert_binding_count_within_guard(770)  # no raise
+        _assert_binding_count_within_guard(_IN_BAND_SAMPLE_COUNT)  # no raise
 
     def test_high_band_raises(self) -> None:
         with pytest.raises(RuntimeError, match="outside expected band"):
-            _assert_binding_count_within_guard(1101)
+            _assert_binding_count_within_guard(self.HIGH + 1)
 
     def test_lower_bound_inclusive(self) -> None:
-        _assert_binding_count_within_guard(400)  # no raise
+        _assert_binding_count_within_guard(self.LOW)  # no raise
 
     def test_upper_bound_inclusive(self) -> None:
-        _assert_binding_count_within_guard(1100)  # no raise
+        _assert_binding_count_within_guard(self.HIGH)  # no raise
 
 
 # ---------------------------------------------------------------------------
@@ -1443,7 +1449,7 @@ class TestMain:
     def test_dry_run_returns_0_and_no_upserts(self) -> None:
         """--dry-run: guard passes, no db.upsert_jurisdiction_binding called."""
         conn_mock = self._make_conn_mock()
-        synthetic_bindings = self._patch_builders_with_bindings(770)
+        synthetic_bindings = self._patch_builders_with_bindings(_IN_BAND_SAMPLE_COUNT)
 
         with patch.object(_db_module, "connect", return_value=conn_mock), \
              patch.object(_ljb, "_query_all_montana_regulation_records", return_value=_make_minimal_statewide_reg_records()), \
@@ -1460,9 +1466,9 @@ class TestMain:
         mock_upsert.assert_not_called()
 
     def test_in_band_count_writes_commits_and_returns_0(self) -> None:
-        """770 synthetic bindings → writes 770 upserts → commit called → returns 0."""
+        """788 synthetic bindings → writes 788 upserts → commit called → returns 0."""
         conn_mock = self._make_conn_mock()
-        synthetic_bindings = self._patch_builders_with_bindings(770)
+        synthetic_bindings = self._patch_builders_with_bindings(_IN_BAND_SAMPLE_COUNT)
 
         with patch.object(_db_module, "connect", return_value=conn_mock), \
              patch.object(_ljb, "_query_all_montana_regulation_records", return_value=_make_minimal_statewide_reg_records()), \
@@ -1476,14 +1482,14 @@ class TestMain:
             result = _ljb.main([])
 
         assert result == 0
-        assert mock_upsert.call_count == 770
+        assert mock_upsert.call_count == _IN_BAND_SAMPLE_COUNT
         conn_mock.commit.assert_called_once()
         conn_mock.rollback.assert_not_called()
 
     def test_out_of_band_count_raises_before_any_upsert(self) -> None:
         """50 synthetic bindings → count guard fires → RuntimeError → no upserts."""
         conn_mock = self._make_conn_mock()
-        # 50 bindings is below the [400, 1100] band floor
+        # 50 bindings is below the [552, 1024] band floor
         synthetic_bindings = self._patch_builders_with_bindings(50)
 
         with patch.object(_db_module, "connect", return_value=conn_mock), \
@@ -1504,7 +1510,7 @@ class TestMain:
     def test_write_exception_triggers_rollback_not_commit(self) -> None:
         """If upsert raises mid-loop, rollback is called and commit is not."""
         conn_mock = self._make_conn_mock()
-        synthetic_bindings = self._patch_builders_with_bindings(770)
+        synthetic_bindings = self._patch_builders_with_bindings(_IN_BAND_SAMPLE_COUNT)
 
         def _raise_on_first_call(*_args: object, **_kwargs: object) -> None:
             raise RuntimeError("simulated DB error")
@@ -1935,7 +1941,7 @@ class TestUpsertIdempotency:
         conn.__exit__ = MagicMock(return_value=False)
         return conn
 
-    def _synthetic_bindings(self, n: int = 770) -> list[JurisdictionBinding]:
+    def _synthetic_bindings(self, n: int = _IN_BAND_SAMPLE_COUNT) -> list[JurisdictionBinding]:
         source = _make_minimal_source()
         return [
             JurisdictionBinding(
@@ -1955,7 +1961,7 @@ class TestUpsertIdempotency:
     def test_main_run_twice_produces_byte_identical_upsert_calls(self) -> None:
         """Re-running main() with unchanged data must produce the same upsert
         call arguments in the same order — no id drift across runs."""
-        synthetic_bindings = self._synthetic_bindings(770)
+        synthetic_bindings = self._synthetic_bindings(_IN_BAND_SAMPLE_COUNT)
 
         upsert_calls_run1: list[str] = []
         upsert_calls_run2: list[str] = []
@@ -2002,7 +2008,7 @@ class TestUpsertIdempotency:
             f"First mismatch at index: "
             f"{next(i for i, (a, b) in enumerate(zip(upsert_calls_run1, upsert_calls_run2)) if a != b)}"
         )
-        assert len(upsert_calls_run1) == 770
+        assert len(upsert_calls_run1) == _IN_BAND_SAMPLE_COUNT
 
 
 # ---------------------------------------------------------------------------
@@ -2033,7 +2039,7 @@ class TestAtomicTransaction:
         assert rollback() called and commit() NOT called."""
         conn_mock = self._make_conn_mock()
         source = _make_minimal_source()
-        n_bindings = 770
+        n_bindings = _IN_BAND_SAMPLE_COUNT
         synthetic_bindings = [
             JurisdictionBinding(
                 id=f"US-MT-MT-HD-deer-elk-lion-{i}-elk-2026-primary_unit-MT-HD-deer-elk-lion-{i}-geom",
