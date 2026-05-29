@@ -1,0 +1,40 @@
+docs/planning/epics/completed/E03-regulation-text-ingestion.md
+  s_f7a8d795380577::t_ffc5d9531f0e81 1096-1097
+  s_f7a8d795380577::t_0ee8c9670a793a 1093
+ingestion/states/montana/load_jurisdiction_bindings.py
+  s_f7a8d795380577::t_99dc2bef58b0c9 678-680
+  s_f7a8d795380577::t_435fe8926b81da 106-108
+  s_f7a8d795380577::t_06e797bb4dbe0b 26-27
+.roughly/plans/S04.2-narrow-binding-count-guard-band-plan.md
+  s_f7a8d795380577::t_15aa4682e14d07 122
+  s_f7a8d795380577::t_dd79537749a099 1-71,73-121,123-196
+  s_f7a8d795380577::t_c8e0e40142399e 72
+ingestion/tests/test_load_jurisdiction_bindings.py
+  s_f7a8d795380577::t_6fad3374d05779 1167
+  s_f7a8d795380577::t_583cc1f4048b87 1452
+  s_f7a8d795380577::t_218342cf7aa6bd 2011
+  s_f7a8d795380577::t_f69f31761a3d18 1485
+  s_f7a8d795380577::t_f523dece67d422 1173-1175,1177-1178,1181,1184,1188,1191,1194
+  s_f7a8d795380577::t_aacd4333e8e50d 2042
+  s_f7a8d795380577::t_195d30c7d1cdcc 1944
+  s_f7a8d795380577::t_15d81d17133b6d 1469,1471
+  s_f7a8d795380577::t_acfd24f28f1a0c 1964
+  s_f7a8d795380577::t_241446237f3513 1513
+  s_f7a8d795380577::t_8f010e0a44172b 1492
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4ce667194eb8fbe1f28af06b67851af5c2f94870",
+  "prompts": {},
+  "sessions": {
+    "s_f7a8d795380577": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "831c1eeb-60ad-4dbd-ad43-e758d1893d05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
