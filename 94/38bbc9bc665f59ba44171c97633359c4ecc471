@@ -1,0 +1,19 @@
+.roughly/plans/S04.2-narrow-binding-count-guard-band-plan.md
+  s_f7a8d795380577::t_998251ad29d2b0 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9438bbc9bc665f59ba44171c97633359c4ecc471",
+  "prompts": {},
+  "sessions": {
+    "s_f7a8d795380577": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "831c1eeb-60ad-4dbd-ad43-e758d1893d05",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
