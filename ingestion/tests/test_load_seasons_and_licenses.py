@@ -21,11 +21,15 @@ is directly importable, the same way every sibling adapter test does it.
 
 from __future__ import annotations
 
+import ast
 import datetime as dt
+import json as _json
 import logging
+import pathlib as _pathlib
 
 import pytest
 
+import states.montana.load_seasons_and_licenses as lsl
 from ingestion.lib.schema import SourceCitation
 from states.montana.load_seasons_and_licenses import (
     _assert_license_season_count_within_guard,
@@ -1858,3 +1862,382 @@ class TestRealArtifactKindCountsAfterOtcDiscrimination:
         assert sum(kind_counts.values()) == 790, (
             f"Expected 790 total deduped tags; got {sum(kind_counts.values())}"
         )
+
+
+# ---------------------------------------------------------------------------
+# TestConstructionTimeDriftGuard
+# ---------------------------------------------------------------------------
+
+
+def _real_dea_artifact() -> list[dict]:
+    """Load the committed dea-2026.json artifact (mirrors TestRealArtifactKindCountsAfterOtcDiscrimination)."""
+    artifact_path = (
+        _pathlib.Path(__file__).parent.parent
+        / "states" / "montana" / "extracted" / "dea-2026.json"
+    )
+    with artifact_path.open() as f:
+        return _json.load(f)  # type: ignore[no-any-return]
+
+
+def _real_bear_artifact() -> dict:
+    """Load the committed black-bear-2026.json artifact."""
+    artifact_path = (
+        _pathlib.Path(__file__).parent.parent
+        / "states" / "montana" / "extracted" / "black-bear-2026.json"
+    )
+    with artifact_path.open() as f:
+        return _json.load(f)  # type: ignore[no-any-return]
+
+
+_BOGUS_ID = "MT-BOGUS-DRIFT-SENTINEL-id"
+
+
+class TestConstructionTimeDriftGuard:
+    """Locks the construction-time drift-guard asserts added in T5.
+
+    Four entity builders each get four tests:
+      1. round_trip_real_artifact  — build succeeds, result non-empty
+      2. fault_injection            — monkeypatched constructor → RuntimeError
+      3. error_message_helper_name  — RuntimeError names the builder function
+      4. error_message_context_keys — RuntimeError names all structured-field keys
+
+    Plus one AST regression guard confirming the 6 link-builders have no
+    assert_id_matches calls (T5 design decision).
+
+    Boolean-flip monkeypatch rationale: flipping a boolean flag on the first
+    call is deterministic regardless of artifact row count. A counter-based
+    approach would fire on a non-deterministic artifact row number and be
+    fragile across future extractions.
+    """
+
+    # ------------------------------------------------------------------
+    # _build_bear_season_definitions
+    # ------------------------------------------------------------------
+
+    def test_bear_season_definitions_round_trip_real_artifact(self) -> None:
+        """Build from real artifact passes all drift-guard asserts; result non-empty."""
+        artifact = _real_bear_artifact()
+        defs = lsl._build_bear_season_definitions(artifact)
+        assert len(defs) > 0
+
+    def test_bear_season_definitions_fault_injection_via_constructor_monkeypatch(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Boolean-flip monkeypatch: first constructor call returns bogus id;
+        the assert_id_matches re-call returns the real id → RuntimeError."""
+        real = lsl._bear_season_definition_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_bear_season_definition_id", spy)
+        artifact = _real_bear_artifact()
+        with pytest.raises(RuntimeError):
+            lsl._build_bear_season_definitions(artifact)
+
+    def test_bear_season_definitions_error_message_contains_helper_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RuntimeError message names the builder function for fast operator diagnosis."""
+        real = lsl._bear_season_definition_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_bear_season_definition_id", spy)
+        artifact = _real_bear_artifact()
+        with pytest.raises(RuntimeError) as excinfo:
+            lsl._build_bear_season_definitions(artifact)
+        assert "_build_bear_season_definitions" in str(excinfo.value)
+
+    def test_bear_season_definitions_error_message_contains_context_fields(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RuntimeError message contains all context keys (bmu_number, season_key)."""
+        real = lsl._bear_season_definition_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_bear_season_definition_id", spy)
+        artifact = _real_bear_artifact()
+        with pytest.raises(RuntimeError) as excinfo:
+            lsl._build_bear_season_definitions(artifact)
+        msg = str(excinfo.value)
+        assert "bmu_number=" in msg
+        assert "season_key=" in msg
+
+    # ------------------------------------------------------------------
+    # _build_bear_license_tags
+    # ------------------------------------------------------------------
+
+    def test_bear_license_tags_round_trip_real_artifact(self) -> None:
+        """Build from real artifact passes all drift-guard asserts; result non-empty."""
+        artifact = _real_bear_artifact()
+        tags = lsl._build_bear_license_tags(artifact)
+        assert len(tags) > 0
+
+    def test_bear_license_tags_fault_injection_via_constructor_monkeypatch(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Boolean-flip monkeypatch: first constructor call returns bogus id → RuntimeError."""
+        real = lsl._bear_license_tag_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_bear_license_tag_id", spy)
+        artifact = _real_bear_artifact()
+        with pytest.raises(RuntimeError):
+            lsl._build_bear_license_tags(artifact)
+
+    def test_bear_license_tags_error_message_contains_helper_name(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RuntimeError message names the builder function for fast operator diagnosis."""
+        real = lsl._bear_license_tag_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_bear_license_tag_id", spy)
+        artifact = _real_bear_artifact()
+        with pytest.raises(RuntimeError) as excinfo:
+            lsl._build_bear_license_tags(artifact)
+        assert "_build_bear_license_tags" in str(excinfo.value)
+
+    def test_bear_license_tags_error_message_contains_context_fields(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RuntimeError message contains the context key (bmu_number)."""
+        real = lsl._bear_license_tag_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_bear_license_tag_id", spy)
+        artifact = _real_bear_artifact()
+        with pytest.raises(RuntimeError) as excinfo:
+            lsl._build_bear_license_tags(artifact)
+        assert "bmu_number=" in str(excinfo.value)
+
+    # ------------------------------------------------------------------
+    # _build_dea_season_definitions
+    # ------------------------------------------------------------------
+
+    def test_dea_season_definitions_round_trip_real_artifact(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        """Build from real artifact passes all drift-guard asserts; result non-empty."""
+        artifact = _real_dea_artifact()
+        defs = lsl._build_dea_season_definitions(artifact, mock_dea_citation)
+        assert len(defs) > 0
+
+    def test_dea_season_definitions_fault_injection_via_constructor_monkeypatch(
+        self, mock_dea_citation: SourceCitation, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Boolean-flip monkeypatch: first constructor call returns bogus id → RuntimeError.
+
+        The boolean-flip fires on the first entity built regardless of artifact
+        section ordering, making this deterministic across artifact updates.
+        """
+        real = lsl._season_definition_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_season_definition_id", spy)
+        artifact = _real_dea_artifact()
+        with pytest.raises(RuntimeError):
+            lsl._build_dea_season_definitions(artifact, mock_dea_citation)
+
+    def test_dea_season_definitions_error_message_contains_helper_name(
+        self, mock_dea_citation: SourceCitation, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RuntimeError message names the builder function."""
+        real = lsl._season_definition_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_season_definition_id", spy)
+        artifact = _real_dea_artifact()
+        with pytest.raises(RuntimeError) as excinfo:
+            lsl._build_dea_season_definitions(artifact, mock_dea_citation)
+        assert "_build_dea_season_definitions" in str(excinfo.value)
+
+    def test_dea_season_definitions_error_message_contains_context_fields(
+        self, mock_dea_citation: SourceCitation, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RuntimeError message contains context keys (species, hd_number, season_key)."""
+        real = lsl._season_definition_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_season_definition_id", spy)
+        artifact = _real_dea_artifact()
+        with pytest.raises(RuntimeError) as excinfo:
+            lsl._build_dea_season_definitions(artifact, mock_dea_citation)
+        msg = str(excinfo.value)
+        assert "species=" in msg
+        assert "hd_number=" in msg
+        assert "season_key=" in msg
+
+    # ------------------------------------------------------------------
+    # _build_dea_license_tags
+    # ------------------------------------------------------------------
+
+    def test_dea_license_tags_round_trip_real_artifact(
+        self, mock_dea_citation: SourceCitation
+    ) -> None:
+        """Build from real artifact passes all drift-guard asserts; result non-empty."""
+        artifact = _real_dea_artifact()
+        tags = lsl._build_dea_license_tags(artifact, mock_dea_citation)
+        assert len(tags) > 0
+
+    def test_dea_license_tags_fault_injection_via_constructor_monkeypatch(
+        self, mock_dea_citation: SourceCitation, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Boolean-flip monkeypatch: first constructor call returns bogus id → RuntimeError.
+
+        The DEA artifact has many sections; the boolean-flip fires on the very first
+        entity built, so the abort is deterministic regardless of section ordering.
+        """
+        real = lsl._license_tag_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_license_tag_id", spy)
+        artifact = _real_dea_artifact()
+        with pytest.raises(RuntimeError):
+            lsl._build_dea_license_tags(artifact, mock_dea_citation)
+
+    def test_dea_license_tags_error_message_contains_helper_name(
+        self, mock_dea_citation: SourceCitation, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RuntimeError message names the builder function."""
+        real = lsl._license_tag_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_license_tag_id", spy)
+        artifact = _real_dea_artifact()
+        with pytest.raises(RuntimeError) as excinfo:
+            lsl._build_dea_license_tags(artifact, mock_dea_citation)
+        assert "_build_dea_license_tags" in str(excinfo.value)
+
+    def test_dea_license_tags_error_message_contains_context_fields(
+        self, mock_dea_citation: SourceCitation, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """RuntimeError message contains context keys (species_group, hd_number, license_code)."""
+        real = lsl._license_tag_id
+        first_call = [True]
+
+        def spy(*args: object, **kwargs: object) -> str:
+            if first_call[0]:
+                first_call[0] = False
+                return _BOGUS_ID
+            return real(*args, **kwargs)  # type: ignore[arg-type]
+
+        monkeypatch.setattr(lsl, "_license_tag_id", spy)
+        artifact = _real_dea_artifact()
+        with pytest.raises(RuntimeError) as excinfo:
+            lsl._build_dea_license_tags(artifact, mock_dea_citation)
+        msg = str(excinfo.value)
+        assert "species_group=" in msg
+        assert "hd_number=" in msg
+        assert "license_code=" in msg
+
+    # ------------------------------------------------------------------
+    # AST regression guard: link-builders must NOT have assert_id_matches
+    # ------------------------------------------------------------------
+
+    def test_no_link_builders_have_asserts_regression_guard(self) -> None:
+        """AST walk confirms the 6 link-builder functions contain no assert_id_matches calls.
+
+        This locks T5's design decision: only entity-builder functions (those that
+        construct SeasonDefinition / LicenseTag with a primary-key id field) receive
+        construction-time drift-guard asserts. Link-builder functions emit FK-only
+        structs (LicenseSeason, RegulationSeason, RegulationLicense) that have no
+        primary-key id to guard.
+        """
+        module_path = (
+            _pathlib.Path(__file__).parent.parent
+            / "states" / "montana" / "load_seasons_and_licenses.py"
+        )
+        source = module_path.read_text()
+        tree = ast.parse(source, filename=str(module_path))
+
+        link_builder_names = {
+            "_build_bear_license_season_links",
+            "_build_bear_regulation_season_links",
+            "_build_bear_regulation_license_links",
+            "_build_dea_license_season_links",
+            "_build_dea_regulation_season_links",
+            "_build_dea_regulation_license_links",
+        }
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            if node.name not in link_builder_names:
+                continue
+            # Walk this function body looking for assert_id_matches Call nodes.
+            for child in ast.walk(node):
+                if not isinstance(child, ast.Call):
+                    continue
+                func = child.func
+                # Direct call: assert_id_matches(...)
+                if isinstance(func, ast.Name) and func.id == "assert_id_matches":
+                    raise AssertionError(
+                        f"Link-builder {node.name!r} contains an assert_id_matches "
+                        f"call at line {child.lineno}. T5 design decision: link-builders "
+                        f"must NOT receive drift-guard asserts — only entity-builders do."
+                    )

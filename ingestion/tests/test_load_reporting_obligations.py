@@ -28,6 +28,7 @@ import psycopg
 import pytest
 
 import states.montana.load_reporting_obligations as lro
+from ingestion.lib.drift_guard import assert_dispatch_dict_drift_free
 from ingestion.lib.schema import ReportingObligation
 from states.montana.load_reporting_obligations import (
     _assert_regulation_reporting_count_within_guard,
@@ -895,7 +896,14 @@ class TestDispatchDictDriftGuard:
         # establishes the "established pattern" reference; if the canonical
         # spec drifts, this test fails at reload time.
         importlib.reload(lro)
-        lro._assert_dispatch_dict_drift_free(lro._REPORTING_ROW_SPEC)
+        assert_dispatch_dict_drift_free(
+            lro._REPORTING_ROW_SPEC,
+            lambda key, entry: lro._derive_expected_id_suffix(
+                entry["kind"], entry["deadline_hours"], key[0],
+            ),
+            helper_name="_REPORTING_ROW_SPEC",
+            id_field="id_suffix",
+        )
 
     def test_drifted_id_suffix_raises_with_diagnostic(self) -> None:
         """A drifted spec entry triggers RuntimeError naming the offending key."""
@@ -912,7 +920,14 @@ class TestDispatchDictDriftGuard:
             RuntimeError,
             match=r"drift detected.*R1.*tooth_submission",
         ):
-            lro._assert_dispatch_dict_drift_free(drifted)
+            assert_dispatch_dict_drift_free(
+                drifted,
+                lambda key, entry: lro._derive_expected_id_suffix(
+                    entry["kind"], entry["deadline_hours"], key[0],
+                ),
+                helper_name="_REPORTING_ROW_SPEC",
+                id_field="id_suffix",
+            )
 
     def test_drifted_kind_raises_with_diagnostic(self) -> None:
         """Changing kind without updating id_suffix triggers the guard."""
@@ -927,7 +942,14 @@ class TestDispatchDictDriftGuard:
             RuntimeError,
             match=r"drift detected.*STATEWIDE.*harvest_report",
         ):
-            lro._assert_dispatch_dict_drift_free(drifted)
+            assert_dispatch_dict_drift_free(
+                drifted,
+                lambda key, entry: lro._derive_expected_id_suffix(
+                    entry["kind"], entry["deadline_hours"], key[0],
+                ),
+                helper_name="_REPORTING_ROW_SPEC",
+                id_field="id_suffix",
+            )
 
     def test_drifted_deadline_hours_raises_with_diagnostic(self) -> None:
         """Changing deadline_hours without updating id_suffix triggers the guard."""
@@ -938,7 +960,14 @@ class TestDispatchDictDriftGuard:
             "deadline_hours": 72,  # was 48
         }
         with pytest.raises(RuntimeError, match=r"drift detected"):
-            lro._assert_dispatch_dict_drift_free(drifted)
+            assert_dispatch_dict_drift_free(
+                drifted,
+                lambda key, entry: lro._derive_expected_id_suffix(
+                    entry["kind"], entry["deadline_hours"], key[0],
+                ),
+                helper_name="_REPORTING_ROW_SPEC",
+                id_field="id_suffix",
+            )
 
     def test_derive_function_rejects_unrepresentable_deadline(self) -> None:
         """deadline_hours that doesn't fit the encoding raises with diagnostic.
@@ -978,3 +1007,151 @@ class TestDispatchDictDriftGuard:
         assert lro._derive_expected_id_suffix(
             "harvest_report", 48, "STATEWIDE",
         ) == "harvest-report-48hr-statewide"
+
+
+# ---------------------------------------------------------------------------
+# TestDriftGuardPreservation
+# ---------------------------------------------------------------------------
+
+
+class TestDriftGuardPreservation:
+    """Regression baseline for the deleted local ``_assert_dispatch_dict_drift_free``.
+
+    Encodes the spec's Hard NO: "No removal of S03.9's local
+    ``_assert_dispatch_dict_drift_free`` without confirming the shared helper
+    produces identical assertion semantics."
+
+    These tests lock the semantic equivalence of the shared
+    ``assert_dispatch_dict_drift_free`` helper from ``ingestion.lib.drift_guard``
+    against the behaviour the deleted local function produced. Without this
+    concrete enumeration, the regression baseline would be trivially satisfied
+    by any function that merely accepts the same arguments.
+    """
+
+    def test_dispatch_round_trip_locks(self) -> None:
+        """Every production entry's id_suffix round-trips through derivation.
+
+        Iterates all 3 entries in ``_REPORTING_ROW_SPEC`` and asserts that
+        calling ``_derive_expected_id_suffix`` with each entry's own fields
+        produces the same ``id_suffix`` stored in the spec. This is the
+        round-trip property the drift guard enforces at module load.
+        """
+        for key, entry in lro._REPORTING_ROW_SPEC.items():
+            region_scope = key[0]
+            derived = lro._derive_expected_id_suffix(
+                entry["kind"], entry["deadline_hours"], region_scope,
+            )
+            assert entry["id_suffix"] == derived, (
+                f"Round-trip mismatch for key={key!r}: "
+                f"stored={entry['id_suffix']!r}, derived={derived!r}"
+            )
+
+    def test_module_import_passes_drift_guard(self) -> None:
+        """Module import fires the module-level drift guard without raising.
+
+        Since ``load_reporting_obligations`` is imported at the top of this
+        test file, the module-level ``assert_dispatch_dict_drift_free(...)``
+        call has already executed without raising by the time this test runs.
+        The assertion here is a tautology that documents that contract: the
+        real test happened at import time, not at test-call time.
+        """
+        assert lro._REPORTING_ROW_SPEC is not None
+
+    def test_fault_injection_drifted_entry_raises_runtime_error(self) -> None:
+        """A drifted id_suffix triggers RuntimeError naming both key and value.
+
+        Builds a mutated copy of ``_REPORTING_ROW_SPEC`` with the STATEWIDE
+        entry's ``id_suffix`` overridden to a bogus value. The shared helper
+        must raise RuntimeError whose message contains both the offending key
+        (in repr form) and the bogus value.
+        """
+        bogus_suffix = "bogus-injected-id"
+        drifted = dict(lro._REPORTING_ROW_SPEC)
+        drifted[("STATEWIDE", "harvest_report")] = {
+            **lro._REPORTING_ROW_SPEC[("STATEWIDE", "harvest_report")],
+            "id_suffix": bogus_suffix,
+        }
+        with pytest.raises(RuntimeError) as excinfo:
+            assert_dispatch_dict_drift_free(
+                drifted,
+                lambda key, entry: lro._derive_expected_id_suffix(
+                    entry["kind"], entry["deadline_hours"], key[0],
+                ),
+                helper_name="_REPORTING_ROW_SPEC",
+                id_field="id_suffix",
+            )
+        message = str(excinfo.value)
+        assert repr(("STATEWIDE", "harvest_report")) in message, (
+            f"Expected offending key repr in error message; got: {message}"
+        )
+        assert bogus_suffix in message, (
+            f"Expected bogus value in error message; got: {message}"
+        )
+
+    def test_error_message_names_q19_and_adr020(self) -> None:
+        """RuntimeError message from the shared helper cites ADR-020 and Q19.
+
+        The shared helper at ``drift_guard.py:32-33`` ends every error with
+        "See ADR-020 and Q19 in docs/open-questions.md." — both substrings
+        must appear in the raised RuntimeError so operators can locate the
+        relevant decision records immediately.
+        """
+        drifted = dict(lro._REPORTING_ROW_SPEC)
+        drifted[("R1", "tooth_submission")] = {
+            **lro._REPORTING_ROW_SPEC[("R1", "tooth_submission")],
+            "id_suffix": "bogus-for-q19-test",
+        }
+        with pytest.raises(RuntimeError) as excinfo:
+            assert_dispatch_dict_drift_free(
+                drifted,
+                lambda key, entry: lro._derive_expected_id_suffix(
+                    entry["kind"], entry["deadline_hours"], key[0],
+                ),
+                helper_name="_REPORTING_ROW_SPEC",
+                id_field="id_suffix",
+            )
+        message = str(excinfo.value)
+        assert "ADR-020" in message, (
+            f"Expected 'ADR-020' in error message; got: {message}"
+        )
+        assert "Q19" in message, (
+            f"Expected 'Q19' in error message; got: {message}"
+        )
+
+    def test_semantic_identity_with_prior_local_guard(self) -> None:
+        """Shared helper raises on each of the 3 spec entries when their id_suffix is drifted.
+
+        Regression baseline for the deleted local ``_assert_dispatch_dict_drift_free``
+        function (spec's Hard NO). The prior local function iterated
+        ``_REPORTING_ROW_SPEC`` and raised on the first drifted entry — the
+        shared helper must produce RuntimeError for each of the 3 production
+        keys when individually injected with a bogus ``id_suffix``.
+
+        Without this explicit per-key parameterization, the test would be
+        trivially satisfied by a guard that only checks the first entry.
+        """
+        mutation_cases = [
+            (("STATEWIDE", "harvest_report"), "bogus-harvest-id"),
+            (("R1", "tooth_submission"), "bogus-tooth-id"),
+            (("R2-7", "hide_skull_presentation"), "bogus-hide-id"),
+        ]
+        for offending_key, bogus_suffix in mutation_cases:
+            drifted = dict(lro._REPORTING_ROW_SPEC)
+            drifted[offending_key] = {
+                **lro._REPORTING_ROW_SPEC[offending_key],
+                "id_suffix": bogus_suffix,
+            }
+            with pytest.raises(RuntimeError) as excinfo:
+                assert_dispatch_dict_drift_free(
+                    drifted,
+                    lambda key, entry: lro._derive_expected_id_suffix(
+                        entry["kind"], entry["deadline_hours"], key[0],
+                    ),
+                    helper_name="_REPORTING_ROW_SPEC",
+                    id_field="id_suffix",
+                )
+            message = str(excinfo.value)
+            assert repr(offending_key) in message, (
+                f"Expected offending key {offending_key!r} repr in error "
+                f"message for bogus_suffix={bogus_suffix!r}; got: {message}"
+            )

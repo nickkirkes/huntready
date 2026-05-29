@@ -140,6 +140,7 @@ import sys
 from typing import Final, Literal, TypedDict
 
 from ingestion.lib import db, pdf
+from ingestion.lib.drift_guard import assert_dispatch_dict_drift_free
 from ingestion.lib.schema import (
     RegulationReporting,
     ReportingObligation,
@@ -194,7 +195,8 @@ class _RowSpec(TypedDict):
     function reads verbatim_rule + source from the artifact and applies the
     spec verbatim. Locked values are in the S03.9 closure note at
     docs/planning/epics/E03-regulation-text-ingestion.md; drift-guard discipline
-    is encoded in ``_assert_dispatch_dict_drift_free`` in this file.
+    is encoded via the module-level ``assert_dispatch_dict_drift_free`` call
+    (imported from ``ingestion.lib.drift_guard``; see ADR-020).
     """
 
     id_suffix: str
@@ -336,38 +338,15 @@ def _derive_expected_id_suffix(
     return f"{kind_token}-{region_token}-{deadline_token}"
 
 
-def _assert_dispatch_dict_drift_free(
-    spec_dict: dict[tuple[str, str], _RowSpec],
-) -> None:
-    """Assert every entry's id_suffix matches its derived slug.
-
-    Fires at module load to catch drift between ``_REPORTING_ROW_SPEC``'s
-    hand-encoded ``id_suffix`` and the slug derivation implied by its
-    ``kind``/``deadline_hours``/region_scope (the tuple-key element).
-
-    Raises ``RuntimeError`` with a diagnostic naming the drifted entry.
-    """
-    for spec_key, spec in spec_dict.items():
-        region_scope, _kind_hint = spec_key
-        expected = _derive_expected_id_suffix(
-            spec["kind"], spec["deadline_hours"], region_scope,
-        )
-        if spec["id_suffix"] != expected:
-            raise RuntimeError(
-                f"_REPORTING_ROW_SPEC drift detected for {spec_key!r}: "
-                f"id_suffix={spec['id_suffix']!r} but slug derivation produces "
-                f"{expected!r} from kind={spec['kind']!r}, "
-                f"deadline_hours={spec['deadline_hours']!r}, "
-                f"region_scope={region_scope!r}; either update id_suffix to "
-                f"match or update _derive_expected_id_suffix() to reflect a "
-                f"deliberate slug-encoding change. See Q19 in "
-                f"docs/open-questions.md for the project-wide fix planned pre-M2."
-            )
-
-
-# V1 drift guard — see Q19 in docs/open-questions.md for the project-wide
-# fix planned pre-M2.
-_assert_dispatch_dict_drift_free(_REPORTING_ROW_SPEC)
+# V1 drift guard — see ADR-020 and Q19 in docs/open-questions.md.
+assert_dispatch_dict_drift_free(
+    _REPORTING_ROW_SPEC,
+    lambda key, entry: _derive_expected_id_suffix(
+        entry["kind"], entry["deadline_hours"], key[0],  # key[0] is region_scope
+    ),
+    helper_name="_REPORTING_ROW_SPEC",
+    id_field="id_suffix",
+)
 
 
 # ---------------------------------------------------------------------------
