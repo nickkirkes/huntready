@@ -1,0 +1,30 @@
+docs/adrs/ADR-020-id-text-pk-slug-derivation.md
+  s_b59b6ae664378f::t_c0c873c305c0cf 3
+  s_b59b6ae664378f::t_c3d44b5c86d92d 46
+  s_b59b6ae664378f::t_299008bd62a0c9 12
+  s_b59b6ae664378f::t_5022859a03e75d 55
+  s_b59b6ae664378f::t_d727f24e7492d8 26
+  s_b59b6ae664378f::t_9521fea8b1022a 30,32
+  s_b59b6ae664378f::t_eaa03047f79a0c 44
+  s_b59b6ae664378f::t_0b7a07e9b2ffc4 16
+  s_b59b6ae664378f::t_16ec49cd4134eb 45
+  s_b59b6ae664378f::t_2553904976b635 24
+  s_b59b6ae664378f::t_837a9afeebd5c7 14
+  s_b59b6ae664378f::t_f133a43c51cea9 58-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a4ed591f226a7cbb7456dc522010e6e06604b9cc",
+  "prompts": {},
+  "sessions": {
+    "s_b59b6ae664378f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8814d9b5-796e-448d-ba29-1faf40bd3c9c",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
