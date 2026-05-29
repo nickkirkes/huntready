@@ -1,0 +1,22 @@
+docs/planning/epics/E04-m1-carry-forward.md
+  s_b6b1c793a73350::t_ae026f0b6c967c 368
+docs/planning/README.md
+  s_b6b1c793a73350::t_ac16f97ed40893 109
+  s_b6b1c793a73350::t_afa4c35f99f857 44-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3c74644be0a44993681ae8a8f87438673c49b293",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
