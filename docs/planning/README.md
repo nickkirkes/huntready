@@ -41,6 +41,8 @@ M2 delivers Colorado regulations into Supabase Postgres, validated against the s
 | S04.4 | M1 UAT runbook hygiene fixes (six edits, handoff §8 #1-#6) | Not Started | Implementation |
 | S04.5 | PRD 001 sequencing language reconciliation (PM drafts diff; human applies) | Not Started | PM + Human |
 
+**E04 merge order is hard-locked:** S04.2 → S04.1 → S04.3 → S04.4 → S04.5 (S04.2-first per handoff §8 sixth bullet; S04.1-before-S04.4 because S04.4's mandatory criterion #7 sign-off annotation references S04.1's migration timestamp). See E04 epic §"Parallelization Notes" for the precondition details.
+
 E05 and E06 are planned later via `/plan-next-epic` once E04's last story merges. PRD 002 §"Why sequential" — only the E06→E05 dependency is FK-hard; the other orderings are operator-discipline ordering.
 
 ---
@@ -104,7 +106,7 @@ M1 delivered Montana regulations into Supabase Postgres, validated against the s
 
 ## Active Blockers
 
-None. M2 E04 planning closed 2026-05-29; S04.2 is the recommended first PR per handoff §8 sixth bullet ("first M2 PR narrows `_BINDING_COUNT_GUARD_BAND` to `[552, 1024]`"). Five E04 stories ready for implementation in the recommended merge order S04.2 → S04.1 → S04.3 → S04.4 → S04.5.
+None. M2 E04 planning closed 2026-05-29; S04.2 is the **hard-locked first PR** per handoff §8 sixth bullet ("first M2 PR narrows `_BINDING_COUNT_GUARD_BAND` to `[552, 1024]`"). Five E04 stories ready for implementation in the **hard-locked merge order** S04.2 → S04.1 → S04.3 → S04.4 → S04.5 (S04.1-before-S04.4 is a hard precondition because S04.4's mandatory criterion #7 sign-off annotation references S04.1's migration timestamp; see E04 epic §"Parallelization Notes").
 
 **M2 open-question candidate surfaced at E04 close**: the base RLS migration `20260425000001_rls_deny_all.sql` uses a flat per-table IN-list that does not auto-extend to subsequently-added tables — the same pattern that produced the M1 `license_season` gap S04.1 closes. Any future migration in M2 / M3 that adds a new `public.*` table will silently inherit the gap unless its inline RLS block is included in the same migration. Surfaced to user via E04 § "Known Issues to Escalate" for decision on mitigation path (event-trigger migration / CI check / discipline-only). PRD 002 §"Decisions already made" already encodes the discipline-only mitigation; the recurring-gap risk is whether to harden further.
 
