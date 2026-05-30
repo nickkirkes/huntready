@@ -1,0 +1,19 @@
+supabase/migrations/20260530132727_rls_license_season.sql
+  s_da5c235e60afc9::t_c8d8b39d10f556 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "83796a34c01638eb3f0f7ce9957b29b9f535aee0",
+  "prompts": {},
+  "sessions": {
+    "s_da5c235e60afc9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4d4f6a2d-a3d4-41b2-b473-cd58367246bd",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
