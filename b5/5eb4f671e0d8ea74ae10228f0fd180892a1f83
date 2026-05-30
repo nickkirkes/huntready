@@ -1,0 +1,19 @@
+ingestion/states/montana/load_jurisdiction_bindings.py
+  s_7b4f913ba4d669::t_ccfeb424313651 785-788
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b55eb4f671e0d8ea74ae10228f0fd180892a1f83",
+  "prompts": {},
+  "sessions": {
+    "s_7b4f913ba4d669": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4212f4eb-8a18-47d0-ba8d-4008a4f4b0d7",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
