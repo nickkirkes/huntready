@@ -50,7 +50,7 @@ Q12 / Q16 / Q17 / Q18 are explicitly post-CO-data triggers per [`docs/open-quest
 
 ### S04.1: license_season RLS migration
 
-**Status:** Not Started
+**Status:** Closed at-merge — squash-merged to main 2026-05-30 from `feat/S04.1-license-season-rls-migration` (pre-squash: 2 commits — implementation + plan historical marker). **Second M2 PR chronologically** per the hard-locked merge order. Migration file: `supabase/migrations/20260530132727_rls_license_season.sql` (33 LOC including banner). One PM-flagged deviation from base-migration grep parity recorded in the migration's header comment: the prescribed body uses `public.license_season` qualified references throughout per the spec's literal-string ACs, while the base `20260425000001_rls_deny_all.sql` uses unqualified table names — both forms are functionally equivalent with the default `search_path`; AC-string parity wins over base-migration grep parity per the resolved plan-review must-fix. **Group A (file-level / static) ACs satisfied at merge** — see checkbox states below. **Group B (operator-driven post-`supabase db push`) ACs remain open and are captured in the PR description for operator verification when the live apply runs** — this is the PRD-006-style "operator verifies live" pattern; S04.1's close is NOT blocked by Group B. Test suite holds at 1166 passed + 2 skipped (no Python edits; SQL-only migration). No ADRs created; no Pydantic / TypeScript / `architecture.md` / `db.py` touches; no production-database writes from the build session. Code-review subagent flagged a WARNING about `CREATE POLICY` non-idempotency on re-apply; not fixed because (a) matches the base migration's posture across all 10 tables, (b) fail-loud on re-apply is the correct posture for a security migration, and (c) the recovery path is already documented in `.roughly/known-pitfalls.md` under `supabase migration repair --status applied <timestamp>`. The S04.4 mandatory criterion #7 sign-off annotation now has its required migration timestamp `20260530132727` available on main.
 
 **As a** operator running M2 against a Supabase project where `license_season` was added by `20260504032424_e03_schema_additions.sql` after the base RLS migration
 **I want** a new timestamped migration that ENABLES + FORCES RLS on `license_season` with deny-all policies for `authenticated` and `anon` plus an explicit `REVOKE ALL ON TABLE`
@@ -120,20 +120,27 @@ S04.4 annotates `docs/runbooks/M1-uat.md` §6 Sign-Off table's criterion #7 row 
 
 **Acceptance Criteria:**
 
-- [ ] New timestamped migration file in `supabase/migrations/` whose timestamp prefix is strictly greater than `20260504032424`
-- [ ] Migration enables RLS: `ALTER TABLE public.license_season ENABLE ROW LEVEL SECURITY`
-- [ ] Migration forces RLS: `ALTER TABLE public.license_season FORCE ROW LEVEL SECURITY` (parity with the 10 original tables in `20260425000001_rls_deny_all.sql`)
-- [ ] Migration creates policy `"Deny all access for authenticated" ON public.license_season FOR ALL TO authenticated USING (false) WITH CHECK (false)` (declared first, matching `20260425000001_rls_deny_all.sql:29-32` ordering for grep-parity)
-- [ ] Migration creates policy `"Deny all access for anon" ON public.license_season FOR ALL TO anon USING (false) WITH CHECK (false)` (declared second)
-- [ ] Migration revokes via `REVOKE ALL ON TABLE public.license_season FROM anon, authenticated` (explicit `ON TABLE` form for parity)
-- [ ] `supabase db push` applies the migration cleanly to the production project
-- [ ] `information_schema.table_privileges` returns 0 rows for `(license_season, {anon, authenticated})` after migration; baseline (per handoff §8 second bullet) was 14 rows
-- [ ] `pg_policies` returns exactly 2 rows for `license_season` after migration (one per role); baseline was 0 rows
-- [ ] `pg_class.relrowsecurity = true` AND `pg_class.relforcerowsecurity = true` for `license_season` after migration
-- [ ] `SELECT COUNT(*) FROM public.license_season` returns the same count pre- and post-migration (service-role connection; M1 closed at ~3040 rows per handoff §3 — locking the exact pre-migration number as the baseline in the PR description)
-- [ ] Sanity: a **service-role** Postgres connection (using `SUPABASE_SECRET_KEY` / the service-role DSN, NOT the migration-runner connection nor an `anon`/`authenticated` JWT) executes `SELECT COUNT(*) FROM public.license_season` and returns a number > 0 — proves the deny-all policies do not block service-role access and that Supabase's project-level `bypassrls` grant is configured as expected (default Supabase behavior; verify-not-assume per the M1 UAT discipline)
-- [ ] Test suite remains green at **1166 passed + 2 skipped** (no Python edits expected from this story; SQL-only migration. Baseline shifted 1165 → 1166 at S04.2 close via a new `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test; new baseline holds going forward)
-- [ ] No Pydantic, TypeScript, or `architecture.md` edits — the `license_season` table already exists in all three places from S03.0; this story closes a posture gap, not a schema gap
+**Group A — file-level / static (satisfied at merge):**
+
+- [x] New timestamped migration file in `supabase/migrations/` whose timestamp prefix is strictly greater than `20260504032424` — actual: `20260530132727_rls_license_season.sql`
+- [x] Migration enables RLS: `ALTER TABLE public.license_season ENABLE ROW LEVEL SECURITY`
+- [x] Migration forces RLS: `ALTER TABLE public.license_season FORCE ROW LEVEL SECURITY` (parity with the 10 original tables in `20260425000001_rls_deny_all.sql`)
+- [x] Migration creates policy `"Deny all access for authenticated" ON public.license_season FOR ALL TO authenticated USING (false) WITH CHECK (false)` (declared first, matching `20260425000001_rls_deny_all.sql:29-32` ordering for grep-parity)
+- [x] Migration creates policy `"Deny all access for anon" ON public.license_season FOR ALL TO anon USING (false) WITH CHECK (false)` (declared second)
+- [x] Migration revokes via `REVOKE ALL ON TABLE public.license_season FROM anon, authenticated` (explicit `ON TABLE` form for parity)
+- [x] Test suite remains green at **1166 passed + 2 skipped** (no Python edits expected from this story; SQL-only migration. Baseline shifted 1165 → 1166 at S04.2 close via a new `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test; new baseline holds going forward)
+- [x] No Pydantic, TypeScript, or `architecture.md` edits — the `license_season` table already exists in all three places from S03.0; this story closes a posture gap, not a schema gap (verified at merge via `git diff --stat HEAD`)
+
+**Group B — operator-driven post-`supabase db push` (open; not blocking S04.1 close per the PRD-006-style "operator verifies live" pattern):**
+
+- [ ] `supabase db push` applies the migration cleanly to the production project — *operator-pending*
+- [ ] `information_schema.table_privileges` returns 0 rows for `(license_season, {anon, authenticated})` after migration; baseline (per handoff §8 second bullet) was 14 rows — *operator-pending*
+- [ ] `pg_policies` returns exactly 2 rows for `license_season` after migration (one per role); baseline was 0 rows — *operator-pending*
+- [ ] `pg_class.relrowsecurity = true` AND `pg_class.relforcerowsecurity = true` for `license_season` after migration — *operator-pending*
+- [ ] `SELECT COUNT(*) FROM public.license_season` returns the same count pre- and post-migration (service-role connection; M1 closed at ~3040 rows per handoff §3 — locking the exact pre-migration number as the baseline in the PR description) — *operator-pending*
+- [ ] Sanity: a **service-role** Postgres connection (using `SUPABASE_SECRET_KEY` / the service-role DSN, NOT the migration-runner connection nor an `anon`/`authenticated` JWT) executes `SELECT COUNT(*) FROM public.license_season` and returns a number > 0 — proves the deny-all policies do not block service-role access and that Supabase's project-level `bypassrls` grant is configured as expected (default Supabase behavior; verify-not-assume per the M1 UAT discipline) — *operator-pending*
+
+Group B verification outputs are captured directly in the S04.1 PR description when the operator runs `supabase db push`; once captured, the PM ticks the boxes here in a follow-up doc-only commit and amends the S04.4 criterion #7 sign-off annotation if S04.4 has not yet shipped.
 
 ---
 
