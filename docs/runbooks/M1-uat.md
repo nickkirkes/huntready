@@ -11,12 +11,13 @@ This runbook operationalizes the 8 PRD success criteria for M1. Each criterion h
 
 ## 1. Prerequisites
 
-- **`psql` connected via service-role `DATABASE_URL`** (RLS bypass for read; anon/authenticated are denied all tables).
-- **All 4 migrations applied** (`supabase db push` confirmed clean against the project):
+- **`psql` connected via service-role `DATABASE_URL`** (RLS bypass for read; anon/authenticated are denied all tables).[^11]
+- **All 5 migrations applied** (`supabase db push` confirmed clean against the project):
   - `20260425000000_initial_schema.sql`
   - `20260425000001_rls_deny_all.sql`
   - `20260428000000_geometry_verbatim_rule.sql`
   - `20260504032424_e03_schema_additions.sql`
+  - `20260530132727_rls_license_season.sql` (S04.1; closes the M1 UAT criterion #7 RLS gap — see §6 criterion #7 row)
 - **Operator batch-run complete** (see section 3 below).
 - **Ingestion venv available** at `ingestion/.venv/` for any Python snippets.
 
@@ -28,7 +29,7 @@ Six PRD-vs-actual-DB deviations are footnoted in the relevant criterion sections
 
 1. `jurisdiction_code` format in the DB is `MT-HD-deer-elk-lion-262`, not `HD-262` as the PRD text says.
 2. `verbatim_text` column does not exist on `regulation_record` — decomposed per Q15/OQ1.
-3. HD 170 (Flathead River) is the asymmetric A/B demonstrator, not HD 262 (HD 262 elk lacks the asymmetric pattern).
+3. HD 262 has no elk regulation_record at all (not just no A/B asymmetric pattern; the 2026 DEA booklet publishes no elk section for HD 262, only a deer section that fans out to mule_deer + whitetail). HD 124 substitutes for criterion #1 and criterion #2 part (a); HD 170 substitutes for criterion #2 part (b).
 4. `make ingest STATE=montana` does not exist — no Makefile at repo root; individual loader scripts are canonical.
 5. `license_season` may have an RLS gap — added after the RLS deny-all migration.
 6. ADR-017 is unmodified (`Status: Accepted`) per the S03.11 FINALIZE verdict; criterion #8 is satisfied as-is.
@@ -63,7 +64,7 @@ Each adapter exits 0 on success and prints a row-count summary. If any adapter e
 
 ## 4. UAT Criteria
 
-### Criterion #1 — regulation_record lookup (HD 262 elk 2026)
+### Criterion #1 — regulation_record lookup (HD 124 elk 2026 — HD 262 substitution[^9])
 
 **PRD text:** "Given a coordinate in HD 262, species=elk, date in season window, the system returns a regulation_record with non-empty verbatim_text and a source citation."
 
@@ -76,7 +77,7 @@ SELECT state, jurisdiction_code, species_group, license_year,
        confidence, source, additional_rules
 FROM regulation_record
 WHERE state = 'US-MT'
-  AND jurisdiction_code = 'MT-HD-deer-elk-lion-262'
+  AND jurisdiction_code = 'MT-HD-deer-elk-lion-124'
   AND species_group = 'elk'
   AND license_year = 2026;
 ```
@@ -95,9 +96,9 @@ WHERE state = 'US-MT'
 
 **PRD text:** "A and B licenses for the same HD cover different season windows (e.g., B covers late season, A does not)."
 
-**Spec deviation note (HD 262 → HD 170):** HD 262 elk lacks the asymmetric A/B pattern. HD 170 (Flathead River elk) is the asymmetric demonstrator per S03.7 OQ-S7-3 and is locked by `TestBuildDeaLinkRows::test_license_season_asymmetric_coverage_m1_criterion`. HD 262 is still verified in criterion #1 for the basic regulation_record lookup.[^3]
+**Spec deviation note (HD 262 → HD 170):** HD 262 elk lacks the asymmetric A/B pattern. HD 170 (Flathead River elk) is the asymmetric demonstrator per S03.7 OQ-S7-3 and is locked by `TestBuildDeaLinkRows::test_license_season_asymmetric_coverage_m1_criterion`. HD 262 is exercised only in criterion #3 (PostGIS point-in-polygon against the HD 262 geometry fixture); criterion #1 substitutes HD 124 per footnote [^9].[^3]
 
-**Part (a) — HD 262 elk: basic regulation_record → license_tag join (confirms HD 262 has data):**
+**Part (a) — HD 124 elk substitution: basic regulation_record → license_tag join (confirms HD 124 has data; HD 262 substituted per footnote [^9]):**
 
 ```sql
 SELECT lt.license_code, lt.name AS license_name, lt.kind AS license_kind
@@ -107,13 +108,13 @@ JOIN regulation_license rl
    = (rr.state, rr.jurisdiction_code, rr.species_group, rr.license_year)
 JOIN license_tag lt ON lt.id = rl.license_tag_id
 WHERE rr.state = 'US-MT'
-  AND rr.jurisdiction_code = 'MT-HD-deer-elk-lion-262'
+  AND rr.jurisdiction_code = 'MT-HD-deer-elk-lion-124'
   AND rr.species_group = 'elk'
   AND rr.license_year = 2026
 ORDER BY lt.license_code;
 ```
 
-**Expected result (part a):** ≥1 row showing the elk licenses applicable to HD 262.
+**Expected result (part a):** ≥1 row showing the elk licenses applicable to HD 124 (substituting for HD 262 per footnote [^9]).
 
 **Actual output (part a):**
 
@@ -263,21 +264,21 @@ UNION ALL SELECT 'regulation_reporting',  COUNT(*) FROM regulation_reporting  WH
 UNION ALL SELECT 'geometry',              COUNT(*) FROM geometry              WHERE state='US-MT';
 ```
 
-**Expected counts (post-batch-run):**
+**Expected counts (post-batch-run)[^10]:**
 
-| Table | Expected count | Notes |
-|---|---|---|
-| regulation_record | 437 | 32 high, 405 medium, 0 low |
-| season_definition | ≈978 | |
-| license_tag | ≈1225 | |
-| draw_spec | ≈278 | composite PK collapses 388 pre-UPSERT rows |
-| reporting_obligation | 3 | STATEWIDE + R1 + R2-7 |
-| jurisdiction_binding | ∈ [400, 1100] | T16-empirical; band narrows post-UAT |
-| license_season | ≈3040 | |
-| regulation_season | ≈1385 | |
-| regulation_license | ≈1914 | |
-| regulation_reporting | 70 | 35 + 14 + 21 |
-| geometry | 350 | 349 V1 rows + MT-STATEWIDE-geom |
+| Table | Build count | Post-UPSERT DB count | Notes |
+|---|---|---|---|
+| regulation_record | 437 | 435 | entity; `INSERT … ON CONFLICT DO UPDATE` (32 high, 405 medium, 0 low at build time) |
+| season_definition | ≈978 | ≈978 | entity; no observed collapse delta |
+| license_tag | 1225 | 825 | entity; PK-keyed UPSERT collapses cross-listed B-Licenses |
+| draw_spec | 388 | 278 | entity; composite PK `(state, hunt_code, year)` collapses |
+| reporting_obligation | 3 | 3 | STATEWIDE + R1 + R2-7 |
+| jurisdiction_binding | 788 | 788 | no collapse — id-keyed UPSERT; matches S03.10 T16 empirical 788; S04.2's `_BINDING_COUNT_GUARD_BAND = (552, 1024)` is centered on this value |
+| license_season | 3040 | 2411 | link; `ON CONFLICT DO NOTHING` collapses (license_tag_id, season_definition_id) duplicates |
+| regulation_season | 1385 | 1381 | link; `ON CONFLICT DO NOTHING` |
+| regulation_license | 1914 | 1279 | link; `ON CONFLICT DO NOTHING` |
+| regulation_reporting | 70 | 70 | 35 + 14 + 21; no observed collapse |
+| geometry | 350 | 350 | 349 V1 rows + MT-STATEWIDE-geom |
 
 **Baseline output (before re-run):**
 
@@ -347,7 +348,7 @@ This criterion is a file-existence + status check, not a SQL query.
 
 ```bash
 # Verify ADR-017 exists with Status: Accepted
-grep -A1 -E '^(\*\*Status\*\*|Status):' docs/adrs/ADR-017-confidence-calibration.md | head -3
+grep '^\*\*Status:\*\*' docs/adrs/ADR-017-confidence-calibration.md
 # Expected: Status: Accepted
 
 # Verify synthesis report exists (durable audit record per S03.11)
@@ -370,8 +371,8 @@ Operator pastes final counts and a pass/fail per criterion after running UAT.
 
 | Criterion | Description | Pass? | Notes |
 |---|---|---|---|
-| #1 | regulation_record lookup HD 262 elk | | |
-| #2a | HD 262 elk license list (basic join) | | |
+| #1 | regulation_record lookup HD 124 elk (HD 262 substitution per footnote [^9]) | | |
+| #2a | HD 124 elk license list (basic join, HD 262 substituted per footnote [^9]) | | |
 | #2b | HD 170 elk A/B asymmetric coverage | | |
 | #3 | ST_Covers at HD 262 test point | | |
 | #4 | No regulation_record with empty source | | |
@@ -393,7 +394,7 @@ Operator pastes final counts and a pass/fail per criterion after running UAT.
 | #4 — no empty source citations | PASS (0 leaks across 435 reg_record rows) | 2026-05-28 |
 | #5 — no invalid geometry | PASS (0 invalid across 350 MT geometries) | 2026-05-28 |
 | #6 — idempotency | PASS (11/11 tables byte-identical pre/post re-run; runbook expected-count footnote carry-forward) | 2026-05-28 |
-| #7 — RLS / pg_roles | FAIL — accepted as M2 week 1 carry-forward per S03.12 pitfall #1 (`license_season` RLS gap; does NOT block m1 tag) | 2026-05-28 |
+| #7 — RLS / pg_roles | FAIL — accepted as M2 week 1 carry-forward per S03.12 pitfall #1 (`license_season` RLS gap; does NOT block m1 tag) — RESOLVED M2-W1 via `20260530132727_rls_license_season.sql` | 2026-05-28 |
 | #8 — ADR-017 present + accepted | PASS | 2026-05-28 |
 
 **Milestone sign-off:**
@@ -412,7 +413,7 @@ Signed: Nick Kirkes  Date: 2026-05-28
 
 [^2]: PRD says `HD-262`; the actual DB `jurisdiction_code` value is `MT-HD-deer-elk-lion-262`. The format encodes `{state_prefix}-HD-{species_list}-{hd_number}` and is derived by `_dea_jurisdiction_code()` in `load_regulation_records.py:244-276`.
 
-[^3]: Spec named HD 262 for the asymmetric demonstrator; S03.7 closure shifted the target to HD 170 (Flathead River elk) because HD 262 elk lacks the A/B asymmetric license_season coverage pattern. Locked by `TestBuildDeaLinkRows::test_license_season_asymmetric_coverage_m1_criterion`. HD 262 is still exercised in criterion #1 and criterion #2 part (a).
+[^3]: Spec named HD 262 for the asymmetric demonstrator; S03.7 closure shifted the target to HD 170 (Flathead River elk) because HD 262 elk lacks the A/B asymmetric license_season coverage pattern. Locked by `TestBuildDeaLinkRows::test_license_season_asymmetric_coverage_m1_criterion`. HD 262 is exercised only in criterion #3 (PostGIS point-in-polygon against the HD 262 geometry fixture in `spatial-test-points.json`); criteria #1 and #2 part (a) substitute HD 124 — see footnote [^9].
 
 [^4]: PostGIS lives in the `extensions` schema in Supabase; all `ST_*` calls must be `extensions.`-prefixed per `.roughly/known-pitfalls.md` under "Integration — Supabase / PostGIS". The E02 runbook predates this pitfall and uses bare `ST_*` names — for M1 UAT, follow the prefixed form documented in known-pitfalls.md, not the E02 runbook's style.
 
@@ -423,3 +424,9 @@ Signed: Nick Kirkes  Date: 2026-05-28
 [^7]: `license_season` was added by `20260504032424_e03_schema_additions.sql` AFTER the RLS deny-all migration `20260425000001_rls_deny_all.sql`. The deny-all policies in that migration cover only the original 10 tables. If the `pg_policies` query returns zero rows for `license_season`, this is a **pre-M2-blocker finding** and must be flagged in `docs/planning/handoffs/M1-to-M2-handoff.md`. It is NOT being fixed in S03.12 — the scope is flag-and-carry-forward.
 
 [^8]: ADR-017 status is `Accepted` (unmodified) per the S03.11 FINALIZE verdict (2026-05-27). The synthesis report at `docs/planning/epics/E03-confidence-calibration-synthesis.md` (~360 lines) is the durable audit record — it lives outside the `E03-confidence-findings/` working-notes deletion target and survives past the m1 tag per ADR-017 §6.
+
+[^9]: HD 262 elk has no regulation_record (the 2026 DEA booklet publishes no elk section for HD 262 — see §2 deviation note #3). HD 124 substitutes for criterion #1 and criterion #2 part (a); HD 170 substitutes for criterion #2 part (b) (see §2 note #3 and footnote [^3]). Criterion #3 still uses HD 262 because the HD 262 geometry exists and is the canonical test-point fixture in `spatial-test-points.json`.
+
+[^10]: Build counts are what the loaders report at `--dry-run` time (pre-database UPSERT); DB counts are what `SELECT COUNT(*)` returns after the live batch-run completes. Entity tables collapse via `INSERT … ON CONFLICT DO UPDATE` when the same PK appears in multiple builder paths (e.g., cross-listed B-Licenses); link tables collapse via `ON CONFLICT DO NOTHING` when the same (left_id, right_id) tuple appears multiple times in the build set. Both numbers are correct in their respective contexts: build counts validate the extraction/builder pipeline; DB counts validate the loaded state. Idempotency (criterion #6) is judged against DB counts pre/post re-run, NOT build counts. `jurisdiction_binding` shows no collapse because the loader UPSERTs by deterministic id and the cross-product produces no duplicate ids (the 788 figure matches S03.10 T16 empirical measurement and is the center of S04.2's narrowed `_BINDING_COUNT_GUARD_BAND = (552, 1024)`). **Provenance note for `draw_spec`:** the S03.8 closure (recorded in `CLAUDE.md`) is authoritative at 278 post-UPSERT DB rows; `docs/planning/handoffs/M1-to-M2-handoff.md` §8 #4 enumerated the delta as `388 → 276 DB` (a transcription error noted parenthetically in the same handoff bullet, which then cites the correct 388→278 collapse). The runbook value tracks the S03.8 closure.
+
+[^11]: If `psql` is not installed locally (it is not part of the standard macOS toolchain), the 2026-05-28 UAT run used the Supabase CLI substitute: `supabase db query --db-url "$DATABASE_URL" "<sql>"`. This connects via the same service-role DSN, returns the same shape of result rows, and bypasses RLS the same way `psql` does. Alternative: `brew install libpq && brew link --force libpq` to make `psql` available; pick whichever fits the operator's environment. The supabase-CLI form is the canonical preference because it matches what was actually run on 2026-05-28 (see [`docs/runbooks/M1-uat-results-2026-05-28.md`](M1-uat-results-2026-05-28.md)).
