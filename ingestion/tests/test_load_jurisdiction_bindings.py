@@ -1176,6 +1176,15 @@ _IN_BAND_SAMPLE_COUNT = 788  # T16 empirical jurisdiction_binding count, measure
 class TestCountGuard:
     LOW, HIGH = _BINDING_COUNT_GUARD_BAND
 
+    def test_band_locked_to_t16_empirical(self) -> None:
+        # Contract lock — pins the band's numeric value, independent of the
+        # arithmetic-derivation refactor below.  The other TestCountGuard
+        # cases would pass for any band that contains _IN_BAND_SAMPLE_COUNT;
+        # this case fails loud if the constant drifts.  An intentional
+        # widening/narrowing (like E04 S04.2) must update this assertion in
+        # the same PR.
+        assert _BINDING_COUNT_GUARD_BAND == (552, 1024)
+
     def test_low_band_raises(self) -> None:
         with pytest.raises(RuntimeError, match="outside expected band"):
             _assert_binding_count_within_guard(self.LOW - 1)
