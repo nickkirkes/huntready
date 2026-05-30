@@ -799,3 +799,13 @@ Surfaced by S04.2 Stage 6 static-analysis review on 2026-05-29 (module-level doc
 **Fix:** Discovery's verification step must anchor on file content, not absolute line numbers. For each spec-cited "occurrence of X at line N," grep the file for X and verify the hit list matches the spec's claimed locations. When the content at a spec-cited line doesn't match what the spec describes, surface the discrepancy explicitly in the discovery report — do not silently correct it or skip it.
 
 Surfaced by S04.2 discovery on 2026-05-29 (spec cited line 1486 as a `770` literal; actual content was an unrelated comment; discovery caught the mismatch before plan-writing).
+
+### Reviewer findings are signals about the quality of the work as-built — dismissing on "the spec chose this path" grounds is wrong
+
+**Symptom:** Two independent reviewers (Stage 6 silent-failure-hunter, post-merge cubic) converged on the same two findings: (a) an AC checkbox whose prose suffix contradicted the just-narrowed tuple value, and (b) a test class that derived all boundary cases from the production constant, leaving no contract lock on the tuple itself. At Stage 6 the orchestrator dismissed both with "the spec explicitly chose this path" — citing the spec's one-tuple-change instruction as forbidding prose cleanup, and citing "arithmetic-derivation is preferred" as ratifying every quality tradeoff that resulted. Both findings came back post-merge as P2/P3 cubic findings, requiring two follow-up fix commits (`86b9587`, `f259d2c`).
+
+**Cause:** Treating a spec's explicit instruction as a CEILING rather than a FLOOR. The spec states the minimum that MUST happen; it does not enumerate what MUST NOT happen. When a finding identifies a quality gap the spec didn't require fixing, the question is "does the result meet the actual quality bar?" — not "did the spec require this change?"
+
+**Fix:** When dismissing a reviewer finding at Stage 6, the orchestrator must be able to answer: "What would a clean code/doc state look like without spec constraints?" If that answer differs from the current state, the finding is valid and must be addressed. A secondary signal: when two independent reviewers (Stage 6 + post-merge cubic) converge on the same finding, that convergence is hard evidence the finding is valid. Single-reviewer findings can be debated; converged findings must not be dismissed on spec-language grounds.
+
+Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
