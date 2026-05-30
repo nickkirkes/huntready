@@ -782,6 +782,10 @@ def main(argv: list[str] | None = None) -> int:
 
     ``--dry-run``: short-circuit after the guard check; no writes.
     """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
     logger = logging.getLogger(__name__)
     dry_run = "--dry-run" in (argv if argv is not None else sys.argv[1:])
 
