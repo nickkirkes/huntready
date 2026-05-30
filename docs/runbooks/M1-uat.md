@@ -386,6 +386,8 @@ Operator pastes final counts and a pass/fail per criterion after running UAT.
 
 ## 6. Sign-Off
 
+*This section preserves the 2026-05-28 UAT sign-off as a historical audit-trail record per the discipline in [`docs/planning/handoffs/M1-to-M2-handoff.md`](../planning/handoffs/M1-to-M2-handoff.md) §8 introductory paragraph. The milestone sign-off paragraph below is byte-identical to its 2026-05-28 state and is NOT updated post-hoc. Resolution updates to any FAILed criterion (e.g., criterion #7's M2-W1 RLS fix) appear only in the table's Notes column — the paragraph's "14 privilege leaks; zero RLS policies" describes the 2026-05-28 moment, not current production state.*
+
 | Criterion | Operator sign-off | Date |
 |---|---|---|
 | #1 — regulation_record lookup | PASS (HD 124 substituted; HD 262 elk has no row — extends §2 deviation #3) | 2026-05-28 |
