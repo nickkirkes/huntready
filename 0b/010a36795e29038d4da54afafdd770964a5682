@@ -1,0 +1,20 @@
+.roughly/plans/S04.4-m1-uat-runbook-hygiene-fixes-plan.md
+  s_8087903d28d2af::t_9daa9639711191 95
+  s_8087903d28d2af::t_3df99b4e24f4df 163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0b010a36795e29038d4da54afafdd770964a5682",
+  "prompts": {},
+  "sessions": {
+    "s_8087903d28d2af": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f22f6c70-6ff3-45db-91b2-718175a79f41",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
