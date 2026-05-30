@@ -779,3 +779,33 @@ Surfaced by S03.12 T9 stale-reference sweep on 2026-05-27 (19 references in 11 f
 **Fix:** When authoring a UAT runbook against a drifted PRD, footnote each deviation inline. The footnote names: (a) what the PRD says, (b) what the as-built system actually has, and (c) the durable record of the decision (closure note, ADR reference, or OQ resolution). This preserves the PRD as source-of-record while making the runbook actionable. S03.12 surfaced 6 deviations: `jurisdiction_code` format (`HD-262` → `MT-HD-deer-elk-lion-262`); missing `verbatim_text` column (decomposed per Q15/OQ1); HD 262 elk asymmetric-coverage shift to HD 170 (S03.7 OQ-S7-3); `make ingest` Makefile nonexistent; `license_season` RLS gap; ADR-017 status resolved unmodified per S03.11. Reference: `docs/runbooks/M1-uat.md` footnote conventions.
 
 Surfaced by S03.12 UAT runbook authoring on 2026-05-27.
+
+### Spec-named location lists must be independently verified by grepping the file — do not trust the enumeration
+
+**Symptom:** A story spec says "the framing phrase appears at N locations" and lists line numbers. Discovery and plan both anchor on that list. A reviewer's full-file read finds an additional location the spec missed — in this case a module-level docstring at the top of the file that carried the same "intentionally wide pending T16" framing as the two spec-named locations (a constant block and a function docstring). The missed location shipped unedited.
+
+**Cause:** Spec authors use a mental model ("constants + function docstrings") that silently excludes other location types (module-level docstrings, inline comments, `__all__` declarations). The discovery agent and plan-writer both treat the spec's enumeration as authoritative rather than as a starting-point to verify.
+
+**Fix:** When a spec or plan claims "the phrase appears at N locations in file X," the discovery phase MUST independently run `git grep -n "<distinctive phrase>" <file>` and compare the output against the spec's list. If discovery finds more locations than the spec named, escalate to PM before writing the plan — do not silently add the extra location without noting the discrepancy. The reviewer's full-file scan is a safety net, not the primary mechanism.
+
+Surfaced by S04.2 Stage 6 static-analysis review on 2026-05-29 (module-level docstring at lines 26–27 of `load_jurisdiction_bindings.py` missed by spec, discovery, and plan; caught only at review).
+
+### Spec line-number citations drift between spec authoring and execution — verify by content, not by line number
+
+**Symptom:** A spec lists 10 occurrences of a literal value across a file at specific line numbers. Discovery finds that one spec-cited line actually contains different content (an unrelated comment mentioning the old band floor), not the literal the spec described. Real count was 9 matching literals plus 1 separate prose update — not 10 of the same thing.
+
+**Cause:** Specs are drafted while the file is in a working state; multi-pass editing between spec authoring and story execution shifts line numbers. The spec writer's absolute line citations become stale. When an intervening constant-block insertion adds lines, every subsequent spec line reference shifts by the same delta (the "four-line drift" pattern — a block insertion in T2 shifting all T3+ spec lines).
+
+**Fix:** Discovery's verification step must anchor on file content, not absolute line numbers. For each spec-cited "occurrence of X at line N," grep the file for X and verify the hit list matches the spec's claimed locations. When the content at a spec-cited line doesn't match what the spec describes, surface the discrepancy explicitly in the discovery report — do not silently correct it or skip it.
+
+Surfaced by S04.2 discovery on 2026-05-29 (spec cited line 1486 as a `770` literal; actual content was an unrelated comment; discovery caught the mismatch before plan-writing).
+
+### Reviewer findings are signals about the quality of the work as-built — dismissing on "the spec chose this path" grounds is wrong
+
+**Symptom:** Two independent reviewers (Stage 6 silent-failure-hunter, post-merge cubic) converged on the same two findings: (a) an AC checkbox whose prose suffix contradicted the just-narrowed tuple value, and (b) a test class that derived all boundary cases from the production constant, leaving no contract lock on the tuple itself. At Stage 6 the orchestrator dismissed both with "the spec explicitly chose this path" — citing the spec's one-tuple-change instruction as forbidding prose cleanup, and citing "arithmetic-derivation is preferred" as ratifying every quality tradeoff that resulted. Both findings came back post-merge as P2/P3 cubic findings, requiring two follow-up fix commits on the same branch (a one-line prose rewrite to the AC checkbox + a new contract-lock test in TestCountGuard).
+
+**Cause:** Treating a spec's explicit instruction as a CEILING rather than a FLOOR. The spec states the minimum that MUST happen; it does not enumerate what MUST NOT happen. When a finding identifies a quality gap the spec didn't require fixing, the question is "does the result meet the actual quality bar?" — not "did the spec require this change?"
+
+**Fix:** When dismissing a reviewer finding at Stage 6, the orchestrator must be able to answer: "What would a clean code/doc state look like without spec constraints?" If that answer differs from the current state, the finding is valid and must be addressed. A secondary signal: when two independent reviewers (Stage 6 + post-merge cubic) converge on the same finding, that convergence is hard evidence the finding is valid. Single-reviewer findings can be debated; converged findings must not be dismissed on spec-language grounds.
+
+Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
