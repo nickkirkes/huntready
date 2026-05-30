@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-05-30
-**Current Milestone:** M2 — Colorado Ingestion (In Progress; E04 active with S04.2 closed 2026-05-29 and S04.1 closed at-merge 2026-05-30; S04.1 Group B operator-driven verification ACs await `supabase db push` against the production project; S04.3 is the next active work-front; E05 and E06 planned later via `/plan-next-epic`). M1 closed 2026-05-27 with `m1` tag at PR #45 (`ccbe085`).
+**Current Milestone:** M2 — Colorado Ingestion (In Progress; E04 active with S04.2 closed 2026-05-29 and S04.1 fully closed 2026-05-30 — Group A at-merge + Group B live-verified later same day, all four verification queries returned expected shape against the production project, no leak surface re-opened; S04.3 is the next active work-front; E05 and E06 planned later via `/plan-next-epic`). M1 closed 2026-05-27 with `m1` tag at PR #45 (`ccbe085`).
 **Overall V1 Status:** 2/6 milestones complete; M2 active
 
 ---
@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | M0 | Scaffold | Complete | 2026-04-22 | None |
 | M1 | Montana Ingestion | Complete | 2026-05-27 | M0 |
-| M2 | Colorado Ingestion | In Progress (E04 active; S04.1 + S04.2 closed at-merge; S04.1 Group B verification operator-pending; S04.3 next) | 2026-05-29 (E04) | M1 |
+| M2 | Colorado Ingestion | In Progress (E04 active; S04.1 + S04.2 fully closed; S04.1 Group B live-verified 2026-05-30; S04.3 next) | 2026-05-29 (E04) | M1 |
 | M3 | MCP Server | Not Started | — | M1 |
 | M4 | Web Companion | Not Started | — | M3 |
 | M5 | Claude Code Plugin | Not Started | — | M4 |
@@ -27,7 +27,7 @@ M2 delivers Colorado regulations into Supabase Postgres, validated against the s
 
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
-| E04 | M1 Carry-Forward and Colorado Schema Preparation | In Progress (2 of 5 stories closed at-merge; S04.2 closed 2026-05-29; S04.1 closed 2026-05-30 with Group B operator-driven verification ACs pending) | 2026-05-29 | — | 5 (S04.6 evaluated and omitted) |
+| E04 | M1 Carry-Forward and Colorado Schema Preparation | In Progress (2 of 5 stories fully closed; S04.2 closed 2026-05-29; S04.1 closed 2026-05-30 — Group A at-merge + Group B live-verified later same day; verbatim verification outputs in E04 epic § "Group B verification record — 2026-05-30") | 2026-05-29 | — | 5 (S04.6 evaluated and omitted) |
 | E05 | Colorado Geometry Ingestion | Not Started, planned later | — | — | — |
 | E06 | Colorado Regulation Text Ingestion | Not Started, planned later | — | — | — |
 
@@ -35,7 +35,7 @@ M2 delivers Colorado regulations into Supabase Postgres, validated against the s
 
 | Story | Name | Status | Owner |
 |---|---|---|---|
-| S04.1 | license_season RLS migration | Closed at-merge 2026-05-30 (Group A file-level ACs satisfied; Group B operator-driven verification ACs awaiting `supabase db push` against production — see PM recommendation in §"Active Blockers" below); migration `supabase/migrations/20260530132727_rls_license_season.sql` | Implementation |
+| S04.1 | license_season RLS migration | **Fully Closed 2026-05-30** (Group A satisfied at-merge; Group B closed via live verification later same day — all 4 queries returned expected shape against the production project; Q4's 2411 vs. the prompt's "~3040" was the post-UPSERT-collapse DB baseline per S04.4 spec L280, not a leak; verbatim outputs captured in E04 epic § "Group B verification record — 2026-05-30"); migration `supabase/migrations/20260530132727_rls_license_season.sql` | Implementation |
 | S04.2 | Narrow _BINDING_COUNT_GUARD_BAND to (552, 1024) — **first M2 PR per handoff §8** | Complete (squash-merged to main 2026-05-29; chronology lock satisfied; test baseline shifted 1165 → 1166 via new `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test; 4 post-merge cubic-fix iterations; 3 new pitfalls under `.roughly/known-pitfalls.md`) | Implementation |
 | S04.3 | Add logging.basicConfig to load_jurisdiction_bindings.py main() | Not Started | Implementation |
 | S04.4 | M1 UAT runbook hygiene fixes (six edits, handoff §8 #1-#6) | Not Started | Implementation |
@@ -106,9 +106,9 @@ M1 delivered Montana regulations into Supabase Postgres, validated against the s
 
 ## Active Blockers
 
-None. M2 E04 closed S04.1 (the second chronological M2 PR; new RLS deny-all migration `supabase/migrations/20260530132727_rls_license_season.sql`) at-merge on 2026-05-30 from `feat/S04.1-license-season-rls-migration`. Group A file-level ACs satisfied at merge (1166 + 2 baseline preserved). Group B (six operator-driven verification ACs — `supabase db push` clean apply + `information_schema.table_privileges` 0 rows + `pg_policies` 2 rows + `pg_class.relrowsecurity/relforcerowsecurity` true + row-count preservation + service-role bypass sanity) **remain open pending the live apply**. **S04.3 (logging.basicConfig add to load_jurisdiction_bindings.py:main()) is the active code-side work-front** per the remaining hard-locked merge order S04.3 → S04.4 → S04.5; S04.4's hard precondition (S04.1's migration timestamp `20260530132727` on main) is now satisfied.
+None. M2 E04 fully closed S04.1 on 2026-05-30 — Group A satisfied at merge (PR #48 squash from `feat/S04.1-license-season-rls-migration`) and Group B closed via live verification later same day. All four verification queries against the production Supabase project returned the expected shape (Q1: 0 info-schema privileges for anon/authenticated; Q2: 2 deny-all policies attached, byte-exact policy names; Q3: `relrowsecurity` + `relforcerowsecurity` both true; Q4: 2411 rows preserved — the post-UPSERT-collapse DB baseline per S04.4 spec § "Expected counts" L280, not the ~3040 build count from handoff §3 which the verification prompt had cited in error). Verbatim outputs locked in `docs/planning/epics/E04-m1-carry-forward.md` § "Group B verification record — 2026-05-30". The M1 UAT criterion #7 leak surface (14 privilege leaks + 0 RLS policies on `license_season` confirmed at M1 UAT 2026-05-28) is now structurally closed in production. **Discipline note for future Group B-style verification prompts**: cite the post-UPSERT DB baseline (S04.4 spec L280 is the durable source-of-truth) not the build count from handoff §3 — recommended a future implementation agent land as a one-line entry in `.roughly/known-pitfalls.md`; PM does not touch `.roughly/` autonomously.
 
-**PM recommendation — run `supabase db push` against the production Supabase project now, ahead of S04.3.** Rationale: (a) closes the M1 UAT criterion #7 leak surface (the real exploitable data-integrity gap; 14 privilege leaks + 0 RLS policies on `license_season` confirmed at M1 UAT 2026-05-28) before any further code work; (b) one tiny isolated DDL migration, no data writes, idempotent with `supabase db push`; (c) unblocks S04.4's mandatory criterion #7 sign-off annotation with concrete verification-output evidence the implementation agent can paste verbatim into the runbook update rather than re-deriving; (d) does not slow S04.3 (S04.3 is purely code-side, no DB interaction). The PM cannot run `supabase db push` per the PM-prompt §"What You Are Not"; this is an operator task. After the apply, capture the six verification-query outputs into the S04.1 PR description and the PM ticks the Group B checkboxes in a follow-up doc-only commit.
+**S04.3 (logging.basicConfig add to load_jurisdiction_bindings.py:main()) is the active code-side work-front** per the remaining hard-locked merge order S04.3 → S04.4 → S04.5; S04.4's hard precondition (S04.1's migration timestamp `20260530132727` on main) is satisfied.
 
 **M2 open-question candidate surfaced at E04 close**: the base RLS migration `20260425000001_rls_deny_all.sql` uses a flat per-table IN-list that does not auto-extend to subsequently-added tables — the same pattern that produced the M1 `license_season` gap S04.1 closes. Any future migration in M2 / M3 that adds a new `public.*` table will silently inherit the gap unless its inline RLS block is included in the same migration. Surfaced to user via E04 § "Known Issues to Escalate" for decision on mitigation path (event-trigger migration / CI check / discipline-only). PRD 002 §"Decisions already made" already encodes the discipline-only mitigation; the recurring-gap risk is whether to harden further.
 

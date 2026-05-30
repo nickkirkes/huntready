@@ -131,16 +131,59 @@ S04.4 annotates `docs/runbooks/M1-uat.md` §6 Sign-Off table's criterion #7 row 
 - [x] Test suite remains green at **1166 passed + 2 skipped** (no Python edits expected from this story; SQL-only migration. Baseline shifted 1165 → 1166 at S04.2 close via a new `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test; new baseline holds going forward)
 - [x] No Pydantic, TypeScript, or `architecture.md` edits — the `license_season` table already exists in all three places from S03.0; this story closes a posture gap, not a schema gap (verified at merge via `git diff --stat HEAD`)
 
-**Group B — operator-driven post-`supabase db push` (open; not blocking S04.1 close per the PRD-006-style "operator verifies live" pattern):**
+**Group B — operator-driven post-`supabase db push` (closed 2026-05-30 via live verification against the production project — see "Group B verification record" sub-section below for verbatim stdout):**
 
-- [ ] `supabase db push` applies the migration cleanly to the production project — *operator-pending*
-- [ ] `information_schema.table_privileges` returns 0 rows for `(license_season, {anon, authenticated})` after migration; baseline (per handoff §8 second bullet) was 14 rows — *operator-pending*
-- [ ] `pg_policies` returns exactly 2 rows for `license_season` after migration (one per role); baseline was 0 rows — *operator-pending*
-- [ ] `pg_class.relrowsecurity = true` AND `pg_class.relforcerowsecurity = true` for `license_season` after migration — *operator-pending*
-- [ ] `SELECT COUNT(*) FROM public.license_season` returns the same count pre- and post-migration (service-role connection; M1 closed at ~3040 rows per handoff §3 — locking the exact pre-migration number as the baseline in the PR description) — *operator-pending*
-- [ ] Sanity: a **service-role** Postgres connection (using `SUPABASE_SECRET_KEY` / the service-role DSN, NOT the migration-runner connection nor an `anon`/`authenticated` JWT) executes `SELECT COUNT(*) FROM public.license_season` and returns a number > 0 — proves the deny-all policies do not block service-role access and that Supabase's project-level `bypassrls` grant is configured as expected (default Supabase behavior; verify-not-assume per the M1 UAT discipline) — *operator-pending*
+- [x] `supabase db push` applies the migration cleanly to the production project
+- [x] `information_schema.table_privileges` returns 0 rows for `(license_season, {anon, authenticated})` after migration; baseline (per handoff §8 second bullet) was 14 rows
+- [x] `pg_policies` returns exactly 2 rows for `license_season` after migration (one per role); baseline was 0 rows
+- [x] `pg_class.relrowsecurity = true` AND `pg_class.relforcerowsecurity = true` for `license_season` after migration
+- [x] `SELECT COUNT(*) FROM public.license_season` returns the same count pre- and post-migration (service-role connection; **post-UPSERT-collapse DB baseline = 2411 per the S04.4 spec § "Expected counts" build-vs-DB footnote source-of-truth memorialized at this epic's L280** — not the ~3040 build count from handoff §3 which is the pre-collapse projection. AC originally cited ~3040; operator-side verification on 2026-05-30 returned 2411 and flagged the build-vs-DB confusion; AC text amended to the correct DB baseline). The S04.1 migration is DDL-only (zero INSERT/UPDATE/DELETE/TRUNCATE statements in the file) so the count cannot have moved; post-migration observation of 2411 byte-matches the documented DB baseline and is accepted as evidence the count is preserved
+- [x] Sanity: a **service-role** Postgres connection (using `SUPABASE_SECRET_KEY` / the service-role DSN, NOT the migration-runner connection nor an `anon`/`authenticated` JWT) executes `SELECT COUNT(*) FROM public.license_season` and returns a number > 0 — proves the deny-all policies do not block service-role access and that Supabase's project-level `bypassrls` grant is configured as expected (default Supabase behavior; verify-not-assume per the M1 UAT discipline) — observed 2411 rows via the service-role DSN, confirming bypass works as designed
 
-Group B verification outputs are captured directly in the S04.1 PR description when the operator runs `supabase db push`; once captured, the PM ticks the boxes here in a follow-up doc-only commit and amends the S04.4 criterion #7 sign-off annotation if S04.4 has not yet shipped.
+**Group B verification record — 2026-05-30**
+
+Operator ran the four verification queries against the production Supabase project via `supabase db query --db-url "$DATABASE_URL"` (service-role DSN per AC #12). All four returned the expected shape; no leak surface re-opened.
+
+```
+Q1: info_schema_privileges  (AC #8 — expect 0 rows; baseline was 14)
+{ "rows": [] }
+
+Q2: pg_policies  (AC #9 — expect 2 rows, one per role; supabase CLI driver does not natively serialize Postgres oid 1003 / name[] so the operator re-ran with roles::text[] cast)
+{
+  "rows": [
+    {
+      "cmd": "ALL",
+      "policyname": "Deny all access for anon",
+      "roles": { "Elements": ["anon"], "Dimensions": [{ "Length": 1, "LowerBound": 1 }], "Status": 2 }
+    },
+    {
+      "cmd": "ALL",
+      "policyname": "Deny all access for authenticated",
+      "roles": { "Elements": ["authenticated"], "Dimensions": [{ "Length": 1, "LowerBound": 1 }], "Status": 2 }
+    }
+  ]
+}
+
+Q3: pg_class_rls_flags  (AC #10 — expect both flags true)
+{
+  "rows": [
+    {
+      "relforcerowsecurity": true,
+      "relname": "license_season",
+      "relrowsecurity": true
+    }
+  ]
+}
+
+Q4: row_count  (AC #11 + AC #12 — expect > 0 and matches DB baseline of 2411)
+{
+  "rows": [
+    { "count": 2411 }
+  ]
+}
+```
+
+**Build-vs-DB baseline clarification** — the operator flagged Q4's 2411 vs. the verification prompt's "~3040" expectation. The 2411 is the post-UPSERT-collapse DB count per the S04.4 spec § "Expected counts" footnote (at this epic's L280 — `license_season 3040 build → 2411 DB`); the "~3040" was the build count from handoff §3 (the same handoff inconsistency surfaced earlier by cubic and flagged to the user as a hygiene-edit candidate on the read-only handoff). The migration is DDL-only — zero `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` statements — so 2411 was the pre-migration value and is the post-migration value; AC #11 is satisfied by the unchanged-value evidence rather than a literal pre/post sample pair. Lesson for future Group B-style verification prompts: cite the post-UPSERT DB baseline (the S04.4 spec L280 footnote is the durable source-of-truth, not handoff §3). Recommend a future implementation agent land this as a one-line entry in `.roughly/known-pitfalls.md` § "Conventions — Documentation & planning discipline" — PM does not touch `.roughly/` autonomously.
 
 ---
 
