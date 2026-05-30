@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
-**Last Updated:** 2026-05-29
-**Current Milestone:** M2 — Colorado Ingestion (In Progress; E04 planned and validated 2026-05-29; E05 and E06 planned later via `/plan-next-epic`). M1 closed 2026-05-27 with `m1` tag at PR #45 (`ccbe085`).
+**Last Updated:** 2026-05-30
+**Current Milestone:** M2 — Colorado Ingestion (In Progress; E04 active with S04.2 closed 2026-05-29 and S04.1 now the active work-front; E05 and E06 planned later via `/plan-next-epic`). M1 closed 2026-05-27 with `m1` tag at PR #45 (`ccbe085`).
 **Overall V1 Status:** 2/6 milestones complete; M2 active
 
 ---
@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | M0 | Scaffold | Complete | 2026-04-22 | None |
 | M1 | Montana Ingestion | Complete | 2026-05-27 | M0 |
-| M2 | Colorado Ingestion | In Progress (E04 active) | 2026-05-29 (E04) | M1 |
+| M2 | Colorado Ingestion | In Progress (E04 active; S04.2 closed; S04.1 next) | 2026-05-29 (E04) | M1 |
 | M3 | MCP Server | Not Started | — | M1 |
 | M4 | Web Companion | Not Started | — | M3 |
 | M5 | Claude Code Plugin | Not Started | — | M4 |
@@ -27,7 +27,7 @@ M2 delivers Colorado regulations into Supabase Postgres, validated against the s
 
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
-| E04 | M1 Carry-Forward and Colorado Schema Preparation | In Progress | 2026-05-29 | — | 5 (S04.6 evaluated and omitted) |
+| E04 | M1 Carry-Forward and Colorado Schema Preparation | In Progress (1 of 5 stories complete; S04.2 closed 2026-05-29) | 2026-05-29 | — | 5 (S04.6 evaluated and omitted) |
 | E05 | Colorado Geometry Ingestion | Not Started, planned later | — | — | — |
 | E06 | Colorado Regulation Text Ingestion | Not Started, planned later | — | — | — |
 
@@ -36,7 +36,7 @@ M2 delivers Colorado regulations into Supabase Postgres, validated against the s
 | Story | Name | Status | Owner |
 |---|---|---|---|
 | S04.1 | license_season RLS migration | Not Started | Implementation |
-| S04.2 | Narrow _BINDING_COUNT_GUARD_BAND to (552, 1024) — **first M2 PR per handoff §8** | Not Started | Implementation |
+| S04.2 | Narrow _BINDING_COUNT_GUARD_BAND to (552, 1024) — **first M2 PR per handoff §8** | Complete (squash-merged to main 2026-05-29; chronology lock satisfied; test baseline shifted 1165 → 1166 via new `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test; 4 post-merge cubic-fix iterations; 3 new pitfalls under `.roughly/known-pitfalls.md`) | Implementation |
 | S04.3 | Add logging.basicConfig to load_jurisdiction_bindings.py main() | Not Started | Implementation |
 | S04.4 | M1 UAT runbook hygiene fixes (six edits, handoff §8 #1-#6) | Not Started | Implementation |
 | S04.5 | PRD 001 sequencing language reconciliation (PM drafts diff; human applies) | Not Started | PM + Human |
@@ -106,7 +106,7 @@ M1 delivered Montana regulations into Supabase Postgres, validated against the s
 
 ## Active Blockers
 
-None. M2 E04 planning closed 2026-05-29; S04.2 is the **hard-locked first PR** per handoff §8 sixth bullet ("first M2 PR narrows `_BINDING_COUNT_GUARD_BAND` to `[552, 1024]`"). Five E04 stories ready for implementation in the **hard-locked merge order** S04.2 → S04.1 → S04.3 → S04.4 → S04.5 (S04.1-before-S04.4 is a hard precondition because S04.4's mandatory criterion #7 sign-off annotation references S04.1's migration timestamp; see E04 epic §"Parallelization Notes").
+None. M2 E04 closed S04.2 (the chronology-locked first M2 PR per handoff §8 sixth bullet) on 2026-05-29; test baseline shifted 1165 → 1166 via the post-merge `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test (deliberate quality addition, not a regression — downstream story ACs updated). **S04.1 (license_season RLS migration) is the active work-front.** Remaining hard-locked merge order: S04.1 → S04.3 → S04.4 → S04.5 (S04.1-before-S04.4 is a hard precondition because S04.4's mandatory criterion #7 sign-off annotation references S04.1's migration timestamp; see E04 epic §"Parallelization Notes").
 
 **M2 open-question candidate surfaced at E04 close**: the base RLS migration `20260425000001_rls_deny_all.sql` uses a flat per-table IN-list that does not auto-extend to subsequently-added tables — the same pattern that produced the M1 `license_season` gap S04.1 closes. Any future migration in M2 / M3 that adds a new `public.*` table will silently inherit the gap unless its inline RLS block is included in the same migration. Surfaced to user via E04 § "Known Issues to Escalate" for decision on mitigation path (event-trigger migration / CI check / discipline-only). PRD 002 §"Decisions already made" already encodes the discipline-only mitigation; the recurring-gap risk is whether to harden further.
 

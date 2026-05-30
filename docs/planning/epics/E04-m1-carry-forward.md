@@ -132,14 +132,14 @@ S04.4 annotates `docs/runbooks/M1-uat.md` §6 Sign-Off table's criterion #7 row 
 - [ ] `pg_class.relrowsecurity = true` AND `pg_class.relforcerowsecurity = true` for `license_season` after migration
 - [ ] `SELECT COUNT(*) FROM public.license_season` returns the same count pre- and post-migration (service-role connection; M1 closed at ~3040 rows per handoff §3 — locking the exact pre-migration number as the baseline in the PR description)
 - [ ] Sanity: a **service-role** Postgres connection (using `SUPABASE_SECRET_KEY` / the service-role DSN, NOT the migration-runner connection nor an `anon`/`authenticated` JWT) executes `SELECT COUNT(*) FROM public.license_season` and returns a number > 0 — proves the deny-all policies do not block service-role access and that Supabase's project-level `bypassrls` grant is configured as expected (default Supabase behavior; verify-not-assume per the M1 UAT discipline)
-- [ ] Test suite remains green at 1165 passed + 2 skipped (no Python edits expected from this story; SQL-only migration)
+- [ ] Test suite remains green at **1166 passed + 2 skipped** (no Python edits expected from this story; SQL-only migration. Baseline shifted 1165 → 1166 at S04.2 close via a new `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test; new baseline holds going forward)
 - [ ] No Pydantic, TypeScript, or `architecture.md` edits — the `license_season` table already exists in all three places from S03.0; this story closes a posture gap, not a schema gap
 
 ---
 
 ### S04.2: Narrow _BINDING_COUNT_GUARD_BAND to (552, 1024)
 
-**Status:** Not Started
+**Status:** Complete (squash-merged to main 2026-05-29 from `feat/S04.2-narrow-binding-count-guard-band`; **first M2 PR shipped — chronology lock satisfied per handoff §8 sixth bullet**; 4 post-merge cubic-fix iterations addressed a third "pending T16" prose location at module-docstring lines 26-27 missed by spec/discovery/plan, an AC #1087 suffix-prose contradiction post-narrowing, a `TestCountGuard` circularity gap closed by a new `test_band_locked_to_t16_empirical` lock test, and a branch-local SHA-reference portability issue; **test baseline shifted 1165 → 1166** via the new lock test; three new pitfalls under `.roughly/known-pitfalls.md` § "Conventions — Documentation & planning discipline" — spec-named location lists need grep-verification; spec line-number citations drift between spec authoring and execution; reviewer convergence is hard evidence not noise. No ADRs, no schema or three-place-sync changes, no `db.py` touches, no production-DB writes.)
 
 **As a** operator running the Montana jurisdiction-binding loader idempotently against the production database
 **I want** `_BINDING_COUNT_GUARD_BAND` narrowed to the empirically-validated ±30% band around the M1 T16 count of 788
@@ -196,18 +196,18 @@ The PM-prompt §"What You Are Not" lists `docs/planning/epics/completed/` as rea
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/montana/load_jurisdiction_bindings.py:107` reads exactly `_BINDING_COUNT_GUARD_BAND: Final[tuple[int, int]] = (552, 1024)` (whitespace + type annotation preserved per S03.10's style)
-- [ ] **Both** prose locations in `ingestion/states/montana/load_jurisdiction_bindings.py` no longer say "intentionally wide pending T16's empirical count": (a) the module-level comment at lines 108-109 immediately following the `_BINDING_COUNT_GUARD_BAND` declaration, AND (b) the `_assert_binding_count_within_guard` function docstring at lines 679-680. Each replacement names T16, the 2026-05-28 measurement date, the empirical count 788, and the ±30% derivation
-- [ ] `docs/planning/epics/completed/E03-regulation-text-ingestion.md` AC #1087 checkbox line shows `(552, 1024)` (one tuple change inside the same checkbox; checkbox remains `- [x]`)
-- [ ] `docs/planning/epics/completed/E03-regulation-text-ingestion.md` footnote `[^row-count-correction]` retains its original 2026-05-23 paragraph byte-identical AND carries a new appended paragraph headed `**T16 narrowing 2026-05-29.**` with the content described in the Context section
-- [ ] `ingestion/tests/test_load_jurisdiction_bindings.py` `TestCountGuard` boundary cases reflect the new band. **Preferred:** arithmetic-derivation refactor importing `_BINDING_COUNT_GUARD_BAND` from the loader and deriving the 5 boundaries as `LOW-1 / LOW / in-band / HIGH / HIGH+1` (in-band = 788 with inline comment naming T16 / 2026-05-28). **Alternative:** 5 hardcoded replacements (399→551, 770→788, 1101→1025, 400→552, 1100→1024). Either approach must cover the same 5 boundary cases
-- [ ] `pytest ingestion/tests/test_load_jurisdiction_bindings.py` green
-- [ ] Full suite `pytest ingestion/tests/` reports **1165 passed + 2 skipped** (no net test delta — replacement-in-place at five lines)
-- [ ] `ruff check ingestion/` clean
-- [ ] `mypy ingestion/lib/ ingestion/states/montana/load_jurisdiction_bindings.py` clean per-file (per the S03.7 discipline reminder — every adapter close re-runs mypy per-file before reporting clean)
-- [ ] No edits outside the four files named (`load_jurisdiction_bindings.py`, `E03-regulation-text-ingestion.md`, `test_load_jurisdiction_bindings.py`; the production database is untouched)
-- [ ] Montana row counts in Postgres are unchanged (no loader run is required for this story; the constant is read at adapter-import time during `main()`, not at any other point)
-- [ ] **First M2 PR chronologically** per handoff §8 sixth bullet — branched from `main` at the m1 tag commit; opens before S04.1 / S04.3 / S04.4 / S04.5
+- [x] `ingestion/states/montana/load_jurisdiction_bindings.py:107` reads exactly `_BINDING_COUNT_GUARD_BAND: Final[tuple[int, int]] = (552, 1024)` (whitespace + type annotation preserved per S03.10's style)
+- [x] **Three** prose locations in `ingestion/states/montana/load_jurisdiction_bindings.py` no longer say "intentionally wide pending T16's empirical count" — spec named two (lines 108-109 module comment; lines 679-680 function docstring), Stage 6 static-analysis reviewer caught a third at lines 26-27 (module-level docstring carrying identical framing). All three replacements name T16, the 2026-05-28 measurement date, the empirical count 788, the ±30% derivation, and the handoff §8 sixth-bullet citation
+- [x] `docs/planning/epics/completed/E03-regulation-text-ingestion.md` AC #1087 checkbox line shows `(552, 1024)`; suffix prose rewritten post-merge from "intentionally wide pending T16 (narrow to ±30% after first live run…)" to "±30% around T16's empirical 788 measured 2026-05-28 (narrowed in E04 S04.2 from the prior (400, 1100) T16-pending band)" — the as-shipped suffix would have contradicted the narrowed tuple
+- [x] `docs/planning/epics/completed/E03-regulation-text-ingestion.md` footnote `[^row-count-correction]` retains its original 2026-05-23 paragraph byte-identical AND carries an appended paragraph headed `**T16 narrowing 2026-05-29.**` with the content described in the Context section (correct 4-space footnote-continuation indent)
+- [x] `ingestion/tests/test_load_jurisdiction_bindings.py` `TestCountGuard` boundary cases now derive arithmetically from the loader's `_BINDING_COUNT_GUARD_BAND` (preferred path applied): `LOW, HIGH = _BINDING_COUNT_GUARD_BAND`; `_IN_BAND_SAMPLE_COUNT = 788` extracted with a T16 / 2026-05-28 inline comment; the 5 boundary cases derive as `LOW-1 / LOW / _IN_BAND_SAMPLE_COUNT / HIGH / HIGH+1`. The 9 unrelated `770` literals elsewhere in the file (other test classes' synthetic in-band sample counts) were swept to `_IN_BAND_SAMPLE_COUNT` for project-wide consistency, per the recommended-with-arithmetic-path note in Context #4
+- [x] `pytest ingestion/tests/test_load_jurisdiction_bindings.py` green
+- [x] Full suite `pytest ingestion/tests/` reports **1166 passed + 2 skipped** (+1 net delta from a new post-merge `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test added to close a circularity gap: the 5 arithmetic-derived boundary cases derived their inputs from the band itself, so accidental widening to e.g. `(0, 9999)` would silently pass; the lock test pins the tuple's numeric value to `(552, 1024)`. The "no net delta" intent of the original AC is superseded by the post-merge correctness work; new baseline holds going forward)
+- [x] `ruff check ingestion/` clean
+- [x] `mypy ingestion/lib/ ingestion/states/montana/load_jurisdiction_bindings.py` clean per-file (per the S03.7 discipline reminder — every adapter close re-runs mypy per-file before reporting clean)
+- [x] No edits outside the four authorized files at-merge; three additive doc-only edits accompany the PR (`.roughly/plans/S04.2-narrow-binding-count-guard-band-plan.md` created during build and marked historical post-implementation per Roughly's plan-marker convention; `.roughly/known-pitfalls.md` carries three new pitfalls under § "Conventions — Documentation & planning discipline" — see story Status line for the topic list). Production database untouched
+- [x] Montana row counts in Postgres are unchanged (no loader run was executed; the constant is read at adapter-import time during `main()`, not at any other point)
+- [x] **First M2 PR chronologically** per handoff §8 sixth bullet — branched from `main` at the m1 tag commit; landed before S04.1 / S04.3 / S04.4 / S04.5
 
 ---
 
@@ -250,7 +250,7 @@ No regression test is requested. A guard like "`main()` calls `logging.basicConf
 - [ ] `ingestion/.venv/bin/python ingestion/states/montana/load_jurisdiction_bindings.py --dry-run` (with a valid `DATABASE_URL` set so the import chain resolves — `--dry-run` does not actually connect, but the import-time SQL constants reference the URL pattern) emits INFO-level cross-tab and count summary output on stderr without a runpy wrapper
 - [ ] `ruff check ingestion/states/montana/load_jurisdiction_bindings.py` clean
 - [ ] `mypy ingestion/states/montana/load_jurisdiction_bindings.py` clean per-file
-- [ ] Full suite `pytest ingestion/tests/` reports **1165 passed + 2 skipped** (no test delta)
+- [ ] Full suite `pytest ingestion/tests/` reports **1166 passed + 2 skipped** (no test delta from this story; baseline shifted 1165 → 1166 at S04.2 close)
 - [ ] No changes to any other file; specifically, no changes to `docs/runbooks/M1-uat.md` (S04.4's scope) or to the other 6 loaders' logging setup (out of S04.3 scope; their implicit logging works)
 
 ---
@@ -300,7 +300,7 @@ M2 UAT runbook (`docs/runbooks/M2-uat.md`) is NOT drafted here — that is an E0
 - [ ] **Audit-trail integrity preserved**: the 2026-05-28 sign-off section (§6 Sign-Off table operator marks, initials, dates, sign-off paragraph) is byte-identical pre- and post-PR; verified by `git diff` showing changes to §6 limited to the criterion #7 annotation row only
 - [ ] No SQL is executed during this story (documentation-only)
 - [ ] No code, schema, Pydantic, TypeScript, `architecture.md`, or test edits
-- [ ] Full suite `pytest ingestion/tests/` reports **1165 passed + 2 skipped** (no test delta)
+- [ ] Full suite `pytest ingestion/tests/` reports **1166 passed + 2 skipped** (no test delta from this story; baseline shifted 1165 → 1166 at S04.2 close)
 
 ---
 
@@ -357,7 +357,7 @@ The line numbers above are PRD-001 line numbers as of 2026-05-29. If the human's
 - [ ] PRD 001 lines 90, 96, 111 reflect the actual jurisdiction_binding sequencing after the edit lands; line 48 unchanged
 - [ ] No code, schema, runbook, or planning-epic edits as part of this story
 - [ ] No autonomous PM or implementation-agent edit to PRD 001 (verified by `git log --author` on PRD 001 between m1 tag and S04.5 close — only the human's commit hash should appear)
-- [ ] Full suite `pytest ingestion/tests/` reports **1165 passed + 2 skipped** at S04.5 close (PRD edit does not exercise the test suite; this AC documents the baseline preservation)
+- [ ] Full suite `pytest ingestion/tests/` reports **1166 passed + 2 skipped** at S04.5 close (PRD edit does not exercise the test suite; this AC documents the baseline preservation. Baseline shifted 1165 → 1166 at S04.2 close)
 
 ---
 
@@ -369,7 +369,7 @@ The line numbers above are PRD-001 line numbers as of 2026-05-29. If the human's
 - [ ] `load_jurisdiction_bindings.py:main()` invokes `logging.basicConfig` at entry
 - [ ] All six M1 UAT runbook hygiene fixes per handoff §8 #1-#6 are landed; the §6 sign-off section is byte-identical pre/post **except** for the criterion #7 row's "RESOLVED M2-W1 via `<timestamp>_rls_license_season.sql`" annotation (mandatory 7th edit, naming S04.1's actual migration timestamp)
 - [ ] PRD 001 lines 90, 96, 111 reconciled (line 48 unchanged); the human confirmed the merge
-- [ ] Test suite remains at **1165 passed + 2 skipped** baseline throughout E04; no story has a net test delta
+- [ ] Test suite remains at **1166 passed + 2 skipped** baseline throughout the remainder of E04 after S04.2 close (baseline shifted 1165 → 1166 at S04.2 via the post-merge `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test — a deliberate quality addition, not a regression); no later story has a net test delta
 - [ ] Montana row counts in Postgres unchanged: regulation_record 435, license_tag 825, license_season ~3040, draw_spec 276, reporting_obligation 3, jurisdiction_binding 788, geometry 350 (verified via service-role `SELECT COUNT(*)` at S04.1 close and at E04 close)
 - [ ] PRD 002 success-criterion #8's `license_season` deny-all check passes against the production project after S04.1 lands; the other PRD 002 criteria are not yet exercised (Colorado data lands in E05/E06)
 - [ ] No Colorado data loaded; no CO-specific code added in `ingestion/states/colorado/`
