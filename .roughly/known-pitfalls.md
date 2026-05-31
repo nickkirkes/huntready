@@ -809,3 +809,22 @@ Surfaced by S04.2 discovery on 2026-05-29 (spec cited line 1486 as a `770` liter
 **Fix:** When dismissing a reviewer finding at Stage 6, the orchestrator must be able to answer: "What would a clean code/doc state look like without spec constraints?" If that answer differs from the current state, the finding is valid and must be addressed. A secondary signal: when two independent reviewers (Stage 6 + post-merge cubic) converge on the same finding, that convergence is hard evidence the finding is valid. Single-reviewer findings can be debated; converged findings must not be dismissed on spec-language grounds.
 
 Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
+
+### Spec-prescribed string substitutions silently invalidate coupled references elsewhere in the document
+
+**Symptom.** A spec or plan prescribes a string substitution in one named location (e.g., `'MT-HD-deer-elk-lion-262'` → `'MT-HD-deer-elk-lion-124'` in two SQL blocks). The substitution lands cleanly there but silently breaks correctness elsewhere in the same document — inline notes that name the old value, summary tables whose row labels reference it, footnotes that anchor to it — all become stale post-substitution but pass spec compliance because the spec only named the original substitution location.
+
+**Where surfaced.** S04.4 (M1 UAT runbook hygiene). T2/T3's spec-prescribed `HD 262 → HD 124` swap in `docs/runbooks/M1-uat.md` §4 criteria #1 + #2(a) silently invalidated four downstream references — the §2 inline deviation note, §5 Results Summary row labels (two), and footnote `[^3]`. The Stage-3 plan and Stage-4 plan-review both explicitly excluded §5 "by design"; Stage-6 review triad correctly caught it as a correctness defect requiring round-1 review-fixes.
+
+**The discipline.** When a spec or plan prescribes a string substitution, grep the full file for every occurrence of the original string AND of any coupled reference (inline notes, table row labels, footnotes anchoring to the value) BEFORE writing the plan's task list. Each match is a per-occurrence decision — substitute or annotate — captured in the plan's task scope, not in review's compensating finds. Content-anchored verification beats absolute line-number lookup.
+
+### Authoritative numbers drift between canonical documents — name the source-of-truth before copying
+
+**Symptom.** The same numeric value (row count, version, timestamp, threshold) appears in multiple canonical documents in the repo. When one document is updated and the other isn't, the two carry different values. A spec or plan that copies from the wrong document silently propagates the stale number.
+
+**Where surfaced.**
+
+- S04.1 Group B verification: AC #11 cited `~3040` from handoff §3 as the `license_season` row baseline; operator-side verification on 2026-05-30 returned 2411 — the post-UPSERT-collapse DB count per S04.4 spec L280 footnote, the actually-authoritative source. Handoff §3 lists pre-collapse build projections; the post-collapse DB counts live in S04.4's runbook footnote.
+- S04.4 T4: handoff §8 #4 cited `draw_spec 388 → 276 DB`; S03.8 closure in CLAUDE.md cites 278 (authoritative). Same handoff bullet parenthetically notes the 276 was a transcription error. Stage-4 plan-review caught the 276 in the plan; shipped runbook tracks 278 with explicit provenance footnote.
+
+**The discipline.** When a spec, plan, or runbook copies a numeric value from another document, NAME the source-of-truth document inline (e.g., "per S03.8 closure" or "per S04.4 spec L280"). When two canonical documents carry different values for the same quantity, the spec that cites the authoritative source is correct; the other is drifted. Drift-detection lives in the per-cite source-of-truth attribution, not in spot-checking individual numbers.
