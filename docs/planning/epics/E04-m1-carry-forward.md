@@ -1,10 +1,11 @@
 # E04: M1 Carry-Forward and Colorado Schema Preparation
 
-**Status:** Not Started
+**Status:** Complete (all 5 stories closed; S04.6 evaluated and omitted; M1 carry-forward fully landed in production)
 **Milestone:** M2 — Colorado Ingestion
 **Dependencies:** M1 complete — `m1` tag at commit corresponding to PR #45 (`ccbe085`, Q19 RESOLVED via ADR-020); E03 closed 2026-05-27
 **Validated:** 2026-05-29 (E04 validation triad: Migration & RLS + Carry-forward Fidelity returned LAND-WITH-EDITS; Cross-Language Consistency reviewer skipped — S04.6 omitted per epic header)
 **Drafted:** 2026-05-29
+**Completed:** 2026-05-31 (S04.2 closed 2026-05-29; S04.1 + S04.3 + S04.4 all closed 2026-05-30 — S04.1 Group A at-merge + Group B live-verified later same day; S04.5 closed 2026-05-31 via `/roughly:build` delegation under the user's git identity carrying all three task bundles — S04.5 PRD edit + Bundle A `.roughly/known-pitfalls.md` entries + Bundle B handoff hygiene patch)
 **Estimated Stories:** 5 (S04.6 evaluated and omitted; decision recorded in §"S04.6 read-through decision" below)
 **UAT Gating:** All stories `UAT: no`. Every criterion is verification-gated against `docs/planning/handoffs/M1-to-M2-handoff.md` §8 specifications (SQL queries against `information_schema.table_privileges` / `pg_policies` / `pg_class`, file diffs against named edits, exact constant-value checks, PM-drafted PRD-diff text awaiting human review). No story requires human spot-check sign-off. PM tracks merge to main via the human's confirmation per the PM-prompt §"Commit and branch workflow".
 
@@ -374,7 +375,13 @@ M2 UAT runbook (`docs/runbooks/M2-uat.md`) is NOT drafted here — that is an E0
 
 ### S04.5: PRD 001 sequencing language reconciliation
 
-**Status:** Not Started
+**Status:** Closed 2026-05-31 — PRD 001 lines 90/96/111 reconciled per the PM-drafted diff at commit `bf9bfa9`; line 48 unchanged per PM review. Two parallel housekeeping bundles co-landed in the same `/roughly:build` session under the user's git identity: **Bundle A** (`3445017`) appended two new entries to `.roughly/known-pitfalls.md` § "Conventions — Documentation & planning discipline" (section now carries 8 entries, was 6) — Entry 1 "spec-prescribed string substitutions silently invalidate coupled references" (S04.4 T2/T3 case) and Entry 2 "authoritative numbers drift between canonical documents — name the source-of-truth before copying" (S04.1 + S04.4 case); a third S04.4-surfaced candidate was deliberately excluded per the prompt as "operational reality of cubic, not a recurring trap." **Bundle B** (`37bc86a`) applied five hygiene edits to `docs/planning/handoffs/M1-to-M2-handoff.md`: path-drift to `completed/` (7 occurrences), §3 build-vs-DB clarifying preamble, §8 item #7 RESOLVED annotation (S04.3 / PR #49 / `5de83c3`), §8 item #4 transcription error `276 → 278` (per S03.8 closure authoritative), §8 item #4 incompleteness — new `jurisdiction_binding 788 build → 788 DB` row memorializing S04.4's PM-approved scope expansion. Plus a plan-historical marker commit (`91bde52`) and a post-merge cubic fix-up (`eb803db`) correcting sentence-initial "A" capitalization on PRD 001 line 96 — the substring replacement supplied by the drafted diff was lowercase ("a `geometry-overlays.json` fixture …") but the substitution placed it at sentence-start where uppercase was required; cubic caught it post-merge; content-anchored grep verification cannot catch grammar. PM judged this too narrow for a new pitfall entry but worth recording as a refinement of pitfall #1.
+
+**Delegation-deviation note (PM judgment recorded)**: S04.5's story shape originally specified human-applies-directly with no implementation-agent edit to PRD 001. The user explicitly invoked `/roughly:build` with S04.5 in scope, delegating the apply to the build agent running under the user's git identity (commit author: `Nick Kirkes <nick@rowdycloud.io>`, Co-Authored-By trailer naming Claude). The build-agent intake flagged this as a deviation at Stage 1 rather than silently widening scope. **PM accepts the trailer-collaboration form as satisfying AC #427's intent** ("only the human's commit hash should appear" — the commit hash IS the human's; the trailer is documentation of collaboration, not autonomous agent action). The no-autonomous-PRD-edit rule's purpose is to ensure the user has explicit control over PRD edits; the user's explicit invocation of `/roughly:build` with S04.5 named is explicit control. AC reframed in the checkboxes below; the underlying intent is satisfied.
+
+**Quality gates clean at close**: pytest 1166 + 2 skipped (no delta, 14.34s); ruff/mypy not exercised (no Python touched); cubic clean post-fix-up; pre-commit detect-secrets passed on all 5 commits.
+
+**No ADRs created.** No schema changes. No Colorado data, no CO-specific code. The recurring-RLS-gap M2 open-question candidate (E04 §"Known Issues to Escalate" #1) remains unchanged in scope — none of the five E04 stories needed to resolve it.
 
 **As a** future reader of PRD 001 (M1 Montana ingestion)
 **I want** PRD 001 lines 48 / 90 / 96 / 111 reconciled per the proposal in `docs/planning/epics/completed/E02-geometry-ingestion.md` § "Known issues to escalate" #1
@@ -417,30 +424,30 @@ The line numbers above are PRD-001 line numbers as of 2026-05-29. If the human's
 
 **Acceptance Criteria:**
 
-- [ ] PM has drafted the line-by-line diff in this story's "Drafted diff" sub-section (already drafted above as of 2026-05-29 E04 epic-write)
-- [ ] Diff handed to the human for review (the act of writing it into E04 + announcing E04's close fulfills this — the diff is on-record for the human at the same moment E04 is ready for implementation)
-- [ ] Human applies the diff (or an amended version, after review) to PRD 001 directly
-- [ ] Human confirms the PRD 001 edit has merged to main
-- [ ] PM flips this story's checkbox only upon the human's merge confirmation
-- [ ] PRD 001 lines 90, 96, 111 reflect the actual jurisdiction_binding sequencing after the edit lands; line 48 unchanged
-- [ ] No code, schema, runbook, or planning-epic edits as part of this story
-- [ ] No autonomous PM or implementation-agent edit to PRD 001 (verified by `git log --author` on PRD 001 between m1 tag and S04.5 close — only the human's commit hash should appear)
-- [ ] Full suite `pytest ingestion/tests/` reports **1166 passed + 2 skipped** at S04.5 close (PRD edit does not exercise the test suite; this AC documents the baseline preservation. Baseline shifted 1165 → 1166 at S04.2 close)
+- [x] PM has drafted the line-by-line diff in this story's "Drafted diff" sub-section (drafted 2026-05-29 at E04-write; refined post-merge to capture the sentence-initial-capitalization lesson per cubic fix-up `eb803db`)
+- [x] Diff handed to the human for review (on-record since 2026-05-29 E04 open; surfaced again to the human at each S04.X closure as "next active work-front is human-action-gated")
+- [x] Human applies the diff (or an amended version, after review) to PRD 001 directly — applied 2026-05-31 via `/roughly:build` delegation under the user's git identity (`Nick Kirkes <nick@rowdycloud.io>`); cubic fix-up `eb803db` corrected line 96 sentence-initial capitalization post-merge
+- [x] Human confirms the PRD 001 edit has merged to main — confirmed in conversation with PM 2026-05-31
+- [x] PM flips this story's checkbox only upon the human's merge confirmation — flipped in this commit
+- [x] PRD 001 lines 90, 96, 111 reflect the actual jurisdiction_binding sequencing after the edit lands; line 48 unchanged — grep-verified post-merge by build agent
+- [x] No code, schema, runbook, or planning-epic edits as part of this story (PRD 001 commit `bf9bfa9` touches only PRD 001; Bundle A `.roughly/known-pitfalls.md` + Bundle B handoff edits are out of S04.5 scope and recorded separately)
+- [x] No autonomous PM or implementation-agent edit to PRD 001 — **PM judgment override recorded in Status above**: the user explicitly invoked `/roughly:build` with S04.5 in scope, delegating the apply to the build agent running under the user's git identity. Commit author hash is the human's; Co-Authored-By trailer names Claude as collaborator. PM accepts the trailer-collaboration form as satisfying the AC's intent — the no-autonomous-PRD-edit rule's purpose is explicit human control over PRD edits, satisfied by the explicit `/roughly:build` invocation
+- [x] Full suite `pytest ingestion/tests/` reports **1166 passed + 2 skipped** at S04.5 close (PRD edit does not exercise the test suite; this AC documents the baseline preservation. Baseline shifted 1165 → 1166 at S04.2 close) — verified at close, 14.34s
 
 ---
 
 ## Exit Criteria
 
-- [ ] All 5 stories complete (S04.1 through S04.5; S04.6 omitted per epic header)
-- [ ] `license_season` RLS posture is at full parity with the original 10 entity tables (`ENABLE` + `FORCE` + 2 deny-all policies + `REVOKE ALL ON TABLE`)
-- [ ] `_BINDING_COUNT_GUARD_BAND` in Montana's jurisdiction-binding loader is `(552, 1024)`; **both** prose locations name T16 / 2026-05-28 / empirical 788 / ±30% — (a) the module-level constant comment at lines 108-109 immediately following the `_BINDING_COUNT_GUARD_BAND` declaration, AND (b) the `_assert_binding_count_within_guard` function docstring at lines 679-680; AC #1087 footnote in the closed E03 epic carries both the original 2026-05-23 paragraph and a new 2026-05-29 paragraph
-- [ ] `load_jurisdiction_bindings.py:main()` invokes `logging.basicConfig` at entry
-- [ ] All six M1 UAT runbook hygiene fixes per handoff §8 #1-#6 are landed; the §6 sign-off section is byte-identical pre/post **except** for the criterion #7 row's "RESOLVED M2-W1 via `<timestamp>_rls_license_season.sql`" annotation (mandatory 7th edit, naming S04.1's actual migration timestamp)
-- [ ] PRD 001 lines 90, 96, 111 reconciled (line 48 unchanged); the human confirmed the merge
-- [ ] Test suite remains at **1166 passed + 2 skipped** baseline throughout the remainder of E04 after S04.2 close (baseline shifted 1165 → 1166 at S04.2 via the post-merge `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test — a deliberate quality addition, not a regression); no later story has a net test delta
-- [ ] Montana row counts in Postgres unchanged: regulation_record 435, license_tag 825, license_season ~3040, draw_spec 276, reporting_obligation 3, jurisdiction_binding 788, geometry 350 (verified via service-role `SELECT COUNT(*)` at S04.1 close and at E04 close)
-- [ ] PRD 002 success-criterion #8's `license_season` deny-all check passes against the production project after S04.1 lands; the other PRD 002 criteria are not yet exercised (Colorado data lands in E05/E06)
-- [ ] No Colorado data loaded; no CO-specific code added in `ingestion/states/colorado/`
+- [x] All 5 stories complete (S04.1 through S04.5; S04.6 omitted per epic header)
+- [x] `license_season` RLS posture is at full parity with the original 10 entity tables (`ENABLE` + `FORCE` + 2 deny-all policies + `REVOKE ALL ON TABLE`) — S04.1 close 2026-05-30 (Group A at-merge + Group B live-verified)
+- [x] `_BINDING_COUNT_GUARD_BAND` in Montana's jurisdiction-binding loader is `(552, 1024)`; **three** prose locations name T16 / 2026-05-28 / empirical 788 / ±30% — (a) module-level docstring at lines 26-27 (Stage-6 review-fix add), (b) the module-level constant comment at lines 108-109 immediately following the `_BINDING_COUNT_GUARD_BAND` declaration, AND (c) the `_assert_binding_count_within_guard` function docstring at lines 679-680; AC #1087 footnote in the closed E03 epic carries both the original 2026-05-23 paragraph and the appended 2026-05-29 T16-narrowing paragraph
+- [x] `load_jurisdiction_bindings.py:main()` invokes `logging.basicConfig` at entry — S04.3 close 2026-05-30; `--dry-run` re-confirmed `TOTAL: 788 bindings`
+- [x] All six M1 UAT runbook hygiene fixes per handoff §8 #1-#6 are landed; the §6 sign-off section is byte-identical pre/post **except** for the criterion #7 row's "RESOLVED M2-W1 via `20260530132727_rls_license_season.sql`" annotation (mandatory 7th edit) AND the user-approved §6 audit-trail-preamble (AC-interpretation override recorded in S04.4 commit `3358166`)
+- [x] PRD 001 lines 90, 96, 111 reconciled (line 48 unchanged); the human confirmed the merge — S04.5 close 2026-05-31 (delegated via `/roughly:build` under the user's git identity per the PM-judgment override recorded in S04.5 Status above)
+- [x] Test suite remains at **1166 passed + 2 skipped** baseline throughout the remainder of E04 after S04.2 close (baseline shifted 1165 → 1166 at S04.2 via the post-merge `TestCountGuard::test_band_locked_to_t16_empirical` contract-lock test — a deliberate quality addition, not a regression); no later story has a net test delta — verified at S04.3 / S04.4 / S04.5 close
+- [x] Montana row counts in Postgres unchanged: regulation_record 435, license_tag 825, license_season 2411 (post-UPSERT DB count per S04.4 runbook footnote `[^10]`; the prior "~3040" reference was the handoff §3 pre-collapse build projection — see S04.1 Group B verification record), draw_spec 278 (per S03.8 closure authoritative; handoff §8 #4's 276 was a transcription error corrected via the Bundle B handoff hygiene patch landed at S04.5 close), reporting_obligation 3, jurisdiction_binding 788, geometry 350 (verified via service-role `SELECT COUNT(*)` at S04.1 Group B close)
+- [x] PRD 002 success-criterion #8's `license_season` deny-all check passes against the production project after S04.1 lands; the other PRD 002 criteria are not yet exercised (Colorado data lands in E05/E06) — S04.1 Group B live-verified 2026-05-30
+- [x] No Colorado data loaded; no CO-specific code added in `ingestion/states/colorado/` — `git ls-files ingestion/states/colorado/` empty at E04 close
 
 ---
 
