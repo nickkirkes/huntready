@@ -1,0 +1,21 @@
+docs/planning/prds/001-M1-montana-ingestion.md
+  s_5524d54da18472::t_f322f093d62ad8 90
+  s_5524d54da18472::t_67050b3060d28d 96
+  s_5524d54da18472::t_9264a3764c319a 111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bf9bfa9cb43c1b8e7ee0a513b6459525e9d597cf",
+  "prompts": {},
+  "sessions": {
+    "s_5524d54da18472": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9825ece9-48bf-4974-bd73-ae0e6e0efc63",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
