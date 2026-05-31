@@ -15,6 +15,11 @@
 --   Layer 2: Deny-all policies for authenticated and anon roles
 --   Layer 3: REVOKE ALL from anon and authenticated (defense-in-depth)
 --
+-- Style note: table references use the qualified `public.license_season` form
+-- throughout. The base 20260425000001_rls_deny_all.sql uses unqualified names.
+-- Both forms are functionally equivalent under the default search_path; the
+-- qualified form here matches the literal-string ACs in the E04 S04.1 spec.
+--
 -- Relevant ADRs: 002, 004, 018
 -- =============================================================================
 
