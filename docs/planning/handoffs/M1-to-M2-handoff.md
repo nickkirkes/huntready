@@ -22,7 +22,7 @@ M1 delivered a complete regulatory data backend for Montana V1 big-game hunting.
 - Confidence calibration framework (ADR-017 accepted; `ConfidenceTier` / `min_tier` / `demote_one_tier` helpers in `ingestion/ingestion/lib/pdf.py`)
 - Doc-type precedence rule (ADR-019; `correction` rank > `annual_regulations` rank in multi-source merge)
 - Pre-commit hooks: detect-secrets baseline, ruff, mypy, tsc
-- E03 confidence calibration synthesis report (durable artifact at `docs/planning/epics/E03-confidence-calibration-synthesis.md`; survives m1 tag)
+- E03 confidence calibration synthesis report (durable artifact at `docs/planning/epics/completed/E03-confidence-calibration-synthesis.md`; survives m1 tag)
 - Test suite: **1128 passed + 2 skipped** at M1 close
 
 ---
@@ -41,6 +41,8 @@ The four migrations add the following over the M0 scaffold:
 ---
 
 ## §3 Final V1 Montana Row Counts
+
+> **Convention note.** The "Count" column below lists pre-UPSERT-collapse build counts as projected at story close. The post-UPSERT-collapse DB counts that a service-role `SELECT COUNT(*)` actually returns differ for several tables (entity tables collapse via `INSERT … ON CONFLICT DO UPDATE`; link tables collapse via `ON CONFLICT DO NOTHING`). The build-vs-DB pairing is documented per-table in `docs/runbooks/M1-uat.md` §4 criterion #6 with footnote `[^10]` (landed at S04.4 close 2026-05-30). When a downstream spec needs to reference a row count, cite the runbook's DB column if the spec compares against a live `SELECT COUNT(*)`, and cite this §3 build column if the spec compares against an adapter's build-time projection.
 
 | Table | Count | Notes |
 |---|---|---|
@@ -111,12 +113,12 @@ M2 (Colorado ingestion) picks up a complete, tested Montana foundation. No archi
 
 | Q | Status | Action for M2 |
 |---|---|---|
-| Q11 | **RESOLVED 2026-05-27** | None — ADR-017 stands as-is; synthesis report durable at `docs/planning/epics/E03-confidence-calibration-synthesis.md` |
-| Q12 | Parking lot | None — tracked in `docs/planning/epics/E03-deferred-items/draw-mechanics.md`; flag-and-defer per ADR-012; revisit if Colorado introduces similar draw-spec quirks |
+| Q11 | **RESOLVED 2026-05-27** | None — ADR-017 stands as-is; synthesis report durable at `docs/planning/epics/completed/E03-confidence-calibration-synthesis.md` |
+| Q12 | Parking lot | None — tracked in `docs/planning/epics/completed/E03-deferred-items/draw-mechanics.md`; flag-and-defer per ADR-012; revisit if Colorado introduces similar draw-spec quirks |
 | Q15 | **RESOLVED 2026-05-14** | None — section verbatim decomposed per OQ1; no `verbatim_text` column on `regulation_record`; decomposition documented in Q15 resolution note |
 | Q16 | M2 revisit | Colorado may force species-specific licenses (mule-deer-only, no whitetail validity); revisit ADR-010 species granularity if that pattern appears |
-| Q17 | M2 ADR-candidate | Per-HD allocation caps in `draw_spec`; HD 210 is the V1 case; detail in `docs/planning/epics/E03-deferred-items/draw-mechanics.md` |
-| Q18 | M2 trigger: Colorado | CWD sampling target-table modeling; V1 ships zero rows (text in `regulation_record.additional_rules`); detail in `docs/planning/epics/E03-deferred-items/cwd-sampling-modeling.md` |
+| Q17 | M2 ADR-candidate | Per-HD allocation caps in `draw_spec`; HD 210 is the V1 case; detail in `docs/planning/epics/completed/E03-deferred-items/draw-mechanics.md` |
+| Q18 | M2 trigger: Colorado | CWD sampling target-table modeling; V1 ships zero rows (text in `regulation_record.additional_rules`); detail in `docs/planning/epics/completed/E03-deferred-items/cwd-sampling-modeling.md` |
 | Q19 | **RESOLVED 2026-05-29** | ADR-020 (Accepted) ships derive-and-assert via new `ingestion/ingestion/lib/drift_guard.py` with two primitives (`assert_dispatch_dict_drift_free` for compile-time dispatch dicts; `assert_id_matches` for runtime row-construction). Merged at `ccbe085` (PR #45). Test suite 1128 → 1165 + 2 skipped. M2 (Colorado) adopts the pattern when writing to `season_definition`, `license_tag`, or `reporting_obligation`. |
 
 Q1–Q10, Q13–Q14: see `docs/open-questions.md` parking lot. None are M2-blocking.
@@ -125,7 +127,7 @@ Q1–Q10, Q13–Q14: see `docs/open-questions.md` parking lot. None are M2-block
 
 ## §7 Deferred Items (Survive Past m1 Tag)
 
-The `docs/planning/epics/E03-deferred-items/` directory was designated at E03 kickoff as a durable carry-forward location for items too complex to resolve in V1 but too important to lose. Per ADR-017 §6, only this directory (not `E03-confidence-findings/`) survives the m1 tag.
+The `docs/planning/epics/completed/E03-deferred-items/` directory was designated at E03 kickoff as a durable carry-forward location for items too complex to resolve in V1 but too important to lose. Per ADR-017 §6, only this directory (not `E03-confidence-findings/`) survives the m1 tag.
 
 | File | Summary |
 |---|---|
@@ -179,13 +181,13 @@ Captured during M1 UAT 2026-05-28; flag-and-carry-forward only (the runbook was 
 
 3. **`docs/runbooks/M1-uat.md` §4 criterion #2 part (a) SQL** — change `rr.jurisdiction_code = 'MT-HD-deer-elk-lion-262'` → `'MT-HD-deer-elk-lion-124'`. Update the "confirms HD 262 has data" framing to "confirms HD 124 has data".
 
-4. **`docs/runbooks/M1-uat.md` §4 criterion #6 "Expected counts" table** — add a footnote distinguishing **build counts** (S03.7 reports 1225 license_tag / 3040 license_season at build time) from **post-UPSERT-collapse DB counts** (actual DB shows 825 license_tag / 2411 license_season after PK / link-row dedup). Both numbers are correct in their respective contexts; the runbook should make the distinction explicit so a future operator doesn't mark idempotency FAIL based on a build-count mismatch. Concrete deltas: regulation_record 437 build → 435 DB; license_tag 1225 build → 825 DB; license_season 3040 build → 2411 DB; regulation_license 1914 build → 1279 DB; regulation_season 1385 build → 1381 DB; draw_spec 388 build → 276 DB (S03.8 closure already noted the 388→278 collapse). Entity tables collapse via `INSERT … ON CONFLICT DO UPDATE`; link tables collapse via `ON CONFLICT DO NOTHING`.
+4. **`docs/runbooks/M1-uat.md` §4 criterion #6 "Expected counts" table** — add a footnote distinguishing **build counts** (S03.7 reports 1225 license_tag / 3040 license_season at build time) from **post-UPSERT-collapse DB counts** (actual DB shows 825 license_tag / 2411 license_season after PK / link-row dedup). Both numbers are correct in their respective contexts; the runbook should make the distinction explicit so a future operator doesn't mark idempotency FAIL based on a build-count mismatch. Concrete deltas: regulation_record 437 build → 435 DB; license_tag 1225 build → 825 DB; license_season 3040 build → 2411 DB; regulation_license 1914 build → 1279 DB; regulation_season 1385 build → 1381 DB; draw_spec 388 build → 278 DB (per S03.8 closure authoritative; an earlier draft of this bullet cited 276, corrected 2026-05-30 during S04.4 implementation). Entity tables collapse via `INSERT … ON CONFLICT DO UPDATE`; link tables collapse via `ON CONFLICT DO NOTHING`. Per S04.4 PM-approved scope expansion, the shipped runbook table also carries a 7th row `jurisdiction_binding 788 build → 788 DB (no collapse — id-keyed UPSERT)` — well-grounded against S03.10 T16 empirical 788 and S04.2's `_BINDING_COUNT_GUARD_BAND = (552, 1024)` centering; S04.3's `--dry-run` on 2026-05-30 re-confirmed the same 788.
 
 5. **`docs/runbooks/M1-uat.md` §1 Prerequisites** — `psql` is not in the standard local toolchain. Add either (a) a "Tool prerequisites" item recommending `brew install libpq && brew link --force libpq`, OR (b) a footnote pointing to the supabase CLI substitute `supabase db query --db-url "$DATABASE_URL" "<sql>"` (the substitute used in the 2026-05-28 UAT run).
 
 6. **`docs/runbooks/M1-uat.md` §4 criterion #8 bash command** — regex `grep -A1 -E '^(\*\*Status\*\*|Status):'` does not match the actual ADR-017 heading line `**Status:** Accepted` (asterisks wrap the colon, not just the word). Change to `grep -E '^\*\*Status:?\*\*'` or simpler `grep '^\*\*Status:\*\*'`.
 
-7. **`ingestion/states/montana/load_jurisdiction_bindings.py` `main()`** — add `logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')` at the top of `main()`. The other 6 loaders configure logging implicitly; `load_jurisdiction_bindings.py` does not, which makes `--dry-run` exit 0 silently with no visible cross-tab or count output. M1 UAT 2026-05-28 worked around this with a runpy wrapper; the proper fix lives in the loader.
+7. **`ingestion/states/montana/load_jurisdiction_bindings.py` `main()`** — add `logging.basicConfig(level=logging.INFO, format='%(asctime)s %(name)s %(levelname)s %(message)s')` at the top of `main()`. The other 6 loaders configure logging implicitly; `load_jurisdiction_bindings.py` does not, which makes `--dry-run` exit 0 silently with no visible cross-tab or count output. M1 UAT 2026-05-28 worked around this with a runpy wrapper; the proper fix lives in the loader. **RESOLVED 2026-05-30 via S04.3 / PR #49 / `5de83c3`** — `--dry-run` now emits 25 INFO lines including the species×role cross-tab and `TOTAL: 788 bindings`.
 
 ---
 
@@ -202,4 +204,4 @@ git tag m1 <COMMIT-SHA>
 git push origin m1
 ```
 
-M2 (Colorado ingestion) is the next milestone. The M2 epic file will be drafted in a fresh PM session. Start from `docs/planning/handoffs/M1-to-M2-handoff.md` (this document) + `docs/planning/epics/E03-deferred-items/` as the authoritative carry-forward context.
+M2 (Colorado ingestion) is the next milestone. The M2 epic file will be drafted in a fresh PM session. Start from `docs/planning/handoffs/M1-to-M2-handoff.md` (this document) + `docs/planning/epics/completed/E03-deferred-items/` as the authoritative carry-forward context.
