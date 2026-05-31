@@ -1,0 +1,20 @@
+docs/planning/epics/E04-m1-carry-forward-audit.md
+  s_740e106fae2310::t_3544480f5fff9b 172,174,176
+  s_740e106fae2310::t_d742baecd63713 1-171,173,175,177-221
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c25d16096bfe80d3f2e45e06a544f8a615fcf1d3",
+  "prompts": {},
+  "sessions": {
+    "s_740e106fae2310": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2e0d4581-eb2a-45df-adda-212a47e9d7a8",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
