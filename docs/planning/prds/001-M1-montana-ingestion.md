@@ -87,13 +87,13 @@ M1 decomposes into three sequential epics. They run in order — E02 cannot star
 
 ### E02 — Montana geometry ingestion
 
-**Outcome:** All Montana geometries (HDs, BMUs, CWD zones, Portions) are loaded into the `geometry` table with correct `jurisdiction_binding` rows expressing their overlay relationships. Spatial queries work.
+**Outcome:** All Montana geometries (HDs, BMUs, CWD zones, Portions) are loaded into the `geometry` table, and a `geometry-overlays.json` fixture captures their overlay relationships for E03 to consume. Spatial queries work.
 
 **Why second:** Geometries are the anchor for every other entity — `regulation_record` references a jurisdiction, `license_tag` references jurisdictions via the binding table, `reporting_obligation` is region-specific. Having geometries in place before ingesting text makes the text ingestion's foreign-key targets already exist.
 
 **Why before text:** Geometry ingestion is the lower-risk half of Montana. MT FWP publishes ArcGIS endpoints that return GeoJSON directly. The risks are known (coordinate reference systems, polygon validity, multi-part geometries along state lines) and mitigatable (`shapely.make_valid()`, explicit `geography(MultiPolygon, 4326)` columns). Getting this half done before the harder half means when the text ingestion hits PDF variance, the geometry layer is already stable and not a complicating factor.
 
-**Exit criteria for E02:** All V1-relevant geometries loaded from MT FWP's ArcGIS MapServer. Every geometry passes `shapely.make_valid()`. Spot checks using `ST_Contains` against known Montana coordinates return correct HD/BMU identifications. `jurisdiction_binding` rows correctly express HD → BMU overlay, HD → CWD-zone overlay, HD → Portion overlay relationships. Fetching the geometries is reproducible — `make ingest STATE=montana STAGE=geometry` can re-run the fetch without corrupting existing data.
+**Exit criteria for E02:** All V1-relevant geometries loaded from MT FWP's ArcGIS MapServer. Every geometry passes `shapely.make_valid()`. Spot checks using `ST_Contains` against known Montana coordinates return correct HD/BMU identifications. a `geometry-overlays.json` fixture captures HD → Portion, HD → CWD-zone, and HD → restricted-area overlay relationships for E03's S03.6.1 + S03.10 to consume when writing `jurisdiction_binding` rows. Fetching the geometries is reproducible — `make ingest STATE=montana STAGE=geometry` can re-run the fetch without corrupting existing data.
 
 ### E03 — Montana regulation text ingestion
 
@@ -108,7 +108,7 @@ M1 decomposes into three sequential epics. They run in order — E02 cannot star
 M1's three epics have hard technical dependencies that prevent parallelization:
 
 - **E02 depends on E01.** E02 writes rows to the `geometry` table and `jurisdiction_binding` table. Those tables do not exist until E01's migrations apply. E02 cannot begin until E01's migrations are in place.
-- **E03 depends on E02.** E03 writes `regulation_record`, `license_tag`, `reporting_obligation`, and other rows that foreign-key to `jurisdiction_binding`. Those bindings must exist before E03 can write.
+- **E03 depends on E02.** E03 writes `regulation_record`, `license_tag`, `reporting_obligation`, `jurisdiction_binding`, and other rows. The `jurisdiction_binding` rows FK to `geometry(id)` (a hard FK to a table E02 populates) and to `regulation_record` (the binding's anchor, written earlier within E03 itself). Bindings cannot be written until both FK targets exist — `geometry` from E02 and `regulation_record` from E03's earlier stories.
 - **E03 depends on E01.** Even ignoring geometry entirely, E03 writes to every table except `geometry`. Those tables are created in E01.
 
 The dependencies are all table-existence or foreign-key constraints, not coordination or review-bandwidth constraints. A team of three could not parallelize these epics either; the work is serial by structure.
