@@ -1,7 +1,7 @@
 # HuntReady — Planning Index
 
 **Last Updated:** 2026-05-31
-**Current Milestone:** M2 — Colorado Ingestion (In Progress; **E04 Complete 2026-05-31** — all 5 stories closed across 5 calendar days; S04.6 evaluated and omitted at planning time per the CO research read-through; all M1 carry-forward items from handoff §8 resolved in production; Bundle A `.roughly/known-pitfalls.md` entries + Bundle B handoff hygiene patch co-landed at S04.5 close. **E05 (Colorado geometry ingestion) is the next active work-front — awaits `/plan-next-epic` invocation from the user to begin planning.** E06 planned after E05 closes). M1 closed 2026-05-27 with `m1` tag at PR #45 (`ccbe085`).
+**Current Milestone:** M2 — Colorado Ingestion (In Progress; **E04 Complete + Audited 2026-05-31** — all 5 stories closed across 5 calendar days; post-implementation audit closed same day at PR #52 (`b168d28`) with 49 ACs reviewed, 0 blocking findings, single actionable finding resolved at `7478ea6`; audit report at `epics/E04-m1-carry-forward-audit.md`; S04.6 evaluated and omitted at planning time per the CO research read-through; all M1 carry-forward items from handoff §8 resolved in production. **E05 (Colorado geometry ingestion) is the next active work-front — awaits `/plan-next-epic` invocation from the user to begin planning.** E06 planned after E05 closes. **Post-implementation-audit standard locked**: per E02 precedent and E04 audit-closure, each future epic closes with a post-implementation audit recorded under `docs/planning/epics/completed/E0X-audit.md` before `/plan-next-epic` is invoked for the following epic; PM refuses-and-flags any `/plan-next-epic` invocation where the prior epic's `Audited:` field is unpopulated). M1 closed 2026-05-27 with `m1` tag at PR #45 (`ccbe085`).
 **Overall V1 Status:** 2/6 milestones complete; M2 active
 
 ---
@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | M0 | Scaffold | Complete | 2026-04-22 | None |
 | M1 | Montana Ingestion | Complete | 2026-05-27 | M0 |
-| M2 | Colorado Ingestion | In Progress (**E04 Complete 2026-05-31** — all 5 stories closed; E05 + E06 planned later via `/plan-next-epic`) | 2026-05-29 (E04) | M1 |
+| M2 | Colorado Ingestion | In Progress (**E04 Complete + Audited 2026-05-31** — all 5 stories closed; audit zero blocking findings; E05 + E06 planned later via `/plan-next-epic`) | 2026-05-29 (E04) | M1 |
 | M3 | MCP Server | Not Started | — | M1 |
 | M4 | Web Companion | Not Started | — | M3 |
 | M5 | Claude Code Plugin | Not Started | — | M4 |
@@ -27,7 +27,7 @@ M2 delivers Colorado regulations into Supabase Postgres, validated against the s
 
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
-| E04 | M1 Carry-Forward and Colorado Schema Preparation | **Complete 2026-05-31** (5 of 5 stories closed across 5 calendar days 2026-05-29 → 2026-05-31; all M1 carry-forward items from handoff §8 resolved; production-side `license_season` deny-all live-verified; runbook hygiene + jurisdiction_binding count band + logging.basicConfig + PRD 001 sequencing all reconciled; Bundle A pitfalls + Bundle B handoff hygiene co-landed at S04.5 close; test baseline 1166 + 2 skipped throughout) | 2026-05-29 | 2026-05-31 | 5 (S04.6 evaluated and omitted) |
+| E04 | M1 Carry-Forward and Colorado Schema Preparation | **Complete (audited) 2026-05-31** (5 of 5 stories closed across 5 calendar days; post-implementation audit closed same day at PR #52 / `b168d28` — 49 ACs reviewed, 47 MET + 2 operator-asserted + 0 NOT MET + 0 blocking findings; single actionable finding [S04.1 migration header `public.`-qualifier rationale] resolved at `7478ea6` as comment-only header edit, zero DDL impact; audit report at `epics/E04-m1-carry-forward-audit.md`) | 2026-05-29 | 2026-05-31 | 5 (S04.6 evaluated and omitted) |
 | E05 | Colorado Geometry Ingestion | Not Started, planned later | — | — | — |
 | E06 | Colorado Regulation Text Ingestion | Not Started, planned later | — | — | — |
 
@@ -111,6 +111,10 @@ None. M2 E04 fully closed S04.1 on 2026-05-30 — Group A satisfied at merge (PR
 **E04 closed 2026-05-31.** All 5 E04 stories shipped across 5 calendar days (2026-05-29 → 2026-05-31). The two parallel housekeeping bundles surfaced through S04.4 closure both co-landed at S04.5 close via the same `/roughly:build` session: Bundle A (2 of 3 surfaced pitfall candidates landed; 3rd deliberately excluded as operational reality of cubic per PM judgment); Bundle B (all 5 accumulated handoff hygiene candidates landed). The M1→M2 handoff is now self-consistent at §3 (build-vs-DB clarifying preamble pointing at runbook footnote `[^10]`), §8 #4 (draw_spec 276→278; jurisdiction_binding row added), and §8 #7 (RESOLVED annotation). The recurring-RLS-gap M2 open-question candidate (E04 §"Known Issues to Escalate" #1) remains unchanged in scope — none of the five E04 stories needed to resolve it; it persists as a flag for the human to land via event-trigger migration, CI check, or discipline-only mitigation path.
 
 **Next active work-front: E05 (Colorado geometry ingestion).** PM awaits `/plan-next-epic` invocation to begin E05 planning — the planning cycle reads PRD 002 §"E05 — Colorado geometry ingestion", surfaces the 8 stories (S05.0–S05.7), drafts each via the E05 validation triad (Spatial Correctness + ArcGIS Fidelity + Schema Stress-Test), and writes the E05 epic file under `docs/planning/epics/`. E06 (regulation text) is planned after E05's last story merges.
+
+**Open carry-forward signal for E05 planning** (per E04 audit Recommendation §3): the recurring-RLS-gap M2 open-question candidate (E04 §"Known Issues to Escalate" #1) should be surfaced at the `/plan-next-epic` checkpoint for explicit mitigation decision (event-trigger migration / CI check / discipline-only) before any new public-schema tables land in M2. None of the 5 E04 stories needed to resolve it; the gap persists.
+
+**Post-implementation-audit standard for E05+** (locked at E04 audit close): the E05 epic file will carry an explicit Exit Criterion gating `/plan-next-epic` for E06 on E05's audit-artifact existence under `epics/completed/E05-audit.md` with a populated `Audited:` field on the E05 header. Same pattern for E06 and beyond. The PM will refuse-and-flag any `/plan-next-epic` invocation where the prior epic's audit is unrecorded — no silent skip.
 
 **M2 open-question candidate surfaced at E04 close**: the base RLS migration `20260425000001_rls_deny_all.sql` uses a flat per-table IN-list that does not auto-extend to subsequently-added tables — the same pattern that produced the M1 `license_season` gap S04.1 closes. Any future migration in M2 / M3 that adds a new `public.*` table will silently inherit the gap unless its inline RLS block is included in the same migration. Surfaced to user via E04 § "Known Issues to Escalate" for decision on mitigation path (event-trigger migration / CI check / discipline-only). PRD 002 §"Decisions already made" already encodes the discipline-only mitigation; the recurring-gap risk is whether to harden further.
 
