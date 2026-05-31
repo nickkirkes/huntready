@@ -1,0 +1,32 @@
+docs/planning/epics/E04-m1-carry-forward.md
+  s_b6b1c793a73350::t_e9d9f2a2531bb0 3,8
+  s_b6b1c793a73350::t_185fccce985acd 378-384
+  s_b6b1c793a73350::t_b8ca1e37ce80ff 441-450
+  s_b6b1c793a73350::t_7e1b2176f11796 427-435
+CHANGELOG.md
+  s_b6b1c793a73350::t_c178a173223592 3-9
+CLAUDE.md
+  s_b6b1c793a73350::t_564a32893ca319 11
+docs/planning/README.md
+  s_b6b1c793a73350::t_c47a5b0d63c001 3-4
+  s_b6b1c793a73350::t_32341fad7dc401 30
+  s_b6b1c793a73350::t_590a7427f7043b 42
+  s_b6b1c793a73350::t_fd0a329f088e4c 15
+  s_b6b1c793a73350::t_dd02dbe4f1bed3 111,113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e18d0acb81e2a9267d618217613521a95ac26761",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
