@@ -359,14 +359,18 @@ CO analog of MT's S02.6. Same computation pattern: local shapely + STRtree again
 Current state at `ingestion/ingestion/lib/overlays.py:59-67`:
 ```python
 OverlayParentKind = Literal["hunting_district"]
-OverlayChildKind = Literal["portion", "cwd_zone", "restricted_area"]
+OverlayChildKind = Literal["hunting_district", "portion", "cwd_zone", "restricted_area"]
 ```
+
+Note: `"hunting_district"` is already present in `OverlayChildKind` as the self-row case, and `ROLE_FOR_E03_BY_CHILD_KIND` at `overlays.py:122` already maps `"hunting_district" → "primary_unit"`. S05.5 mirrors that pattern symmetrically for `"gmu"`.
 
 S05.5 extends these to cover CO kinds (and the (`gmu`, `gmu`) self-row case):
 ```python
 OverlayParentKind = Literal["hunting_district", "gmu"]
-OverlayChildKind = Literal["portion", "cwd_zone", "restricted_area", "gmu"]
+OverlayChildKind = Literal["hunting_district", "portion", "cwd_zone", "restricted_area", "gmu"]
 ```
+
+This extension follows the docstring guidance at `overlays.py:59-65` ("Extend this Literal (and update `ROLE_FOR_E03_BY_CHILD_KIND` if needed) when additional parent kinds are introduced"). The docstring itself is updated alongside the Literal extensions so the maintained sync-contract stays current.
 
 The mapping at `overlays.py:102/114/121/127` (`ROLE_FOR_E03_BY_CHILD_KIND`) is **renamed for forward semantic correctness** while **preserving backward compatibility for MT code**:
 
@@ -416,7 +420,7 @@ The `OverlayFixtureRow.role_for_e03` **field name stays unchanged** — MT fixtu
 **Acceptance Criteria:**
 
 - [ ] `ingestion/states/colorado/build_overlay_fixture.py` exists; computes spatial relationships locally via shapely + STRtree against a single bulk `SELECT id, kind, ST_AsText(geom) FROM geometry WHERE state = 'US-CO'` (geography-native; no `::geometry` cast)
-- [ ] **Library extension shipped state-agnostic-clean**: `ingestion/ingestion/lib/overlays.py` `OverlayParentKind` extended to `Literal["hunting_district", "gmu"]`; `OverlayChildKind` extended to `Literal["portion", "cwd_zone", "restricted_area", "gmu"]`; new export `ROLE_FOR_BINDING_BY_CHILD_KIND` adds `"gmu" → "primary_unit"`; `ROLE_FOR_E03_BY_CHILD_KIND` retained as deprecated alias (pointing to the new constant for MT code); `OverlayFixtureRow.role_for_e03` field name preserved (data compat with MT fixture); module docstring documents the historical naming
+- [ ] **Library extension shipped state-agnostic-clean**: `ingestion/ingestion/lib/overlays.py` `OverlayParentKind` extended to `Literal["hunting_district", "gmu"]`; `OverlayChildKind` extended to `Literal["hunting_district", "portion", "cwd_zone", "restricted_area", "gmu"]` (the existing `"hunting_district"` self-row child kind is preserved alongside the new `"gmu"` self-row addition); new export `ROLE_FOR_BINDING_BY_CHILD_KIND` adds `"gmu" → "primary_unit"` and preserves the existing `"hunting_district" → "primary_unit"` mapping; `ROLE_FOR_E03_BY_CHILD_KIND` retained as deprecated alias (pointing to the new constant for MT code); `OverlayFixtureRow.role_for_e03` field name preserved (data compat with MT fixture); module docstring documents the historical naming
 - [ ] `ingestion/states/colorado/fixtures/geometry-overlays.json` exists with: (`gmu`, `gmu`) self-references for every GMU row + GMU↔CWD + GMU↔Restricted-Area covers/intersects per ADR-016 thresholds
 - [ ] **Paired audit log** at `ingestion/states/colorado/fixtures/geometry-overlays-dropped.json` committed alongside kept fixture; sorted, deterministic
 - [ ] **No statewide rows pre-emitted** — fixture covers only overlay (parent ≠ child) + self-row (gmu, gmu); statewide (`state`, `state`) bindings emit from E06's binding loader at derivation time per S03.6.1 pattern
@@ -424,10 +428,10 @@ The `OverlayFixtureRow.role_for_e03` **field name stays unchanged** — MT fixtu
   - Every `kind='gmu'` row has a self-relationship with `role_for_e03='primary_unit'`
   - Every `kind='cwd_zone'` row appears as `child_geometry_id` in ≥1 relationship to a GMU parent; orphans fail loud
   - Every `kind='restricted_area'` row appears as `child_geometry_id` in ≥1 relationship to a GMU parent OR is on `EXPECTED_CO_RA_ORPHAN_IDS`; orphans NOT on allowlist fail loud
-- [ ] **`EXPECTED_CO_RA_ORPHAN_IDS: frozenset[str]`** constant defined in `build_overlay_fixture.py` (or parameterized via shared lib) seeded from S05.4's discovery
+- [ ] **`EXPECTED_CO_RA_ORPHAN_IDS: frozenset[str]`** constant defined in `build_overlay_fixture.py` (or parameterized via shared lib) seeded from S05.4's discovery; **defaults to `frozenset()`** if S05.4 outcome (b) fires (no restricted-area layer + no no-hunt zones); non-empty only when S05.4 outcome (c) lands no-hunt zones
 - [ ] **`_JURISDICTION_BINDING_ID_FORMAT` contract documented** in fixture header or module docstring for E06's reuse
 - [ ] **Threshold recalibration check**: closure note documents the audit-log inspection (borderline drops in `[0.005, 0.02]`; borderline relabels in `[0.98, 0.995]`); MT thresholds preserved unless either band differs from MT proportions by >10%
-- [ ] **Threshold edge tests** in `ingestion/tests/test_build_co_overlay_fixture.py` mirror S02.6 (lock `overlap_pct = 0.989 → "intersects"`, `0.990 → "covers"`, `0.011 → "intersects"`, `0.009 → dropped`)
+- [ ] **Threshold edge tests** in `ingestion/tests/test_build_co_overlay_fixture.py` mirror S02.6 (lock `overlap_pct = 0.989 → "intersects"`, `0.990 → "covers"`, `0.011 → "intersects"`, `0.009 → dropped`). The four numeric values shift symmetrically if thresholds recalibrate per the threshold-recalibration check above; the test pattern is the lock (band-edge correctness above/below `COVER_RELABEL_THRESHOLD` and `COVER_DROP_THRESHOLD`), not the literal numbers
 - [ ] **UAT — visual spot-check**: closure note documents inspection of expected GMU↔CWD-zone relationships + multi-part GMU self-rows (consuming `multipart-gmus.json` from S05.2) + no-hunt-zone orphans appearing in `EXPECTED_CO_RA_ORPHAN_IDS`
 - [ ] Every fixture-referenced `geometry_id` exists in the CO geometry list (JSON-level FK check)
 - [ ] Both fixture files are reproducible — byte-identical JSON across runs (sorted, `sort_keys=True`, `indent=2`, trailing newline, atomic tmp+rename, `overlap_pct` rounded to 6 decimals per S02.6)
@@ -449,7 +453,7 @@ The `OverlayFixtureRow.role_for_e03` **field name stays unchanged** — MT fixtu
 
 Per PRD 002 §"Why sequential", actual `jurisdiction_binding` writes belong to E06 (binding FKs to BOTH `regulation_record` AND `geometry`). S05.6 prepares E06's binding-loader reference — it does not write to `jurisdiction_binding`.
 
-**`_STATE` constant** (mirrors `ingestion/states/montana/load_jurisdiction_bindings.py:111` `_STATE: Final[str] = "US-MT"`):
+**`_STATE` constant** (mirrors `ingestion/states/montana/load_jurisdiction_bindings.py:110` `_STATE: Final[str] = "US-MT"`):
 
 ```python
 # In a new module ingestion/states/colorado/_constants.py (or load_jurisdiction_bindings.py
@@ -457,7 +461,7 @@ Per PRD 002 §"Why sequential", actual `jurisdiction_binding` writes belong to E
 _STATE: Final[str] = "US-CO"
 ```
 
-**Reference SQL** (mirrors S03.10's `_query_nearby_hds_for_zone` at `load_jurisdiction_bindings.py:587/740` — verify exact line numbers at story implementation time per pitfall #1 from `.roughly/known-pitfalls.md` Bundle A):
+**Reference SQL** (mirrors S03.10's `_query_nearby_hds_for_zone` `cur.execute(...)` at `load_jurisdiction_bindings.py:587` — verify exact line number at story implementation time per pitfall #1 from `.roughly/known-pitfalls.md` Bundle A; the prior epic draft cited `:587/740` but `:740` is a different function `_load_non_statewide_reg_records`, not the nearby-zone query):
 
 ```python
 # For E06's CO binding loader (NOT executed in E05; documented as reference):
@@ -553,7 +557,7 @@ Every coordinate is a real `shapely.representative_point()` from the actual load
 - [ ] Every coordinate is a real `shapely.representative_point()` from the actual loaded geometry (no invented points)
 - [ ] **UAT — `ST_Covers` spot-check**: Each fixture point resolves correctly via `extensions.ST_Covers(geom, extensions.ST_GeogFromText(...))` per the runbook's section 1 verification protocol; **every spot-check SQL block includes `AND state = 'US-CO'`** in the WHERE clause per PRD 002 success criterion #4
 - [ ] All CO geometry rows pass `extensions.ST_IsValid` (Supabase round-trip cast workaround)
-- [ ] **Named multi-part anchor verification**: first entry in `multipart-gmus.json` returns `ST_NumGeometries > 1` via the runbook's section 3 protocol
+- [ ] **Named multi-part anchor verification**: first entry in `multipart-gmus.json` returns `ST_NumGeometries > 1` via the runbook's section 3 protocol; if `multipart-gmus.json` is empty (CO unexpectedly has zero multi-part GMUs), document the verification as N/A in the closure note and surface as a data observation — do NOT silently skip the AC
 - [ ] **CO-bounds post-load `ST_Envelope` check**: `extensions.ST_Envelope(extensions.ST_Collect(geom::geometry))` over `state='US-CO'` returns a bbox within `[-109.06, -102.04] × [36.99, 41.00]`
 - [ ] Geography GiST index reachability documented per S02.7 protocol section 4; `EXPLAIN ANALYZE` plan captured in runbook
 - [ ] **Reproducibility section in the runbook** correctly sequences `DELETE FROM jurisdiction_binding WHERE state = 'US-CO'` BEFORE `DELETE FROM geometry WHERE state = 'US-CO'`; includes explicit guard against `TRUNCATE`
