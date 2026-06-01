@@ -1,0 +1,23 @@
+.roughly/plans/S05.0-write-co-statewide-geom-row-plan.md
+  s_de79fbd6dc22e0::t_ad1d3f4d035bda 90-91
+  s_de79fbd6dc22e0::t_3573adf25bbc0b 73
+  s_de79fbd6dc22e0::t_2fc9ab285e3132 3-72,74-89,92-99,101-395
+  s_de79fbd6dc22e0::t_007369879e47ac 1-2
+  s_de79fbd6dc22e0::t_9ea1989bd6d272 100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b424414b252c35dc7fa17a31c870dc644b8fc02f",
+  "prompts": {},
+  "sessions": {
+    "s_de79fbd6dc22e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1c417c86-c724-40bc-aaf8-1ad403cb2b7b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
