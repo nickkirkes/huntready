@@ -1,0 +1,19 @@
+ingestion/states/colorado/load_state_boundary.py
+  s_de79fbd6dc22e0::t_b75dc2a4540edd 267-274,282,290-291
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "66feda09e67fb27bab82cd22b5eb939e2fccdd5b",
+  "prompts": {},
+  "sessions": {
+    "s_de79fbd6dc22e0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1c417c86-c724-40bc-aaf8-1ad403cb2b7b",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
