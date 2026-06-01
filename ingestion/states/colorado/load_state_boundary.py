@@ -264,7 +264,14 @@ def _build_source_citation() -> SourceCitation:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Fetch, verify, parse, and write the Colorado state geometry row."""
+    """Fetch, verify, parse, and write the Colorado state geometry row.
+
+    No URL override flag by design: the SourceCitation hardcodes
+    STATE_BOUNDARY_URL, so a CLI-level URL override would silently lie about
+    provenance whenever an operator also re-pinned STATE_BOUNDARY_SHA256.
+    To test against a mirror or staged source, monkeypatch the module
+    constants in code (the test pattern) or edit the constants and commit.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Load the Colorado state boundary into the geometry table. "
@@ -272,12 +279,7 @@ def main(argv: list[str] | None = None) -> int:
             "Verifies SHA-256 of the source before writing — fails loud on mismatch."
         )
     )
-    parser.add_argument(
-        "--service-url",
-        default=STATE_BOUNDARY_URL,
-        help="Override the TIGER ZIP URL (for testing).",
-    )
-    args = parser.parse_args(argv)
+    parser.parse_args(argv)
 
     logging.basicConfig(
         level=logging.INFO,
@@ -285,8 +287,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     logger = logging.getLogger(__name__)
 
-    logger.info("fetching Colorado state boundary from %s", args.service_url)
-    payload = _fetch_source_bytes(args.service_url)
+    logger.info("fetching Colorado state boundary from %s", STATE_BOUNDARY_URL)
+    payload = _fetch_source_bytes(STATE_BOUNDARY_URL)
 
     logger.info("verifying SHA-256 against pinned value")
     observed_sha = _verify_sha256(payload, STATE_BOUNDARY_SHA256)
