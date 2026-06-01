@@ -1,0 +1,19 @@
+.roughly/workflow-upgrades
+  s_3090fa0e5208d9::t_c6f5af1c882763 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6fb2d433ad6fd7a78795f08b25008a152c861733",
+  "prompts": {},
+  "sessions": {
+    "s_3090fa0e5208d9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "82998013-56b7-43f7-a0af-51ff97239b35",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
