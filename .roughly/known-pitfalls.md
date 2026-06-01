@@ -94,6 +94,26 @@ Lock it in with a test that feeds an envelope payload and asserts the raise carr
 
 Surfaced by S03.0 silent-failure-hunter review on 2026-05-04.
 
+## Integration — Census TIGER
+
+### US Census TIGER state-boundary shapefiles ship in EPSG:4269 (NAD83), not WGS84
+
+The `.prj` sidecar declares NAD83 explicitly; geopandas reads `gdf.crs == "EPSG:4269"` on load. Any adapter consuming TIGER must explicitly call `gdf = gdf.to_crs(4326)` (with reassignment — see geopandas entry below) before writing to a Postgres `geography(MultiPolygon, 4326)` column. Skipping the reprojection produces a silent ~100m offset undetectable by the area sanity check.
+
+Pinned source for S05.0: `https://www2.census.gov/geo/tiger/TIGER2024/STATE/tl_2024_us_state.zip` (SHA-256 `ad00cbe66c7177091b668cee202e93d4a1ddcee271c28d1c9f9874af59c04b92`); SHA pin fails loud on Census re-publication per ADR-001.
+
+Surfaced at S05.0 plan-review Stage 4 (2026-06-01).
+
+## Integration — geopandas
+
+### `gdf.to_crs(epsg)` returns a new GeoDataFrame — bare call without reassignment silently discards the reprojection
+
+`geopandas.GeoDataFrame.to_crs(epsg)` is non-mutating. A bare `gdf.to_crs(4326)` expression (without reassignment) leaves the original GeoDataFrame carrying the source CRS unchanged. For state-boundary adapters sourced from TIGER (EPSG:4269 NAD83), this produces NAD83 coordinates that Postgres `ST_GeomFromText(wkt, 4326)::geography` mis-interprets as WGS84 — a systematic ~100m offset that no area sanity check can catch.
+
+**Fix:** always reassign — `gdf = gdf.to_crs(4326)`. Explicit prose at `ingestion/states/colorado/load_state_boundary.py:199-202` documents the trap.
+
+Surfaced at S05.0 plan-review Stage 4 (2026-06-01).
+
 ## Integration — Supabase / PostGIS
 
 ### `geometry` table DDL column is `geom`, not `geog`
@@ -735,6 +755,40 @@ git commit -m "..."  # retry the original commit
 If the diff shows a new `results` entry (not just a line-number shift), inspect what triggered it — that's a real new finding, not the drift case.
 
 Surfaced repeatedly across stories (S03.6 wrap-up is the most recent); recurring whenever a story adds substantial content to a file that already has a tracked false-positive entry. The hook's behavior is correct and intentional — this entry exists to short-circuit the cognitive surprise of "wait, what just changed?"
+
+### `detect-secrets scan --baseline` does not scan untracked files — use `git add -N` first
+
+**Symptom:** A newly created file containing a pinned SHA-256 constant (e.g., a Census TIGER zip hash) is not picked up by `detect-secrets scan --baseline .secrets.baseline`. The rescan completes without error, but the file's high-entropy string is absent from the baseline. The pre-commit hook then trips on the next commit because the string isn't in the baseline.
+
+**Cause:** `detect-secrets scan` uses `git ls-files` internally, which lists only tracked files. New files that haven't been committed yet are invisible to the rescan even if `git add <file>` has staged their content.
+
+**Fix:** Before running the baseline rescan, mark new files as intent-to-add so `git ls-files` sees them:
+
+```bash
+git add -N <new-file>...
+detect-secrets scan --baseline .secrets.baseline
+git add .secrets.baseline <new-file>...
+```
+
+The `-N` flag registers the path in the index without staging content. This issue manifests only during manual baseline maintenance, not at commit time (the pre-commit hook scans staged-by-content files correctly). Surfaced during S05.0 secrets-baseline update for the loader's pinned SHA-256 constant (2026-06-01).
+
+### `detect-secrets scan --baseline <file> <specific-path>` replaces the entire baseline — destructive, not additive
+
+**Symptom:** Running `detect-secrets scan --baseline .secrets.baseline ingestion/states/colorado/load_state_boundary.py` to add one new file's findings destroys every other tracked entry — the MT loader's SHA, every committed fixture manifest, known-pitfalls.md false-positives, all gone. The baseline `results` dict is replaced with findings from only the named path.
+
+**Cause:** Positional file-path arguments to `detect-secrets scan` override the default repo-wide scan. The tool performs a targeted scan of ONLY the named paths and writes the result back to `--baseline` — this is replacement, not merge. The CLI documents this behavior but the flag combination reads like "update baseline WITH findings from this file."
+
+**Fix:** To add one new file's entry to the baseline without destroying others, run a full-tree scan (after `git add -N` per entry above), then selectively merge only the new file's entry:
+
+```python
+import json
+new = json.load(open("new-baseline.json"))
+old = json.load(open(".secrets.baseline"))
+old["results"][new_filename] = new["results"][new_filename]
+json.dump(old, open(".secrets.baseline", "w"), indent=2)
+```
+
+The alternative — inline `# pragma: allowlist secret` on the flagged line — is also valid but was rejected for the MT loader precedent. Pattern landed in S05.0 (2026-06-01).
 
 ## Conventions — Documentation & planning discipline
 
