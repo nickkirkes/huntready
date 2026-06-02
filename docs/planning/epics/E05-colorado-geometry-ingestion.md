@@ -64,7 +64,7 @@ Two structural findings landed at the planning layer rather than per-story:
 
 ### S05.0: Schema preparation — write `CO-STATEWIDE-geom`
 
-**Status:** Not Started
+**Status:** Closed at-merge 2026-06-01 — squash-merged to main as PR #54 / `7f3b071` from `feat/S05.0-write-co-statewide-geom-row` (5 pre-squash commits: 1 implementation + 1 plan-historical + 1 pitfalls + 2 cubic-fixes). **First E05 PR.** **Group A file-level / static ACs satisfied at-merge** (8 of 10; see checkbox state below). **Group B operator-driven verification ACs remain open** (AC #7 post-write verification queries + AC #8 area_km2 within 1% of ~269,837 km²) pending the live `supabase db push` + operator-run loader against the production project — mirrors S04.1's PRD-006-style "operator verifies live" pattern; S05.0 close is NOT blocked by Group B. Operator runbook in `docs/planning/epics/E05-confidence-findings/S05.0.md` § "Operator runbook for production DB write" (note: working-notes directory `E05-confidence-findings/` is the M2 analog of M1's `E03-confidence-findings/` and deletes at the `m2` tag per ADR-017 §6 retention policy; the durable closure record migrates to a future M2 synthesis report if one is produced). **Source choice locked at plan time**: Tier 3 — US Census TIGER 2024 state shapefile at `https://www2.census.gov/geo/tiger/TIGER2024/STATE/tl_2024_us_state.zip` with SHA-256 `ad00cbe66c7177091b668cee202e93d4a1ddcee271c28d1c9f9874af59c04b92` <!-- pragma: allowlist secret --> pinned per ADR-001 fail-loud; `SourceCitation.id='co-census-tiger-state-2024'`; `publication_date='2026-01-01'` (REGYEAR-anchored per ADR-014, NOT TIGER vintage 2024-01-01). Tiers 1 (CPW-published) and 2 (Colorado state library) were not repo-confirmed within investigation budget; mirrors S03.0's "fourth option strictly dominates" deviation precedent (though in the inverse direction — S03.0 found a Tier-3-equivalent that beat the listed Tier-1 + Tier-2 options, while S05.0 fell through to a documented Tier-3 fallback because Tier-1 + Tier-2 surfaces weren't located in the live investigation pass). **Constants-block architecture supports later swap** if a richer CPW or Colorado-Portal source surfaces — `CO-STATEWIDE-geom` is id-keyed, not source-keyed, so any future Tier-1 / Tier-2 adoption is a sources.yaml + load-script swap without identity drift. **Stage-gate trajectory**: Stage-4 plan review Round 1 NEEDS REVISION → fixes → Round 2 PASS (1 Blocker — bare `gdf.to_crs(4326)` would have produced ~100m systematic NAD83-as-WGS84 offset undetectable by AC #8 area check; fixed by explicit reassignment + load-bearing comment block; 1 Concern — `urllib.request` diverged from project's `requests` convention; switched to `requests.Session` via `arcgis._build_session()`). Stage-6 parallel review (code-reviewer + static-analysis + silent-failure-hunter): **7 actionable findings landed in 1 review-fix cycle** (P0 detect-secrets baseline entry; P1 `ZipFile` resource leak; P1 empty response body diagnostic; P1 multiple `.shp` silent first-alphabetical; P1 NULL geometry → unhelpful TypeError; P2 missing `STATEFP` column → bare pandas `KeyError`; P3 overbroad test exception tuple). **2 cubic-fix iterations**: Iter 1 P2 removed `--service-url` override that created a silent-lie citation surface under deliberate dual-override; Iter 2 P2 added missing variable binding in a pitfall-entry example snippet. **9 fail-loud guards in the loader** (7 + 1 SHA + 1 non-MultiPolygon post-make_valid). **4 new pitfalls landed in `.roughly/known-pitfalls.md`** (2 under Integration — Census TIGER + geopandas covering the to_crs reassignment trap + TIGER native EPSG:4269; 2 under Conventions — Pre-commit & secrets covering detect-secrets baseline interactions). **Test baseline shifted post-S05.0: 1166 → 1184 + 2 skipped** (+18 from the new `test_load_co_state_boundary.py` unit tests — deliberate quality addition, not a regression; AC #5 is satisfied because the +18 is the new loader's own tests, not edits to existing tests). New baseline holds going forward across S05.1-S05.7. **Two M2 hygiene candidates surfaced and queued (out of S05.0 blast radius)** — flagged to user for decision; PM does NOT touch `ingestion/` autonomously: (1) `db.upsert_geometry` missing `cur.rowcount == 0` fail-loud guard (inconsistent with the `update_legal_description` / `update_license_tag_draw_spec_key` / `upsert_jurisdiction_binding` pattern established post-S03.6; low-risk today because psycopg3 returns `rowcount=1` for both INSERT and UPDATE under ON CONFLICT DO UPDATE; risk surfaces if DDL ever changes to ON CONFLICT DO NOTHING; single-PR fix in `db.py`); (2) MT `load_state_boundary.py --service-url` provenance silent-lie — same latent issue cubic-fixed in CO; single-line removal + test-import update. **No ADRs created**; **no schema or three-place-sync changes** (`kind='state'` already valid per `20260504032424_e03_schema_additions.sql:59-67`; Pydantic + TypeScript Literals already include `"state"` from S03.0); **no `db.py` touches**; **no production-database writes from the build session** (live write is operator-driven). Q19 stays RESOLVED via ADR-020; no new open questions opened.
 
 **As a** developer preparing Colorado's geometry layer for E06's statewide-anchor regulation_records
 **I want** the single `CO-STATEWIDE-geom` row written to `geometry` with `kind='state'`, `state='US-CO'`, `license_year=NULL`, and a `document_type='gis_layer'` SourceCitation pinning the source
@@ -104,16 +104,21 @@ WHERE id = 'CO-STATEWIDE-geom';
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/colorado/load_state_boundary.py` exists (mirror `ingestion/states/montana/load_state_boundary.py` from S03.0); idempotent UPSERT by id
-- [ ] Single `geometry` row written: `id='CO-STATEWIDE-geom'`, `kind='state'`, `state='US-CO'`, `license_year=NULL` (year-invariant)
-- [ ] `source` jsonb populated with `document_type='gis_layer'` per ADR-014; `publication_date = '2026-01-01'` (Jan 1 of REGYEAR per ADR-014; NOT the source's edit-date timestamp)
-- [ ] Source URL + SHA-256 pinned in the load script + documented in the story closure note (analog of S03.0's MSDI choice rationale)
-- [ ] Geometry passes `shapely.make_valid()` before insert; result is `MultiPolygon` (single-part is acceptable; wrap a singleton `Polygon` via `shapely.geometry.MultiPolygon([poly])`)
-- [ ] Live-source SHA-256 drift fails loud per ADR-001 (`_verify_sha256` returns observed digest on success, raises `RuntimeError` with both digests on mismatch — mirrors S03.0)
-- [ ] Post-write verification queries (above) return expected results
-- [ ] `area_km2` within 1% of Colorado's published area (~269,837 km²); sanity-check against CPW's authoritative boundary
-- [ ] Test suite remains at the post-E04 baseline (1166 + 2 skipped) — schema-prep story, no Python edits expected beyond the new load script + its unit tests
-- [ ] No Pydantic / TypeScript / `architecture.md` / migration edits — `kind='state'` already exists from ADR-018
+**Group A — file-level / static (satisfied at-merge):**
+
+- [x] `ingestion/states/colorado/load_state_boundary.py` exists (mirrors `ingestion/states/montana/load_state_boundary.py` from S03.0; same 4-pure-functions + main() shape, only the parser body diverges — TIGER ZIP+shapefile vs MT's GeoJSON); idempotent UPSERT by id — actual: 326 LOC + 343-LOC unit tests at `ingestion/tests/test_load_co_state_boundary.py`
+- [x] Single `geometry` row written via mocked tests: `id='CO-STATEWIDE-geom'`, `kind='state'`, `state='US-CO'`, `license_year=NULL` (year-invariant). Live-DB row write is operator-driven per Group B below
+- [x] `source` jsonb populated with `document_type='gis_layer'` per ADR-014; `publication_date = '2026-01-01'` (Jan 1 of REGYEAR per ADR-014; NOT TIGER vintage 2024-01-01); `SourceCitation.id='co-census-tiger-state-2024'`
+- [x] Source URL + SHA-256 pinned in the load script: `https://www2.census.gov/geo/tiger/TIGER2024/STATE/tl_2024_us_state.zip` + SHA-256 `ad00cbe66c7177091b668cee202e93d4a1ddcee271c28d1c9f9874af59c04b92`; source-choice rationale (Tier-3 fallback because Tier-1 + Tier-2 were not repo-confirmed within investigation budget) documented in `docs/planning/epics/E05-confidence-findings/S05.0.md`
+- [x] Geometry passes `shapely.make_valid()` before insert; result coerced to `MultiPolygon` (single-part Colorado boundary wrapped via Python `shapely.geometry.MultiPolygon([poly])`; **load-bearing reassignment fix** for `gdf = gdf.to_crs(4326)` Stage-4-plan-review Blocker — the bare expression would have silently discarded the reprojection, producing ~100m systematic NAD83-as-WGS84 offset undetectable by AC #8 area check); non-MultiPolygon result post-`make_valid` raises (catches GeometryCollection)
+- [x] Live-source SHA-256 drift fails loud per ADR-001 (`_verify_sha256` returns observed digest on success, raises `RuntimeError` with both digests on mismatch — mirrors S03.0)
+- [x] **Test suite shifted post-S05.0: 1166 → 1184 + 2 skipped** (+18 from `test_load_co_state_boundary.py` — deliberate quality addition, not a regression. AC originally cited "remains at the post-E04 baseline (1166 + 2 skipped) — schema-prep story, no Python edits expected beyond the new load script + its unit tests"; the +18 IS the new loader's unit tests per the AC's explicit carve-out, so AC text intent is satisfied. New 1184 baseline holds going forward across S05.1-S05.7)
+- [x] No Pydantic / TypeScript / `architecture.md` / migration edits — `kind='state'` already valid per `20260504032424_e03_schema_additions.sql:59-67`; Pydantic + TypeScript Literals already include `"state"` from S03.0
+
+**Group B — operator-driven post-`supabase db push` + loader-run (open; not blocking S05.0 close per the PRD-006-style "operator verifies live" pattern):**
+
+- [ ] **Post-write verification queries return expected results** — *operator-pending*: AC #7 from the Context section's "Verification queries". Run after operator-driven loader-run against production Supabase (service-role DSN). Three-row verification block: identity columns + `document_type='gis_layer'`; `ST_IsValid` true + `ST_NumGeometries` = 1; `area_km2` populated for AC #8 cross-check. All `ST_*` calls already `extensions.`-prefixed in the documented queries per `.roughly/known-pitfalls.md`. Capture verbatim outputs in `docs/planning/epics/E05-confidence-findings/S05.0.md` § "Group B verification record" slot (analog of S04.1's 2026-05-30 verification record)
+- [ ] **`area_km2` within 1% of Colorado's published area (~269,837 km²)** — *operator-pending*: AC #8 from the Context section. Capture in same Group B verification slot. Cross-check against CPW's authoritative boundary; ±1% tolerates digitization-precision and TIGER state-line generalization without falsely flagging a regression
 
 ---
 
@@ -160,7 +165,7 @@ The shared library at `ingestion/ingestion/lib/arcgis.py` is state-agnostic per 
 - [ ] **`TestNoColoradoLeakIntoSharedLib`** AST-walk regression test added to `ingestion/tests/` that fails if any file under `ingestion/ingestion/lib/` contains the substring `colorado` (case-insensitive) or any literal CPW host string
 - [ ] No `arcgis.py` edits (confirmed by `git diff --stat ingestion/ingestion/lib/arcgis.py` empty)
 - [ ] `ruff check`, `mypy ingestion/lib/`, `mypy ingestion/states/colorado/`, `pytest ingestion/tests/` all clean
-- [ ] Test suite reports 1166 + 2 skipped + (new) `TestNoColoradoLeakIntoSharedLib` tests (typically +2-3; document exact delta at close)
+- [ ] Test suite reports **1184 + 2 skipped** (post-S05.0 baseline) + (new) `TestNoColoradoLeakIntoSharedLib` tests (typically +2-3; document exact delta at close)
 
 ---
 
@@ -234,7 +239,7 @@ Per Spatial Correctness × ArcGIS Fidelity conflict resolution above: S05.2 dele
 - [ ] Layer metadata fixture committed at `ingestion/states/colorado/fixtures/CPWAdminData-6-metadata-<timestamp>.json` (~7KB)
 - [ ] Per-fetch manifest committed at `ingestion/states/colorado/fixtures/CPWAdminData-6-manifest-<timestamp>.json` (~5KB) with `features_count`, `layer_hash`, `hash_distribution`, `fetched_at`, `source_url`, `source_layer_max_record_count`, `source_layer_object_id_field` per S02.7's spec
 - [ ] **Multi-source provenance flag**: if any single GMU needs assembly from >1 source (e.g., CPW FeatureServer + Colorado Geospatial Portal patch), pause and flag for ADR before adopting silently (V1 simplification: pick the most-authoritative single source per row + log deviation; do NOT pre-commit a schema migration in E05)
-- [ ] Test suite delta: +N tests in `ingestion/tests/test_load_gmus.py` (mirrors S02.2's 435-line `test_load_hds.py` test-suite scope); baseline shifts 1166 → 1166+N at close; document exact N
+- [ ] Test suite delta: +N tests in `ingestion/tests/test_load_gmus.py` (mirrors S02.2's 435-line `test_load_hds.py` test-suite scope); baseline shifts **1184 → 1184+N at close (post-S05.0 baseline; S05.0 itself shifted 1166 → 1184 via the new `test_load_co_state_boundary.py` unit tests)**; document exact N
 
 ---
 
@@ -435,7 +440,7 @@ The `OverlayFixtureRow.role_for_e03` **field name stays unchanged** — MT fixtu
 - [ ] **UAT — visual spot-check**: closure note documents inspection of expected GMU↔CWD-zone relationships + multi-part GMU self-rows (consuming `multipart-gmus.json` from S05.2) + no-hunt-zone orphans appearing in `EXPECTED_CO_RA_ORPHAN_IDS`
 - [ ] Every fixture-referenced `geometry_id` exists in the CO geometry list (JSON-level FK check)
 - [ ] Both fixture files are reproducible — byte-identical JSON across runs (sorted, `sort_keys=True`, `indent=2`, trailing newline, atomic tmp+rename, `overlap_pct` rounded to 6 decimals per S02.6)
-- [ ] Test suite delta documented; baseline preserved at 1166 + N (S05.2's delta) + M (S05.5's delta)
+- [ ] Test suite delta documented; baseline preserved at **1184 (post-S05.0) + N (S05.2's delta) + M (S05.5's delta)**
 
 ---
 
@@ -586,7 +591,7 @@ Every coordinate is a real `shapely.representative_point()` from the actual load
 - [ ] **Post-implementation audit recorded** at `docs/planning/epics/completed/E05-audit.md` with populated `Audited:` field on this epic header BEFORE `/plan-next-epic` is invoked for E06 (per E04 audit-closure locked standard)
 - [ ] No Colorado data loaded outside `ingestion/states/colorado/`; no CO-specific code in `ingestion/ingestion/lib/` (`TestNoColoradoLeakIntoSharedLib` passes)
 - [ ] PRD 002 success criteria #4, #6, #7 satisfied per S05.7 ACs
-- [ ] Test suite delta documented at every story close; final E05 baseline = 1166 + sum of per-story deltas
+- [ ] Test suite delta documented at every story close; **final E05 baseline = 1184 + sum of S05.1-S05.7 per-story deltas (S05.0 itself shifted 1166 → 1184 via the new `test_load_co_state_boundary.py` unit tests)**
 
 ---
 
