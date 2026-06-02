@@ -1,0 +1,37 @@
+ingestion/states/colorado/load_gmus.py
+  s_9bf0067ec3fa1f::t_6938090c96f1fe 297-344,348-409
+  s_9bf0067ec3fa1f::t_cc10c471d2b6f3 47
+  s_9bf0067ec3fa1f::t_137addc058b48b 45
+  s_9bf0067ec3fa1f::t_57b7177c28e5c0 5
+  s_9bf0067ec3fa1f::t_daf96500eef09c 48-49
+  s_9bf0067ec3fa1f::t_b1b08a9d924274 1-4,6-16,20-35,38,40-42,46,50-131
+  s_9bf0067ec3fa1f::t_075deef116811c 132-192
+  s_9bf0067ec3fa1f::t_1ce60fb9edd69c 36
+  s_9bf0067ec3fa1f::t_098dc49cfde509 257-261,270-277
+  s_9bf0067ec3fa1f::t_de0e1790e11c37 345-347
+  s_9bf0067ec3fa1f::t_2105d15d1ae849 37,39
+  s_9bf0067ec3fa1f::t_65caa45718d740 43-44
+  s_9bf0067ec3fa1f::t_083e5bd67b07cc 17-19
+  s_9bf0067ec3fa1f::t_73daf57600476b 193-256,262-269,278-296
+ingestion/tests/test_load_gmus.py
+  s_9bf0067ec3fa1f::t_02533eff3f8d10 676
+  s_9bf0067ec3fa1f::t_36eeb960970b0a 1-598,669-675,677-702
+  s_9bf0067ec3fa1f::t_c89c5e87eee0dc 599-668
+  s_9bf0067ec3fa1f::t_5bac60877b7fd5 703-733
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0b387581977b9c55d0d1a8342b7c1cc4b8cff868",
+  "prompts": {},
+  "sessions": {
+    "s_9bf0067ec3fa1f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6e87ca00-0b9c-48f2-b953-8fe10b48417b",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
