@@ -782,6 +782,8 @@ The `-N` flag registers the path in the index without staging content. This issu
 
 ```python
 import json
+
+new_filename = "ingestion/states/<state>/<your-new-file>.py"  # set to the path you're adding
 new = json.load(open("new-baseline.json"))
 old = json.load(open(".secrets.baseline"))
 old["results"][new_filename] = new["results"][new_filename]
