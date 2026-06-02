@@ -1,0 +1,22 @@
+.roughly/plans/S05.1-cpw-arcgis-fetch-infra-plan.md
+  s_42bc656813d966::t_a6766d0ff51732 3-121,128-428
+  s_42bc656813d966::t_a87e04ea728808 122-127
+  s_42bc656813d966::t_1eb38707d3e3ba 1-2
+  s_42bc656813d966::t_265683126fce34 429
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9ac1b6bef13f31c9a513684a04c202afaaed834e",
+  "prompts": {},
+  "sessions": {
+    "s_42bc656813d966": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "06be6aed-8c6d-42b8-99ee-be480b024ac1",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
