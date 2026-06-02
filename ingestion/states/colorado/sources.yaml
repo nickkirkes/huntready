@@ -1,0 +1,39 @@
+# Colorado Parks & Wildlife (CPW) GIS sources (S05.1; CPW Big Game GMUs only).
+#
+# Each entry documents a CPW ArcGIS FeatureServer layer. Per ADR-014,
+# `SourceCitation.publication_date` for `gis_layer` entries is `Jan 1 of
+# REGYEAR` — derived at load time by `arcgis.build_source_citation(...)`
+# from `license_year`. The runtime constructs the SourceCitation; this YAML
+# is operator-facing documentation of intent (layer registry + agency +
+# title + base URL + document_type). Update `note` after a known-good first
+# fetch if attribute schema changes.
+#
+# Additional CPW layers (CWD zones at S05.3, restricted areas at S05.4)
+# are added to this file as their discovery investigations close. The
+# `pdfs:` top-level key is reserved for future CPW PDFs (e.g., Big Game
+# brochure if S05.4 falls back to PDF hand-trace per its Path 3 fallback).
+#
+# Service URL conventions:
+#   - `service_url` is the FeatureServer base, WITHOUT the layer-id suffix.
+#   - `layer_id` is the integer per the service catalog.
+#   - The combined URL is `{service_url}/{layer_id}` and matches
+#     `SourceCitation.url` constructed by `arcgis.build_source_citation`.
+
+gis_layers:
+  # id_template is documentation only — do NOT read this field at runtime.
+  # The runtime SourceCitation.id is built by `arcgis.build_source_citation`
+  # from `state_slug + service_url + layer_id + license_year`. Reading
+  # `id_template` directly would write the unsubstituted `{license_year}`
+  # placeholder to the database.
+  - id_template: "co-cpw-arcgis-cpwadmindata-6-{license_year}"
+    agency: "Colorado Parks and Wildlife"
+    title: "Big Game GMUs (Layer 6 of CPWAdminData)"
+    service_url: "https://services5.arcgis.com/ttNGmDvKQA7oeDQ3/ArcGIS/rest/services/CPWAdminData/FeatureServer"
+    layer_id: 6
+    document_type: gis_layer
+    note: >
+      Native EPSG:3857; outSR=4326 set in fetch params per arcgis.py.
+      Last research-confirmed: 2026 epic-review pass; ~186 GMU polygons;
+      attribute schema in docs/research/gmu-source-evaluation.md.
+      No per-feature REGYEAR attribute — S05.2 passes license_year=2026
+      (the fetch year) as the deliberate default per ADR-014.

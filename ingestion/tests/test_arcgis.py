@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -1740,3 +1741,97 @@ class TestFetchFeaturesManifest:
         assert sum(manifest["hash_distribution"].values()) == 0
         assert len(manifest["hash_distribution"]) == 256
         assert responses == []
+
+
+# --------------------------------------------------------------------------- #
+# State-agnostic guard for Colorado (ADR-005)                                 #
+# --------------------------------------------------------------------------- #
+
+
+class TestNoColoradoLeakIntoSharedLib:
+    """The shared library `ingestion/ingestion/lib/` must remain state-agnostic
+    per ADR-005 — no Colorado-specific identifiers and no CPW host literals
+    in any file under the lib directory.
+
+    Mirrors `test_pdf.py::TestPdfNoStateAdapterImports` (which guards a single
+    lib file by its `__file__`) but walks every `.py` file under the lib
+    directory dynamically, so files added in the future are auto-covered
+    without test edits.
+
+    Companion to E02 audit's MT_FWP_HOST removal discipline (commit 0093e88):
+    state-host constants and state slugs belong in `states/<slug>/`, never
+    in `ingestion/ingestion/lib/`.
+    """
+
+    # CPW-specific literals that must never appear in the shared library.
+    # All entries MUST be lowercased; the scan compares against
+    # `source.lower()` so any mixed-case entry would silently never match.
+    # The class-body assertion immediately after this tuple enforces the
+    # invariant at collection time.
+    _CPW_HOST_LITERALS: tuple[str, ...] = (
+        "services5.arcgis.com",
+        "ttngmdvkqa7oedq3",
+        "cpwadmindata",
+    )
+    assert all(s == s.lower() for s in _CPW_HOST_LITERALS), (
+        "_CPW_HOST_LITERALS entries must be lowercase — the scan lowercases "
+        "the source text but does NOT lowercase the needles, so a mixed-case "
+        "entry would silently never match. See test_no_cpw_host_literals_in_lib."
+    )
+
+    @staticmethod
+    def _lib_python_files() -> list[Path]:
+        from ingestion import lib  # local import to avoid module-load order issues
+
+        lib_dir = Path(lib.__file__).parent
+        return sorted(lib_dir.rglob("*.py"))
+
+    def test_lib_directory_enumeration_covers_known_files(self) -> None:
+        files = self._lib_python_files()
+        # As of S05.1: __init__.py + arcgis.py + db.py + drift_guard.py +
+        # overlays.py + pdf.py + pdf_fetch.py + schema.py = 8 files.
+        # Threshold of 5 catches a silent empty-rglob without being brittle
+        # to legitimate future lib additions or deletions.
+        assert len(files) >= 5, (
+            f"Expected ≥5 .py files under ingestion/lib/, found {len(files)}. "
+            f"Files: {[f.name for f in files]}. An empty enumeration would "
+            f"silently pass the leak-guard tests below."
+        )
+
+    def test_no_colorado_slug_in_lib(self) -> None:
+        files = self._lib_python_files()
+        # Inline non-empty guard: makes this scan self-sufficient regardless
+        # of pytest execution order. Without this, a tool like
+        # `pytest-randomly` could run this test before the sanity-check method
+        # and a broken-enumeration empty list would silently pass the loop.
+        assert files, (
+            "_lib_python_files() returned no files — the leak-guard cannot "
+            "function. See test_lib_directory_enumeration_covers_known_files "
+            "for diagnostic context."
+        )
+        for path in files:
+            source_lower = path.read_text().lower()
+            assert "colorado" not in source_lower, (
+                f"{path.name} contains the state slug 'colorado' — Colorado-"
+                f"specific code belongs in states/colorado/, not in the "
+                f"shared library (ADR-005)."
+            )
+
+    def test_no_cpw_host_literals_in_lib(self) -> None:
+        files = self._lib_python_files()
+        # Inline non-empty guard: see test_no_colorado_slug_in_lib rationale.
+        assert files, (
+            "_lib_python_files() returned no files — the leak-guard cannot "
+            "function. See test_lib_directory_enumeration_covers_known_files "
+            "for diagnostic context."
+        )
+        for path in files:
+            source_lower = path.read_text().lower()
+            for literal in self._CPW_HOST_LITERALS:
+                assert literal not in source_lower, (
+                    f"{path.name} contains the CPW host literal {literal!r} — "
+                    f"CPW-specific URL fragments belong in "
+                    f"states/colorado/, not in the shared library "
+                    f"(ADR-005; companion to E02 audit's MT_FWP_HOST removal "
+                    f"discipline at commit 0093e88)."
+                )
