@@ -1,0 +1,28 @@
+ingestion/states/colorado/sources.yaml
+  s_42bc656813d966::t_b47b102c0f50b1 23-27
+  s_42bc656813d966::t_aa1e2a76588d2c 1-22,28-39
+ingestion/states/colorado/fixtures/.gitignore
+  s_42bc656813d966::t_4a8ee770629193 1-17
+ingestion/states/colorado/README.md
+  s_42bc656813d966::t_e3bc22168f0bcc 1-113
+ingestion/tests/test_arcgis.py
+  s_42bc656813d966::t_767068d76824c0 8
+  s_42bc656813d966::t_7457b19b380c70 1744-1766,1771-1775,1781-1782,1784-1801,1813-1820,1829-1837
+  s_42bc656813d966::t_b380e04f12ef62 1767-1770,1776-1780,1783,1802-1812,1821-1828
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5d7d9c0039374c786e0feac927c51215f1143034",
+  "prompts": {},
+  "sessions": {
+    "s_42bc656813d966": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "06be6aed-8c6d-42b8-99ee-be480b024ac1",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
