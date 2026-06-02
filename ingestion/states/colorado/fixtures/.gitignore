@@ -1,0 +1,17 @@
+# Raw feature collections — committing these would add a non-trivial amount
+# of git history per fetch. For CO, the CPW FeatureServer layer 6 (Big Game
+# GMUs, ~186 polygons) is on the order of 5-10MB per fetch. Future CWD-zone
+# and restricted-area layers (S05.3 / S05.4) may scale higher. Uniform
+# discipline with MT (where MT FWP feature payloads exceed 180MB/run across
+# layers #3, #10, #11) keeps the policy decision simple — the gitignore
+# rule is identical to MT's per the ArcGIS Fidelity SHOULD-FIX.
+#
+# Metadata files (~7KB each) ARE committed for drift detection on field
+# names, OID columns, and spatialReference. Manifests (~5KB each) ARE
+# committed for per-fetch checksum / cross-operator drift detection (see
+# the S02.7 manifest schema in docs/runbooks/E02-geometry-verification.md).
+# No glob rule is needed to permit them — this comment anchors the policy.
+*-features-*.geojson
+
+# Atomic-write tmp files orphaned by interrupted writes (rare).
+*.tmp
