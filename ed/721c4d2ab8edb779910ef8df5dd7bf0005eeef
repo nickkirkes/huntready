@@ -1,0 +1,36 @@
+docs/research/colorado-restricted-areas-evaluation.md
+  s_b6b1c793a73350::t_615419d0da9250 1-14,16,18-24,26-28,30-39,43-62,66-78,80-124,126-133,135-138,140-152,165-172,174,176-180,182,201-202,204-206,208-218,220,223-231,233,236-238,244-248,250-254,256,258,260,262,264,266-270,275,277-286,288
+  s_b6b1c793a73350::t_21395a6384df31 29
+  s_b6b1c793a73350::t_2acf674bb7781d 207
+  s_b6b1c793a73350::t_1fb57ea89b6fe6 173,175
+  s_b6b1c793a73350::t_4f7c63fdc9d381 63-65,79
+  s_b6b1c793a73350::t_ec70a190ea45ce 219,221-222,232,234-235,239-243
+  s_b6b1c793a73350::t_c6519e80e09243 287
+  s_b6b1c793a73350::t_293f06cc569b9d 15,17
+  s_b6b1c793a73350::t_7754ac9c570ed8 181,183-200,203
+  s_b6b1c793a73350::t_39322c00d4df23 153-164
+  s_b6b1c793a73350::t_38d0c6bde48a0e 125
+  s_b6b1c793a73350::t_0a934e8bf298b1 271-274,276
+  s_b6b1c793a73350::t_14bdb90525d50d 249
+  s_b6b1c793a73350::t_f2a07e356d054e 255,257,259,261,263,265
+  s_b6b1c793a73350::t_e984c1bff47358 40-42
+  s_b6b1c793a73350::t_228e4e0df6df2b 25
+  s_b6b1c793a73350::t_276173551ab72a 134
+  s_b6b1c793a73350::t_43dc9566a7351b 139
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ed721c4d2ab8edb779910ef8df5dd7bf0005eeef",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
