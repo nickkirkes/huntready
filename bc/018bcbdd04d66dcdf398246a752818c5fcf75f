@@ -1,0 +1,20 @@
+.roughly/plans/S05.3.5-no-hunt-zone-role-plan.md
+  s_3b46b7cfdec3ed::t_42aa0418a576d3 3-115
+  s_3b46b7cfdec3ed::t_1f95ad0fdd0de6 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bc018bcbdd04d66dcdf398246a752818c5fcf75f",
+  "prompts": {},
+  "sessions": {
+    "s_3b46b7cfdec3ed": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "67745f53-90ea-44dc-bde4-d7fe4b1d30c0",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
