@@ -707,6 +707,16 @@ ingestion/.venv/bin/python ingestion/states/montana/load_regulation_records.py
 
 Do not assume the DB matches the closure-note narrative. Probe DB state with a COUNT query at plan time. Surfaced 2026-05-23 during S03.10 T0 pre-flight probe.
 
+### Discovery/ingestion stories can legitimately resolve to a documented gap — no loader required
+
+**Symptom:** An ingestion story targets a named geometry type (e.g., CWD zones) and has ACs shaped around "≥1 row ingested" or "hand-traced fallback." After exhausting all spec'd investigation paths the source genuinely does not exist — no FeatureServer layer, no published boundary file, no agency-maintained polygon dataset.
+
+**Cause:** Epic specs are written from available documentation; the assumption "there is a source to ingest" is sometimes wrong. CPW publishes no CWD-zone geometry for Colorado — CO manages CWD by hunt-code/GMU, not by regulatory polygon boundary. A prevalence/surveillance/monitoring map (if one exists) is NOT a regulatory boundary; hand-tracing it would invent data per ADR-001.
+
+**Fix:** Before concluding a gap, exhaust ALL spec'd investigation paths: ArcGIS service-root catalog scan, org-wide ArcGIS Online search, published-document review. When all paths return empty, close the story with an investigation report + zero rows + no loader. Mark the ingestion-shaped ACs N/A-by-gap with a one-line rationale each. Do not force an ingest to satisfy an AC that assumed the source exists. The investigation report is the deliverable.
+
+Surfaced by S05.3 on 2026-06-03 (CPW CWD zone discovery — no authoritative geometry source found; CO CWD managed by hunt-code/GMU).
+
 ## Conventions — Pre-commit & secrets
 
 ### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings
@@ -920,3 +930,19 @@ Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
 **Cause:** Relying on sibling-method execution order is a CPython dict-ordering detail, not a pytest contract. The scan methods assume the sanity check has already run and populated the invariant, but nothing enforces this ordering.
 
 **Fix:** Add an inline `assert <collection>, "<diagnostic referencing the sanity-check method>"` at the top of each scan method body before the loop. This makes each scan method self-sufficient — it will fail loudly on an empty collection regardless of execution order. The sanity-check method remains useful as an explicit enumeration guard; it simply no longer needs to be the sole protection. Related: see "Per-builder dedup sets miss cross-builder collisions" (Conventions — Ingestion adapters) for the analogous self-sufficiency principle applied to multi-builder adapters. Surfaced by S05.1 Stage 6 silent-failure-hunter W2 finding.
+
+### "One of A or B" ACs silently omit the pure-gap branch — name it explicitly at story closure
+
+**Symptom:** A spec AC enumerates exactly two outcomes: "≥1 row ingested from source X" OR "hand-traced fallback Y." When a story discovers neither source X nor any fallback exists (the pure-gap branch), neither AC checkbox maps cleanly to the result. Leaving the checkboxes blank is ambiguous — a future reader cannot tell whether the story closed without evidence or whether the gap was deliberate and investigated.
+
+**Cause:** "One of A or B" ACs are written under the assumption that at least one branch will be realized. The third branch — "neither source nor fallback exists; source is structurally unavailable" — is a valid outcome that the AC language didn't anticipate.
+
+**Fix:** When the pure-gap branch is realized, mark the ingestion-shaped ACs `N/A-by-gap` with a one-line rationale each (e.g., "N/A — CPW publishes no CWD-zone geometry; CO manages CWD by hunt-code/GMU per S05.3 investigation report"). Document the gap outcome explicitly in the story closure note so the AC record is unambiguous. Surfaced by S05.3 epic AC #2 on 2026-06-03.
+
+### Empirical discovery that supplies a deferred open question's named trigger — append dated evidence, not a status change
+
+**Symptom:** Build or discovery work produces evidence that matches exactly what a deferred open question named as its decision trigger (e.g., Q18's "second CWD-state lands" trigger is met when CO confirms CWD is managed by hunt-code/GMU, making zone-keyed binding structurally unavailable for CO). The temptation is to mark Q18 RESOLVED immediately based on the new evidence.
+
+**Cause:** Evidence that a trigger condition has fired is not the same as the formal decision. The owning epic/story (here E06) holds the resolution authority. Prematurely closing the question removes the signal that E06 still needs to make the formal call, and bypasses the review cycle where the decision and its consequences are captured together.
+
+**Fix:** Append a dated evidence note directly to the open question's entry in `docs/open-questions.md` (e.g., "Evidence 2026-06-03 via S05.3: CO confirms CWD managed by hunt-code/GMU; zone-keyed binding structurally unavailable for CO — trigger condition met.") and flag it to the human. Do NOT change the question's status or verdict. The formal RESOLVED annotation belongs to the owning epic or story when it makes the deliberate decision. Surfaced by S05.3 → Q18 on 2026-06-03.
