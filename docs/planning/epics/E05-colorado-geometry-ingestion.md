@@ -6,7 +6,7 @@
 **Validated:** 2026-05-31 (E05 validation triad: Spatial Correctness + ArcGIS Fidelity + Schema Stress-Test reviewers all returned LAND-WITH-EDITS; 14 MUST-FIX + 9 SHOULD-FIX findings applied; one cross-reviewer conflict resolved in favor of the ArcGIS Fidelity finding — see §"Validation triad notes" below)
 **Drafted:** 2026-05-31
 **Estimated Stories:** 8 (S05.0 through S05.7; per PRD 002 §"E05 — Colorado geometry ingestion" estimate of 6–8 stories)
-**UAT Gating:** S05.3, S05.5, S05.7 (CWD-zone spot-check; overlay-fixture visual spot-check; spatial-query verification against known CO coordinates per PRD 002 success criterion #4). Mirrors E02's UAT cadence (S02.5 / S02.6 / S02.7 in MT).
+**UAT Gating:** S05.3, S05.5, S05.7 (S05.3 CWD-zone spot-check → **resolved 2026-06-03 as documented-gap UAT**: CPW publishes no CWD zones, so the `ST_Covers` spot-check is N/A; UAT met via the 3-path investigation report + Q18 surface — see `ingestion/states/colorado/cwd-source-discovery.md`; overlay-fixture visual spot-check; spatial-query verification against known CO coordinates per PRD 002 success criterion #4). Mirrors E02's UAT cadence (S02.5 / S02.6 / S02.7 in MT).
 
 ---
 
@@ -254,7 +254,7 @@ Group B verification outputs are captured directly in `docs/planning/epics/E05-c
 
 ### S05.3: CWD zone discovery + ingestion
 
-**Status:** Not Started
+**Status:** Closed (documented gap) 2026-06-03 — live investigation across all 3 spec'd paths conclusively found CPW publishes **no CWD-zone geometry**: Path 1 (CPWAdminData service-root catalog, 30 layers) = NO; Path 2 (ArcGIS Online org search + full ~200-service CPW hosted-org listing) = NO; Path 3 (PDF hand-trace) = nothing polygonal to trace — Colorado manages CWD by **hunt code / GMU**, not mapped zone polygons (confirmed against CPW's CWD page + USGS reporting CO CWD positives by wildlife-management-unit). Path (c) (GMU-attribute filter) pre-recorded NO. **Outcome = documented gap** (analog of S05.4 outcome (b)): **zero `geometry` rows written; no loader created (`load_cwd_zones.py` not added); `sources.yaml` not extended**. Investigation report committed at `ingestion/states/colorado/cwd-source-discovery.md`. **Path 3 hand-trace rejected per ADR-001** — a prevalence/monitoring map is not an authoritative regulatory zone, and tracing one would invent a boundary CPW does not publish. **Q18 surfaced to human**: CO is the second-CWD-state named in Q18's trigger (`docs/open-questions.md:376`) — it confirms the license/unit-keyed CWD model is the general pattern (not an MT quirk) and that zone-keyed binding is **structurally unavailable** for CO (no zone to key on); PM recommends E06 retain Q18's V1 license-keyed disposition (0 typed CWD `reporting_obligation` rows; text in `regulation_record.additional_rules`), final call is E06's. **No loader, no tests** (suite unchanged at 1234 + 2 skipped); **no schema/three-place-sync**; **no `db.py` touch**; **no production-DB write**. Downstream S05.5/S05.7 `cwd_zone` coverage invariants are vacuously satisfied (zero rows). PR/commit reference to follow at merge.
 
 **As a** developer ensuring Colorado CWD management zones are queryable
 **I want** CWD zone geometries loaded if they exist as a CPW GIS layer, or the gap explicitly documented if they don't
@@ -286,16 +286,18 @@ The S05.3 implementer surveys CPW's current published CWD zones and selects ≥2
 
 **Acceptance Criteria:**
 
-- [ ] Investigation report committed to `ingestion/states/colorado/cwd-source-discovery.md` (analog of S02.5's `cwd-source-discovery.md`); documents all 3 paths exercised (path (c) pre-recorded as NO per the GMU layer's attribute schema)
-- [ ] One of: ≥1 CWD-zone row in `geometry` with `kind='cwd_zone'` (Path 1 or 2 succeeds); OR hand-traced GeoJSON committed at `ingestion/states/colorado/cwd-zones-manual.geojson` per Path 3 + ingested via same path as ArcGIS layers but with `document_type='annual_regulations'`
-- [ ] Every row's `kind = 'cwd_zone'`; deterministic ID pattern `CO-CWD-{zone-name-slug}-geom`
-- [ ] All geometries are MultiPolygon, valid, in WGS84 (via `arcgis.geojson_to_multipolygon_wkt` + `shapely.make_valid`)
-- [ ] `source.document_type='gis_layer'` if from ArcGIS path; `'annual_regulations'` if from hand-traced PDF path; fail-loud if neither
-- [ ] `license_year` per ADR-014: Jan 1 of REGYEAR (`2026-01-01` for V1)
-- [ ] **UAT — named zones resolve correctly via `ST_Covers`**: spot-check ≥2 CPW-published CWD zones (named at S05.3 implementation time from current CPW documentation); positive `ST_Covers` returns the zone for an inside-zone test point; outside-zone negative-control point returns zero rows; documented in the closure note. UAT criterion uses the `extensions.`-prefixed PostGIS form per `.roughly/known-pitfalls.md`
-- [ ] Layer metadata fixture committed (if ArcGIS path) at `ingestion/states/colorado/fixtures/<service>-<layer>-metadata-<timestamp>.json`
-- [ ] `ingestion/states/colorado/sources.yaml` extended with CWD-zone source entry post-discovery
-- [ ] **Q18 surface (PM-side):** if CPW publishes CWD sampling rules that don't fit `regulation_record.additional_rules` (the M1 V1 disposition), flag the candidate to the human BEFORE E06's reporting-obligation loader spec drafts. S05.3 itself only ingests the geometry; Q18 is E06's decision
+**Outcome (realized 2026-06-03): documented gap.** The spec's AC #2 below enumerated only two branches — (a) ≥1 ArcGIS-sourced `kind='cwd_zone'` row, or (b) hand-traced GeoJSON — and **under-specified the pure-gap branch** (CPW publishes nothing). The realized outcome is that gap branch: all three discovery paths returned NO (see `cwd-source-discovery.md`), so zero rows were written, no loader was created, and `sources.yaml` was not extended. This mirrors S05.4 outcome (b). The ingestion-shaped ACs are therefore **N/A by gap**; the investigation + Q18 ACs are met. (Checkboxes are ticked to indicate "dispositioned / nothing outstanding" — N/A items are labeled inline.)
+
+- [x] Investigation report committed to `ingestion/states/colorado/cwd-source-discovery.md` (analog of S02.5's `cwd-source-discovery.md`); documents all 3 paths exercised + path (c) pre-recorded NO, with live evidence (30-layer CPWAdminData catalog; ~200-service CPW org listing; CPW CWD page + USGS unit-keyed reporting)
+- [x] **Outcome resolved = documented gap (third branch; spec under-specified AC #2).** Neither (a) ≥1 `kind='cwd_zone'` row nor (b) hand-traced GeoJSON: CPW publishes no CWD-zone geometry (Path 1 + 2 = NO) and CWD is hunt-code/GMU-keyed, so there is no authoritative polygon for Path 3 to trace (hand-tracing a prevalence/monitoring map would violate ADR-001). Zero rows written
+- [x] **N/A by gap** — Every row's `kind = 'cwd_zone'`; deterministic ID pattern `CO-CWD-{zone-name-slug}-geom` (no rows)
+- [x] **N/A by gap** — All geometries MultiPolygon, valid, WGS84 via `arcgis.geojson_to_multipolygon_wkt` + `shapely.make_valid` (no rows)
+- [x] **N/A by gap** — `source.document_type='gis_layer'` (ArcGIS) / `'annual_regulations'` (hand-traced) (no rows)
+- [x] **N/A by gap** — `license_year` per ADR-014 (`2026-01-01` for V1) (no rows)
+- [x] **N/A by gap** — **UAT, named zones resolve via `ST_Covers`**: no zones exist to query; UAT satisfied instead by the documented-gap investigation + Q18 surface, recorded in `cwd-source-discovery.md` § "UAT disposition"
+- [x] **N/A by gap** — Layer metadata fixture (no ArcGIS CWD layer)
+- [x] **N/A by gap** — `ingestion/states/colorado/sources.yaml` extended with CWD-zone source entry (no source to register)
+- [x] **Q18 surface (PM-side):** flagged to the human at S05.3 close. CO confirms Q18's named trigger (`docs/open-questions.md:376`): license/unit-keyed is the general pattern, and zone-keyed binding is structurally unavailable for CO. PM recommends E06 retain the V1 license-keyed disposition; final Q18 decision is E06's, raised BEFORE E06's reporting-obligation loader specs draft
 
 ---
 
@@ -550,7 +552,7 @@ Final E05 story. No new geometries written; no new schema. Verifies what's been 
 `ingestion/states/colorado/fixtures/spatial-test-points.json` lists ≥1 named test point per `kind` value present in CO `geometry`:
 
 - ≥3 GMUs including ≥1 multi-part anchor selected from `multipart-gmus.json` (S05.2 output)
-- ≥1 CWD zone (CPW-published; named at S05.3 implementation time)
+- ≥0 CWD zones — CO publishes none (S05.3 documented gap, 2026-06-03); the CWD test point is omitted (no zone exists), documented in the closure note
 - ≥1 restricted area if S05.4 ingested any
 - ≥1 statewide test point (any CO coordinate inside `CO-STATEWIDE-geom`)
 - ≥1 outside-CO negative-control point (e.g., a point in Wyoming or Kansas just over the state line — should return 0 rows from the `state='US-CO'` filtered query)
@@ -567,7 +569,7 @@ Every coordinate is a real `shapely.representative_point()` from the actual load
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/colorado/fixtures/spatial-test-points.json` exists with ≥1 named test point per `kind` value present in CO geometry, including: ≥3 GMUs (with ≥1 multi-part anchor from S05.2's `multipart-gmus.json`); ≥1 CWD zone (CPW-named at S05.3 time); ≥1 restricted area if S05.4 produced any; ≥1 statewide point; ≥1 outside-CO negative-control point
+- [ ] `ingestion/states/colorado/fixtures/spatial-test-points.json` exists with ≥1 named test point per `kind` value present in CO geometry, including: ≥3 GMUs (with ≥1 multi-part anchor from S05.2's `multipart-gmus.json`); a CWD-zone test point only if S05.3 produced rows (it did not — CO publishes no CWD zones per the 2026-06-03 documented gap, so this point is omitted); ≥1 restricted area if S05.4 produced any; ≥1 statewide point; ≥1 outside-CO negative-control point
 - [ ] Every coordinate is a real `shapely.representative_point()` from the actual loaded geometry (no invented points)
 - [ ] **UAT — `ST_Covers` spot-check**: Each fixture point resolves correctly via `extensions.ST_Covers(geom, extensions.ST_GeogFromText(...))` per the runbook's section 1 verification protocol; **every spot-check SQL block includes `AND state = 'US-CO'`** in the WHERE clause per PRD 002 success criterion #4
 - [ ] All CO geometry rows pass `extensions.ST_IsValid` (Supabase round-trip cast workaround)
