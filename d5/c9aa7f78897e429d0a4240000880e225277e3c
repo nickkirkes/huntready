@@ -1,0 +1,41 @@
+ingestion/tests/test_load_jurisdiction_bindings.py
+  s_3b46b7cfdec3ed::t_49710e2aa31346 1053,1064
+  s_3b46b7cfdec3ed::t_d444e047df2dba 1025
+  s_3b46b7cfdec3ed::t_1824f25a51fdd2 1899
+supabase/migrations/20260603000000_jurisdiction_binding_no_hunt_zone_role.sql
+  s_3b46b7cfdec3ed::t_7a2c0a2585a158 1-56
+docs/architecture.md
+  s_3b46b7cfdec3ed::t_ba91755c9cfe9c 288-289
+ingestion/ingestion/lib/schema.py
+  s_3b46b7cfdec3ed::t_c6060ec92aaa4d 434
+docs/adrs/README.md
+  s_3b46b7cfdec3ed::t_ff92000788bd63 83
+mcp-server/src/types/schema.ts
+  s_3b46b7cfdec3ed::t_5f18d72f2dc878 37-38
+docs/adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md
+  s_3b46b7cfdec3ed::t_e22a9489908980 4
+  s_3b46b7cfdec3ed::t_031429006037cb 8
+ingestion/ingestion/lib/overlays.py
+  s_3b46b7cfdec3ed::t_0157de5c8bd621 12-13
+  s_3b46b7cfdec3ed::t_d73a5c5b057b46 36,38,44
+ingestion/states/montana/load_jurisdiction_bindings.py
+  s_3b46b7cfdec3ed::t_40451c6f28eafc 521
+  s_3b46b7cfdec3ed::t_f1ffc72ea75b05 638
+  s_3b46b7cfdec3ed::t_a98923ed5062e0 600,607-609
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d5c9aa7f78897e429d0a4240000880e225277e3c",
+  "prompts": {},
+  "sessions": {
+    "s_3b46b7cfdec3ed": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "67745f53-90ea-44dc-bde4-d7fe4b1d30c0",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
