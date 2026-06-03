@@ -1,0 +1,22 @@
+.roughly/plans/S05.3-cwd-zone-discovery-plan.md
+  s_bb1dcbb6a22ca3::t_25d876ab4f56bc 1-2
+  s_bb1dcbb6a22ca3::t_3c68016a2bd880 32
+  s_bb1dcbb6a22ca3::t_0d9e3968824c62 68
+  s_bb1dcbb6a22ca3::t_479afb13c85e59 3-31,33-67,69-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "06022f744c80a840a0d3e306e320e5d2cf995e01",
+  "prompts": {},
+  "sessions": {
+    "s_bb1dcbb6a22ca3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "105b80ee-44fa-4a6d-a34a-568b739dd0ee",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
