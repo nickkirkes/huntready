@@ -80,6 +80,7 @@ Most ADRs carry one or two tags. If an ADR needs three or more, it may be doing 
 | 018 | E03 Schema Additions — license_season, geometry.legal_description, geometry.kind='state' | Accepted | schema, ingestion |
 | 019 | Doc-Type Precedence in Multi-Source Regulation Merge | Accepted | ingestion        |
 | 020 | Derive-and-Assert for id text-PK Slug Drift        | Accepted  | ingestion, storage  |
+| 021 | Jurisdiction-Binding no_hunt_zone Role Enum        | Accepted  | schema, ingestion   |
 
 ADRs not yet drafted show `—` in the Status column. Once drafted and committed, Status becomes `Accepted` (or `Proposed` if written ahead of implementation).
 

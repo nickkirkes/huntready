@@ -717,6 +717,14 @@ Do not assume the DB matches the closure-note narrative. Probe DB state with a C
 
 Surfaced by S05.3 on 2026-06-03 (CPW CWD zone discovery — no authoritative geometry source found; CO CWD managed by hunt-code/GMU).
 
+### Subset gates are intentionally narrower than the full enum — document the exclusion, don't reflexively widen
+
+**Symptom:** A schema-enum extension adds a new value (e.g., `no_hunt_zone`). A reviewer finds a `frozenset` gate in an adapter that does NOT include the new value and flags it as a missed sync site. Reflexively widening the gate would actually mask a real bug — a fixture row with `role_for_e03='no_hunt_zone'` in the MT overlay fixture would itself be wrong (MT no-hunt-zone bindings are handled by a separate builder that hardcodes the role and never consults this gate).
+
+**Cause:** Not every enum-consumer site is a "full-enum mirror." Some are intentional subset gates that admit only the values valid for a specific data path. Reviewers unfamiliar with the gate's purpose can mistake narrowness for staleness.
+
+**Fix:** Distinguish "full-enum mirror" sites (Pydantic `Literal`, DDL `CHECK`, TS union — must stay in sync) from "intentional subset gates" (validation `frozenset`s that admit only a curated subset for one data path — must NOT reflexively widen). When a subset gate excludes a newly-added enum value, add or confirm a comment on the gate explaining which values it excludes and why, so a future contributor doesn't read the narrowness as an oversight. A gate that correctly rejects a new value is detecting a potential bug; widening it silently removes that protection. Surfaced by S05.3.5 Stage-6 review: `_VALID_ROLE_FOR_E03` in `ingestion/states/montana/load_jurisdiction_bindings.py` deliberately excludes `no_hunt_zone` because that role enters via `_build_no_hunt_zone_bindings`, not through the overlay-fixture path the gate guards.
+
 ## Conventions — Pre-commit & secrets
 
 ### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings
@@ -946,3 +954,11 @@ Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
 **Cause:** Evidence that a trigger condition has fired is not the same as the formal decision. The owning epic/story (here E06) holds the resolution authority. Prematurely closing the question removes the signal that E06 still needs to make the formal call, and bypasses the review cycle where the decision and its consequences are captured together.
 
 **Fix:** Append a dated evidence note directly to the open question's entry in `docs/open-questions.md` (e.g., "Evidence 2026-06-03 via S05.3: CO confirms CWD managed by hunt-code/GMU; zone-keyed binding structurally unavailable for CO — trigger condition met.") and flag it to the human. Do NOT change the question's status or verdict. The formal RESOLVED annotation belongs to the owning epic or story when it makes the deliberate decision. Surfaced by S05.3 → Q18 on 2026-06-03.
+
+### Enum-extension sync surfaces — spec-named sites are necessary-not-sufficient; grep for all cast/Literal/frozenset consumers
+
+**Symptom:** A schema-enum extension spec enumerates its sync surfaces (e.g., "five-place sync: DDL + Pydantic + TypeScript + `architecture.md` + `overlays.py` Literal alias"). All five land cleanly, but a sixth site — a `cast(Literal["primary_unit", ..., "other_overlay"], role_e03)` inline re-enumeration inside an adapter — is missed. Once the alias grows to include the new value, the cast silently narrows the type unless it also grows.
+
+**Cause:** Spec authors enumerate the "obvious" sync surfaces (schema files, type definitions) from a mental model. Adapter-level cast/Literal re-enumerations are local to the adapter and invisible to a schema-file-only scan.
+
+**Fix:** When implementing a schema-enum extension, treat the spec's named-sites list as a starting point, not a complete inventory. Before writing the plan, grep the whole codebase for every `cast(Literal[...])`, inline `Literal[...]` re-enumeration, `frozenset({...})`, and `== {"value"}` set-literal that mirrors the enum being extended. Each match is a potential sync site. Surfaced by S05.3.5 Stage-2 discovery: `cast(Literal["primary_unit", ..., "other_overlay"], role_e03)` in `ingestion/states/montana/load_jurisdiction_bindings.py::_build_overlay_bindings` was not in the spec's five-place list and required a sixth edit.

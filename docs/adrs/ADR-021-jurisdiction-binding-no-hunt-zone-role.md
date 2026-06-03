@@ -1,11 +1,11 @@
 # ADR-021: Jurisdiction-Binding `no_hunt_zone` Role Enum
 
 **Date:** 2026-06-03
-**Status:** Proposed
+**Status:** Accepted
 **Decider:** Nick Kirkes
 **Tags:** schema, ingestion
 
-> Status note: `Proposed` pre-implementation per `docs/adrs/README.md` §"Status"; flips to `Accepted` when the migration story closes (five-place sync + MT data reclassification ships).
+> Status note: `Accepted` as of S05.3.5 — the five-place sync + MT V1 data reclassification shipped via migration `20260603000000_jurisdiction_binding_no_hunt_zone_role.sql`. (`Proposed` pre-implementation convention per `docs/adrs/README.md` §"Status".)
 
 ---
 

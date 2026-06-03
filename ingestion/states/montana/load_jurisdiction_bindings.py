@@ -518,6 +518,7 @@ def _build_overlay_bindings(
                             "primary_unit", "portion", "restricted_area",
                             "cwd_management_zone", "bear_management_unit",
                             "block_management_area", "other_overlay",
+                            "no_hunt_zone",
                         ],
                         role_e03,
                     ),
@@ -596,16 +597,16 @@ def _build_no_hunt_zone_bindings(
     """For each of the 3 EXPECTED_RA_ORPHAN_IDS, query the nearby HDs via the
     geography-native ST_DWithin rule, then emit one binding per
     (reg_record using that HD as parent_geometry, zone) pair with
-    role='other_overlay'.
+    role='no_hunt_zone'.
 
     Per-zone fail-loud (AC #1086): if any zone produces zero nearby HD matches
     (because no HD is within the threshold), raise RuntimeError naming the
     zone — that means Option A is infeasible for this zone and escalation is
     required per spec line 1067.
 
-    `role='other_overlay'` is the only DDL-permitted role for this semantic
-    (the 7-value role enum does not include 'no_hunt_zone' — see plan T8
-    paragraph + M2-deferred items).
+    `role='no_hunt_zone'` per ADR-021: the role enum was extended from 7 to 8
+    values (adding 'no_hunt_zone') via migration
+    20260603000000_jurisdiction_binding_no_hunt_zone_role.sql.
     """
     # Index reg_records by their parent geometry id so we can quickly fan out
     # zone-to-HD edges into (reg_record, zone) bindings.
@@ -634,7 +635,7 @@ def _build_no_hunt_zone_bindings(
 
         for hd_id in nearby_hd_ids:
             for rr in rrs_by_parent.get(hd_id, []):
-                role: Literal["other_overlay"] = "other_overlay"
+                role: Literal["no_hunt_zone"] = "no_hunt_zone"
                 bid = _JURISDICTION_BINDING_ID_FORMAT.format(
                     state=rr.state,
                     jurisdiction_code=rr.jurisdiction_code,

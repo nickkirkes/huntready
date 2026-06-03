@@ -1022,7 +1022,7 @@ class TestBuildNoHuntZoneBindings:
             bindings = _build_no_hunt_zone_bindings(conn, [rr], sources)
         # 3 zones × 1 HD × 1 reg_record = 3 bindings
         assert len(bindings) == 3
-        assert {b.role for b in bindings} == {"other_overlay"}
+        assert {b.role for b in bindings} == {"no_hunt_zone"}
         # geometry_id is the zone, not the HD
         assert {b.geometry_id for b in bindings} == set(EXPECTED_RA_ORPHAN_IDS)
 
@@ -1050,7 +1050,7 @@ class TestBuildNoHuntZoneBindings:
                     conn, [self._make_rr("MT-HD-bear-101", "bear")], {}
                 )
 
-    def test_role_is_other_overlay_only(self) -> None:
+    def test_role_is_no_hunt_zone(self) -> None:
         rr = self._make_rr("MT-HD-bear-101", "bear")
         sources = {z: self._make_source() for z in EXPECTED_RA_ORPHAN_IDS}
         conn = MagicMock()
@@ -1061,7 +1061,7 @@ class TestBuildNoHuntZoneBindings:
         ):
             bindings = _build_no_hunt_zone_bindings(conn, [rr], sources)
         for b in bindings:
-            assert b.role == "other_overlay"
+            assert b.role == "no_hunt_zone"
 
     def test_three_species_on_shared_hd_produces_three_bindings_per_zone(self) -> None:
         """DEL HD has 3 reg_records (mule_deer + whitetail + elk); each gets its
@@ -1896,6 +1896,7 @@ class TestRealArtifactRegression:
         _valid_roles = frozenset({
             "primary_unit", "portion", "restricted_area", "cwd_management_zone",
             "bear_management_unit", "block_management_area", "other_overlay",
+            "no_hunt_zone",
         })
         for b in all_bindings:
             assert b.role in _valid_roles, (

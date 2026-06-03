@@ -34,7 +34,8 @@ export type GeometryRole =
   | "cwd_management_zone"
   | "bear_management_unit"
   | "block_management_area"
-  | "other_overlay";
+  | "other_overlay"
+  | "no_hunt_zone";
 
 // ---------------------------------------------------------------------------
 // Supporting types
