@@ -376,6 +376,10 @@ Ship 0 CWD-sampling `reporting_obligation` rows. Text is searchable via `regulat
 - Second CWD-state lands (Colorado) — confirms whether license-keyed vs. zone-keyed is a Montana quirk or a general pattern
 - M2 client requirement: does a consumer need to query "what CWD-sampling rules apply?" as a typed reporting_obligation, or is `regulation_record.additional_rules` containing the sentence sufficient?
 
+### 2026-06-03 evidence (S05.3 — Colorado, the second CWD-state)
+
+Colorado's geometry ingestion (E05 S05.3) investigated CPW's CWD publications across all sources and found **CPW publishes no CWD-zone geometry at all** — no CPWAdminData layer (30 layers scanned), no ArcGIS Online service under the CPW org (~200-service listing scanned; org-scoped CWD search = 0), and no hand-traceable regulatory boundary. Colorado manages CWD by **hunt code / GMU** (2026: mandatory elk submission from specific rifle hunt codes, Big Game Brochure pp. 41–52; USGS reports CO CWD positives by wildlife-management-unit). This is the second-CWD-state trigger named above (line 376): it confirms the **license/unit-keyed model is the general pattern, not a Montana quirk** — and that zone-keyed binding is not merely awkward but **structurally unavailable** for Colorado (there is no zone to key on). Evidence strongly supports retaining the V1 license-keyed disposition; the formal Q18 decision remains E06's. Source: `ingestion/states/colorado/cwd-source-discovery.md`. **Status unchanged** (Open; V1 disposition: defer) — this note adds evidence only.
+
 ### Affected V1 entries
 
 Currently 5 verbatim occurrences across 4 HDs (100/103/104/170) in `regulation_record.additional_rules`. The 103-50 case is the canonical zone-vs-license edge case.
