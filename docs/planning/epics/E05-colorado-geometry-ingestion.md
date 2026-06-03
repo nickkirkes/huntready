@@ -5,7 +5,7 @@
 **Dependencies:** E04 Complete + Audited 2026-05-31 (PR #52 / `b168d28`); recurring-RLS-gap M2 open-question candidate surfaced at planning-start per E04 audit Recommendation §3 (no resolution required for E05 specifically — E05 adds no new public-schema tables; gap persists for any future M2/M3 work that does)
 **Validated:** 2026-05-31 (E05 validation triad: Spatial Correctness + ArcGIS Fidelity + Schema Stress-Test reviewers all returned LAND-WITH-EDITS; 14 MUST-FIX + 9 SHOULD-FIX findings applied; one cross-reviewer conflict resolved in favor of the ArcGIS Fidelity finding — see §"Validation triad notes" below)
 **Drafted:** 2026-05-31
-**Estimated Stories:** 8 (S05.0 through S05.7; per PRD 002 §"E05 — Colorado geometry ingestion" estimate of 6–8 stories)
+**Estimated Stories:** 9 (S05.0 through S05.7, plus S05.3.5 carved out 2026-06-03 per ADR-021's deliverable; per PRD 002 §"E05 — Colorado geometry ingestion" estimate of 6–8 stories — S05.3.5 is the architecturally-required pre-work for S05.4 surfaced after PRD 002 was written)
 **UAT Gating:** S05.3, S05.5, S05.7 (S05.3 CWD-zone spot-check → **resolved 2026-06-03 as documented-gap UAT**: CPW publishes no CWD zones, so the `ST_Covers` spot-check is N/A; UAT met via the 3-path investigation report + Q18 surface — see `ingestion/states/colorado/cwd-source-discovery.md`; overlay-fixture visual spot-check; spatial-query verification against known CO coordinates per PRD 002 success criterion #4). Mirrors E02's UAT cadence (S02.5 / S02.6 / S02.7 in MT).
 
 ---
@@ -298,6 +298,104 @@ The S05.3 implementer surveys CPW's current published CWD zones and selects ≥2
 - [x] **N/A by gap** — Layer metadata fixture (no ArcGIS CWD layer)
 - [x] **N/A by gap** — `ingestion/states/colorado/sources.yaml` extended with CWD-zone source entry (no source to register)
 - [x] **Q18 surface (PM-side):** flagged to the human at S05.3 close. CO confirms Q18's named trigger (`docs/open-questions.md:376`): license/unit-keyed is the general pattern, and zone-keyed binding is structurally unavailable for CO. PM recommends E06 retain the V1 license-keyed disposition; final Q18 decision is E06's, raised BEFORE E06's reporting-obligation loader specs draft
+
+---
+
+### S05.3.5: `jurisdiction_binding.role` migration + MT V1 reclassification (ADR-021 implementation)
+
+**Status:** Not Started
+
+**As a** developer preparing the schema + V1 data layer for CO no-hunt-zone ingestion in S05.4
+**I want** the `jurisdiction_binding.role` CHECK constraint extended with `'no_hunt_zone'`, the five-place sync applied (DDL + Pydantic + TypeScript + architecture.md + `overlays.py`), and the 3 MT V1 no-hunt-zone rows reclassified from `'other_overlay'` → `'no_hunt_zone'`
+**So that** S05.4 can write CO no-hunt-zone bindings with semantic precision per [ADR-021](../adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md), and so that the MT V1 disposition is brought into alignment with the new enum
+
+**UAT: no** — verification-gated against ADR-021's deliverable list (file-level + post-`db push` SQL checks); no human spot-check sign-off required
+
+**Context:**
+
+ADR-021 ([`docs/adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md`](../adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md), Status: Proposed at commit `fa1da38`) commits the architectural decision to add `'no_hunt_zone'` as an 8th value to the `jurisdiction_binding.role` CHECK constraint. The ADR is delivery-of-architectural-commitment-only; this story is the deliverable that ships the migration + 4 other sync surfaces + MT V1 data reclassification + the test-suite assertions update. The ADR's status flips from `Proposed` → `Accepted` in this story's PR.
+
+**Carve-out rationale** (mirrors S03.6.1's carve-out from S03.6): the migration touches MT-side code + MT V1 production data + 5 sync surfaces — that's MT-touching, schema-extending work. Folding it into S05.4 (a "Colorado geometry ingestion" PR) would mix MT and CO scope inside one PR, violating the single-PR-single-concern discipline established across M1 + M2 (S03.0, S03.6.1, S04.1 all chose carve-out over bundling). S05.3.5 ships the cross-cutting change cleanly; S05.4 then opens with the new DDL CHECK + Pydantic/TS Literals already shipped and can focus on CO loader work.
+
+**Sequencing:**
+
+Per the recommended merge order **S05.3 → S05.3.5 → S05.4 → S05.5 → S05.6 → S05.7**. S05.3.5 is the new pre-work step inserted between S05.3 (closed 2026-06-03 as documented gap) and S05.4 (still hard-blocked on `docs/research/colorado-restricted-areas-evaluation.md` — landed at `ed721c4`, so S05.4 is now only blocked on this S05.3.5 story closing).
+
+**Group A / Group B split (mirrors S04.1's PRD-006-style "operator verifies live" pattern):**
+
+- **Group A** — file-level / static; satisfied at-merge. Five-place sync files written; MT V1 docstring + loader Literal updates; MT test reclassification; ADR-021 status flip.
+- **Group B** — operator-driven post-`supabase db push`; not blocking S05.3.5 close. Live verification of the DDL CHECK constraint shape + the 3 MT row reclassification.
+
+**Five-place sync inventory (per ADR-021):**
+
+1. **DDL migration** at `supabase/migrations/<timestamp>_jurisdiction_binding_no_hunt_zone_role.sql` — new migration; mirrors S03.0's `_e03_schema_additions.sql` transactional pattern; body extends the CHECK constraint + reclassifies 3 MT rows in one transaction (DROP + ADD CHECK + UPDATE, in that order)
+2. **Pydantic** at `ingestion/ingestion/lib/schema.py` — extend `GeometryRole` Literal with `"no_hunt_zone"`; verify the type definition lives where ADR-018 + S03.0's three-place-sync precedent placed it
+3. **TypeScript** at `mcp-server/src/types/schema.ts` — extend `GeometryRole` union with `"no_hunt_zone"`
+4. **architecture.md** at `docs/architecture.md` §"Schema types" — extend the `GeometryRole` type definition
+5. **State-agnostic library** at `ingestion/ingestion/lib/overlays.py` — extend `GeometryRoleForE03` Literal alias with `"no_hunt_zone"`; verify the sync-required docstring still points at `schema.py` after the edit
+
+**MT V1 reclassification** (3 rows; IDs grep-verified from `ingestion/states/montana/build_overlay_fixture.py:238-240` per ADR-021 SF8):
+
+- `MT-restricted-bigame-glacier-national-park-geom`
+- `MT-restricted-bigame-sun-river-game-preserve-geom`
+- `MT-restricted-bigame-yellowstone-national-park-geom`
+
+The migration's UPDATE statement reclassifies the 3 `jurisdiction_binding` rows whose `geometry_id` matches these IDs from `role='other_overlay'` → `role='no_hunt_zone'`. Exact id strings on the binding rows themselves (vs the geometry ids above) need grep-verification against the MT binding loader's id-derivation pattern at story open per the line-citation-drift pitfall.
+
+**MT loader + test updates** (per ADR-021 Negatives):
+
+- `ingestion/states/montana/load_jurisdiction_bindings.py` `:599-608` docstring — revise the "the only DDL-permitted role for this semantic" claim
+- `ingestion/states/montana/load_jurisdiction_bindings.py` `:637` hardcoded role Literal default — content-anchor on `other_overlay`; update to `no_hunt_zone` or generalize per architecture
+- `ingestion/tests/test_load_jurisdiction_bindings.py:~1025` — content-anchor on `{"other_overlay"}` assertion; update to expected 8-value enum
+- `ingestion/tests/test_load_jurisdiction_bindings.py:~1053-1064` — content-anchor on `test_role_is_other_overlay_only` test class/function; rename + update body
+- `ingestion/tests/test_load_jurisdiction_bindings.py:~1898` — content-anchor on `_valid_roles` frozenset; extend with `"no_hunt_zone"`
+
+Line numbers cite the architecture review's findings against the file's state at 2026-06-03; **grep-verify all 4 sites at story open per Bundle A pitfall #1 (spec-prescribed line citations drift between spec authoring and execution)**.
+
+**ADR-021 status flip** (same PR):
+
+Change `Status: Proposed` → `Status: Accepted` in `docs/adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md` front matter; update the inline status-note blockquote to reflect that the flip event has fired.
+
+**Recurring-RLS-gap M2 open-question candidate** (E04 §"Known Issues to Escalate" #1): **does NOT fire for S05.3.5** — the migration is a CHECK constraint extension on the existing `jurisdiction_binding` table, NOT a new `public.*` table. RLS deny-all already covers `jurisdiction_binding` per E01 S01.3.
+
+**Out of scope (deliberately):**
+
+- CO no-hunt-zone ingestion — S05.4
+- `jurisdiction_binding` rows for CO — E06 (binding writes follow `regulation_record` FK)
+- M3+ MCP server `check_land_status` response-shape change — separate ADR + story per ADR-021 MF1 acknowledgment
+
+**Relevant ADRs:** [ADR-002](../adrs/ADR-002-mcp-canonical-interface.md) (`check_land_status` semantic-precision argument), [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md) (state-agnostic-clean library `overlays.py` is the 5th sync surface), [ADR-006](../adrs/ADR-006-schema-versioned-from-day-one.md) (multi-place sync discipline), [ADR-010](../adrs/ADR-010-decomposed-entity-model.md) (enum-not-flag + role-as-regulatory-relationship), [ADR-018](../adrs/ADR-018-e03-schema-additions.md) (closest structural precedent for schema-extending migrations), [ADR-021](../adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md) (the decision this story implements).
+
+**Depends on:** ADR-021 at Status: Proposed (✅ landed at `fa1da38`).
+
+**Unblocks:** S05.4 (CO no-hunt-zone ingestion can write `role='no_hunt_zone'` rows once the DDL CHECK permits it).
+
+**Acceptance Criteria:**
+
+**Group A — file-level / static (satisfied at-merge):**
+
+- [ ] New DDL migration file exists at `supabase/migrations/<timestamp>_jurisdiction_binding_no_hunt_zone_role.sql`; timestamp prefix strictly greater than the most recent applied migration; transactional (DROP existing CHECK + ADD 8-value CHECK + UPDATE 3 MT rows, in that order)
+- [ ] `ingestion/ingestion/lib/schema.py` `GeometryRole` Literal extended with `"no_hunt_zone"`
+- [ ] `mcp-server/src/types/schema.ts` `GeometryRole` union extended with `"no_hunt_zone"`
+- [ ] `docs/architecture.md` §"Schema types" `GeometryRole` type extended with `"no_hunt_zone"`
+- [ ] `ingestion/ingestion/lib/overlays.py` `GeometryRoleForE03` Literal alias extended with `"no_hunt_zone"`; sync-required docstring verified to still point at `schema.py`
+- [ ] `ingestion/states/montana/load_jurisdiction_bindings.py` docstring at the `:599-608` region revised (no longer claims `other_overlay` is "the only DDL-permitted role for this semantic"); hardcoded role Literal default at the `:637` region updated to `no_hunt_zone` (grep-verify content anchors)
+- [ ] `ingestion/tests/test_load_jurisdiction_bindings.py` — 4 assertion sites updated: the `{"other_overlay"}` set-equality assertion, the `test_role_is_other_overlay_only` test (rename + body), the `_valid_roles` frozenset extension to 8 values, and any docstring claims about the role enum (grep `other_overlay` across the file at story open)
+- [ ] [ADR-021](../adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md) front matter `Status: Proposed` → `Status: Accepted` in this PR; inline status-note blockquote updated to reflect that the migration-story-closure flip event has fired
+- [ ] `ruff check ingestion/`, `mypy ingestion/lib/`, `mypy ingestion/states/montana/load_jurisdiction_bindings.py`, `pytest ingestion/tests/`, `tsc --noEmit mcp-server` all clean
+- [ ] Test suite reports **1234 + 2 skipped + N** (post-S05.2 baseline 1234; N likely 0 to +2 — existing 4 test sites get reworded, not added; document exact N at close)
+- [ ] No production-DB writes from the build session (Group B operator-driven)
+- [ ] No CO-specific code added in `ingestion/states/colorado/`; no Colorado data loaded (verified by `git diff --stat ingestion/states/colorado/` empty across all pre-squash commits)
+
+**Group B — operator-driven post-`supabase db push` (open; not blocking S05.3.5 close per the PRD-006-style "operator verifies live" pattern):**
+
+- [ ] `supabase db push` applies the migration cleanly to the production project — *operator-pending*
+- [ ] `information_schema.check_constraints` shows the updated `jurisdiction_binding_role_check` constraint with 8 values — *operator-pending* (capture the exact `check_clause` text for the verification record)
+- [ ] `SELECT DISTINCT role FROM jurisdiction_binding` returns a subset of {`primary_unit`, `portion`, `restricted_area`, `cwd_management_zone`, `bear_management_unit`, `block_management_area`, `other_overlay`, `no_hunt_zone`} — *operator-pending*
+- [ ] The 3 MT rows now have `role = 'no_hunt_zone'` (`SELECT id, role FROM jurisdiction_binding WHERE geometry_id IN ('MT-restricted-bigame-glacier-national-park-geom', 'MT-restricted-bigame-sun-river-game-preserve-geom', 'MT-restricted-bigame-yellowstone-national-park-geom')`) — *operator-pending*
+- [ ] Service-role row count on `jurisdiction_binding` is unchanged pre/post migration (DDL-only + targeted UPDATE; touches exactly 3 rows; no INSERT or DELETE) — *operator-pending*
+
+Group B verification outputs are captured directly in `docs/planning/epics/E05-confidence-findings/S05.3.5.md` § "Group B verification record" (analog of S04.1's 2026-05-30 verification record); once captured, the PM ticks the boxes here in a follow-up doc-only commit.
 
 ---
 
@@ -610,14 +708,18 @@ Every coordinate is a real `shapely.representative_point()` from the actual load
 
 **Within E05: stories run sequentially.** The human creates a feature branch per story and merges before the next begins per the PM-prompt §"Commit and branch workflow".
 
-**Recommended merge order:** S05.0 → S05.1 → S05.2 → S05.3 → S05.4 → S05.5 → S05.6 → S05.7
+**Recommended merge order:** S05.0 → S05.1 → S05.2 → S05.3 → **S05.3.5** → S05.4 → S05.5 → S05.6 → S05.7
+
+(S05.3.5 was carved out 2026-06-03 after S05.3 closure surfaced the need for ADR-021 — the `jurisdiction_binding.role` enum extension — as a pre-S05.4 deliverable. Per the carve-out rationale in the S05.3.5 story spec, the migration's MT-touching + schema-extending work belongs in its own PR, not folded into S05.4's CO-loading PR. Mirrors S03.6.1's mid-E03 carve-out pattern from S03.6.)
 
 **Rationale:**
 
 - **S05.0 → S05.1**: S05.1's CO adapter scaffold references `CO-STATEWIDE-geom` in `sources.yaml` documentation; S05.0 must land first
 - **S05.1 → S05.2**: S05.2 imports the scaffold + sources.yaml entry; uses the shared lib via the documented import path
 - **S05.2 → S05.3 + S05.4**: CWD-zone + restricted-area discovery happens after GMUs land (so the discovery-context queries can join against actual loaded data); the two are independent of each other but the convention is sequential
-- **S05.3 + S05.4 → S05.5**: overlay fixture needs all CO geometries loaded before it can compute relationships
+- **S05.3 → S05.3.5**: S05.3.5's pre-work for S05.4 (the `role='no_hunt_zone'` enum migration + MT V1 reclassification per ADR-021) is independent of S05.3's CWD-zone discovery outcome — but the convention is sequential, and chronologically S05.3.5 opens once the CO restricted-areas research doc surfaces outcome (c)
+- **S05.3.5 → S05.4**: hard precondition — S05.4's CO loader writes `role='no_hunt_zone'` rows, which the DDL CHECK constraint must permit. S05.3.5 must close (Group A at-merge; Group B operator-driven verification can run in parallel with S05.4 implementation) before S05.4's PR can open with confidence the migration will be live by S05.4 merge time
+- **S05.4 → S05.5**: overlay fixture needs all CO geometries loaded before it can compute relationships (S05.3 closure with zero CWD rows is fine; the fixture's `cwd_zone` coverage invariant is vacuously satisfied)
 - **S05.5 → S05.6**: S05.6 documents the binding-loader reference; the fixture's `role_for_e03` mapping informs the reference SQL
 - **S05.6 → S05.7**: verification step verifies what S05.0–S05.6 built; includes the cross-state filter regression test from S05.6
 
