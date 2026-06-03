@@ -9,8 +9,8 @@ computed in S02.6 so that E03 can create `jurisdiction_binding` rows once
 
 Duplication note
 ----------------
-``GeometryRoleForE03`` duplicates the seven Literal values from
-``JurisdictionBinding.role`` in ``ingestion/ingestion/lib/schema.py:424-432``.
+``GeometryRoleForE03`` duplicates the eight Literal values from
+``JurisdictionBinding.role`` in ``ingestion/ingestion/lib/schema.py:426-435``.
 This is intentional: the overlay module is kept self-contained so E03 can
 import it without pulling in the full Pydantic model graph. The values MUST be
 kept manually in sync with ``JurisdictionBinding.role`` whenever that Literal
@@ -33,14 +33,15 @@ GeometryRoleForE03 = Literal[
     "bear_management_unit",
     "block_management_area",
     "other_overlay",
+    "no_hunt_zone",
 ]
-"""Seven roles that map directly to ``JurisdictionBinding.role`` in the DDL.
+"""Eight roles that map directly to ``JurisdictionBinding.role`` in the DDL.
 
 These are the roles E03 will assign when creating ``jurisdiction_binding`` rows
 from overlay-fixture data. Spec: E02-geometry-ingestion.md § "Overlay roles".
 
 SYNC REQUIRED: values must match ``JurisdictionBinding.role`` in
-``ingestion/ingestion/lib/schema.py:424-432`` exactly. Update both locations
+``ingestion/ingestion/lib/schema.py:426-435`` exactly. Update both locations
 whenever the DDL role enum changes.
 """
 

@@ -431,6 +431,7 @@ class JurisdictionBinding(BaseModel):
         "bear_management_unit",
         "block_management_area",
         "other_overlay",
+        "no_hunt_zone",
     ]
     verbatim_rule: str | None = None
     source: SourceCitation
