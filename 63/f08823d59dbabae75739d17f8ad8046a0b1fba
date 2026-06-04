@@ -1,0 +1,31 @@
+CLAUDE.md
+  s_b6b1c793a73350::t_36b4aa86582401 11
+docs/planning/README.md
+  s_b6b1c793a73350::t_afd98559c2cdba 3
+  s_b6b1c793a73350::t_ade0abed9768d8 60
+  s_b6b1c793a73350::t_f4f64280d68d1d 133,135-137,139
+  s_b6b1c793a73350::t_37160aec8b3cc7 129
+  s_b6b1c793a73350::t_be747aad8b8eca 15
+  s_b6b1c793a73350::t_4f4e9e4ecc55b1 55
+  s_b6b1c793a73350::t_2ec29878f401b9 141
+  s_b6b1c793a73350::t_76bb26cc6ced6e 31
+docs/planning/epics/E05-colorado-geometry-ingestion.md
+  s_b6b1c793a73350::t_e99a027f67773a 404
+  s_b6b1c793a73350::t_6a351e97ddf879 442-464
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "63f08823d59dbabae75739d17f8ad8046a0b1fba",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
