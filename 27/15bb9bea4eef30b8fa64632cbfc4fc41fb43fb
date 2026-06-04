@@ -1,0 +1,21 @@
+ingestion/states/colorado/load_restricted_areas.py
+  s_9e0894dd3be090::t_b6621347e27fc1 188-194
+ingestion/tests/test_load_co_restricted_areas.py
+  s_9e0894dd3be090::t_19ee073e980488 352-367
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2715bb9bea4eef30b8fa64632cbfc4fc41fb43fb",
+  "prompts": {},
+  "sessions": {
+    "s_9e0894dd3be090": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f85c79d4-865f-425c-adfb-16947d3f49f8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
