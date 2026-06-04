@@ -74,6 +74,16 @@ Raising on every GC would block valid loads. Silently filtering would lose data 
 
 Surfaced by S02.2 live load on 2026-04-30.
 
+### `arcgis.fetch_features` cannot apply a server-side WHERE filter — compose private primitives for filtered single-page fetches
+
+**Symptom:** A CO/state adapter needs to fetch a subset of a layer (e.g., PAD-US features filtered to `State_Nm='CO' AND Des_Tp IN (...)`), but `fetch_features` hardcodes `where = f"{metadata.object_id_field}>=0"` (see `arcgis.py:~678`). Editing `ingestion/lib/` violates ADR-005; replicating the full pagination loop duplicates maintenance-critical retry/throttle logic.
+
+**Cause:** `fetch_features` is designed for full-layer pulls. Its `where` clause is not a parameter because the public API was scoped to full-layer use only.
+
+**Fix:** For small fixed result sets that fit in ONE page (< `max_record_count` features), compose the existing private arcgis primitives in the state adapter directly: `arcgis._build_session`, `arcgis._request_with_retry` (handles throttle/backoff/200-with-error-envelope), `arcgis._check_and_fix_projection`, `arcgis._write_features_fixture`, `arcgis._write_manifest_fixture`, `arcgis.compute_feature_hash`, `arcgis._read_objectid`, `arcgis._utc_timestamp`. Issue a single page with the desired `where` clause, then assert `exceededTransferLimit` is absent/false AND `len(features) == returnCountOnly` result. Do NOT use this pattern for large or unbounded result sets — it is only valid when the filtered count is known to be << `max_record_count`. The private-call convention is already established (`load_gmus.py` calls `arcgis._build_session`). Reference: `ingestion/states/colorado/load_restricted_areas.py:_fetch_and_build` (S05.4).
+
+Surfaced by S05.4 implementation on 2026-06-03.
+
 ### One-off ArcGIS scripts must detect `{"error": {...}}` envelopes before parsing
 
 The shared `arcgis.fetch_features` (via `_request_with_retry`) detects ArcGIS error envelopes — bodies of shape `{"error": {"code": ..., "message": ..., "details": [...]}}` returned with HTTP 200 — and raises `ArcGISError` with the server's code+message. A one-off script that does its own `requests.get()` against an ArcGIS or MapServer endpoint (rather than going through the shared library) bypasses this detection. The script then parses the body as the expected shape (e.g. a GeoJSON `FeatureCollection`), gets `features=[]` from `data.get("features", [])`, and raises a misleading "zero features" diagnostic when the real cause is auth failure, layer removal, or a malformed query.
@@ -725,6 +735,16 @@ Surfaced by S05.3 on 2026-06-03 (CPW CWD zone discovery — no authoritative geo
 
 **Fix:** Distinguish "full-enum mirror" sites (Pydantic `Literal`, DDL `CHECK`, TS union — must stay in sync) from "intentional subset gates" (validation `frozenset`s that admit only a curated subset for one data path — must NOT reflexively widen). When a subset gate excludes a newly-added enum value, add or confirm a comment on the gate explaining which values it excludes and why, so a future contributor doesn't read the narrowness as an oversight. A gate that correctly rejects a new value is detecting a potential bug; widening it silently removes that protection. Surfaced by S05.3.5 Stage-6 review: `_VALID_ROLE_FOR_E03` in `ingestion/states/montana/load_jurisdiction_bindings.py` deliberately excludes `no_hunt_zone` because that role enters via `_build_no_hunt_zone_bindings`, not through the overlay-fixture path the gate guards.
 
+### Row-drop logic must run before fixture and manifest writes — not after
+
+**Symptom:** A loader fetches N features, writes the features fixture and manifest (recording `features_count=N`, `layer_hash=hash(N features)`), then drops rows that don't meet V1 scope criteria, and finally writes M < N rows to the DB. The fixtures and manifest describe the fetched set; the DB holds the kept set. The inconsistency is permanent — a re-run that drops the same rows will never produce a fixture that matches DB state.
+
+**Cause:** The natural code order is: fetch → validate → write fixtures → filter → write DB. Filtering after fixture writes feels safe because the fixture captures raw upstream data. But the fixture's `features_count` and `layer_hash` are then describing a set the DB has never fully held.
+
+**Fix:** Drop ineligible rows immediately after `_check_and_fix_projection` (fetch validation), before any fixture or manifest write. The `returnCountOnly` cross-check that validates the fetch stays on the RAW fetched count (it is verifying the network fetch, not the V1 scope). Only the fixture writes, manifest writes, and DB writes operate on the kept set, so all three agree. Reference: `ingestion/states/colorado/load_restricted_areas.py:_fetch_and_build` — Curecanti NRA dropped from 11 fetched → 10 kept before fixtures are written (S05.4 Stage 6 code-reviewer finding).
+
+Surfaced by S05.4 Stage-6 code review on 2026-06-03.
+
 ## Conventions — Pre-commit & secrets
 
 ### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings
@@ -962,3 +982,13 @@ Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
 **Cause:** Spec authors enumerate the "obvious" sync surfaces (schema files, type definitions) from a mental model. Adapter-level cast/Literal re-enumerations are local to the adapter and invisible to a schema-file-only scan.
 
 **Fix:** When implementing a schema-enum extension, treat the spec's named-sites list as a starting point, not a complete inventory. Before writing the plan, grep the whole codebase for every `cast(Literal[...])`, inline `Literal[...]` re-enumeration, `frozenset({...})`, and `== {"value"}` set-literal that mirrors the enum being extended. Each match is a potential sync site. Surfaced by S05.3.5 Stage-2 discovery: `cast(Literal["primary_unit", ..., "other_overlay"], role_e03)` in `ingestion/states/montana/load_jurisdiction_bindings.py::_build_overlay_bindings` was not in the spec's five-place list and required a sixth edit.
+
+### Enumerated expected-set constants are only guards if compared against actual output at the write boundary
+
+**Symptom:** A loader defines `_V1_EXPECTED_IDS: frozenset[str]` of N expected geometry ids, asserts `len(_V1_EXPECTED_IDS) == N` at module load time, and has a unit test verifying that `_fetch_and_build` returns the expected set. But `main()` never compares the built geometries' actual ids against `_V1_EXPECTED_IDS` before the DB write. An upstream rename (e.g., PAD-US `Unit_Nm` value changes) produces a different slug/id — the count band passes (still N rows), the Curecanti-drop guard passes (still excluded by a separate field check), and a wrong-id row is written while the expected row goes missing. No guard fires.
+
+**Cause:** A module-load `assert len(...)` checks that the constant was typed correctly; a unit test checks the builder's internal logic. Neither checks that the IDs actually coming out of `main()` match the expected set. Length-check at import ≠ identity-check at runtime.
+
+**Fix:** Wire `actual_ids == _V1_EXPECTED_IDS` (or equivalent set comparison) as a fail-loud guard in `main()` before `db.connect()` (pre-connect per OQ7 discipline). The check must fire on the IDs produced by the build phase, not on the constant alone. Two independent Stage-6 reviewers (code-reviewer + silent-failure-hunter) converged on this in S05.4. Reference: `ingestion/states/colorado/load_restricted_areas.py:main()` pre-connect id-set guard (S05.4).
+
+Surfaced by S05.4 Stage-6 review on 2026-06-03.
