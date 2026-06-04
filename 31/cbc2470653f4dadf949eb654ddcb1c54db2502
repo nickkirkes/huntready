@@ -1,0 +1,19 @@
+ingestion/states/colorado/restricted-area-discovery.md
+  s_9e0894dd3be090::t_091283fff74e94 189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "31cbc2470653f4dadf949eb654ddcb1c54db2502",
+  "prompts": {},
+  "sessions": {
+    "s_9e0894dd3be090": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f85c79d4-865f-425c-adfb-16947d3f49f8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
