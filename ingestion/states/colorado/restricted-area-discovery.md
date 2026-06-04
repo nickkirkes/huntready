@@ -186,7 +186,7 @@ These 10 ids are "orphans" in the overlay fixture because no GMU geometry contai
 | Nearby predicate | `extensions.ST_DWithin(zone.geom, hd.geom, 5000)` boundary-to-boundary | `extensions.ST_DWithin(zone.geom, gmu.geom, 5000)` boundary-to-boundary |
 | Loader | `montana/load_jurisdiction_bindings.py` hardcoded builder | `colorado/load_restricted_areas.py` (S05.4) |
 
-Both CO and MT no-hunt zones traverse the same federal-authoritative chain (NPS / DOD → USGS PAD-US → HuntReady). The split-provenance geometry-vs-text pattern is the same: federal agency publishes the boundary, state hunting brochure names the regulatory prohibition.
+The genuinely-shared pattern is **split-provenance**: a GIS layer supplies the boundary geometry, and the state hunting brochure names the regulatory prohibition. The geometry *source* differs, though — CO pulls the federal boundaries from the USGS PAD-US aggregation (NPS / DOD → USGS PAD-US → HuntReady), whereas MT's 3 zones were ingested in E02 from MT FWP's own published ArcGIS layers (`MtFishWildlifeParks` AGOL / `fwp-gis.mt.gov`, restricted-area layers #2/#15) — boundaries the state itself digitized/republished, not the PAD-US chain.
 
 ---
 
