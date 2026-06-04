@@ -185,7 +185,13 @@ def _feature_to_geometry(
     Raises ColoradoGeometryError if Unit_Nm is missing/blank, the geometry
     cannot be coerced to MultiPolygon, or Pydantic validation fails.
     """
-    props = feature["properties"]
+    props = feature.get("properties") if isinstance(feature, dict) else None
+    if not isinstance(props, dict):
+        raise ColoradoGeometryError(
+            f"feature has missing or non-dict 'properties' "
+            f"(got {type(props).__name__}); "
+            f"feature keys={sorted(feature) if isinstance(feature, dict) else type(feature).__name__}"
+        )
     unit_nm = _extract_unit_nm(props, layer_metadata)
 
     try:

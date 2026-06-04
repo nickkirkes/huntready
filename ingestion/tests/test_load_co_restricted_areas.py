@@ -349,6 +349,22 @@ class TestFeatureToGeometry:
             self._call(feature)
         assert "Unit_Nm" in str(exc_info.value)
 
+    def test_missing_properties_key_raises_colorado_error(self) -> None:
+        """A feature lacking a 'properties' key must raise ColoradoGeometryError,
+        not a bare KeyError (fail-loud contract)."""
+        feature = {"type": "Feature", "geometry": _SQUARE_POLYGON}
+        with pytest.raises(ColoradoGeometryError) as exc_info:
+            self._call(feature)
+        assert "properties" in str(exc_info.value)
+
+    def test_null_properties_raises_colorado_error(self) -> None:
+        """GeoJSON permits 'properties': null; a non-dict properties value must
+        raise ColoradoGeometryError, not a bare AttributeError."""
+        feature = {"type": "Feature", "geometry": _SQUARE_POLYGON, "properties": None}
+        with pytest.raises(ColoradoGeometryError) as exc_info:
+            self._call(feature)
+        assert "properties" in str(exc_info.value)
+
 
 # ---------------------------------------------------------------------------
 # TestCheckCountBand
