@@ -37,3 +37,25 @@ gis_layers:
       attribute schema in docs/research/gmu-source-evaluation.md.
       No per-feature REGYEAR attribute — S05.2 passes license_year=2026
       (the fetch year) as the deliberate default per ADR-014.
+  # id_template is documentation only — do NOT read this field at runtime.
+  # The runtime SourceCitation.id is built by `arcgis.build_source_citation`
+  # from `state_slug + service_url + layer_id + license_year`. Reading
+  # `id_template` directly would write the unsubstituted `{license_year}`
+  # placeholder to the database.
+  - id_template: "co-usgs-padus-arcgis-Federal_Fee_Managers_Authoritative_PADUS-0-{license_year}"
+    agency: "U.S. Geological Survey (PAD-US)"
+    title: "PAD-US 4.1 Federal Fee Managers Authoritative (Layer 0)"
+    service_url: "https://services.arcgis.com/v01gqwM5QqNysAAi/arcgis/rest/services/Federal_Fee_Managers_Authoritative_PADUS/FeatureServer"
+    layer_id: 0
+    document_type: gis_layer
+    note: |
+      Native EPSG:3857; outSR=4326 set in fetch params per arcgis.py.
+      V1 WHERE clause: State_Nm='CO' AND ((NPS AND Des_Tp IN (NP,NM,NRA))
+      OR (DOD AND Unit_Nm='United States Air Force Academy')).
+      Curecanti NRA is fetched by the WHERE clause and dropped post-fetch
+      (NPS NRAs permit hunting per 36 CFR §2.2), so 10 of the 11 fetched
+      features are written.
+      editingInfo.lastEditDate=2026-04-22 (live-probed 2026-06-03).
+      Attribute schema documented in docs/research/colorado-restricted-areas-evaluation.md.
+      license_year=2026 (fetch year) per ADR-014.
+      verbatim_rule deferred for V1 — CPW Big Game brochure URL unresolved.
