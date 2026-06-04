@@ -1,0 +1,49 @@
+ingestion/states/colorado/sources.yaml
+  s_9e0894dd3be090::t_8b89fd48539f2d 40-54,58-61
+  s_9e0894dd3be090::t_5f8e46575d6ddd 55-57
+ingestion/states/colorado/load_restricted_areas.py
+  s_9e0894dd3be090::t_80f8e818b465c4 415-517,528-539
+  s_9e0894dd3be090::t_8053474eac2ea5 311-316,338-355,357-358,360,367,396
+  s_9e0894dd3be090::t_f5e9c52c6b5933 166-226
+  s_9e0894dd3be090::t_6aaed515599a25 227-310,317-337,356,359,361-366,368-395,397-414
+  s_9e0894dd3be090::t_2bcc2d8e9caabd 45
+  s_9e0894dd3be090::t_2e82f35cae7a3e 1-34,38,41-42,44,52-165
+  s_9e0894dd3be090::t_033c91cffb09fb 49
+  s_9e0894dd3be090::t_653d70376e7cdb 37,47-48,50-51
+  s_9e0894dd3be090::t_24ab4026a9f589 35,39
+  s_9e0894dd3be090::t_b2db861faf1037 36,40,43,46
+  s_9e0894dd3be090::t_80faac9695d851 518-527
+docs/planning/epics/E05-confidence-findings/S05.4.md
+  s_9e0894dd3be090::t_108e5491ca0d95 111-114
+  s_9e0894dd3be090::t_ed53c0456b8883 13
+  s_9e0894dd3be090::t_b00bb8ba723166 12
+  s_9e0894dd3be090::t_90de9d486546a1 15
+  s_9e0894dd3be090::t_59f8613f71c438 40,43-44,47
+  s_9e0894dd3be090::t_674520506f5e9a 1-11,14,16-39,41-42,45-46,48-99,101-110,115-144
+  s_9e0894dd3be090::t_af97aca6761dc6 100
+.secrets.baseline
+  s_9e0894dd3be090::t_b0bc6d3dd520ee 291-299,302
+ingestion/tests/test_load_co_restricted_areas.py
+  s_9e0894dd3be090::t_f8cff6e962f6ea 1-750,853-916
+  s_9e0894dd3be090::t_05cdda2b86732c 751-852
+ingestion/states/colorado/restricted-area-discovery.md
+  s_9e0894dd3be090::t_05e923a31bab03 13
+  s_9e0894dd3be090::t_db0b6b570c46eb 118
+  s_9e0894dd3be090::t_9ec12c00e5f249 1-12,14-117,119-218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5427285669564bd55ba91d37672e11ee212b6b28",
+  "prompts": {},
+  "sessions": {
+    "s_9e0894dd3be090": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f85c79d4-865f-425c-adfb-16947d3f49f8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
