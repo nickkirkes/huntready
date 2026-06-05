@@ -1,0 +1,20 @@
+.roughly/plans/S05.6-cross-state-binding-reference-plan.md
+  s_8a410298666434::t_b86cd5fa396908 1-2
+  s_8a410298666434::t_5dfa8b29722ebd 3-289
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "65c15665f0bdcc31481aed514cf81f25019c6e77",
+  "prompts": {},
+  "sessions": {
+    "s_8a410298666434": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d57a6f5d-5936-41b4-8628-fc658840cab1",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
