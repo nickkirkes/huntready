@@ -1,0 +1,21 @@
+.roughly/plans/S05.5-geometry-overlays-fixture-build-plan.md
+  s_bf9f339d018db4::t_8a12771337e486 1-2
+  s_bf9f339d018db4::t_b3953d6c981498 3-95,97-141
+  s_bf9f339d018db4::t_73019f26782862 96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "2e42cf6cbd33145876bdd16ccfa02a608f3aaecb",
+  "prompts": {},
+  "sessions": {
+    "s_bf9f339d018db4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f18a28b-aec8-41b2-bdd6-0e3cdecdc484",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
