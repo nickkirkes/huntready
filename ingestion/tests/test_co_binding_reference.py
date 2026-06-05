@@ -59,6 +59,12 @@ class TestCoBindingReferenceSql:
         sql = _QUERY_NEARBY_GMUS_FOR_ZONE_SQL
         assert "gmu.kind = 'gmu'" in sql
 
+    def test_sql_orders_by_gmu_id_for_determinism(self) -> None:
+        # Mirrors MT's `ORDER BY hd.id` — without it PostgreSQL gives no row-order
+        # guarantee across runs, so E06 could see nondeterministic binding output.
+        sql = _QUERY_NEARBY_GMUS_FOR_ZONE_SQL
+        assert "ORDER BY gmu.id" in sql
+
     def test_sql_binds_distance_threshold_not_hardcoded(self) -> None:
         # Distance is a bound %s, not a hardcoded 5000 literal — so E06's
         # recalibration of _NO_HUNT_ZONE_NEARBY_DISTANCE_M takes effect without

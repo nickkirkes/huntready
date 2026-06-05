@@ -70,12 +70,15 @@ _NO_HUNT_ZONE_NEARBY_DISTANCE_M: Final[int] = 5000
 # ``_NO_HUNT_ZONE_NEARBY_DISTANCE_M`` flows into the query without silent drift —
 # mirrors MT binding the constant as a parameter at load_jurisdiction_bindings.py:588.
 # All ``ST_*`` calls are ``extensions.``-prefixed; the state filter is %s-bound.
+# ``ORDER BY gmu.id`` mirrors MT's ``ORDER BY hd.id`` for deterministic row order
+# across runs (PostgreSQL makes no ordering guarantee without it).
 _QUERY_NEARBY_GMUS_FOR_ZONE_SQL: Final[str] = """
 SELECT gmu.id, gmu.geom
 FROM geometry gmu
 WHERE gmu.state = %s
   AND gmu.kind = 'gmu'
   AND extensions.ST_DWithin(%s::geography, gmu.geom, %s)
+ORDER BY gmu.id
 """
 
 
