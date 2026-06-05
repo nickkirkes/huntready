@@ -735,6 +735,18 @@ Surfaced by S05.3 on 2026-06-03 (CPW CWD zone discovery — no authoritative geo
 
 **Fix:** Distinguish "full-enum mirror" sites (Pydantic `Literal`, DDL `CHECK`, TS union — must stay in sync) from "intentional subset gates" (validation `frozenset`s that admit only a curated subset for one data path — must NOT reflexively widen). When a subset gate excludes a newly-added enum value, add or confirm a comment on the gate explaining which values it excludes and why, so a future contributor doesn't read the narrowness as an oversight. A gate that correctly rejects a new value is detecting a potential bug; widening it silently removes that protection. Surfaced by S05.3.5 Stage-6 review: `_VALID_ROLE_FOR_E03` in `ingestion/states/montana/load_jurisdiction_bindings.py` deliberately excludes `no_hunt_zone` because that role enters via `_build_no_hunt_zone_bindings`, not through the overlay-fixture path the gate guards.
 
+### Spec-provided reference SQL can hardcode a value a sibling constant is meant to own — bind the constant, don't copy the literal
+
+**Symptom:** A spec hands the implementer both (a) a named constant (e.g., `_NO_HUNT_ZONE_NEARBY_DISTANCE_M: Final[int] = 5000`) and (b) an illustrative SQL snippet that embeds the same numeric literal (`... gmu.geom, 5000)`). The literal is wired directly into the query string; the constant becomes dead weight. A future recalibration of the constant does not flow into the SQL, and the query silently continues using the old value.
+
+**Cause:** Spec snippets are illustrative. The literal in the snippet shows the INTENT; the constant is the source-of-truth. Copying the literal from the snippet instead of binding the constant is the natural shortcut, and both paths produce identical behavior on first run — making the drift invisible until a recalibration cycle.
+
+**Fix:** When a spec provides a reference SQL snippet AND a named constant for the same value, treat the literal in the snippet as documentation only. Wire the constant as a bound `%s` parameter so any future recalibration takes effect without touching the SQL string. Mirror the MT precedent: `montana/load_jurisdiction_bindings.py` binds `_NO_HUNT_ZONE_NEARBY_DISTANCE_M` as a `cur.execute` parameter (around line 588); the literal `5000` never appears in the SQL string.
+
+**Test corollary:** assert the SQL contains the placeholder (`gmu.geom, %s)`, not `gmu.geom, 5000)`) AND that the bound params include `_NO_HUNT_ZONE_NEARBY_DISTANCE_M`. A test that only asserts `_NO_HUNT_ZONE_NEARBY_DISTANCE_M == 5000` is tautological — it does not catch the SQL-vs-constant disconnect. Extends the "authoritative numbers drift between canonical documents — name the source-of-truth before copying" family (Conventions — Documentation & planning discipline): same root cause applied to spec-illustrative SQL.
+
+Surfaced by S05.6 Stage-6 review (code-reviewer Critical + silent-failure-hunter W1, static-analysis concurring) on 2026-06-05.
+
 ### Row-drop logic must run before fixture and manifest writes — not after
 
 **Symptom:** A loader fetches N features, writes the features fixture and manifest (recording `features_count=N`, `layer_hash=hash(N features)`), then drops rows that don't meet V1 scope criteria, and finally writes M < N rows to the DB. The fixtures and manifest describe the fetched set; the DB holds the kept set. The inconsistency is permanent — a re-run that drops the same rows will never produce a fixture that matches DB state.
