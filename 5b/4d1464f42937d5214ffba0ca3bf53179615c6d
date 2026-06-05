@@ -1,0 +1,19 @@
+docs/planning/epics/E05-confidence-findings/S05.5.md
+  s_bf9f339d018db4::t_3a6ce255319bc5 75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "5b4d1464f42937d5214ffba0ca3bf53179615c6d",
+  "prompts": {},
+  "sessions": {
+    "s_bf9f339d018db4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7f18a28b-aec8-41b2-bdd6-0e3cdecdc484",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
