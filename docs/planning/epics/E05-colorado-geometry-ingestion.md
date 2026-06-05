@@ -577,7 +577,7 @@ Group B verification outputs are captured in `docs/planning/epics/E05-confidence
 
 ### S05.6: Cross-state spatial discipline + binding-loader reference
 
-**Status:** Not Started
+**Status:** Closed at-merge 2026-06-05 — squash-merged to main as **PR #61 / `1b55bfd`** from `feat/S05.6-cross-state-binding-reference` (4 pre-squash commits: `e46fe06` deliverables + `65c1566` plan-historical + `98df5e9` pitfalls/baseline + `9b1fa7d` post-review ORDER BY determinism fix). **Eighth E05 PR**. **Scaffold / reference-only story** — zero DB writes, zero `jurisdiction_binding` rows anywhere in E05 (binding writes are E06 territory per PRD 002 §"Why sequential"; bindings FK to BOTH `regulation_record` (E06) AND `geometry` (E05)). **Deliverables (3 new files; no edits to existing code)**: (1) `ingestion/states/colorado/load_jurisdiction_bindings.py` (new, import-only scaffold, ~100 LOC) — no `main()`, no argparse, no `db.connect()`, no network. Holds: `_STATE: Final[str] = "US-CO"` (mirrors MT `load_jurisdiction_bindings.py:110`); `_NO_HUNT_ZONE_NEARBY_DISTANCE_M: Final[int] = 5000` (inherited from MT, S03.10 Option A); module-level `_QUERY_NEARBY_GMUS_FOR_ZONE_SQL` (boundary-to-boundary `extensions.ST_DWithin`, state + distance both `%s`-param-bound, `kind = 'gmu'` filter, `ORDER BY gmu.id`); and a never-called reference function `query_nearby_gmus_for_zone(conn, zone_geom_wkt)` mirroring MT's `_query_nearby_hds_for_zone` 1:1 as E06's drop-in. (2) `ingestion/tests/test_co_binding_reference.py` (new, 9 tests in `TestCoBindingReferenceSql`) — incl. the spec-mandated headline `test_co_binding_loader_sql_filters_by_state_co_pollution_guard`; MagicMock-only, no live DB. (3) `docs/planning/epics/E05-confidence-findings/S05.6.md` (new closure note; deletes at m2 tag per ADR-017 §6). **Key design decisions baked in**: (a) **Inline `_STATE`, no `_constants.py`** — mirrors MT's actual precedent (MT keeps `_STATE` inline; no `_constants.py` exists in the MT adapter). AC-1's "or equivalent" clause permits it. (b) **Module-level SQL constant** — deliberate departure from MT (MT inlines the SQL in-function) so the regression test imports/inspects it directly. The reference function still exists so param-binding can be locked by test. (c) **`_STATE` vs `CO_STATE_CODE` naming tension** — the 4 existing CO loaders use `CO_STATE_CODE = "US-CO"`; this scaffold introduces `_STATE` to mirror the MT binding-loader convention E06 inherits. Two-name inconsistency logged as an E06 cleanup candidate, deliberately not retrofitted (scaffold-only scope). **Stage-gate trajectory**: Stage-4 plan review PASS first iteration (no required edits). Stage-6 review triad converged on **one Critical** (code-reviewer + silent-failure-hunter W1, static-analysis concurring): the spec's illustrative SQL hardcoded the `5000` literal while `_NO_HUNT_ZONE_NEARBY_DISTANCE_M` sat unused — a silent-drift trap (E06's anticipated recalibration would not flow into the query). Fixed in 1 review-fix cycle by binding distance as a 3rd `%s` param, mirroring MT's `cur.execute(sql, (..., _NO_HUNT_ZONE_NEARBY_DISTANCE_M, ...))` at `:588`; tests tightened (I1 assert `%s`-bound not hardcoded state; I2 kill vacuous-zero in `extensions`-prefix count; lock `params[2]`). Cubic clean `{"issues": []}`. **One post-merge-review P3 fix** (external PR review, valid, folded into the branch pre-merge at `9b1fa7d`): reference SQL omitted `ORDER BY`, giving no PostgreSQL row-order guarantee across runs (E06 binding output could be nondeterministic); added `ORDER BY gmu.id` mirroring MT's `ORDER BY hd.id`, locked by new `test_sql_orders_by_gmu_id_for_determinism`. **Quality gates (at-merge)**: ruff clean (`ingestion/` + `tests/` + `states/`); mypy clean (`ingestion/lib/` 8 files + `states/colorado/` 6 files); pytest **1331 → 1340 + 2 skipped** (+9 from the new test file — deliberate quality addition; new 1340 baseline holds going into S05.7); cubic `{"issues": []}`; pre-commit detect-secrets passed (1 routine `.secrets.baseline` line-number refresh on the pitfalls commit). `git diff --stat ingestion/ingestion/lib/` empty (ADR-005 + CO-leak guard held); no `db.py` touches; no schema / three-place-sync changes; no MT-file touches; no TS-stack diffs; no production-DB writes. **1 new pitfall landed in `.roughly/known-pitfalls.md`** (1015 → 1029 LOC; doc-writer re-flagged 1029 LOC for future reorg/dedup): under "Conventions — Ingestion adapters" — "Spec-provided reference SQL can hardcode a value a sibling named constant is meant to own — bind the constant as a `%s` param, don't copy the literal" (the Stage-6 Critical lesson; extends the S04.x "name the source-of-truth before copying numbers" family). **No ADRs created** — refines ADR-004 (Supabase + PostGIS, `extensions.`-prefixed `ST_*`), ADR-005 (state-adapter isolation — no lib edits), ADR-010 (decomposed entities). Q18/Q19 untouched (Q19 stays RESOLVED via ADR-020). **No Group A/B split** — this is a scaffold/reference-only story; the SQL is never executed at runtime in E05 (E06 will execute it). All 9 ACs satisfied at-merge. **New E06 cleanup candidate**: `_STATE` vs `CO_STATE_CODE` unification across all CO loaders (this scaffold introduces `_STATE`; existing 4 CO loaders use `CO_STATE_CODE`; deliberately not retrofitted in S05.6 — scaffold-only scope). **S05.7 unblocked** (final E05 story; spatial query verification + epic exit; consumes S05.6's reference SQL + S05.5's overlay fixture in its UAT spatial-test-points workflow).
 
 **As a** developer preparing E06's CO binding loader (the S03.10 equivalent)
 **I want** the cross-state spatial filter discipline (`_STATE = 'US-CO'`) codified in the Colorado adapter + a reference SQL block ready for E06 to drop in
@@ -600,15 +600,20 @@ _STATE: Final[str] = "US-CO"
 **Reference SQL** (mirrors S03.10's `_query_nearby_hds_for_zone` `cur.execute(...)` at `load_jurisdiction_bindings.py:587` — verify exact line number at story implementation time per pitfall #1 from `.roughly/known-pitfalls.md` Bundle A; the prior epic draft cited `:587/740` but `:740` is a different function `_load_non_statewide_reg_records`, not the nearby-zone query):
 
 ```python
-# For E06's CO binding loader (NOT executed in E05; documented as reference):
+# For E06's CO binding loader (NOT executed in E05; documented as reference) —
+# byte-identical to shipped scaffold at load_jurisdiction_bindings.py post-S05.6:
 _QUERY_NEARBY_GMUS_FOR_ZONE_SQL = """
 SELECT gmu.id, gmu.geom
 FROM geometry gmu
 WHERE gmu.state = %s
   AND gmu.kind = 'gmu'
-  AND extensions.ST_DWithin(%s::geography, gmu.geom, 5000)
+  AND extensions.ST_DWithin(%s::geography, gmu.geom, %s)
+ORDER BY gmu.id
 """
-# Parameter binding: (_STATE, zone_geom_wkt)
+# Parameter binding: (_STATE, zone_geom_wkt, _NO_HUNT_ZONE_NEARBY_DISTANCE_M)
+# Stage-6 Critical: distance MUST be %s-bound to _NO_HUNT_ZONE_NEARBY_DISTANCE_M, not hardcoded —
+# E06 recalibration must flow into the query via the named constant, not stale literals.
+# Post-review P3: ORDER BY gmu.id is required for deterministic E06 binding output across runs.
 ```
 
 **Critical discipline reminders (from S03.10's pitfall corpus and audit):**
@@ -625,15 +630,17 @@ WHERE gmu.state = %s
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/colorado/_constants.py` (or equivalent) defines `_STATE: Final[str] = "US-CO"`
-- [ ] Reference SQL block for E06's binding loader documented in `ingestion/states/colorado/load_jurisdiction_bindings.py` scaffold (NOT executed yet — E06 territory) OR in a closure note that E06's spec links
-- [ ] **Cross-state SQL filter regression test** `test_co_binding_loader_sql_filters_by_state_co_pollution_guard` (mirrors S03.10's `TestQueryNearbyHdsForZone::test_sql_excludes_portions_regression_guard`): asserts the reference SQL contains `WHERE gmu.state =` and `AND gmu.kind = 'gmu'` as literal substrings; asserts the SQL does NOT contain a hardcoded `'US-MT'` (mirrors S03.10's regression guard against MT-state-leak)
-- [ ] Reference SQL is `extensions.`-prefixed for every `ST_*` call per `.roughly/known-pitfalls.md`
-- [ ] Reference SQL uses boundary-to-boundary `extensions.ST_DWithin(zone_geom, gmu.geom, 5000)` (NOT centroid-to-centroid `ST_Distance` between centroid points)
-- [ ] Reference SQL filters by `gmu.kind = 'gmu'` (prevents accidentally matching the `kind='state'` `CO-STATEWIDE-geom` row)
-- [ ] Closure note documents the 5000-meter threshold inheritance from MT + recalibration deferred to E06
-- [ ] No `jurisdiction_binding` rows written in E05 (verified by `SELECT COUNT(*) FROM jurisdiction_binding WHERE …` against any CO geometry; should be 0 throughout E05)
-- [ ] Test suite delta: +N tests in `ingestion/tests/test_co_binding_reference.py` (small file, regression tests only)
+**All 9 ACs satisfied at-merge `1b55bfd` (scaffold-only — no Group A/B split needed):**
+
+- [x] `ingestion/states/colorado/load_jurisdiction_bindings.py` defines `_STATE: Final[str] = "US-CO"` inline (mirrors MT precedent — no `_constants.py` exists in either state; AC-1's "or equivalent" clause covers this)
+- [x] Reference SQL block for E06's binding loader documented in `ingestion/states/colorado/load_jurisdiction_bindings.py` scaffold as module-level `_QUERY_NEARBY_GMUS_FOR_ZONE_SQL` constant (deliberate departure from MT's in-function inlining so the regression test can import and inspect directly); never-called reference function `query_nearby_gmus_for_zone(conn, zone_geom_wkt)` mirrors MT's `_query_nearby_hds_for_zone` 1:1 as E06's drop-in
+- [x] **Cross-state SQL filter regression test** `test_co_binding_loader_sql_filters_by_state_co_pollution_guard` shipped in `ingestion/tests/test_co_binding_reference.py` `TestCoBindingReferenceSql`; asserts the reference SQL contains `WHERE gmu.state =` and `AND gmu.kind = 'gmu'` as literal substrings; asserts the SQL does NOT contain a hardcoded `'US-MT'`
+- [x] Reference SQL is `extensions.`-prefixed for every `ST_*` call (Stage-6 I2 fix killed the vacuous-zero edge in the `extensions`-prefix count assertion)
+- [x] Reference SQL uses boundary-to-boundary `extensions.ST_DWithin(zone_geom::geography, gmu.geom, %s)` (NOT centroid-to-centroid `ST_Distance`); per Stage-6 Critical W1, the distance is `%s`-bound to `_NO_HUNT_ZONE_NEARBY_DISTANCE_M = 5000`, not a hardcoded literal (E06 recalibration flows via the named constant)
+- [x] Reference SQL filters by `gmu.kind = 'gmu'` (prevents matching the `kind='state'` `CO-STATEWIDE-geom` row)
+- [x] Closure note at `docs/planning/epics/E05-confidence-findings/S05.6.md` documents the 5000-meter threshold inheritance from MT + recalibration deferred to E06
+- [x] No `jurisdiction_binding` rows written in E05 — vacuously satisfied (S05.6 has no `main()`, no `db.connect()`, no network; `git diff --stat ingestion/states/colorado/load_jurisdiction_bindings.py` is the entire CO binding surface and it never executes at runtime)
+- [x] Test suite delta: **+9 tests** in `ingestion/tests/test_co_binding_reference.py` (1331 → 1340 + 2 skipped; new baseline holds into S05.7); includes the post-merge-review-added `test_sql_orders_by_gmu_id_for_determinism` locking the `ORDER BY gmu.id` clause
 
 ---
 
