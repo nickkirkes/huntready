@@ -15,6 +15,11 @@ This is intentional: the overlay module is kept self-contained so E03 can
 import it without pulling in the full Pydantic model graph. The values MUST be
 kept manually in sync with ``JurisdictionBinding.role`` whenever that Literal
 is changed. The module docstring is the designated sync reminder.
+
+``ROLE_FOR_E03_BY_CHILD_KIND`` is a deprecated alias of the canonical
+``ROLE_FOR_BINDING_BY_CHILD_KIND`` export (alias introduced S05.5 for backward
+compatibility). ``OverlayFixtureRow.role_for_e03`` retains its field name for
+MT-fixture data compatibility despite the generalized mapping name.
 """
 
 from __future__ import annotations
@@ -57,19 +62,23 @@ OverlayRelationship = Literal["self", "covers", "intersects"]
 Spec: E02-geometry-ingestion.md § "Relationship discriminator".
 """
 
-OverlayParentKind = Literal["hunting_district"]
+OverlayParentKind = Literal["hunting_district", "gmu"]
 """Kind values that may appear as the parent in an overlay relationship.
 
-V1 scope: only hunting districts act as parents. Extend this Literal (and
-update ``ROLE_FOR_E03_BY_CHILD_KIND`` if needed) when additional parent kinds
-are introduced. Spec: E02-geometry-ingestion.md § "Parent/child kinds".
+V1 scope: hunting districts (MT) and GMUs (CO) act as parents.
+Extend this Literal (and update ``ROLE_FOR_BINDING_BY_CHILD_KIND`` if needed)
+when additional parent kinds are introduced.
+Spec: E02-geometry-ingestion.md § "Parent/child kinds".
 """
 
-OverlayChildKind = Literal["hunting_district", "portion", "cwd_zone", "restricted_area"]
+OverlayChildKind = Literal["hunting_district", "portion", "cwd_zone", "restricted_area", "gmu"]
 """Kind values that may appear as the child in an overlay relationship.
 
-V1 scope: four child kinds. Matches the ``geometry.kind`` column values used
-by the Montana ingestion adapters. Spec: E02-geometry-ingestion.md § "Parent/child kinds".
+V1 scope: five child kinds. Matches the ``geometry.kind`` column values used
+by the MT and CO ingestion adapters. ``"gmu"`` is the CO self-row child kind —
+analog of ``"hunting_district"`` for MT (both map to
+``role_for_e03='primary_unit'``).
+Spec: E02-geometry-ingestion.md § "Parent/child kinds".
 """
 
 # ---------------------------------------------------------------------------
@@ -101,8 +110,11 @@ class OverlayFixtureRow(TypedDict):
     relationship:
         How parent and child relate spatially. See ``OverlayRelationship``.
     role_for_e03:
-        The ``JurisdictionBinding.role`` value E03 should assign to this pair.
-        Derived from ``child_kind`` via ``ROLE_FOR_E03_BY_CHILD_KIND``.
+        The ``JurisdictionBinding.role`` value the binding loader should assign
+        to this pair. Derived from ``child_kind`` via
+        ``ROLE_FOR_BINDING_BY_CHILD_KIND`` (the canonical mapping;
+        ``ROLE_FOR_E03_BY_CHILD_KIND`` is its deprecated alias). The field name
+        is retained from the MT-only era for fixture-data compatibility.
 
     Spec: E02-geometry-ingestion.md lines 458–570.
     """
@@ -119,20 +131,32 @@ class OverlayFixtureRow(TypedDict):
 # Lookup table
 # ---------------------------------------------------------------------------
 
-ROLE_FOR_E03_BY_CHILD_KIND: dict[OverlayChildKind, GeometryRoleForE03] = {
+ROLE_FOR_BINDING_BY_CHILD_KIND: dict[OverlayChildKind, GeometryRoleForE03] = {
     "hunting_district": "primary_unit",
     "portion": "portion",
     "cwd_zone": "cwd_management_zone",
     "restricted_area": "restricted_area",
+    "gmu": "primary_unit",  # NEW — CO GMU self-row case (mirrors MT hunting_district)
 }
-"""Maps each ``OverlayChildKind`` to the ``GeometryRoleForE03`` E03 should use.
+"""Maps each ``OverlayChildKind`` to the ``GeometryRoleForE03`` to assign.
 
-Used by ``build_overlay_fixture.py`` when constructing ``OverlayFixtureRow``
-instances and by E03 when reading the fixture. Centralises the child-kind →
-role mapping so it is not duplicated across multiple query functions.
+State/epic-agnostic canonical name (introduced S05.5). Both the MT
+``hunting_district`` self-row and the ``gmu`` self-row map to
+``"primary_unit"``. Used by ``build_overlay_fixture.py`` (MT and future
+states) when constructing ``OverlayFixtureRow`` instances and by the binding
+loaders when reading the fixture. Centralises the child-kind → role mapping so
+it is not duplicated across query functions.
 
-Spec: E02-geometry-ingestion.md § "Role assignment by child kind".
+Spec: E02-geometry-ingestion.md § "Role assignment by child kind";
+extended for ``gmu`` in E05 S05.5.
 """
+
+# Deprecated alias — retained so MT code importing the old name keeps working
+# with zero disruption (points at the same object). Prefer
+# ``ROLE_FOR_BINDING_BY_CHILD_KIND`` in new code. Historical naming: when only
+# MT (E03) existed the mapping was named for E03; S05.5 generalised it for
+# E06/CO while keeping this alias for backward compatibility.
+ROLE_FOR_E03_BY_CHILD_KIND = ROLE_FOR_BINDING_BY_CHILD_KIND
 
 
 # ---------------------------------------------------------------------------
@@ -157,8 +181,9 @@ class DroppedOverlayPair(TypedDict):
         child_geometry_id:
             The child geometry id (portion / cwd_zone / restricted_area).
         parent_kind:
-            Always ``"hunting_district"`` in V1; included for symmetry with
-            ``OverlayFixtureRow`` and to future-proof against non-HD parents.
+            The parent geometry's ``kind`` — ``"hunting_district"`` for MT
+            (S02.6) and ``"gmu"`` for CO (S05.5). Included for symmetry with
+            ``OverlayFixtureRow``. See ``OverlayParentKind``.
         child_kind:
             The child geometry's ``kind``. Useful for grouping the audit log
             by relationship class.
