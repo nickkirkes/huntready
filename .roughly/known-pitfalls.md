@@ -745,6 +745,16 @@ Surfaced by S05.3 on 2026-06-03 (CPW CWD zone discovery — no authoritative geo
 
 Surfaced by S05.4 Stage-6 code review on 2026-06-03.
 
+### Count-band / row-count guards are not portable across states — re-derive from that state's discovery doc
+
+**Symptom:** A count-band or minimum-row guard ported from a source-state adapter is numerically wrong for the target state because the underlying spatial/data relationship differs. Concretely in S05.5: Montana's overlay builder legitimately expects HD↔restricted-area pairs (most MT restricted areas overlap HDs; only 3 federal zones are orphans), so a "≥1 RA pair" guard would be reasonable there. Colorado's 10 restricted areas (National Parks / Monuments / Air Force Academy) are all expected orphans per `restricted-area-discovery.md` — they are adjacent to, not contained by, GMUs — so zero `restricted_area` cover/intersect rows is the CORRECT Colorado outcome. A blindly-ported `if ras and not ra_rows: raise` guard false-positive-fails the build on the correct CO case.
+
+**Cause:** Guards that encode spatial-relationship expectations are implicitly state-specific. Copying them without re-deriving from the target state's discovery doc or research report silently imports the source state's assumptions.
+
+**Fix:** Treat count-band and minimum-row guards as state-specific constants that must be derived from that state's discovery doc before writing the plan. The portable invariant is a structural fail-loud guard ("no parent-kind rows at all → unpopulated table → raise"); the relationship-count guard is data-driven and must be re-derived per state. Reference: S05.5 Stage-6 review-triad W2 (proposed-and-rejected MT-style guard, with rationale in `docs/planning/epics/E05-confidence-findings/S05.5.md` § "Stage-6 review record").
+
+Surfaced by S05.5 Stage-6 review on 2026-06-04.
+
 ## Conventions — Pre-commit & secrets
 
 ### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings
@@ -992,3 +1002,13 @@ Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
 **Fix:** Wire `actual_ids == _V1_EXPECTED_IDS` (or equivalent set comparison) as a fail-loud guard in `main()` before `db.connect()` (pre-connect per OQ7 discipline). The check must fire on the IDs produced by the build phase, not on the constant alone. Two independent Stage-6 reviewers (code-reviewer + silent-failure-hunter) converged on this in S05.4. Reference: `ingestion/states/colorado/load_restricted_areas.py:main()` pre-connect id-set guard (S05.4).
 
 Surfaced by S05.4 Stage-6 review on 2026-06-03.
+
+### Allowlisted-orphan coverage checks can pass vacuously — assert the orphan log is ABSENT for items that should be covered
+
+**Symptom:** A `_validate_coverage` helper classifies each child geometry as either (a) covered by a parent or (b) an allowlisted expected-orphan and skips the raise. When every member of a kind happens to be on the orphan allowlist (e.g., all 10 CO `restricted_area` geometries are in `EXPECTED_CO_RA_ORPHAN_IDS`), outcomes (a) and (b) become indistinguishable to a pass/fail assertion. A test that only asserts "no exception was raised" cannot distinguish a working `parent_kind == "gmu"` filter from a broken `parent_kind == "hunting_district"` copy-paste — under the broken filter the covered item falls into the allowlisted-orphan path and still does not raise (silent vacuous pass).
+
+**Cause:** The allowlist path and the covered path produce the same observable outcome (no raise) when the allowlist is a superset of the kind being tested. The test's signal is gone.
+
+**Fix:** When an item is genuinely covered, assert the ABSENCE of the allowlist/orphan INFO log line: `assert not any("ADR-016 allowlist" in r.message for r in caplog.records)`. The absence of the orphan log is the only signal that the coverage path actually fired. This extends the S05.4 pitfall "an enumerated expected-set constant is only a guard if compared against actual output at the write boundary" — here the allowlist masks a filter bug rather than an id-substitution bug. Reference: `ingestion/tests/test_build_co_overlay_fixture.py::TestValidateCoverage::test_all_children_covered_no_raise` (S05.5 review-triad W1 fix).
+
+Surfaced by S05.5 Stage-6 review on 2026-06-04.
