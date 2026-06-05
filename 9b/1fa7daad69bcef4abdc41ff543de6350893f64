@@ -1,0 +1,25 @@
+ingestion/tests/test_co_binding_reference.py
+  s_8a410298666434::t_d26633e599846d 62-67
+docs/planning/epics/E05-confidence-findings/S05.6.md
+  s_8a410298666434::t_8f3ecff4562546 34
+  s_8a410298666434::t_94f4004ac13670 39-47
+  s_8a410298666434::t_ee6689de67a51b 106-107
+ingestion/states/colorado/load_jurisdiction_bindings.py
+  s_8a410298666434::t_6e3a4ffe7860ab 73-74,81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "9b1fa7daad69bcef4abdc41ff543de6350893f64",
+  "prompts": {},
+  "sessions": {
+    "s_8a410298666434": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d57a6f5d-5936-41b4-8628-fc658840cab1",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
