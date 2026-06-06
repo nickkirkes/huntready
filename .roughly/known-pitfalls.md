@@ -178,15 +178,21 @@ The cast IS standard PostGIS behavior on most installs; the absence on Supabase 
 
 Surfaced by S02.2 post-load AC verification on 2026-04-30.
 
-### Spec-prescribed SQL can embed a known-broken idiom — re-derive against the pitfall doc, don't transcribe
+### Spec-prescribed SQL can embed a broken idiom OR a column that doesn't exist — validate against the live DDL, don't transcribe
 
-**Symptom:** A runbook section is authored by copying a SQL snippet from the epic spec. The snippet uses `extensions.ST_Envelope(extensions.ST_Collect(geom::geometry))`. This project's own pitfall ("geom::geometry direct cast not enabled") documents that the direct geography-to-geometry cast is rejected by Supabase; the workaround is the WKT round-trip `extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326)`. The fix was applied correctly for `ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, and `ST_Normalize` queries — but the one section that was transcribed verbatim from the spec carried the broken cast and re-introduced the error. Caught at Stage 6 review.
+**Symptom:** A runbook section is authored by copying a SQL snippet from the epic spec. Two distinct failure modes hit S05.7, both from the same transcribe-don't-validate root cause:
 
-**Cause:** Spec-prescribed SQL snippets are pre-validated assumptions written before the pitfall was known (or without consulting the pitfall doc). Transcribing the snippet is the natural fast path; re-deriving against the pitfall doc is the correct path.
+1. **Broken cast idiom.** The snippet uses `extensions.ST_Envelope(extensions.ST_Collect(geom::geometry))`. This project's own pitfall ("geom::geometry direct cast not enabled") documents that the direct geography-to-geometry cast is rejected by Supabase; the workaround is the WKT round-trip `extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326)`. The fix was applied correctly for `ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, and `ST_Normalize` queries — but the one section transcribed verbatim from the spec carried the broken cast.
 
-**Fix:** When a spec provides SQL that uses any geometry-only PostGIS function (`ST_Collect`, `ST_Envelope`, `ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, `ST_Normalize`, `ST_AsBinary`, or similar), treat the snippet as documentation of intent only. Cross-check it against the pitfall doc and apply the WKT round-trip wherever the direct cast appears. This extends the "spec-prescribed string substitutions silently invalidate coupled references" / "name the source-of-truth before copying numbers" family (Conventions — Documentation & planning discipline) to SQL idioms: the pitfall doc is the source-of-truth, not the spec snippet.
+2. **Nonexistent column.** The spec's FK-cascade wipe wrote `DELETE FROM jurisdiction_binding WHERE state = 'US-CO'` — but `jurisdiction_binding` has **no `state` column** (its columns are `regulation_record_state` + `geometry_id`; see `supabase/migrations/20260425000000_initial_schema.sql`). The query fails at runtime with `column "state" does not exist`. The correct, FK-cascade-precise form targets the bindings by the geometry they reference (the FK that blocks the geometry DELETE): `DELETE FROM jurisdiction_binding WHERE geometry_id IN (SELECT id FROM geometry WHERE state = 'US-CO')` — matching the S05.3.5 migration's `geometry_id IN (...)` precedent.
 
-Surfaced by S05.7 Stage-6 review on 2026-06-06.
+Both were caught at review, not by the original authoring.
+
+**Cause:** Spec-prescribed SQL snippets are pre-validated assumptions written at planning time, before the schema was consulted (or before a pitfall was known). Transcribing the snippet is the natural fast path; re-deriving against the actual DDL + pitfall doc is the correct path. A single `WHERE state = 'US-CO'` predicate that is correct for one table (`geometry` HAS a `state` column) is silently wrong for another (`jurisdiction_binding` does not) — same predicate, different schema.
+
+**Fix:** Treat any spec-provided SQL as documentation of intent only. Before shipping runbook SQL, cross-check **every table + column against the live DDL** (`supabase/migrations/`) and **every geometry-only PostGIS function** (`ST_Collect`, `ST_Envelope`, `ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, `ST_Normalize`, `ST_AsBinary`, …) against the cast pitfall. Do not assume a `WHERE <col>` clause valid on one table is valid on another. This extends the "spec-prescribed string substitutions silently invalidate coupled references" / "name the source-of-truth before copying numbers" family (Conventions — Documentation & planning discipline) to SQL: the DDL + pitfall doc are the source-of-truth, not the spec snippet.
+
+Surfaced by S05.7 Stage-6 review (cast) and post-merge review (nonexistent column) on 2026-06-06.
 
 ## Integration — pdfplumber
 
