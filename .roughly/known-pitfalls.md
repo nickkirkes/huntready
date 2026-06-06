@@ -178,6 +178,22 @@ The cast IS standard PostGIS behavior on most installs; the absence on Supabase 
 
 Surfaced by S02.2 post-load AC verification on 2026-04-30.
 
+### Spec-prescribed SQL can embed a broken idiom OR a column that doesn't exist — validate against the live DDL, don't transcribe
+
+**Symptom:** A runbook section is authored by copying a SQL snippet from the epic spec. Two distinct failure modes hit S05.7, both from the same transcribe-don't-validate root cause:
+
+1. **Broken cast idiom.** The snippet uses `extensions.ST_Envelope(extensions.ST_Collect(geom::geometry))`. This project's own pitfall ("geom::geometry direct cast not enabled") documents that the direct geography-to-geometry cast is rejected by Supabase; the workaround is the WKT round-trip `extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326)`. The fix was applied correctly for `ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, and `ST_Normalize` queries — but the one section transcribed verbatim from the spec carried the broken cast.
+
+2. **Nonexistent column.** The spec's FK-cascade wipe wrote `DELETE FROM jurisdiction_binding WHERE state = 'US-CO'` — but `jurisdiction_binding` has **no `state` column** (its columns are `regulation_record_state` + `geometry_id`; see `supabase/migrations/20260425000000_initial_schema.sql`). The query fails at runtime with `column "state" does not exist`. The correct, FK-cascade-precise form targets the bindings by the geometry they reference (the FK that blocks the geometry DELETE): `DELETE FROM jurisdiction_binding WHERE geometry_id IN (SELECT id FROM geometry WHERE state = 'US-CO')` — matching the S05.3.5 migration's `geometry_id IN (...)` precedent.
+
+Both were caught at review, not by the original authoring.
+
+**Cause:** Spec-prescribed SQL snippets are pre-validated assumptions written at planning time, before the schema was consulted (or before a pitfall was known). Transcribing the snippet is the natural fast path; re-deriving against the actual DDL + pitfall doc is the correct path. A single `WHERE state = 'US-CO'` predicate that is correct for one table (`geometry` HAS a `state` column) is silently wrong for another (`jurisdiction_binding` does not) — same predicate, different schema.
+
+**Fix:** Treat any spec-provided SQL as documentation of intent only. Before shipping runbook SQL, cross-check **every table + column against the live DDL** (`supabase/migrations/`) and **every geometry-only PostGIS function** (`ST_Collect`, `ST_Envelope`, `ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, `ST_Normalize`, `ST_AsBinary`, …) against the cast pitfall. Do not assume a `WHERE <col>` clause valid on one table is valid on another. This extends the "spec-prescribed string substitutions silently invalidate coupled references" / "name the source-of-truth before copying numbers" family (Conventions — Documentation & planning discipline) to SQL: the DDL + pitfall doc are the source-of-truth, not the spec snippet.
+
+Surfaced by S05.7 Stage-6 review (cast) and post-merge review (nonexistent column) on 2026-06-06.
+
 ## Integration — pdfplumber
 
 ### `page.extract_text()` collapses repeated spaces — output is not byte-exact verbatim
@@ -952,6 +968,14 @@ Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
 - S04.4 T4: handoff §8 #4 cited `draw_spec 388 → 276 DB`; S03.8 closure in CLAUDE.md cites 278 (authoritative). Same handoff bullet parenthetically notes the 276 was a transcription error. Stage-4 plan-review caught the 276 in the plan; shipped runbook tracks 278 with explicit provenance footnote.
 
 **The discipline.** When a spec, plan, or runbook copies a numeric value from another document, NAME the source-of-truth document inline (e.g., "per S03.8 closure" or "per S04.4 spec L280"). When two canonical documents carry different values for the same quantity, the spec that cites the authoritative source is correct; the other is drifted. Drift-detection lives in the per-cite source-of-truth attribution, not in spot-checking individual numbers.
+
+### Explanatory comments that embed a broken-pattern literal trip token-matching reviewers (cubic)
+
+**Symptom:** A SQL query containing the direct geography-to-geometry cast is fixed to use the WKT round-trip. The corrected query is correct. But the accompanying explanatory comment still contains the literal broken pattern twice — e.g., `-- the direct geom::geometry cast is rejected by Supabase; the spec's SQL used geom::geometry`. Cubic re-flags the section as still using the invalid cast, matching the literal inside the comment rather than the (now-correct) query body.
+
+**Cause:** Token-matching tools (cubic, grep-based linters) cannot distinguish a cautionary mention of a broken idiom from a live occurrence. Same root cause as content-anchored grep verification failing to distinguish a comment from an active call site.
+
+**Fix:** Describe the broken idiom in prose rather than embedding the exact token adjacent to corrected code — e.g., "the direct geography-to-geometry cast" instead of `geom::geometry`. The fix is a one-line reword and keeps the post-fix cubic pass clean. Low-severity / tooling-hygiene; surfaced by S05.7 Stage-6 cubic re-flag after the cast fix (2026-06-06).
 
 ## Conventions — Python
 
