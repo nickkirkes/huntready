@@ -1,6 +1,7 @@
 # E05: Colorado Geometry Ingestion
 
-**Status:** Not Started
+**Status:** Complete + Audited 2026-06-05
+**Audited:** 2026-06-05 — see [E05-audit.md](completed/E05-audit.md). All 9 stories (S05.0–S05.7 + S05.3.5). ~80 Group A ACs MET, ~43 Group B ACs PARTIAL (operator-driven live verification, by design — identical posture to E02 S02.6/S02.7 UAT), 0 NOT MET. No blocking findings. E05 ships clean.
 **Milestone:** M2 — Colorado Ingestion
 **Dependencies:** E04 Complete + Audited 2026-05-31 (PR #52 / `b168d28`); recurring-RLS-gap M2 open-question candidate surfaced at planning-start per E04 audit Recommendation §3 (no resolution required for E05 specifically — E05 adds no new public-schema tables; gap persists for any future M2/M3 work that does)
 **Validated:** 2026-05-31 (E05 validation triad: Spatial Correctness + ArcGIS Fidelity + Schema Stress-Test reviewers all returned LAND-WITH-EDITS; 14 MUST-FIX + 9 SHOULD-FIX findings applied; one cross-reviewer conflict resolved in favor of the ArcGIS Fidelity finding — see §"Validation triad notes" below)
@@ -646,7 +647,13 @@ ORDER BY gmu.id
 
 ### S05.7: Spatial query verification + epic exit
 
-**Status:** Not Started
+**Status:** Closed at-merge 2026-06-05 — final E05 story (ninth E05 PR). Documentation + verification only; no Python modules, no schema, no DB writes; test baseline unchanged at **1340 + 2 skipped**.
+
+**Group A deliverables landed at-merge:** runbook `docs/runbooks/E05-colorado-geometry-verification.md` (363 LOC; 7 verification sections + CO-specific Section 0 fixture-generation + Section 5 `ST_Envelope` CO-bounds check; every `ST_*` call `extensions.`-prefixed; every query carries `AND state = 'US-CO'`; reproducibility section sequences `DELETE FROM jurisdiction_binding WHERE state = 'US-CO'` before `DELETE FROM geometry WHERE state = 'US-CO'` with explicit `TRUNCATE` guard); working note `docs/planning/epics/E05-confidence-findings/S05.7.md`; post-implementation audit `docs/planning/epics/completed/E05-audit.md`; this epic's Status + `Audited:` + AC updates.
+
+**Group B operator-pending (Option A):** `spatial-test-points.json` fixture is NOT committed at-merge — it is generated from live geometry via `extensions.ST_PointOnSurface` (runbook Section 0) so coordinates are real `representative_point`s, not invented (AC #2 faithfulness); mirrors S05.5's `geometry-overlays.json` Group B posture. The 7 live spatial-query verification steps (`ST_Covers`, `ST_IsValid`, named multi-part anchor, `EXPLAIN ANALYZE`, `ST_Envelope` CO-bounds, wipe+re-ingest) are operator-driven, run during the batched live-write session documented in S05.7.md.
+
+Cross-state filter regression `test_co_binding_loader_sql_filters_by_state_co_pollution_guard` (S05.6) passes in CI; documented as the cross-state UAT step. No ADRs created; no schema / three-place-sync changes; no `db.py` touches; no MT-file touches; no `ingestion/lib/` edits; no production-DB writes from the build session.
 
 **As a** developer validating that E05's CO geometries answer real spatial queries correctly
 **I want** verification that `ST_Covers` against known Colorado coordinates returns expected GMUs + overlay rows, with the explicit `state='US-CO'` filter discipline locked
@@ -696,40 +703,42 @@ Every coordinate is a real `shapely.representative_point()` from the actual load
 
 **Acceptance Criteria:**
 
-- [ ] `ingestion/states/colorado/fixtures/spatial-test-points.json` exists with ≥1 named test point per `kind` value present in CO geometry, including: ≥3 GMUs (with ≥1 multi-part anchor from S05.2's `multipart-gmus.json`); a CWD-zone test point only if S05.3 produced rows (it did not — CO publishes no CWD zones per the 2026-06-03 documented gap, so this point is omitted); ≥1 restricted area if S05.4 produced any; ≥1 statewide point; ≥1 outside-CO negative-control point
-- [ ] Every coordinate is a real `shapely.representative_point()` from the actual loaded geometry (no invented points)
-- [ ] **UAT — `ST_Covers` spot-check**: Each fixture point resolves correctly via `extensions.ST_Covers(geom, extensions.ST_GeogFromText(...))` per the runbook's section 1 verification protocol; **every spot-check SQL block includes `AND state = 'US-CO'`** in the WHERE clause per PRD 002 success criterion #4
-- [ ] All CO geometry rows pass `extensions.ST_IsValid` (Supabase round-trip cast workaround)
-- [ ] **Named multi-part anchor verification**: first entry in `multipart-gmus.json` returns `ST_NumGeometries > 1` via the runbook's section 3 protocol; if `multipart-gmus.json` is empty (CO unexpectedly has zero multi-part GMUs), document the verification as N/A in the closure note and surface as a data observation — do NOT silently skip the AC
-- [ ] **CO-bounds post-load `ST_Envelope` check**: `extensions.ST_Envelope(extensions.ST_Collect(geom::geometry))` over `state='US-CO'` returns a bbox within `[-109.06, -102.04] × [36.99, 41.00]`
-- [ ] Geography GiST index reachability documented per S02.7 protocol section 4; `EXPLAIN ANALYZE` plan captured in runbook
-- [ ] **Reproducibility section in the runbook** correctly sequences `DELETE FROM jurisdiction_binding WHERE state = 'US-CO'` BEFORE `DELETE FROM geometry WHERE state = 'US-CO'`; includes explicit guard against `TRUNCATE`
-- [ ] **Cross-state filter regression**: `test_co_binding_loader_sql_filters_by_state_co_pollution_guard` from S05.6 passes; documented in UAT
-- [ ] `docs/runbooks/E05-colorado-geometry-verification.md` exists (264 LOC target per S02.7's E02 runbook scope); operator-facing protocol mirroring E02's structure: prerequisites → 7 numbered sections → cleanup; **all `ST_*` calls `extensions.`-prefixed**; **wipe-and-re-ingest section includes the E03/E04 FK-cascade callout**
-- [ ] **PRD 002 success criteria explicitly mapped** to S05.7 ACs:
+- [ ] `ingestion/states/colorado/fixtures/spatial-test-points.json` exists with ≥1 named test point per `kind` value present in CO geometry, including: ≥3 GMUs (with ≥1 multi-part anchor from S05.2's `multipart-gmus.json`); a CWD-zone test point only if S05.3 produced rows (it did not — CO publishes no CWD zones per the 2026-06-03 documented gap, so this point is omitted); ≥1 restricted area if S05.4 produced any; ≥1 statewide point; ≥1 outside-CO negative-control point — Group B operator-pending (live verification)
+- [ ] Every coordinate is a real `shapely.representative_point()` from the actual loaded geometry (no invented points) — Group B operator-pending (live verification)
+- [ ] **UAT — `ST_Covers` spot-check**: Each fixture point resolves correctly via `extensions.ST_Covers(geom, extensions.ST_GeogFromText(...))` per the runbook's section 1 verification protocol; **every spot-check SQL block includes `AND state = 'US-CO'`** in the WHERE clause per PRD 002 success criterion #4 — Group B operator-pending (live verification)
+- [ ] All CO geometry rows pass `extensions.ST_IsValid` (Supabase round-trip cast workaround) — Group B operator-pending (live verification)
+- [ ] **Named multi-part anchor verification**: first entry in `multipart-gmus.json` returns `ST_NumGeometries > 1` via the runbook's section 3 protocol; if `multipart-gmus.json` is empty (CO unexpectedly has zero multi-part GMUs), document the verification as N/A in the closure note and surface as a data observation — do NOT silently skip the AC — Group B operator-pending (live verification)
+- [ ] **CO-bounds post-load `ST_Envelope` check**: `extensions.ST_Envelope(extensions.ST_Collect(geom::geometry))` over `state='US-CO'` returns a bbox within `[-109.06, -102.04] × [36.99, 41.00]` — Group B operator-pending (live verification)
+- [ ] Geography GiST index reachability documented per S02.7 protocol section 4; `EXPLAIN ANALYZE` plan captured in runbook — Group B operator-pending (live verification)
+- [x] **Reproducibility section in the runbook** correctly sequences `DELETE FROM jurisdiction_binding WHERE state = 'US-CO'` BEFORE `DELETE FROM geometry WHERE state = 'US-CO'`; includes explicit guard against `TRUNCATE`
+- [x] **Cross-state filter regression**: `test_co_binding_loader_sql_filters_by_state_co_pollution_guard` from S05.6 passes; documented in UAT
+- [x] `docs/runbooks/E05-colorado-geometry-verification.md` exists (264 LOC target per S02.7's E02 runbook scope); operator-facing protocol mirroring E02's structure: prerequisites → 7 numbered sections → cleanup; **all `ST_*` calls `extensions.`-prefixed**; **wipe-and-re-ingest section includes the E03/E04 FK-cascade callout**
+- [x] **PRD 002 success criteria explicitly mapped** to S05.7 ACs:
   - SC#4: PostGIS `ST_Covers` with explicit `state='US-CO'` filter — verified above
   - SC#6: zero geometry rows with invalid topology — verified above
   - SC#7: idempotent ingestion (re-run produces zero net new rows; locked by row-count diff = 0 across all CO `kind` values)
-- [ ] **Post-implementation audit produced**: `docs/planning/epics/completed/E05-audit.md` exists with verdict similar to E02 audit (MET/PARTIAL/NOT-MET tally; ≥1 verdict line) BEFORE `/plan-next-epic` is invoked for E06; E05 epic header's `Audited:` field is populated at that time
+- [x] **Post-implementation audit produced**: `docs/planning/epics/completed/E05-audit.md` exists with verdict similar to E02 audit (MET/PARTIAL/NOT-MET tally; ≥1 verdict line) BEFORE `/plan-next-epic` is invoked for E06; E05 epic header's `Audited:` field is populated at that time
+
+*Implementation plan (historical): [.roughly/plans/S05.7-spatial-query-verification-plan.md](../../../.roughly/plans/S05.7-spatial-query-verification-plan.md).*
 
 ---
 
 ## Exit Criteria
 
-- [ ] All 9 stories complete (S05.0 through S05.7 + S05.3.5 carve-out per ADR-021)
-- [ ] All Colorado V1 geometries loaded: 1 statewide (S05.0) + ~186 GMUs (S05.2) + ≥0 CWD zones (S05.3) + ≥0 restricted-area / no-hunt-zone overlays (S05.4) — exact CWD + RA counts documented at story closures; total in band `[167, ~250]` depending on CO RA + CWD discovery outcomes
-- [ ] All geometries are `geography(MultiPolygon, 4326)`; pass `shapely.make_valid()` and `ST_IsValid` post-insert
-- [ ] `geometry-overlays.json` fixture covers every loaded CO geometry per the strengthened per-kind coverage invariant; ready for E06's binding loader to consume
-- [ ] Library extension shipped state-agnostic-clean (`OverlayParentKind` + `OverlayChildKind` + `ROLE_FOR_BINDING_BY_CHILD_KIND`); deprecated alias `ROLE_FOR_E03_BY_CHILD_KIND` preserves MT compat; `OverlayFixtureRow.role_for_e03` field name unchanged
-- [ ] `_STATE = 'US-CO'` constant codified in Colorado adapter; cross-state SQL filter regression test passes
-- [ ] Source fixtures committed for every ingested layer: metadata (~7KB) + per-fetch manifest (~5KB); raw features payloads gitignored
-- [ ] Spatial queries (`extensions.ST_Covers` with `state='US-CO'`) against known coordinates return correct assignments — `spatial-test-points.json` verified
-- [ ] Re-running ingestion is idempotent (UPSERT semantics — verified per S05.7 runbook with the post-E04 FK-cascade sequencing)
-- [ ] `docs/runbooks/E05-colorado-geometry-verification.md` operator-facing runbook complete
-- [ ] **Post-implementation audit recorded** at `docs/planning/epics/completed/E05-audit.md` with populated `Audited:` field on this epic header BEFORE `/plan-next-epic` is invoked for E06 (per E04 audit-closure locked standard)
-- [ ] No Colorado data loaded outside `ingestion/states/colorado/`; no CO-specific code in `ingestion/ingestion/lib/` (`TestNoColoradoLeakIntoSharedLib` passes)
-- [ ] PRD 002 success criteria #4, #6, #7 satisfied per S05.7 ACs
-- [ ] Test suite delta documented at every story close; **final E05 baseline = 1234 + sum of S05.3-S05.7 per-story deltas** (running history: M1 close 1166 → S05.0 1184 via `test_load_co_state_boundary.py` (+18) → S05.1 1187 via `TestNoColoradoLeakIntoSharedLib` (+3) → S05.2 1234 via `test_load_gmus.py` (+47))
+- [x] All 9 stories complete (S05.0 through S05.7 + S05.3.5 carve-out per ADR-021)
+- [x] All Colorado V1 geometries loaded: 1 statewide (S05.0) + ~186 GMUs (S05.2) + ≥0 CWD zones (S05.3) + ≥0 restricted-area / no-hunt-zone overlays (S05.4) — exact CWD + RA counts documented at story closures; total in band `[167, ~250]` depending on CO RA + CWD discovery outcomes
+- [ ] All geometries are `geography(MultiPolygon, 4326)`; pass `shapely.make_valid()` and `ST_IsValid` post-insert — Group B operator-pending (live verification)
+- [x] `geometry-overlays.json` fixture covers every loaded CO geometry per the strengthened per-kind coverage invariant; ready for E06's binding loader to consume
+- [x] Library extension shipped state-agnostic-clean (`OverlayParentKind` + `OverlayChildKind` + `ROLE_FOR_BINDING_BY_CHILD_KIND`); deprecated alias `ROLE_FOR_E03_BY_CHILD_KIND` preserves MT compat; `OverlayFixtureRow.role_for_e03` field name unchanged
+- [x] `_STATE = 'US-CO'` constant codified in Colorado adapter; cross-state SQL filter regression test passes
+- [x] Source fixtures committed for every ingested layer: metadata (~7KB) + per-fetch manifest (~5KB); raw features payloads gitignored
+- [ ] Spatial queries (`extensions.ST_Covers` with `state='US-CO'`) against known coordinates return correct assignments — `spatial-test-points.json` verified — Group B operator-pending
+- [ ] Re-running ingestion is idempotent (UPSERT semantics — verified per S05.7 runbook with the post-E04 FK-cascade sequencing) — Group B operator-pending
+- [x] `docs/runbooks/E05-colorado-geometry-verification.md` operator-facing runbook complete
+- [x] **Post-implementation audit recorded** at `docs/planning/epics/completed/E05-audit.md` with populated `Audited:` field on this epic header BEFORE `/plan-next-epic` is invoked for E06 (per E04 audit-closure locked standard)
+- [x] No Colorado data loaded outside `ingestion/states/colorado/`; no CO-specific code in `ingestion/ingestion/lib/` (`TestNoColoradoLeakIntoSharedLib` passes)
+- [x] PRD 002 success criteria #4, #6, #7 satisfied per S05.7 ACs (mapped at the spec/runbook level; live-evidence for SC#4 + SC#7 is Group B operator-pending)
+- [x] Test suite delta documented at every story close; **final E05 baseline = 1340 + 2 skipped** (running history: M1 close 1166 → S05.0 1184 (+18) → S05.1 1187 (+3) → S05.2 1234 (+47) → S05.3 1234 (+0) → S05.3.5 1234 (+0) → S05.4 1283 (+49) → S05.5 1331 (+48) → S05.6 1340 (+9) → S05.7 1340 (+0))
 
 ---
 
