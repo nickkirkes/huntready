@@ -1,0 +1,40 @@
+docs/runbooks/E05-colorado-geometry-verification.md
+  s_a51a918854fc3e::t_226c7be2528862 317
+  s_a51a918854fc3e::t_3a693c5386c265 134-135
+  s_a51a918854fc3e::t_b876137dd9874b 197,202-204,213-215
+  s_a51a918854fc3e::t_86bb65a56c7173 198-201
+  s_a51a918854fc3e::t_0d8af24591424d 116-119
+  s_a51a918854fc3e::t_f0cc2d21dcee22 1-115,120-133,136-196,205-212,216-286,292-316,318-382
+  s_a51a918854fc3e::t_8bd666e39ac665 287-291
+docs/planning/epics/E05-confidence-findings/S05.7.md
+  s_a51a918854fc3e::t_911a1f2a5fd2b1 21,172
+  s_a51a918854fc3e::t_585079dee4a75f 1-20,22-171,173-174
+docs/planning/epics/E05-colorado-geometry-ingestion.md
+  s_a51a918854fc3e::t_6851f2baedc68e 706-716,720
+  s_a51a918854fc3e::t_b2ea230f1d68aa 722
+  s_a51a918854fc3e::t_73fec0d22bf1f8 728-741
+  s_a51a918854fc3e::t_2c8909027b18f5 3-4
+  s_a51a918854fc3e::t_63a2e0d99c313b 650-656
+docs/planning/epics/completed/E05-audit.md
+  s_a51a918854fc3e::t_690dffa451ef74 20
+  s_a51a918854fc3e::t_5c74fcb1da9470 1-19,21-25,27-126,128,130,132-170,172-174,176-195
+  s_a51a918854fc3e::t_70144c8f10f8dd 127,129,131
+  s_a51a918854fc3e::t_638325a964eddc 171,175
+  s_a51a918854fc3e::t_3ff39c93b28345 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "881853d0af6932fa9ba289afd8e1442a04d8fa53",
+  "prompts": {},
+  "sessions": {
+    "s_a51a918854fc3e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "037060eb-b6e2-4fa9-aff0-6c0c9020df1e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
