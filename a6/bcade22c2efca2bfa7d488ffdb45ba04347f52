@@ -1,0 +1,21 @@
+.roughly/plans/S05.7-spatial-query-verification-plan.md
+  s_a51a918854fc3e::t_b531d6a237a138 3-65,67-149
+  s_a51a918854fc3e::t_d8c28cfe1e6d8a 1-2
+  s_a51a918854fc3e::t_ab9e2cf22b351a 66
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a6bcade22c2efca2bfa7d488ffdb45ba04347f52",
+  "prompts": {},
+  "sessions": {
+    "s_a51a918854fc3e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "037060eb-b6e2-4fa9-aff0-6c0c9020df1e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
