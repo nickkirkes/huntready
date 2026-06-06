@@ -1,0 +1,33 @@
+ingestion/states/montana/load_state_boundary.py
+  s_f3023751e856d6::t_3f5a9ab9fbcb93 212-216,224-225
+ingestion/states/colorado/sources.yaml
+  s_f3023751e856d6::t_3f5a9ab9fbcb93 11-15
+ingestion/states/colorado/load_gmus.py
+  s_f3023751e856d6::t_3f5a9ab9fbcb93 149-150,152-158
+ingestion/tests/test_load_co_state_boundary.py
+  s_f3023751e856d6::t_3f5a9ab9fbcb93 239-292
+ingestion/ingestion/lib/db.py
+  s_f3023751e856d6::t_3f5a9ab9fbcb93 265-274,293-299
+ingestion/tests/test_load_gmus.py
+  s_f3023751e856d6::t_3f5a9ab9fbcb93 283-323
+ingestion/ingestion/lib/overlays.py
+  s_f3023751e856d6::t_3f5a9ab9fbcb93 102-103
+docs/runbooks/E05-colorado-geometry-verification.md
+  s_f3023751e856d6::t_3f5a9ab9fbcb93 75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "ce0d210380c347588b7560ae27ba6b66aa206d3f",
+  "prompts": {},
+  "sessions": {
+    "s_f3023751e856d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a060593c-af0a-490c-9995-9d08898512c6",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
