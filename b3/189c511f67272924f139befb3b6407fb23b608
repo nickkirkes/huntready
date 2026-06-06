@@ -1,0 +1,21 @@
+docs/planning/epics/E05-colorado-geometry-ingestion.md
+  s_a51a918854fc3e::t_874186badbbf0c 678,711
+docs/planning/epics/E05-confidence-findings/S05.7.md
+  s_a51a918854fc3e::t_874186badbbf0c 39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "b3189c511f67272924f139befb3b6407fb23b608",
+  "prompts": {},
+  "sessions": {
+    "s_a51a918854fc3e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "037060eb-b6e2-4fa9-aff0-6c0c9020df1e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
