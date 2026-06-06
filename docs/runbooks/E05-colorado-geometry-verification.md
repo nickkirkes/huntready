@@ -237,8 +237,12 @@ CREATE TABLE geometry_snapshot AS SELECT * FROM geometry WHERE state = 'US-CO';
 **Wipe (FK-cascade order — CRITICAL):**
 
 ```sql
--- Step 1: delete jurisdiction_binding rows first (FK: jurisdiction_binding.geometry_id REFERENCES geometry(id)).
-DELETE FROM jurisdiction_binding WHERE state = 'US-CO';
+-- Step 1: delete jurisdiction_binding rows first (FK: jurisdiction_binding.geometry_id
+-- REFERENCES geometry(id)). Note: jurisdiction_binding has NO `state` column — scope by
+-- the geometry it references via geometry_id, which is exactly the FK dependency that
+-- blocks the geometry DELETE below.
+DELETE FROM jurisdiction_binding
+WHERE geometry_id IN (SELECT id FROM geometry WHERE state = 'US-CO');
 -- In E05, no CO jurisdiction_binding rows exist yet (E06 territory), so this DELETE
 -- is a no-op today. The sequence MUST be documented here for when E06 lands and
 -- CO binding rows exist in production.
