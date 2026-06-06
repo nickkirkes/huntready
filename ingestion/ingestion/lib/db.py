@@ -262,6 +262,16 @@ def upsert_geometry(conn: psycopg.Connection[tuple[object, ...]], geom: Geometry
 
     Does NOT commit — the caller controls the transaction boundary.
 
+    Schema-drift guard: raises ``RuntimeError`` if ``cur.rowcount == 0`` after
+    execute. For the current ``INSERT ... ON CONFLICT (id) DO UPDATE SET ...``
+    SQL, psycopg always returns rowcount=1 (insert OR update branch), so this
+    guard is structurally unreachable today. It exists as a tripwire against a
+    future SQL change that accidentally switches to ``DO NOTHING`` — that
+    variant would silently return rowcount=0 on conflict, hiding loader bugs
+    where the geometry id collides with an existing row but the new content
+    differs. Mirrors the guard on ``upsert_jurisdiction_binding`` /
+    ``update_legal_description`` (S05.0 audit hygiene item).
+
     Args:
         conn: An open psycopg3 connection.
         geom: The ``Geometry`` instance to persist.
@@ -280,6 +290,13 @@ def upsert_geometry(conn: psycopg.Connection[tuple[object, ...]], geom: Geometry
     )
     with conn.cursor() as cur:
         cur.execute(_UPSERT_SQL, params)
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"upsert_geometry: cur.rowcount == 0 for id={geom.id!r}"
+                " — UPSERT touched no rows. The current SQL uses DO UPDATE so this"
+                " is structurally unreachable; reaching this branch indicates the"
+                " SQL has been changed to DO NOTHING (schema-drift tripwire)."
+            )
     _logger.debug("upserted geometry id=%s name=%r", geom.id, geom.name)
 
 

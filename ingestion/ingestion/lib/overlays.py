@@ -99,8 +99,8 @@ class OverlayFixtureRow(TypedDict):
     Fields
     ------
     parent_geometry_id:
-        ``geometry.id`` of the enclosing geometry (always a hunting district
-        in V1 per ``OverlayParentKind``).
+        ``geometry.id`` of the enclosing geometry (a hunting district in MT or
+        a GMU in CO — see ``OverlayParentKind``).
     child_geometry_id:
         ``geometry.id`` of the contained or intersecting geometry.
     parent_kind:

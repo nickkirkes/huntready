@@ -236,6 +236,60 @@ class TestParseToMultipolygonWkt:
             _parse_to_multipolygon_wkt(b"not a zip")
         assert "not a valid ZIP archive" in str(exc_info.value)
 
+    def test_multiple_shp_files_raises(self) -> None:
+        """ZIP with >1 .shp file raises RuntimeError naming the count.
+
+        The guard fires on the glob result before geopandas.read_file, so the
+        .shp entries need not be valid shapefiles.
+        """
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("tl_2024_us_state.shp", "dummy shapefile bytes")
+            zf.writestr("tl_2024_extra.shp", "dummy shapefile bytes")
+        with pytest.raises(RuntimeError) as exc_info:
+            _parse_to_multipolygon_wkt(buf.getvalue())
+        message = str(exc_info.value)
+        assert "2 .shp files" in message
+
+    def test_missing_statefp_column_raises(self) -> None:
+        """A shapefile lacking the STATEFP column raises RuntimeError naming STATEFP."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmpdir_path = pathlib.Path(tmpdir)
+            gdf = geopandas.GeoDataFrame(
+                {"REGION": ["08"]},  # STATEFP deliberately absent
+                geometry=[_simple_co_polygon()],
+                crs="EPSG:4269",
+            )
+            gdf.to_file(tmpdir_path / "tl_2024_us_state.shp")
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for p in tmpdir_path.iterdir():
+                    zf.write(p, arcname=p.name)
+            zip_bytes = buf.getvalue()
+        with pytest.raises(RuntimeError) as exc_info:
+            _parse_to_multipolygon_wkt(zip_bytes)
+        assert "STATEFP" in str(exc_info.value)
+
+    def test_null_geometry_raises(self) -> None:
+        """A CO row whose geometry is NULL after read raises RuntimeError naming NULL geometry.
+
+        read_file is patched to return a gdf with STATEFP='08' and a None geometry;
+        the canned single-.shp ZIP satisfies the earlier .shp-count guard.
+        """
+        gdf = geopandas.GeoDataFrame(
+            {"STATEFP": ["08"]},
+            geometry=[_simple_co_polygon()],
+            crs="EPSG:4326",
+        )
+        gdf.loc[0, "geometry"] = None
+        with patch(
+            "states.colorado.load_state_boundary.geopandas.read_file",
+            return_value=gdf,
+        ):
+            with pytest.raises(RuntimeError) as exc_info:
+                _parse_to_multipolygon_wkt(_CANNED_TIGER_ZIP)
+        assert "NULL geometry" in str(exc_info.value)
+
 
 # ---------------------------------------------------------------------------
 # TestBuildSourceCitation

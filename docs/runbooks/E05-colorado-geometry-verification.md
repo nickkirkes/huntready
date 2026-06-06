@@ -72,7 +72,7 @@ ORDER BY kind, id;
       "expected_kind": null,
       "expected_id_pattern": null,
       "expected_role_for_e03": null,
-      "notes": "Only non-ST_PointOnSurface coordinate. Expected zero rows from state='US-CO' filtered query."
+      "notes": "Only coordinate not derived from extensions.ST_PointOnSurface. Expected zero rows from state='US-CO' filtered query."
     }
   ]
 }
