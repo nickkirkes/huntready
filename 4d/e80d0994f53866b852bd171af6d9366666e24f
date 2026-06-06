@@ -1,0 +1,23 @@
+docs/planning/epics/E05-colorado-geometry-ingestion.md
+  s_a51a918854fc3e::t_8154cb9efbb92c 652,680,696,713
+docs/runbooks/E05-colorado-geometry-verification.md
+  s_a51a918854fc3e::t_56d46b058796fc 240-245
+docs/planning/epics/completed/E05-audit.md
+  s_a51a918854fc3e::t_8154cb9efbb92c 129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "4de80d0994f53866b852bd171af6d9366666e24f",
+  "prompts": {},
+  "sessions": {
+    "s_a51a918854fc3e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "037060eb-b6e2-4fa9-aff0-6c0c9020df1e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
