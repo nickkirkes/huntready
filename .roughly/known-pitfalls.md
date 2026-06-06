@@ -178,6 +178,16 @@ The cast IS standard PostGIS behavior on most installs; the absence on Supabase 
 
 Surfaced by S02.2 post-load AC verification on 2026-04-30.
 
+### Spec-prescribed SQL can embed a known-broken idiom — re-derive against the pitfall doc, don't transcribe
+
+**Symptom:** A runbook section is authored by copying a SQL snippet from the epic spec. The snippet uses `extensions.ST_Envelope(extensions.ST_Collect(geom::geometry))`. This project's own pitfall ("geom::geometry direct cast not enabled") documents that the direct geography-to-geometry cast is rejected by Supabase; the workaround is the WKT round-trip `extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326)`. The fix was applied correctly for `ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, and `ST_Normalize` queries — but the one section that was transcribed verbatim from the spec carried the broken cast and re-introduced the error. Caught at Stage 6 review.
+
+**Cause:** Spec-prescribed SQL snippets are pre-validated assumptions written before the pitfall was known (or without consulting the pitfall doc). Transcribing the snippet is the natural fast path; re-deriving against the pitfall doc is the correct path.
+
+**Fix:** When a spec provides SQL that uses any geometry-only PostGIS function (`ST_Collect`, `ST_Envelope`, `ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, `ST_Normalize`, `ST_AsBinary`, or similar), treat the snippet as documentation of intent only. Cross-check it against the pitfall doc and apply the WKT round-trip wherever the direct cast appears. This extends the "spec-prescribed string substitutions silently invalidate coupled references" / "name the source-of-truth before copying numbers" family (Conventions — Documentation & planning discipline) to SQL idioms: the pitfall doc is the source-of-truth, not the spec snippet.
+
+Surfaced by S05.7 Stage-6 review on 2026-06-06.
+
 ## Integration — pdfplumber
 
 ### `page.extract_text()` collapses repeated spaces — output is not byte-exact verbatim
@@ -952,6 +962,14 @@ Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
 - S04.4 T4: handoff §8 #4 cited `draw_spec 388 → 276 DB`; S03.8 closure in CLAUDE.md cites 278 (authoritative). Same handoff bullet parenthetically notes the 276 was a transcription error. Stage-4 plan-review caught the 276 in the plan; shipped runbook tracks 278 with explicit provenance footnote.
 
 **The discipline.** When a spec, plan, or runbook copies a numeric value from another document, NAME the source-of-truth document inline (e.g., "per S03.8 closure" or "per S04.4 spec L280"). When two canonical documents carry different values for the same quantity, the spec that cites the authoritative source is correct; the other is drifted. Drift-detection lives in the per-cite source-of-truth attribution, not in spot-checking individual numbers.
+
+### Explanatory comments that embed a broken-pattern literal trip token-matching reviewers (cubic)
+
+**Symptom:** A SQL query containing the direct geography-to-geometry cast is fixed to use the WKT round-trip. The corrected query is correct. But the accompanying explanatory comment still contains the literal broken pattern twice — e.g., `-- the direct geom::geometry cast is rejected by Supabase; the spec's SQL used geom::geometry`. Cubic re-flags the section as still using the invalid cast, matching the literal inside the comment rather than the (now-correct) query body.
+
+**Cause:** Token-matching tools (cubic, grep-based linters) cannot distinguish a cautionary mention of a broken idiom from a live occurrence. Same root cause as content-anchored grep verification failing to distinguish a comment from an active call site.
+
+**Fix:** Describe the broken idiom in prose rather than embedding the exact token adjacent to corrected code — e.g., "the direct geography-to-geometry cast" instead of `geom::geometry`. The fix is a one-line reword and keeps the post-fix cubic pass clean. Low-severity / tooling-hygiene; surfaced by S05.7 Stage-6 cubic re-flag after the cast fix (2026-06-06).
 
 ## Conventions — Python
 
