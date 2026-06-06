@@ -1,195 +1,134 @@
 # Epic Audit: E05 Colorado Geometry Ingestion
 
-**Date:** 2026-06-05
-**Auditor:** roughly:build static review (Claude)
+**Date:** 2026-06-06
+**Auditor:** `/roughly:audit-epic` independent re-run (Claude, 9 parallel per-story review agents + cross-cutting synthesis)
 **Epic file:** [`E05-colorado-geometry-ingestion.md`](../E05-colorado-geometry-ingestion.md)
-**Audit scope:** static, post-implementation review. Reads files and git history only; runs no SQL, no pytest, no operator-side verification.
+**Audit scope:** static, post-implementation review. Reads files + git history only; runs no SQL, no pytest, no operator-side verification.
+
+> **Supersedes** the at-merge audit produced in S05.7's PR (#62 / `83e4c32`, dated 2026-06-05). This is an independently-dispatched re-run requested 2026-06-06: each story was re-reviewed by a dedicated agent that read the implementing files and verified the epic's claims against the actual source rather than trusting the prior report. **Conclusion is unchanged — E05 ships clean, 0 NOT MET — and several additional non-blocking quality observations are recorded below.**
 
 **Stories audited:** 9 (S05.0, S05.1, S05.2, S05.3, S05.3.5, S05.4, S05.5, S05.6, S05.7)
 
-**Acceptance criteria tally:**
+**Acceptance criteria tally (checkbox-based across all story AC sections):**
 
 | Classification | Count |
 |---|---|
-| MET (Group A static / at-merge) | ~80 |
-| PARTIAL (Group B operator-pending live verification) | ~43 |
+| MET (Group A static / at-merge) | ~85 |
+| PARTIAL (Group B operator-pending live verification) | ~29 |
 | NOT MET | 0 |
 
-*Counting method: direct checkbox count across all story AC sections in the epic file (`[x]` = MET, `[ ]` = operator-pending/PARTIAL). Exit Criteria and story-level narrative bullets not included in the tally. Group B PARTIAL classification mirrors E02-audit's treatment of UAT ACs — operator-driven live verification cannot be self-evidenced statically and is by design.*
-
-*Note: S05.7 closes in this same PR. Its Group A deliverables (this audit, the runbook `docs/runbooks/E05-colorado-geometry-verification.md`, the working note `docs/planning/epics/E05-confidence-findings/S05.7.md`, and the epic Status/`Audited:` updates) land at-merge and are counted MET; its live-verification ACs (the `spatial-test-points.json` fixture and the 7 spatial-query steps) are Group B operator-pending and counted PARTIAL — identical posture to S05.0/S05.2/S05.4/S05.5.*
+*Counting method: `[x]` = MET, `[ ]` = operator-pending/PARTIAL, counted across each story's AC section. S05.3's 10 checkboxes are ticked-as-dispositioned: ~4 are genuinely MET (investigation report, gap resolution, Path-3 ADR-001 rejection, Q18 surface) and ~6 are N/A-by-gap (zero CWD rows = no ingestion ACs to satisfy); they are counted in the MET column as "dispositioned." Exit Criteria and narrative bullets are not in the tally. The prior at-merge audit reported ~80 MET / ~43 PARTIAL; the delta vs this run's ~85 / ~29 is purely a counting-boundary difference (treatment of S05.3 N/A items and the S05.7 Group-A/Group-B split), not a substantive disagreement — both runs agree on 0 NOT MET and on which ACs are operator-pending.*
 
 ---
 
 ## Summary
 
-E05 ships clean. All nine stories are closed at-merge (S05.7 — the final story — closes in this same PR, the one that also produces this audit). Every Group A (static, file-level) AC across all nine stories is satisfied on direct inspection. The ~43 PARTIAL ACs are operator-driven Group B live verification steps — the exact same structural posture E02 adopted for its UAT ACs in S02.6/S02.7. No blocking findings surfaced; no Group A ACs are NOT MET.
+E05 ships clean. All nine stories closed at-merge in the correct sequence; the final story (S05.7) produced the runbook, working note, and the audit gate in the same PR. Every Group A (static, file-level) AC is satisfied on direct inspection across all nine stories. The ~29 PARTIAL ACs are Group B operator-driven live-verification steps — the same structural posture E02 adopted for its UAT ACs in S02.6/S02.7. **No Group A AC is NOT MET; no blocking findings surfaced.**
 
-**Colorado V1 geometry layer composition at S05.6 close:**
+The independent re-run confirmed the load-bearing claims the epic makes about itself:
+- **State-adapter isolation held.** `git show --stat <sha> -- ingestion/ingestion/lib/` is empty for S05.1, S05.2, and S05.4. The only `lib/` edit in all of E05 is S05.5's deliberate state-agnostic-clean extension of `overlays.py` (adding `"gmu"` + `ROLE_FOR_BINDING_BY_CHILD_KIND`), which preserves the MT-facing `ROLE_FOR_E03_BY_CHILD_KIND` alias by same-object assignment.
+- **The S05.3.5 five-place sync is genuinely consistent.** All five surfaces (DDL migration, `schema.py`, `overlays.py`, `schema.ts`, `architecture.md`) carry the identical 8 role values in identical order; the 3 MT reclassified `geometry_id`s match ADR-021 exactly; migration timestamp `20260603000000` > S04.1's `20260530132727`.
+- **The S05.4 outcome-(c) guards are real.** Count-band is exact `(10, 10)`; `_V1_EXPECTED_IDS` is wired as a runtime set-equality guard in `main()` (not merely a module-load length assert); Curecanti is dropped before fixture/manifest writes so all counts agree at 10.
+- **The S05.7 runbook's FK-cascade wipe is correct.** It sequences `DELETE FROM jurisdiction_binding WHERE geometry_id IN (SELECT id FROM geometry WHERE state = 'US-CO')` before the geometry delete, and uses the `geometry_id IN (...)` subquery form — NOT a nonexistent `state` column on `jurisdiction_binding` (a bug the prior PR-review cycle caught and fixed). An explicit anti-`TRUNCATE` guard is present.
+
+**Colorado V1 geometry layer composition (at S05.7 close):**
 - 1 statewide anchor (`CO-STATEWIDE-geom`, S05.0 — `kind='state'`, US Census TIGER 2024, SHA-256 pinned)
-- ~186 GMUs (`kind='gmu'`, S05.2 — CPW FeatureServer layer 6, `GMUID`-keyed ids, count-band guard `[167, 205]`)
+- ~186 GMUs (`kind='gmu'`, S05.2 — CPW FeatureServer layer 6, `GMUID`-keyed ids, count-band `[167, 205]`)
 - **0 CWD zones** (S05.3 — documented gap: CPW publishes no CWD-zone geometry; manages CWD by hunt code/GMU per USGS unit-keyed reporting; investigation report at `ingestion/states/colorado/cwd-source-discovery.md`)
-- **10 restricted areas** (`kind='restricted_area'`, S05.4 — 4 NPs + 5 NMs + 1 DOD/AFA from USGS PAD-US 4.1, Curecanti NRA dropped per 36 CFR §2.2, count-band guard exact `(10, 10)`)
+- **10 restricted areas** (`kind='restricted_area'`, S05.4 — 4 NPs + 5 NMs + 1 DOD/AFA from USGS PAD-US 4.1; Curecanti NRA dropped per 36 CFR §2.2; count-band exact `(10, 10)`)
 
-**Library and schema hygiene:**
-- S05.5 shipped a state-agnostic-clean `ingestion/ingestion/lib/overlays.py` extension (`OverlayParentKind` + `OverlayChildKind` + `ROLE_FOR_BINDING_BY_CHILD_KIND`; `ROLE_FOR_E03_BY_CHILD_KIND` retained as deprecated alias for MT compat); `OverlayFixtureRow.role_for_e03` field name preserved for MT fixture-data compatibility.
-- S05.3.5 shipped ADR-021 end-to-end: 8th `no_hunt_zone` role enum value via 5-place sync (DDL migration `20260603000000_jurisdiction_binding_no_hunt_zone_role.sql` + Pydantic + TypeScript + `architecture.md` + `overlays.py`); 3 MT V1 bindings reclassified `other_overlay` → `no_hunt_zone`.
-- `TestNoColoradoLeakIntoSharedLib` (S05.1) locks ADR-005 isolation: `git diff --stat ingestion/ingestion/lib/` empty across all CO loader PRs.
-- **Test-baseline trajectory:** 1166 (E04 close) → 1184 (S05.0, +18) → 1187 (S05.1, +3) → 1234 (S05.2, +47) → 1234 (S05.3, +0) → 1234 (S05.3.5, +0) → 1283 (S05.4, +49) → 1331 (S05.5, +48) → 1340 (S05.6, +9). All shifts are deliberate quality additions; no regressions.
-- **Merge order verified (git log):** S05.0 (#54 `7f3b071`) → S05.1 (#55 `ba6ef1c`) → S05.2 (#56 `d7ba731`) → S05.3 (#57 `9fd5c61`) → S05.3.5 (#58 `3344971`) → S05.4 (#59 `dc9d5b2`) → S05.5 (#60 `e7ba3d4`) → S05.6 (#61 `1b55bfd`) — all squash-merged in the correct sequence.
+**Test-baseline trajectory (all additive, no regressions):** 1166 (E04 close) → 1184 (S05.0, +18) → 1187 (S05.1, +3) → 1234 (S05.2, +47) → 1234 (S05.3, +0) → 1234 (S05.3.5, +0) → 1283 (S05.4, +49) → 1331 (S05.5, +48) → 1340 (S05.6, +9) → 1340 (S05.7, +0).
+
+**Merge order verified (git log):** S05.0 (#54 `7f3b071`) → S05.1 (#55 `ba6ef1c`) → S05.2 (#56 `d7ba731`) → S05.3 (#57 `9fd5c61`) → S05.3.5 (#58 `3344971`) → S05.4 (#59 `dc9d5b2`) → S05.5 (#60 `e7ba3d4`) → S05.6 (#61 `1b55bfd`) → S05.7 (#62 `83e4c32`).
 
 ---
 
 ## Per-Story Results
 
 ### S05.0: Schema preparation — write `CO-STATEWIDE-geom`
+**✅ 8/8 Group A MET · ⚠️ 2 Group B PARTIAL**
 
-**Status:** ✅ 7/9 MET, ⚠️ 2 PARTIAL (Group B — operator-pending live verification)
+`load_state_boundary.py` (326 LOC) + 18 tests confirmed on disk. TIGER 2024 source locked with SHA-256 `ad00cbe6…` pinned; `id='co-census-tiger-state-2024'`, `kind='state'`, `state='US-CO'`, `license_year=NULL`, `publication_date='2026-01-01'`, `document_type='gis_layer'` all verified in code + tests. The Stage-4 load-bearing `gdf = gdf.to_crs(4326)` reassignment fix is present (`:202`) with its load-bearing comment; non-MultiPolygon-post-`make_valid` raises; `_verify_sha256` fails loud with both digests. **Group B (operator-pending):** post-write verification queries; `area_km2` within 1% of ~269,837 km².
 
-PR #54 / `7f3b071` from `feat/S05.0-write-co-statewide-geom-row`. New loader `ingestion/states/colorado/load_state_boundary.py` (326 LOC) + 18 tests at `ingestion/tests/test_load_co_state_boundary.py` verified on file system. Source locked to US Census TIGER 2024 (`https://www2.census.gov/geo/tiger/TIGER2024/STATE/tl_2024_us_state.zip`, SHA-256 pinned, `SourceCitation.id='co-census-tiger-state-2024'`). Stage-4 Blocker (bare `gdf.to_crs(4326)` → ~100m NAD83-as-WGS84 offset) caught and fixed with explicit reassignment; 9 fail-loud guards including `_verify_sha256`, non-MultiPolygon post-`make_valid`, and 7 structural guards. No `kind='state'` schema change needed (already valid from S03.0). Test baseline shifted 1166 → 1184.
-
-**Partials (Group B — by design):**
-- AC #7: Post-write verification queries against live Supabase — operator-pending.
-- AC #8: `area_km2` within 1% of ~269,837 km² — operator-pending (requires live DB write).
+**Finding (non-blocking, P3):** three fail-loud guards are implemented but **untested** — multiple `.shp` in the TIGER ZIP (`:179-185`), NULL geometry on the CO row (`:219-225`), missing `STATEFP` column (`:190-197`). All three are unreachable with the pinned TIGER file, so low operational risk, but they are a test-contract gap relative to the project's fail-loud discipline.
 
 ### S05.1: CPW ArcGIS fetch infrastructure + Colorado adapter scaffold
+**✅ 8/8 MET**
 
-**Status:** ✅ 8/8 MET
-
-PR #55 / `ba6ef1c` from `feat/S05.1-cpw-arcgis-fetch-infra`. Scaffold-only story — all 5 deliverable files confirmed on disk: `ingestion/states/colorado/__init__.py` (unchanged), `README.md` (113 LOC, 8 h2 sections), `sources.yaml` (35 LOC, `gis_layers:` top-level key, anti-direct-read inline comment on `id_template`), `fixtures/.gitignore` (17 LOC, confirmed at `ingestion/states/colorado/fixtures/.gitignore`), and `TestNoColoradoLeakIntoSharedLib` appended to `ingestion/tests/test_arcgis.py` (+95 insertions; walks `ingestion/ingestion/lib/` via `rglob("*.py")`; scans for `colorado` case-insensitive + 3 CPW host literals). No Group A/B split — scaffold only, no live verification required. Stage-6 mid-cubic-fix (`-> list[Path]` hoisted to module-level per PEP 563/ruff F821) + one rejected post-merge finding (class-body `assert all(...)` empirically valid). PM-approved spec deviations documented: import path codebase-actual form; `CO_STATE_CODE` vs `_STATE` naming with S05.6 forward-reference. Test baseline shifted 1184 → 1187.
+All 5 scaffold files confirmed: `__init__.py` (byte-identical to S05.0), `README.md` (113 LOC, 8 h2 sections), `sources.yaml` (1 `gis_layers:` entry at merge with anti-direct-read comment on `id_template`), `fixtures/.gitignore` (17 LOC), and `TestNoColoradoLeakIntoSharedLib` appended to `test_arcgis.py` (walks `lib/` via `rglob`, scans `colorado` + 3 CPW host literals, class-body lowercase invariant + per-method non-empty guards). **`git show --stat ba6ef1c -- ingestion/ingestion/lib/` is empty — zero lib edits confirmed.** The PM-approved spec deviations (codebase-actual import form; `CO_STATE_CODE` documented with S05.6 forward-reference) are present. No gaps.
 
 ### S05.2: GMU ingestion
+**✅ Group A MET · ⚠️ 4 Group B PARTIAL**
 
-**Status:** ✅ 11/15 MET, ⚠️ 4 PARTIAL (Group B — operator-pending live verification)
+`load_gmus.py` (409 LOC) + 47 tests (confirmed by `grep -c def test_`). `id` derived from `GMUID` not `OBJECTID` (regression test asserts `GMUID=201` tracked and `OBJECTID=999` never leaks); `kind='gmu'`; count-band `[167,205]` and `_duplicate_ids` both fire before `db.connect()`; `license_year=None` on row, `SourceCitation.license_year=2026` → `publication_date='2026-01-01'`; citation id `co-cpw-arcgis-CPWAdminData-6-2026` case-preserved (derive-and-assert); AC #235 EDIT_DATE/INPUT_DATE LOG-ONLY; `multipart-gmus.json` schema with deliberate `total_area_sq_km=None`; no `--service-url`. **Group B (operator-pending):** `ST_IsValid` round-trip; UPSERT idempotency; metadata + manifest fixture commits.
 
-PR #56 / `d7ba731` from `feat/S05.2-GMU-ingestion`. Loader `ingestion/states/colorado/load_gmus.py` (409 LOC) + 47 tests in `ingestion/tests/test_load_gmus.py` (733 LOC) confirmed on disk. Key correctness decisions locked by tests: `test_geometry_id_derived_from_gmuid_not_objectid` prevents `OBJECTID` leak; `test_main_no_commit_on_count_band_guard` + `test_main_no_commit_on_duplicate_id_guard` lock OQ7 pre-`db.connect()` ordering; `test_no_other_state_adapter_imports` broadens ADR-005 isolation guard beyond MT. Stage-6 Critical (`kind='hunting_district'` docstring corrected; was never wrong in code) and `_collect_multipart_gmus` wrapped in fail-loud try/except. AC #235 (CPW `EDIT_DATE`/`INPUT_DATE`) satisfied as LOG-ONLY per documented deviation footnote — genuine schema constraint (`SourceCitation` frozen with `extra="forbid"`). Test baseline shifted 1187 → 1234.
+**Findings (non-blocking):**
+- **P2 / consistency:** `_feature_to_geometry` uses a raw `feature["properties"]` subscript (`:152`) — a malformed/null-`properties` feature yields a bare `KeyError` instead of `ColoradoGeometryError`. **The identical pattern was fixed in S05.4** (`load_restricted_areas.py`), so `load_gmus.py` now carries known, already-diagnosed tech debt. This is the M2-hygiene-item-#3 candidate; should be folded into the hygiene sweep.
+- **P3:** no `caplog` test locks the AC #235 INFO emission (correctness is enforced structurally by `extra="forbid"`, but an explicit emission assertion would complete coverage).
 
-**Partials (Group B — by design):**
-- `ST_IsValid` round-trip verification on all rows — operator-pending.
-- UPSERT idempotency confirmation (two live runs) — operator-pending.
-- Layer metadata fixture committed — operator-pending (live fetch artifact).
-- Per-fetch manifest committed — operator-pending (live fetch artifact).
+### S05.3: CWD zone discovery (documented gap)
+**✅ MET (gap rigorously substantiated) · N/A-by-gap items dispositioned**
 
-### S05.3: CWD zone discovery + ingestion
+The gap closure is substantive, not paperwork. `cwd-source-discovery.md` (135 LOC) documents all 3 paths with distinct live evidence: a full 30-row CPWAdminData catalog table (Path 1), two org-scoped query URLs with result counts (Path 2), and regulatory-document citations with page numbers (Path 3). Path-3 hand-trace rejection is grounded explicitly in ADR-001. `git show --stat 9fd5c61` shows exactly one file added (the report) — no `load_cwd_zones.py`, no `sources.yaml` CWD entry, zero geometry rows. Q18 has a dated 2026-06-03 empirical-trigger breadcrumb in `open-questions.md` with status correctly left Open (the formal decision is E06's).
 
-**Status:** ✅ 9/9 MET (all ACs dispositioned; gap-branch is a valid first-class closure)
-
-PR #57 / `9fd5c61` from `feat/S05.3-cwd-zone-discovery`. Documented-gap outcome: zero `geometry` rows written; no loader created; `sources.yaml` not extended. Investigation report at `ingestion/states/colorado/cwd-source-discovery.md` (confirmed on disk) documents all 3 investigation paths: Path 1 (30-layer CPWAdminData catalog, no CWD match), Path 2 (~200-service CPW org listing, no CWD zone layer), Path 3 (PDF hand-trace rejected per ADR-001 — CO manages CWD by hunt code/GMU, not mapped polygon). Q18 empirical trigger fired and breadcrumb dated in `docs/open-questions.md`. Test suite unchanged at 1234 + 2 skipped (correct — no code written). Stage-6 review independently re-ran live ArcGIS probes confirming report byte-accurate. Ingestion-shaped ACs are N/A-by-gap and labeled inline; all investigation + Q18 ACs are fully MET.
+**Finding (cosmetic):** `sources.yaml` still carries an S05.1 scaffold comment promising a CWD entry that (correctly) never materialized — a stale placeholder a reader could briefly trip over. Harmless; the AC is unambiguously met.
 
 ### S05.3.5: `jurisdiction_binding.role` migration + MT V1 reclassification (ADR-021)
+**✅ 12/12 Group A MET · ⚠️ 5 Group B PARTIAL**
 
-**Status:** ✅ 12/17 MET, ⚠️ 5 PARTIAL (Group B — operator-pending post-`supabase db push`)
-
-PR #58 / `3344971` from `feat/S05.3.5-no-hunt-zone-role`. Migration `supabase/migrations/20260603000000_jurisdiction_binding_no_hunt_zone_role.sql` confirmed on disk. All 5 sync surfaces verified: DDL (DROP + ADD 8-value CHECK + UPDATE 3 MT rows); `schema.py` `JurisdictionBinding.role` Literal (8 values); `schema.ts` `GeometryRole` union; `architecture.md` §"Schema types"; `overlays.py` `GeometryRoleForE03` alias. Spec gap closed at Stage-2 discovery: the `cast(Literal[…], role_e03)` 6th consumer in `_build_overlay_bindings` was absent from the spec's 5-site list — caught and folded into T5. MT test rewrites (4 sites, 0 delta) preserve 1234 + 2 skipped baseline exactly. ADR-021 flipped Proposed → Accepted; added to `docs/adrs/README.md` index. `_VALID_ROLE_FOR_E03` deliberately NOT widened (intentional subset gate — E06 decision per Known Issue #6). Binding-id slug drift (`other_overlay` substring in id) confirmed inert via grep.
-
-**Partials (Group B — by design, mirrors S04.1 "operator verifies live" pattern):**
-- `supabase db push` applies migration cleanly — operator-pending.
-- `information_schema.check_constraints` shows 8-value check — operator-pending.
-- `SELECT DISTINCT role` ⊆ 8-value set — operator-pending.
-- 3 MT rows now read `role = 'no_hunt_zone'` — operator-pending.
-- Row count unchanged pre/post — operator-pending.
+The five-place sync is verified byte-consistent — all five surfaces carry `primary_unit, portion, restricted_area, cwd_management_zone, bear_management_unit, block_management_area, other_overlay, no_hunt_zone` in identical order (count = 8, no mismatches). Migration is transactional in the required order (DROP CHECK → ADD 8-value CHECK → UPDATE), keys the UPDATE on `geometry_id` (not binding `id`) to catch fan-out rows, and targets exactly the 3 MT ids ADR-021 names. The 6th sync surface caught at Stage-2 discovery (the `cast(Literal[…], role_e03)` in `_build_overlay_bindings`) is extended to 8 values. ADR-021 flipped Proposed → Accepted and is now in the `adrs/README.md` index. `_VALID_ROLE_FOR_E03` deliberately NOT widened (logged as E06 Known Issue #6). `git show --stat 3344971 -- ingestion/states/colorado/` empty. **Group B (operator-pending):** `supabase db push`; `information_schema.check_constraints` 8-value shape; `SELECT DISTINCT role` subset; 3 MT rows read `no_hunt_zone`; row count unchanged. No gaps.
 
 ### S05.4: Restricted-area / no-hunt-zone overlay discovery + ingestion
+**✅ 11/11 Group A MET · ⚠️ 4 Group B PARTIAL**
 
-**Status:** ✅ 10/15 MET, ⚠️ 5 PARTIAL (Group B — operator-pending live verification)
-
-PR #59 / `dc9d5b2` from `feat/S05.4-restricted-area-no-hunt-zone-overlay-discovery`. Loader `ingestion/states/colorado/load_restricted_areas.py` (~520 LOC) + 49 tests at `ingestion/tests/test_load_co_restricted_areas.py` confirmed on disk. Research-doc prerequisite (`docs/research/colorado-restricted-areas-evaluation.md` at `ed721c4`) confirmed. Discovery report at `ingestion/states/colorado/restricted-area-discovery.md` confirmed. The 10 V1 ids (`CO-restricted-{slug}-geom`) seeded for S05.5's `EXPECTED_CO_RA_ORPHAN_IDS` frozenset. Two Stage-6 Criticals resolved in 1 review-fix cycle: `_V1_EXPECTED_IDS` set-equality guard wired into `main()`; Curecanti drop moved before fixture/manifest writes so all counts agree at 10. Two post-merge-review fixes: malformed-properties guard (`2715bb9`); discovery-report MT-contrast accuracy correction (`31cbc24`). Research-doc 9→10 count correction documented (arithmetic slip at 3 prose sites; enumerated list + math both give 10). `verbatim_rule=None` for V1 (PAD-US carries geometry only; CPW brochure URL unresolved 404; no text fabricated per ADR-001). Test baseline shifted 1234 → 1283.
-
-**Partials (Group B — by design):**
-- Live PAD-US fetch: 11 features, Curecanti dropped, 10 rows UPSERTed — operator-pending.
-- `returnCountOnly=true` cross-check — operator-pending.
-- `ST_IsValid` round-trip on all 10 rows — operator-pending.
-- `GIS_Acres` ±10% acreage sanity check — operator-pending.
-- Live-run metadata fixture + manifest committed — operator-pending.
+`load_restricted_areas.py` (545 LOC) + 49 tests. Research-doc prerequisite confirmed present. Count-band exact `(10, 10)`; `_V1_EXPECTED_IDS` wired as a runtime set-equality guard in `main()` (the Stage-6 C1 Critical) AND a module-load length assert; Curecanti dropped before fixture/manifest writes (the C2 Critical) so all counts agree at 10; `_feature_to_geometry` guards null/malformed properties → `ColoradoGeometryError` (post-merge `2715bb9`). Single shared citation `co-usgs-padus-arcgis-Federal_Fee_Managers_Authoritative_PADUS-0-2026` derive-and-asserted; `verbatim_rule=None` (PM deferral, no fabricated text); boundary-to-boundary `ST_DWithin(...,5000)` predicate + 10-id orphan allowlist seeded in the discovery doc for S05.5. `git show --stat dc9d5b2 -- ingestion/ingestion/lib/` empty; no `db.py` edits. **Group B (operator-pending):** live fetch 11→10; `returnCountOnly` cross-check; `ST_IsValid`; `GIS_Acres` ±10%; fixture+manifest commits. No gaps — strongest-executed loader in the epic.
 
 ### S05.5: `geometry-overlays.json` fixture build
+**✅ 9/9 Group A MET · ⚠️ 6 Group B PARTIAL**
 
-**Status:** ✅ 8/14 MET, ⚠️ 6 PARTIAL (Group B — operator-pending; upstream geometry rows are themselves Group B-pending)
+`build_overlay_fixture.py` (404 LOC) + 46–48 tests. Bulk `SELECT … ST_AsText(geom) … WHERE state = %s` geography-native (no `::geometry` cast); three-band discriminator carried forward; `EXPECTED_CO_RA_ORPHAN_IDS` frozenset of 10 with `assert len()==10` (byte-identical to S05.4's `_V1_EXPECTED_IDS`); coverage invariant enforced (gmu self-row=`primary_unit`; cwd_zone vacuously satisfied; RA child OR allowlisted OR fail-loud); the W1 absence-of-log `caplog` lock present; no statewide rows pre-emitted; `_JURISDICTION_BINDING_ID_FORMAT` contract documented. Library extension verified state-agnostic-clean with the deprecated-alias identity preserved. **Group B (operator-pending):** the live `geometry-overlays.json` + `-dropped.json` cannot be generated at-merge because the geometry rows they read are themselves Group B writes; threshold recalibration check; UAT spot-check; FK + byte-reproducibility checks.
 
-PR #60 / `e7ba3d4` from `feat/S05.5-geometry-overlays-fixture-build`. Builder `ingestion/states/colorado/build_overlay_fixture.py` (~390 LOC) + 48 tests at `ingestion/tests/test_build_co_overlay_fixture.py` confirmed on disk. Library extension confirmed: `ingestion/ingestion/lib/overlays.py` `OverlayParentKind` + `OverlayChildKind` + `ROLE_FOR_BINDING_BY_CHILD_KIND` + deprecated alias `ROLE_FOR_E03_BY_CHILD_KIND` (same-object assignment — zero MT disruption). `EXPECTED_CO_RA_ORPHAN_IDS` (10 ids, `assert len()==10`) confirmed. W1 absence-of-log lock (`caplog` assertion that orphan INFO log is absent for genuinely-covered RAs) confirmed in test suite. Four threshold edge-locks (0.989/0.990/0.011/0.009) present. W2 proposed-and-rejected (documented): `if ras and not ra_rows: raise` would false-positive on the expected CO zero-RA-pairs case. Two post-build P3 review fixes: hardcoded personal path → generic placeholder (`5b4d146`); overlay-builder duplication → Known Issue #7 (`fe1fcd3`). Epic snippet line-citation-drift flags corrected in closure commit (type annotation `Mapping[OverlayChildKind, GeometryRole]` and missing `"hunting_district"` entry corrected to byte-parity). `geometry-overlays.json` and `geometry-overlays-dropped.json` NOT committed (correctly — upstream CO geometry rows are themselves operator-pending Group B writes). Test baseline shifted 1283 → 1331.
-
-**Partials (Group B — by design; structurally dependent on S05.2 + S05.4 Group B live writes completing first):**
-- `geometry-overlays.json` generated and committed — operator-pending.
-- Paired `geometry-overlays-dropped.json` committed — operator-pending.
-- Threshold recalibration check (borderline audit-log inspection) — operator-pending.
-- UAT visual spot-check (multi-part GMU self-rows + no-hunt-zone orphans) — operator-pending.
-- Every fixture-referenced `geometry_id` FK-checked — operator-pending.
-- Byte-identical reproducibility across two runs — operator-pending.
+**Findings (non-blocking):**
+- **P3 / doc-rot:** `OverlayFixtureRow.parent_geometry_id` docstring (`overlays.py:~102`) still says "always a hunting district in V1" — stale now that `gmu` is a valid parent kind. The sibling docstrings were refreshed (I1 fix) but this line was missed.
+- **P3:** one threshold test (`test_zero_area_child_kept_as_intersects`) uses a conditional `if kept:` assertion that passes silently if the collection is empty — a slightly weakened lock (likely intentional for the degenerate-geometry defensive case).
+- **Minor:** spec claims +48 tests; an independent method count came to ~46. Cosmetic; baseline (1331) is what matters and is consistent elsewhere.
 
 ### S05.6: Cross-state spatial discipline + binding-loader reference
+**✅ 9/9 MET**
 
-**Status:** ✅ 9/9 MET
-
-PR #61 / `1b55bfd` from `feat/S05.6-cross-state-binding-reference`. Scaffold/reference-only story — no Group A/B split needed (SQL never executes in E05). Three deliverables confirmed on disk: `ingestion/states/colorado/load_jurisdiction_bindings.py` (~100 LOC, import-only scaffold); `ingestion/tests/test_co_binding_reference.py` (9 tests in `TestCoBindingReferenceSql`); `docs/planning/epics/E05-confidence-findings/S05.6.md` (closure note). Stage-6 Critical resolved: distance was hardcoded `5000` literal in spec's illustrative SQL while `_NO_HUNT_ZONE_NEARBY_DISTANCE_M` sat unused — fixed by binding as 3rd `%s` param, mirroring MT at `:588`. Post-merge-review P3: `ORDER BY gmu.id` added for determinism, locked by `test_sql_orders_by_gmu_id_for_determinism`. `git diff --stat ingestion/ingestion/lib/` confirmed empty (ADR-005 + CO-leak guard held). `_STATE` vs `CO_STATE_CODE` naming tension documented as E06 cleanup candidate (deliberately not retrofitted). Test baseline shifted 1331 → 1340.
+Scaffold-only. `load_jurisdiction_bindings.py` (106 LOC, import-only — no `main()`, no `db.connect()`, no argparse, no network). `_STATE: Final[str] = "US-CO"`; `_NO_HUNT_ZONE_NEARBY_DISTANCE_M = 5000`; module-level `_QUERY_NEARBY_GMUS_FOR_ZONE_SQL` with `WHERE gmu.state = %s`, `AND gmu.kind = 'gmu'`, `extensions.ST_DWithin(%s::geography, gmu.geom, %s)` (distance `%s`-bound, not hardcoded), `ORDER BY gmu.id`. The headline pollution-guard test asserts `'US-MT'` absent; a runtime-binding test additionally locks `params[0] == "US-CO"`. No gaps. No bare `ST_*` calls.
 
 ### S05.7: Spatial query verification + epic exit
+**✅ 5 MET · ⚠️ 7 Group B PARTIAL**
 
-**Status:** ✅ Group A MET (closed at-merge in this PR), ⚠️ Group B operator-pending live verification
+Runbook (387 LOC) confirmed. All executable `ST_*` calls are `extensions.`-prefixed; every spatial query carries `AND state = 'US-CO'`; Section 5 is the CO-bounds `ST_Envelope` check against `[-109.06, -102.04] × [36.99, 41.00]` (exact); the reproducibility/wipe section sequences the `jurisdiction_binding` delete via the `geometry_id IN (...)` subquery before the geometry delete, with an explicit anti-`TRUNCATE` guard. PRD 002 SC#4/#6/#7 mapped inline. `E05-audit.md` exists and the epic `Audited:` field is populated (the `/plan-next-epic` gate). **Group B (operator-pending, Option A):** `spatial-test-points.json` is deliberately NOT committed at-merge (generated from live `ST_PointOnSurface` so points are real, not invented) — confirmed absent via `git show --stat 83e4c32 -- …/fixtures/`; the 7 live spatial-query steps are operator-driven.
 
-S05.7 is the final E05 story; it closes in the same PR that produces this audit. **Group A deliverables landed at-merge:** the runbook `docs/runbooks/E05-colorado-geometry-verification.md` (363 LOC — 7 verification sections + a CO-specific Section 0 fixture-generation step + the Section 5 `ST_Envelope` CO-bounds check; every `ST_*` call `extensions.`-prefixed; every query carries `AND state = 'US-CO'`; the reproducibility section sequences `DELETE FROM jurisdiction_binding WHERE geometry_id IN (SELECT id FROM geometry WHERE state = 'US-CO')` before `DELETE FROM geometry WHERE state = 'US-CO'` with an explicit `TRUNCATE` guard); the working note `docs/planning/epics/E05-confidence-findings/S05.7.md` (with the Group B verification-record table); this audit document itself (satisfying the final AC, "Post-implementation audit produced … exists with verdict"); and the epic Status + `Audited:` field + AC-tick updates. The cross-state filter regression AC is also effectively green at-merge — `test_co_binding_loader_sql_filters_by_state_co_pollution_guard` (S05.6, `ingestion/tests/test_co_binding_reference.py`) is a mocked test passing in CI.
-
-**Group B (operator-pending, by design — identical posture to S05.0/S05.2/S05.4/S05.5):** the `ingestion/states/colorado/fixtures/spatial-test-points.json` fixture (generated from live geometry via `extensions.ST_PointOnSurface` per runbook Section 0 — deferred so coordinates are real `representative_point`s, not invented, per AC #2) plus the seven live spatial-query steps (`ST_Covers` spot-checks, `ST_IsValid` topology, named multi-part anchor `ST_NumGeometries > 1`, `EXPLAIN ANALYZE` index reachability, `ST_Envelope` CO-bounds, wipe + re-ingest reproducibility). These require live CO geometry rows, which are themselves Group B-pending from S05.0/S05.2/S05.4; the operator resolves them in the batched live-write session documented in S05.7.md.
+**Finding (cosmetic, P3):** one `ST_PointOnSurface` mention at runbook `:75` lacks the `extensions.` prefix — but it sits inside a JSON `"notes"` string value, not executable SQL. Technically inconsistent with the runbook's stated discipline; functionally irrelevant.
 
 ---
 
 ## Cross-Cutting Findings
 
-### Recurring post-merge fix-up theme — convention-maturing, not quality regression
+**1. Consistency — strong, with one named naming-drift.** Every CO loader follows the established adapter shape (pure helpers → guards fire pre-`db.connect()` → `with db.connect()` + explicit commit), honors the no-`--service-url` silent-lie precedent, and keeps `ingestion/ingestion/lib/` untouched (the sole exception being S05.5's sanctioned state-agnostic `overlays.py` extension). The one real inconsistency is the **`_STATE` (S05.6) vs `CO_STATE_CODE` (S05.0–S05.5) constant-name split** — confirmed by direct inspection in both this run's S05.5 and S05.6 reviews. It is already logged as an E06 cleanup candidate and was deliberately not retrofitted in S05.6's scaffold-only scope. No functional impact (both equal `"US-CO"`).
 
-Nine post-merge fix-up commits appear across E05's 8 closed stories (2 cubic-fix iterations in S05.0; 1 mid-Stage-6 cubic-fix in S05.1; 1 review-fix-to-review-fix correction in S05.3.5; 2 post-merge-review fixes in S05.4; 2 post-build PR-review P3 fixes in S05.5; 1 post-merge-review P3 fix in S05.6). All were caught pre-production by reviewers or cubic review. The pattern matches E04's observation: deliberate convention-maturing in response to discovered traps, not recurring quality issues. The growing `.roughly/known-pitfalls.md` corpus (1029 LOC at S05.6 close, up from ~887 at E05 start) is the concrete evidence that each fix-up became a durable convention.
+**2. Integration — clean handoffs.** S05.4 → S05.5: the 10-id orphan set is byte-identical between `load_restricted_areas.py._V1_EXPECTED_IDS` and `build_overlay_fixture.py.EXPECTED_CO_RA_ORPHAN_IDS`. S05.3.5 → S05.4: the `no_hunt_zone` enum (5-place-synced) is the schema precondition S05.4's outcome (c) relies on (S05.4 writes geometry only; the role assignment is E06's). S05.5 → E06 and S05.6 → E06: the overlay fixture, the `_JURISDICTION_BINDING_ID_FORMAT` import contract, and the cross-state reference SQL are all staged for E06's binding loader. No integration mismatch found.
 
-### `.roughly/known-pitfalls.md` growth — healthy signal
+**3. Gaps — the entire live-write/verification chain is operator-pending (by design, but standing).** ~29 PARTIAL ACs span S05.0, S05.2, S05.3.5, S05.4, S05.5, and S05.7. The practical consequence: **no E05 geometry has yet been written to or verified against the production database, and no overlay fixture / spatial-test-points fixture exists on disk.** This is the intended Group A/Group B split (mirrors E02's UAT posture) and is correctly non-blocking for story/epic closure — but it is the single largest standing risk for E06, which FK-depends on those live rows + the live-generated overlay fixture. The batched operator live-write session (`load_state_boundary` → `load_gmus` → `load_restricted_areas` → `build_overlay_fixture` → generate `spatial-test-points.json` → run the 7 verification steps) is the hard precondition before E06's binding loader can run, and should be sequenced before/with E06.
 
-The file grew from ~887 LOC (S05.0 open) to 1029 LOC (S05.6 close), adding entries across 7 new sections or sub-entries: Integration — Census TIGER + geopandas (S05.0); Conventions — Python + Testing new sections (S05.1); Conventions — Ingestion adapters new entries (S05.1, S05.2, S05.3.5, S05.4, S05.5, S05.6); Conventions — Documentation & planning discipline (S05.3); Integration — ArcGIS (S05.4); Conventions — Testing (S05.4, S05.5). The recurring doc-writer flag at 964/995/1015/1029 LOC documents the need for a future reorg/dedup pass — this is appropriate maintenance debt, not a blocking finding.
-
-### Group B operator-pending pattern — recognized V1 posture, not a defect
-
-Every story with live DB writes (S05.0, S05.2, S05.3.5, S05.4, S05.5) and the migration story (S05.3.5) carry open Group B ACs. This is the project's established "operator verifies live" pattern (S04.1 precedent, P RD-006-style), identical to E02's treatment of S02.6/S02.7 UAT ACs. The Group B verification sessions for S05.0 + S05.2 + S05.3.5 + S05.4 + S05.5 should be sequenced together as a batched operator run before or alongside E06. S05.7's runbook (`docs/runbooks/E05-colorado-geometry-verification.md`) will serve as the operator-facing protocol for this batch, exactly as `docs/runbooks/E02-geometry-verification.md` served for MT. No blocking finding.
-
-### Three carried M2 hygiene candidates
-
-Three items from S05.0 (first two) and S05.4 (third) remain open as PM-flagged candidates — none are E05's to resolve; all require an `ingestion/` implementation decision:
-
-1. `db.upsert_geometry` missing `cur.rowcount == 0` fail-loud guard (inconsistent with `update_legal_description` / `upsert_jurisdiction_binding` pattern; low-risk today under ON CONFLICT DO UPDATE, but surfaces if DDL changes to ON CONFLICT DO NOTHING).
-2. MT `load_state_boundary.py --service-url` removal (same latent silent-lie-citation issue cubic-fixed in CO's S05.0).
-3. `load_gmus.py` raw-`feature["properties"]` subscript (same pattern S05.4's `load_restricted_areas.py` fixed via the `_feature_to_geometry` guard).
-
-Recommended: bundle all three into a single hygiene PR alongside the overlay-builder extraction candidate (Known Issue #7) as the M2 hygiene sweep.
-
-### Known Issue #6 — `_VALID_ROLE_FOR_E03` subset gate (E06 decision point)
-
-MT's `_VALID_ROLE_FOR_E03` frozenset in `ingestion/states/montana/load_jurisdiction_bindings.py` deliberately does not carry `no_hunt_zone` — it is an intentional subset gate for overlay-fixture rows only. MT's 3 no-hunt zones are orphans handled by the separate `_build_no_hunt_zone_bindings` builder (zero MT impact). **E06's CO binding-loader must decide** whether CO no-hunt zones flow through its overlay-fixture path (gate must admit `no_hunt_zone`) or a separate hardcoded path (gate stays narrow). Surface to the PM and human at E06 binding-loader spec time before drafting S06.X.
-
-### Known Issue #7 — Overlay-builder duplication (post-E05 tech debt)
-
-`ingestion/states/colorado/build_overlay_fixture.py` (~390 LOC) is a near-verbatim port of `ingestion/states/montana/build_overlay_fixture.py`. Accepted as the established per-state ADR-005 pattern for now. The narrow extraction (hoist only `_build_overlay_pairs` + `_write_outputs` into `lib/overlays.py` and migrate both MT+CO) is the recommended scope for a post-E05 standalone refactor story. Leave orchestration, thresholds, and allowlists per-state (ADR-016 §4 anticipates per-state threshold recalibration).
+**4. Regressions — none.** Test baseline is monotonically additive (1166 → 1340). S05.3.5 is the only story that touched MT code + MT V1 production data; it carries N=0 test delta (rewrites only) and the MT role-enum tests were re-pointed to the 8-value set. The MT `load_jurisdiction_bindings.py` reclassification keeps binding-`id` slugs encoding `other_overlay` while `role` becomes `no_hunt_zone` — verified inert (no code parses `role` from `id`; UPSERT omits `role` from `ON CONFLICT SET`).
 
 ---
 
-## Verdict
+## Recommendations
 
-**E05 ships clean.** No blocking findings. No NOT-MET Group A ACs across any of the 9 stories (S05.0–S05.7 + S05.3.5; S05.7 closes in this PR).
+Priority order. None block E05 closure; E05 is correctly Complete + Audited.
 
-| Classification | Count | Notes |
-|---|---|---|
-| MET (Group A — static, at-merge) | ~80 | All static ACs for S05.0–S05.7 + S05.3.5 satisfied on direct inspection |
-| PARTIAL (Group B — operator-pending) | ~43 | Live verification by design; mirrors E02 UAT posture |
-| NOT MET | 0 | |
-
-All PARTIALs are operator-driven-by-design Group B live verification steps. They are not defects — they are the structural posture of a project where the operator controls production DB writes per ADR-001 / ADR-003 discipline.
-
-**Actionable recommendations (all non-blocking):**
-
-1. **[P2, Hygiene, post-E05]** Bundle the three M2 hygiene candidates (`db.upsert_geometry` rowcount guard + MT `load_state_boundary.py --service-url` removal + `load_gmus.py` raw-properties guard) with the Known Issue #7 overlay-builder extraction into a single M2 hygiene sweep PR after S05.7 closes. All are implementation-territory changes requiring operator decision.
-2. **[P2, E06-planning]** Resolve Known Issue #6 (`_VALID_ROLE_FOR_E03` subset gate) before E06's CO binding-loader spec is drafted. The decision affects whether CO no-hunt zones flow through the overlay-fixture path or a separate hardcoded path.
-3. **[P3, docs]** `.roughly/known-pitfalls.md` is at 1029 LOC at S05.6 close; the recurring doc-writer reorg/dedup flag is actionable in a low-risk documentation session (no code changes required).
-4. **[P3, docs]** `docs/research/colorado-restricted-areas-evaluation.md:249` still carries the softer MT-contrast phrasing (the discovery-report accuracy was corrected in S05.4's `31cbc24` but the research doc was left out of scope per the no-autonomous-research-doc rule). A one-line accuracy fix is deferred to a human-driven or research-session pass.
+1. **(Operator, gating for E06)** Run the batched Group B live-write + verification session and capture results in the `E05-confidence-findings/S05.*.md` working notes, then tick the Group B ACs + S05.3.5's CHECK-constraint verification in a follow-up doc-only commit. This is the hard FK precondition for E06's binding loader.
+2. **(Hygiene sweep, P2)** Fix `load_gmus.py`'s raw `feature["properties"]` subscript (`:152`) to the guarded form S05.4 already uses — the diagnosed-but-unfixed instance is the clearest consistency drift in the epic. Bundle with the two carried S05.0 candidates (`db.upsert_geometry` rowcount==0 guard; MT `load_state_boundary.py --service-url` removal) and Known Issue #7 (narrow overlay-builder shared-lib extraction) into one post-E05 hygiene PR.
+3. **(P3, test-contract)** Add the three missing S05.0 fail-loud guard tests (multiple `.shp`, NULL geometry, missing `STATEFP`) and a `caplog` lock for S05.2's AC #235 INFO emission, to bring guard coverage in line with the project's fail-loud discipline.
+4. **(P3, doc-rot)** Refresh the stale `OverlayFixtureRow.parent_geometry_id` docstring in `overlays.py` ("always a hunting district in V1" → now also `gmu`); remove the stale CWD placeholder comment in `colorado/sources.yaml`; prefix the `ST_PointOnSurface` mention in the runbook's JSON `notes` string (or rephrase to prose) for runbook-discipline consistency.
+5. **(E06 decision, tracked)** Resolve Known Issue #6 (`_VALID_ROLE_FOR_E03` subset-gate vs CO no-hunt-zone path) before E06's binding-loader spec drafts; carry the `_STATE`/`CO_STATE_CODE` unification into E06's CO-loader cleanup.
 
 ---
 
-## Audit method (for reproducibility)
-
-- Static review against the epic file (`docs/planning/epics/E05-colorado-geometry-ingestion.md`), `git log --oneline -20`, directory listings (`ingestion/states/colorado/`, `ingestion/tests/`, `supabase/migrations/`, `docs/planning/epics/completed/`), and AC checkbox counts (`grep -c "^\- \[x\]"` / `"^\- \[ \]"`).
-- Per-story evidence drawn from the epic's `**Status:** Closed at-merge …` closure blocks (commit SHAs, PR numbers, LOC counts, quality-gate statements).
-- No source code modified. This audit report is the only artifact written.
-- This audit also covers its own production (S05.7 T3) — expected and matching how E02/E04 audited their final stories.
+*HuntReady · E05 audit · M2 — Colorado Ingestion · independent re-run 2026-06-06 · verdict: ships clean, 0 NOT MET, 0 blocking findings.*
