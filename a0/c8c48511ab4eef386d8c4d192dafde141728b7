@@ -1,0 +1,26 @@
+CLAUDE.md
+  s_b6b1c793a73350::t_c44c2af2068716 11
+docs/planning/README.md
+  s_b6b1c793a73350::t_cad1a363f3ce51 15
+  s_b6b1c793a73350::t_abb0929341544d 31-32
+  s_b6b1c793a73350::t_a19242dcbaffa0 58
+  s_b6b1c793a73350::t_d6f7bdb38e6a68 60
+  s_b6b1c793a73350::t_2b256560e74057 3
+  s_b6b1c793a73350::t_0638c14c8c0da1 129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "a0c8c48511ab4eef386d8c4d192dafde141728b7",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
