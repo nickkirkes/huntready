@@ -1,0 +1,21 @@
+CLAUDE.md
+  s_b6b1c793a73350::t_44c206f8d6677a 11
+docs/planning/README.md
+  s_b6b1c793a73350::t_44c206f8d6677a 58,129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "ce6049b331d5c2e19b57a85722a790cca4a59aea",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
