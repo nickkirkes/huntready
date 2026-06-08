@@ -1,0 +1,19 @@
+docs/planning/epics/completed/E05-audit.md
+  s_f3023751e856d6::t_6cf2786f42a1b0 82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.3",
+  "base_commit_sha": "5560f24da32b0060a9a5d84ebb9991d520811075",
+  "prompts": {},
+  "sessions": {
+    "s_f3023751e856d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a060593c-af0a-490c-9995-9d08898512c6",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
