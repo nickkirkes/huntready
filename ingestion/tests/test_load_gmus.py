@@ -280,6 +280,47 @@ class TestFeatureToGeometry:
         geom = self._call(feature)
         assert geom.state == "US-CO"
 
+    def test_missing_properties_key_raises_colorado_error(self) -> None:
+        """A feature lacking a 'properties' key must raise ColoradoGeometryError,
+        not a bare KeyError (fail-loud contract; mirrors load_restricted_areas)."""
+        feature = {"type": "Feature", "geometry": _SQUARE_POLYGON}
+        with pytest.raises(ColoradoGeometryError) as exc_info:
+            self._call(feature)
+        assert "properties" in str(exc_info.value)
+
+    def test_null_properties_raises_colorado_error(self) -> None:
+        """GeoJSON permits 'properties': null; a non-dict properties value must
+        raise ColoradoGeometryError, not a bare AttributeError."""
+        feature = {"type": "Feature", "geometry": _SQUARE_POLYGON, "properties": None}
+        with pytest.raises(ColoradoGeometryError) as exc_info:
+            self._call(feature)
+        assert "properties" in str(exc_info.value)
+
+    def test_edit_input_date_logged_at_info_not_persisted(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """AC #235: EDIT_DATE/INPUT_DATE are emitted at INFO for forensics but
+        NEVER persisted to the geometry row (SourceCitation is frozen,
+        extra='forbid')."""
+        props = {
+            "GMUID": 201,
+            "OBJECTID": 1,
+            "EDIT_DATE": "2026-04-09",
+            "INPUT_DATE": "2025-01-15",
+        }
+        feature = {"type": "Feature", "geometry": _SQUARE_POLYGON, "properties": props}
+        with caplog.at_level(logging.INFO, logger="test"):
+            geom = self._call(feature)
+        # INFO line emitted carrying both provenance values…
+        assert any(
+            "2026-04-09" in r.message and "2025-01-15" in r.message
+            for r in caplog.records
+        )
+        # …but neither value is persisted to the source jsonb.
+        serialized = str(geom.source.model_dump())
+        assert "2026-04-09" not in serialized
+        assert "2025-01-15" not in serialized
+
 
 # ---------------------------------------------------------------------------
 # TestDuplicateIds

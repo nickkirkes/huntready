@@ -8,10 +8,11 @@
 # title + base URL + document_type). Update `note` after a known-good first
 # fetch if attribute schema changes.
 #
-# Additional CPW layers (CWD zones at S05.3, restricted areas at S05.4)
-# are added to this file as their discovery investigations close. The
-# `pdfs:` top-level key is reserved for future CPW PDFs (e.g., Big Game
-# brochure if S05.4 falls back to PDF hand-trace per its Path 3 fallback).
+# Discovery outcomes: S05.3 found NO CWD-zone GIS layer (CPW manages CWD by
+# hunt code/GMU — documented gap, no entry added; see cwd-source-discovery.md).
+# S05.4 added the USGS PAD-US restricted-area entry below. A `pdfs:` top-level
+# key remains reserved for future CPW PDFs (e.g., the Big Game brochure that
+# would supply restricted-area verbatim_rule text in a later story).
 #
 # Service URL conventions:
 #   - `service_url` is the FeatureServer base, WITHOUT the layer-id suffix.

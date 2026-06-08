@@ -209,12 +209,11 @@ def main(argv: list[str] | None = None) -> int:
             "Verifies SHA-256 of the source before writing — fails loud on mismatch."
         )
     )
-    parser.add_argument(
-        "--service-url",
-        default=STATE_BOUNDARY_URL,
-        help="Override the MSDI Framework query URL (for testing).",
-    )
-    args = parser.parse_args(argv)
+    # No --service-url override: the SourceCitation is built from the pinned
+    # STATE_BOUNDARY_URL constant, so allowing the fetch URL to diverge would
+    # produce a citation that lies about provenance (S05.0 cubic-fix precedent;
+    # S05.0 audit hygiene item). parse_args still validates argv / handles --help.
+    parser.parse_args(argv)
 
     logging.basicConfig(
         level=logging.INFO,
@@ -222,8 +221,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     logger = logging.getLogger(__name__)
 
-    logger.info("fetching Montana state boundary from %s", args.service_url)
-    payload = _fetch_source_bytes(args.service_url)
+    logger.info("fetching Montana state boundary from %s", STATE_BOUNDARY_URL)
+    payload = _fetch_source_bytes(STATE_BOUNDARY_URL)
 
     logger.info("verifying SHA-256 against pinned value")
     observed_sha = _verify_sha256(payload, STATE_BOUNDARY_SHA256)

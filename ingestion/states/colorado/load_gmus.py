@@ -146,10 +146,16 @@ def _feature_to_geometry(
 ) -> Geometry:
     """Convert one GeoJSON feature into a Geometry instance.
 
-    Raises ColoradoGeometryError if the GMUID field is missing or the geometry
-    cannot be coerced to MultiPolygon.
+    Raises ColoradoGeometryError if 'properties' is missing/non-dict, the GMUID
+    field is missing, or the geometry cannot be coerced to MultiPolygon.
     """
-    props = feature["properties"]
+    props = feature.get("properties") if isinstance(feature, dict) else None
+    if not isinstance(props, dict):
+        raise ColoradoGeometryError(
+            f"feature has missing or non-dict 'properties' "
+            f"(got {type(props).__name__}); "
+            f"feature keys={sorted(feature) if isinstance(feature, dict) else type(feature).__name__}"
+        )
     gmuid = _extract_gmuid(props, layer_metadata)
 
     try:
