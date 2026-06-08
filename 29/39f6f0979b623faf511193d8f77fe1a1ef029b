@@ -1,0 +1,25 @@
+docs/planning/README.md
+  s_b6b1c793a73350::t_540204a81f8881 68
+  s_b6b1c793a73350::t_85aed97d6ca02e 3
+  s_b6b1c793a73350::t_2a8e7ee60ca08d 32
+CLAUDE.md
+  s_b6b1c793a73350::t_ab169a0ade37a5 11
+docs/planning/epics/E06-colorado-regulation-text-ingestion.md
+  s_b6b1c793a73350::t_63b9fd0b9c8e2e 845
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "2939f6f0979b623faf511193d8f77fe1a1ef029b",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
