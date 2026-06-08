@@ -1,0 +1,859 @@
+# E06: Colorado Regulation Text Ingestion
+
+**Status:** Not Started
+**Milestone:** M2 — Colorado Ingestion
+**Dependencies:** E04 (M1 carry-forward + CO schema prep), E05 (CO geometry ingestion — all 9 stories closed + audited 2026-06-06; epic at [`completed/E05-colorado-geometry-ingestion.md`](completed/E05-colorado-geometry-ingestion.md))
+**Validated:** 2026-06-08 (E06 validation triad: Source Faithfulness + Draw-Mechanics & Confidence + Schema Stress-Test & Drift-Guard; verdicts LAND-WITH-MINOR-EDITS + LAND-WITH-EDITS + LAND-WITH-MINOR-EDITS; **all 11 MUST-FIX findings applied at draft time** — broken ADR-020 link sweep [5 occurrences]; S06.0 Last-Modified/Content-Length header capture + cover-page confirmation + multi-source option (a)/(c) consequence chains + conditional 6th `db.update_geometry_verbatim` decision + schema-gap enum-extension precision; S06.1 `pending: true` drift-marker semantics; S06.3/S06.4/S06.5 ADR-008 paraphrase-prohibition + no-`layout=True` AST guard + docstring grep-parity discipline; S06.4/S06.6/S06.9 `SourceCitation.document_type` silent-widening guard per ADR-019 §"Decision" item 5; S06.6 `_JURISDICTION_BINDING_ID_FORMAT` 3-test lock + statewide-anchor 3rd-candidate flag tighten + ADR-017 FINALIZE lock; S06.7 `drift_guard.assert_id_matches` every-build-function-site language + pure id-derivation function AC + Q16/Q17/closure-temporal-anchors pre-code flag protocols; S06.8 `successor_hunt_code_key` composite-key form + 20%/25% coupling rule + `application_deadline` location lock + `purchase_only_code` per-species string + `inactive_forfeit_years=null` + module-level `Final` constants for `_HYBRID_*` parameters + `draw_spec` composite-PK exclusion AC + Q17 per-GMU caps flag; S06.9 `assert_dispatch_dict_drift_free` module-top timing + pure `_derive_reporting_obligation_id` callable; S06.10 `drift_guard` NOT imported AC + AST guard + `%s`-bound distance lock + 4-builder portion code-path preservation. Plus the most load-bearing SHOULD-FIX items.)
+**Completed:** —
+**Estimated Stories:** 12 (S06.0 through S06.11; carve-outs added at sequencing slots per S03.6.1 precedent if surfaced mid-epic)
+**UAT Gating:** S06.3 / S06.4 (extraction faithfulness), S06.8 (draw_spec faithfulness against CPW publication), S06.11 (M2 milestone UAT). Most other stories are `UAT: no` — verification-gated against SQL counts deferred to S06.11. S06.5, S06.9 may flip to `UAT: yes` mid-epic if extraction surfaces faithfulness ambiguities.
+
+---
+
+## Objective
+
+E06 ingests all Colorado regulation text into Postgres so every V1 species (elk, mule deer, whitetail, pronghorn, black bear) has populated `regulation_record`, `season_definition`, `license_tag`, `license_season`, `draw_spec`, `reporting_obligation`, and `jurisdiction_binding` rows for every applicable CO GMU. CPW's preference-point hybrid draw is modeled in `draw_spec` using the schema verified by [`docs/research/colorado-draw-schema-proposal.md`](../../research/colorado-draw-schema-proposal.md) — no state-specific shared-code branches. Verbatim discipline per ADR-001 / ADR-008; confidence calibration per ADR-017 (FINALIZE, unmodified — CO inherits the framework); ADR-019 doc-type precedence for any CPW multi-source merge; ADR-020 `drift_guard` mandatory on the appropriate UPSERT helpers.
+
+E06 is the third and final M2 epic. It is the most variable epic in the milestone — Q12 / Q16 / Q17 / Q18 may all resolve here, and the M2 PM expects to revise mid-epic if real CPW data forces re-thinking (mirroring E03's S03.3 / S03.4 / S03.5 closure cycles). The PM surfaces every trigger condition to the human as a flag-and-discuss event; the PM does not silently decide and does not draft ADRs autonomously.
+
+---
+
+## Architectural commitments inherited from M1, E04, E05, and the 21 accepted ADRs
+
+| Commitment | Source | Implication for E06 |
+|---|---|---|
+| Verbatim regulation text — no paraphrase, no summarization | [ADR-001](../adrs/ADR-001-authority-preserved.md), [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md) | Every `regulation_record.additional_rules` entry + every `season_definition.verbatim_rule` + every `license_tag.verbatim_rule` + every `reporting_obligation.verbatim_rule` is verbatim per pdfplumber word-grouping boundary clarified in S03.2. No `layout=True` regressions. |
+| Decomposed entity model | [ADR-010](../adrs/ADR-010-decomposed-entity-model.md) | Six entities populated, not three. Cross-shared license/season entities possible (CO B-license-equivalents if CPW publishes them); link tables `license_season` + `regulation_season` + `regulation_license` + `regulation_reporting` carry the join semantics. |
+| Schema versioned from day one + three-place sync | [ADR-006](../adrs/ADR-006-schema-versioned-from-day-one.md), [ADR-018](../adrs/ADR-018-e03-schema-additions.md) | Any schema revision during E06 ships DDL + Pydantic + TypeScript in the same PR. New migration includes deny-all RLS inline (the `license_season` lesson). |
+| Source citation discipline | [ADR-014](../adrs/ADR-014-source-citation-gis-layer-document-type.md), [ADR-019](../adrs/ADR-019-doc-type-precedence-multi-source-merge.md) | Every `regulation_record` has populated `source` with `document_type` ∈ `{annual_regulations, rule_change, emergency_order, correction, gis_layer}`. Multi-source merges follow `correction > annual_regulations` ranking; new doc-types (e.g., `emergency_order`) fail loud and require ADR-019 amendment before they may participate. |
+| Confidence calibration FINALIZE | [ADR-017](../adrs/ADR-017-confidence-calibration.md) | Framework unchanged from S03.11 verdict. `low`-tier rows that V1 MT didn't have are normal and not a framework signal. Correction-touched rows demote one tier (ADR-017 §4) — single demote per row regardless of count of corrections. |
+| Derive-and-assert drift-guard | [ADR-020](../adrs/ADR-020-id-text-pk-slug-derivation.md) | **Mandatory:** `assert_id_matches` in CO `season_definition` and `license_tag` build functions (S06.6 + S06.7); `assert_dispatch_dict_drift_free` at module-load on the CO `reporting_obligation` dispatch dict (S06.9). **Carve-out preserved:** `db.upsert_jurisdiction_binding` is NOT instrumented (the helper already excludes identity fields from UPDATE — schema-level exclusion is strictly stronger). Link-table builders NOT instrumented (M1 regression-guard AST test enforces). |
+| `role='no_hunt_zone'` enum | [ADR-021](../adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md) (Accepted via S05.3.5) | E06's S06.10 binding-loader writes `role='no_hunt_zone'` directly for the 10 S05.4 federal no-hunt-zone geometry rows. No `other_overlay` fallback; no ADR-pause. DDL CHECK constraint permits the value. |
+| State-adapter isolation | [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md) | All CO-specific code in `ingestion/states/colorado/`. Zero `ingestion/ingestion/lib/` edits unless extending a state-agnostic primitive (S05.5 set the precedent for this; same pattern applies if E06 surfaces a CPW-only pdfplumber idiom). `TestNoLibImports` / `TestNoColoradoLeakIntoSharedLib` AST guards stay green. |
+| Cross-state spatial discipline | Handoff §8 #5; M1 S03.10 pattern | Every E06 SQL query that scopes to GMUs carries an explicit `state = 'US-CO'` filter (param-bound). The S05.6 scaffold at [`ingestion/states/colorado/load_jurisdiction_bindings.py`](../../../ingestion/states/colorado/load_jurisdiction_bindings.py) pre-ships `_STATE: Final[str] = "US-CO"` + `_QUERY_NEARBY_GMUS_FOR_ZONE_SQL` for S06.10 to import + extend. Cross-state pollution regression test `test_co_binding_loader_sql_filters_by_state_co_pollution_guard` passes in CI; PRD 002 success criterion #4 verifies the discipline. |
+| `parameters` jsonb escape hatch | [ADR-012](../adrs/ADR-012-draw-mechanics-sibling-entity.md) | `draw_spec.parameters` is a CO-adapter-only escape hatch. Shared code never reads it. Every CO `draw_spec` ships `parameters=null` until a CPW quirk genuinely requires it; every candidate is a flag-and-discuss event per R2 mitigation. |
+| Test-suite regression posture | Handoff §8 #8; R8 | Additive tests only. M1 + E05 baseline at **1346 + 2 skipped** (post-PR #63 hygiene fixes); E06 grows the baseline without subtracting. Any Montana-test edit is a flag-and-discuss event. |
+| Recurring-RLS-gap discipline | M2 open question (E04 §"Known Issues to Escalate" #1) | If E06 adds any new `public.*` table (e.g., via Q18 resolution), the migration includes its own deny-all RLS inline + RLS verification queries follow the M1 UAT canonical pattern. RLS gap persists for any future M2/M3 work that adds tables. |
+
+### "Flag" operational definition (used throughout)
+
+Per [`docs/planning/epics/completed/E03-deferred-items/README.md`](completed/E03-deferred-items/README.md), an E06 implementer who "flags" a finding **must** do all four:
+
+1. Append a structured artifact entry to the relevant file under `docs/planning/epics/completed/E03-deferred-items/<topic>.md` (durable) OR to the active story's working note under `docs/planning/epics/E06-confidence-findings/<story>.md` (calibration; deletes at `m2` tag).
+2. Emit a `_LOGGER.warning(...)` at ingest with row id + source span + matched pattern.
+3. Once a second entry lands in any deferred-items file, add a one-line pointer in [`docs/open-questions.md`](../open-questions.md) (the 2+-entries trigger).
+4. Surface flagged counts in the run summary (e.g., `TOTAL: NNN bindings; FLAGGED: M deferrals`) and list them by category in the PR description.
+
+Flags are never silently dropped, special-cased, or committed without PM consolidation. The PM consolidates and authors any new open-questions entry after review.
+
+---
+
+## Inputs from E05
+
+| Artifact | Source | Use |
+|---|---|---|
+| CO GMU geometry rows | S05.2 production write (~186 polygons, `kind='gmu'`, ids `CO-GMU-{GMUID}-geom`) | S06.10 binding loader FKs to these from `jurisdiction_binding.geometry_id`. Group B operator-pending write is the hard precondition. |
+| CO statewide geometry | S05.0 production write (`CO-STATEWIDE-geom`, `kind='state'`) | S06.6 statewide-anchor `regulation_record` rows (CO analog of `MT-STATEWIDE-bear` / `MT-STATEWIDE-antelope`) bind to this. |
+| CO federal no-hunt zones (10) | S05.4 production write (`kind='restricted_area'`, ids `CO-restricted-{slug}-geom`, `verbatim_rule=None`) | S06.10 binding loader writes `role='no_hunt_zone'` per ADR-021. S06.5 OR S06.10 (PM-decided at story open) populates `verbatim_rule` via `UPDATE geometry SET verbatim_rule = ... WHERE id = …` once CPW Big Game brochure URL is resolved. |
+| `geometry-overlays.json` fixture + `geometry-overlays-dropped.json` audit log | S05.5 Group B operator-pending generation | S06.10 binding loader reads the kept fixture as `geometry-overlays.json × regulation_record` cross product (mirrors S03.10's MT pattern). |
+| `EXPECTED_CO_RA_ORPHAN_IDS` frozenset (10 ids) | S05.5 `build_overlay_fixture.py` constant | S06.10 binding loader's no-hunt-zone-nearby-binding logic uses this allowlist to identify the 10 orphans that get the `_QUERY_NEARBY_GMUS_FOR_ZONE_SQL` "nearby" treatment. |
+| `_STATE` + `_NO_HUNT_ZONE_NEARBY_DISTANCE_M` + `_QUERY_NEARBY_GMUS_FOR_ZONE_SQL` + `query_nearby_gmus_for_zone()` reference function | S05.6 scaffold at `ingestion/states/colorado/load_jurisdiction_bindings.py` | S06.10 binding loader imports these directly (the scaffold has no `main()` yet — S06.10 adds it). Distance is `%s`-bound to the named constant per the S05.6 Stage-6 Critical fix; recalibration in E06 flows via the constant. |
+| `spatial-test-points.json` | S05.7 Group B operator-pending generation via `extensions.ST_PointOnSurface` | Available for S06.10 regression/UAT spot-checks if needed (not a hard dependency). |
+| `multipart-gmus.json` analytics fixture | S05.2 Group B operator-pending fixture | Available for S06.10 multi-part GMU verification (not a hard dependency). |
+
+**Operator Group B precondition.** S05.0 + S05.2 + S05.3.5 + S05.4 + S05.5 + S05.7 Group B writes remain outstanding at E06 plan time. **S06.6 onward cannot execute against live state until the operator runs:** `supabase db push` (S05.3.5 migration) → `load_state_boundary` (S05.0) → `load_gmus` (S05.2) → `load_restricted_areas` (S05.4) → `build_overlay_fixture` (S05.5) → generate `spatial-test-points.json` (S05.7). Once captured, PM ticks Group B ACs in follow-up doc-only commits. **E06 implementation can begin against dry-run state for S06.0 through S06.5** (PDF fetch + extraction + schema prep are decoupled from CO geometry rows); S06.6 onward requires live state.
+
+---
+
+## Working artifacts and deferred items
+
+| Directory | Retention | Use |
+|---|---|---|
+| `docs/planning/epics/E06-confidence-findings/` | Deletes at `m2` tag per ADR-017 §6 | Per-story closure notes (working scratch), Group B verification records, UAT capture, calibration spot-checks. PM creates per story as it closes. The durable synthesis (if any) migrates to a M2-level synthesis report outside this dir at milestone close — analog of M1's `E03-confidence-calibration-synthesis.md` (which survived `m1` because it lives outside `E03-confidence-findings/`). |
+| `docs/planning/epics/completed/E03-deferred-items/` | Survives past `m2` | New entries land here per the 4-step flag protocol when an E06 finding extends one of the four existing files (`draw-mechanics.md`, `cwd-sampling-modeling.md`, `closure-temporal-anchors.md`, `README.md` protocol). PM may also flag a brand-new deferral file here only after the human approves the topic and naming. |
+
+---
+
+## Stories
+
+### S06.0: Pre-E06 decisions + schema-prep gate
+
+**Status:** Not Started
+
+**As a** developer entering E06
+**I want** the human-decided answers to the pre-registered decisions captured below, plus any pre-CO-data schema gaps closed by a new timestamped migration, before story-spec drafting for S06.1+ begins
+**So that** E06's story specs reference firm decisions and the schema is ready for the regulation-text adapters
+
+**UAT: no** (verification-gated against the 5 decision items + the schema-gap read-through)
+
+**Context:**
+
+S05.4 + S05.5 + S05.6 surfaced 5 pre-registered decisions that the PM cannot resolve autonomously. Each requires a human decision before the downstream story spec drafts. The PM drafts a decision memo per item and surfaces all 5 to the human in one flag-and-discuss session at S06.0 open; the human's answers go into the relevant story specs as locked constraints.
+
+This story also re-reads PRD 002 + the M2 PM prompt for any pre-CO-data schema gaps surfaced by the architecture-vs-CO-data delta. If a gap exists (analog of S04.6 if-it-had-fired), S06.0 ships a new timestamped migration with three-place sync (Python + TS + DDL) + inline deny-all RLS in the same PR. If no gap exists, S06.0 documents the read-through in the closure note and ships no migration.
+
+**Pre-registered decisions (5):**
+
+1. **Q18 license-keyed disposition** — E05 S05.3 empirically confirmed CO publishes no CWD-zone geometry (license/hunt-code-keyed model). PM recommendation surfaced at S05.3 closure: retain Q18's V1 license-keyed disposition (option (c) — 0 typed CWD `reporting_obligation` rows; text in `regulation_record.additional_rules`). **E06's final call is required BEFORE S06.9 spec drafts.** If the human selects (a) zone-keyed or (b) license-keyed-as-typed-rows, S06.9's spec changes materially.
+2. **Known Issue #6 — `_VALID_ROLE_FOR_E03` subset gate for CO no-hunt zones** (per [E05 epic Known Issues item #6](completed/E05-colorado-geometry-ingestion.md)). MT's `_VALID_ROLE_FOR_E03` frozenset deliberately does NOT carry `no_hunt_zone` — it gates only overlay-**fixture** child rows. E06's CO binding-loader (S06.10) must decide whether CO no-hunt zones flow through the overlay-fixture path with `role_for_e03='no_hunt_zone'` (requires the gate widened) or a separate hardcoded path (gate stays narrow; mirrors MT's `_build_no_hunt_zone_bindings`). **Decision required BEFORE S06.10 spec drafts.**
+3. **`_STATE` vs `CO_STATE_CODE` naming unification** — the S05.6 scaffold introduces `_STATE = "US-CO"` to mirror MT's binding-loader convention; the 4 existing CO loaders (S05.0/S05.2/S05.4/S05.5 + `build_overlay_fixture.py`) use `CO_STATE_CODE = "US-CO"`. **E06 picks one and migrates** — surface to human at S06.0 open. If `_STATE` wins (E06 PM recommendation: yes, matches MT precedent), the unification ships as a small follow-up edit alongside S06.10. If `CO_STATE_CODE` wins, the S05.6 scaffold gets renamed alongside S06.10.
+4. **CPW Big Game brochure URL is a hard precondition for S06.1** — all four candidate URLs returned 404 on 2026-06-03 per `docs/research/colorado-restricted-areas-evaluation.md`. The operator must resolve the canonical 2026 brochure URL (the brochure is the primary source for E06 regulation_record text AND the deferred `verbatim_rule` population for the 10 S05.4 no-hunt-zone geometry rows). **PM cannot guess the URL**; surface this as the first item in the S06.0 decision memo and pause S06.1 until URL HEAD-verified live.
+5. **Single-source-field provenance for the 10 S05.4 no-hunt zones** — the `geometry.source` field on those rows is currently the PAD-US citation (`co-usgs-padus-arcgis-Federal_Fee_Managers_Authoritative_PADUS-0-2026`, `document_type='gis_layer'`). When E06 populates `verbatim_rule` from the CPW Big Game brochure, the regulatory authority for the prohibition is CPW (`document_type='annual_regulations'`) — the geometry provenance is PAD-US. **Single-field on `geometry` forces a choice:** (a) UPDATE `source` to the CPW brochure citation when `verbatim_rule` populates (geometry provenance lost from `source` field); (b) accept split-provenance with PAD-US winning the `source` field; (c) ADR + migration adding a multi-source provenance field. The research doc flagged this as unresolved; PM surfaces to human as a third candidate trigger for the multi-source-geometry-provenance Q (PRD 002 § "Open decisions resolved during M2"). **Decision required BEFORE S06.5 spec drafts.**
+
+**Schema-gap read-through:**
+
+Re-read PRD 002 §"Decisions already made" + §"Open decisions resolved during M2" + the architecture.md data model + the [`colorado-draw-schema-proposal.md`](../../research/colorado-draw-schema-proposal.md) for any pre-CO-data schema gap that would block S06.6 → S06.10. Candidate gaps to evaluate (none expected to fire; record the read-through in the closure note either way):
+
+- `PointSystem.kind` enum is currently 3 values (`preference_linear | bonus_squared | bonus_weighted`); **CO V1 ships every `draw_spec.point_system.kind = 'preference_linear'` per `colorado-draw-schema-proposal.md` §6**. The enum is read-only for E06 — any candidate to add a 4th value is a flag-and-discuss event requiring ADR + three-place sync + a new migration; the PM does NOT adopt silently
+- `AllocationPool.selection` enum is currently 4 values (`rank_ordered_by_points | unweighted_random | squared_weighted_random | linear_weighted_random`); **CO V1 ships only `rank_ordered_by_points` + `unweighted_random`** (the 80/20 hybrid + non-hybrid 100/0 single-pool shapes per the proposal §1); `linear_weighted_random` is reserved for V2 moose/sheep/goat per the proposal §8 #5 (out of V1 species scope). Any 5th value is a flag-and-discuss event requiring ADR
+- `ReportingObligation.kind` enum is currently 6 values (`harvest_report | mandatory_check | tooth_submission | hide_skull_presentation | cwd_sample | other`); any new value is flag-and-discuss before adopting (per S06.9 ADR-required-amendment discipline)
+- `SourceCitation.document_type` enum is currently 5 values (`annual_regulations | rule_change | emergency_order | correction | gis_layer`); **two flag-and-discuss surfaces apply**: (a) literal extension (rare; new `document_type` value), (b) ADR-019 rank extension (more likely; existing value newly participates in a regulation-text merge — `rule_change` / `emergency_order` / `gis_layer` cases per ADR-019 §"Decision" item 5). Either case requires ADR-019 amendment before participation
+- `ClosurePredicate` needs `effective_after: date | None` (the `closure-temporal-anchors.md` ADR-candidate; trigger condition: CO closure conditional on BOTH a quota threshold AND a calendar gate)
+- New `public.*` table for the Q18 outcome if the human picks option (a) or (b) over (c)
+- `draw_spec` needs new structured fields per the Q12 outcome if a CPW quirk genuinely requires `parameters` use
+
+If any gap fires, S06.0 ships a coupled-PR migration; otherwise S06.0 is decision-memo + closure-note only.
+
+**Deliverables:**
+
+- `docs/planning/epics/E06-confidence-findings/S06.0.md` — decision memo with the 5 pre-registered items, human answers captured verbatim, schema-gap read-through results, and any migration plan
+- (Conditional) `supabase/migrations/<timestamp>_e06_schema_additions.sql` if a schema gap fires
+- (Conditional) Pydantic + TypeScript edits in the same PR if a migration ships
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md), [ADR-006](../adrs/ADR-006-schema-versioned-from-day-one.md), [ADR-017](../adrs/ADR-017-confidence-calibration.md), [ADR-018](../adrs/ADR-018-e03-schema-additions.md), [ADR-019](../adrs/ADR-019-doc-type-precedence-multi-source-merge.md), [ADR-020](../adrs/ADR-020-id-text-pk-slug-derivation.md), [ADR-021](../adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md).
+
+**Depends on:** E05 audit closure (✅ 2026-06-06). **Operator Group B writes from E05 are NOT a precondition for S06.0** — decisions + schema-prep are dry-run-decoupled.
+
+**Unblocks:** S06.1 (CPW Big Game brochure URL resolved; resolves the S06.1 hard precondition), S06.5 (multi-source provenance for the 10 no-hunt zones decided), S06.9 (Q18 disposition decided), S06.10 (`_VALID_ROLE_FOR_E03` decision + `_STATE`/`CO_STATE_CODE` naming decided).
+
+**Acceptance Criteria:**
+
+- [ ] `docs/planning/epics/E06-confidence-findings/S06.0.md` exists with the 6 pre-registered decisions captured verbatim from the human's response
+- [ ] CPW Big Game brochure 2026 URL resolved + HEAD-verified live (Content-Type: `application/pdf`, 200 response, **`Last-Modified` and `Content-Length` headers captured verbatim**) by the operator; URL + headers captured in S06.0.md; S06.1's first fetch compares actual response headers against the captured baseline and surfaces drift loudly before pinning `publication_date`
+- [ ] CPW Big Game brochure 2026 URL points to the **2026 brochure specifically** (not 2025, not a generic CPW publication): operator opens the PDF and confirms the cover page reads "2026" (or carries explicit 2026 regulatory-year text); confirmation captured in S06.0.md alongside the URL (per the S03.3 lesson: confirm cadence by reading the PDF, not the URL)
+- [ ] Q18 disposition recorded: license-keyed option (c) confirmed OR option (a)/(b) chosen with rationale; S06.9 spec implications noted
+- [ ] Known Issue #6 decision recorded: subset-gate vs hardcoded path for CO no-hunt zones; S06.10 spec implications noted
+- [ ] `_STATE` vs `CO_STATE_CODE` decision recorded with migration plan named
+- [ ] Multi-source provenance decision recorded for the 10 S05.4 no-hunt-zone geometry rows; **if option (a) [UPDATE `source` to CPW] is chosen, the decision memo names every downstream consumer of `geometry.source.document_type` that would observe the `gis_layer` → `annual_regulations` transition** (grep `geometry.source.document_type` across `mcp-server/` + `web/` + `ingestion/`) and documents the semantic-drift consequence; **if option (c) [new multi-source provenance field] is chosen, ADR drafted + Pydantic `Geometry` model amended + TypeScript `Geometry` type amended + `architecture.md` § Schema types updated, all in the same PR as the migration** (three-place sync per ADR-006); S06.5 spec implications noted
+- [ ] **Conditional 6th decision** — fail-loud `db.update_geometry_verbatim` helper for S06.5's targeted UPDATE: decision recorded (add new `db.py` helper analog of `update_legal_description` vs in-script UPDATE); if helper added, fail-loud on `cur.rowcount == 0` (matches post-S03.6 pattern)
+- [ ] Schema-gap read-through completed and documented; if no gap: closure note records "no schema additions"; if gap: timestamped migration + inline RLS shipped in same PR
+- [ ] **If schema-gap fires:** three-place sync verified — every new DDL value/column/type appears in `ingestion/ingestion/lib/schema.py` Pydantic dataclasses + `mcp-server/src/types/schema.ts` TypeScript types + `docs/architecture.md` § Schema types in the same PR (verified by grep across all three; mirrors S03.0 / S05.3.5 precedent); RLS verification queries (`pg_policies` + `information_schema.table_privileges`) executed against the migration target table
+- [ ] Test baseline unchanged (1346 + 2 skipped) if no migration ships; if migration ships, additive tests only; no regressions
+- [ ] No production-DB writes from the build session (S06.0 is decision-memo + optional schema migration only; live `supabase db push` is operator-driven)
+
+---
+
+### S06.1: CPW PDF fetch infrastructure + CO sources.yaml `pdfs:` section
+
+**Status:** Not Started
+
+**As a** developer preparing to extract CPW regulation text
+**I want** CPW PDF fetch infrastructure operational, with HEAD-verified URLs pinned in `sources.yaml`, SHA-256-anchored fixtures, drift-detection markers, and per-PDF manifests
+**So that** S06.3 / S06.4 / S06.5 extraction stories execute against pinned source artifacts with operator-confirmable provenance
+
+**UAT: no** (verification-gated against URL HEAD checks + manifest commits)
+
+**Context:**
+
+Mirrors M1's S03.1 PDF fetch infrastructure pattern, reused at the shared-library level. The shared lib (`ingestion/ingestion/lib/pdf_fetch.py` and `pdf.py`) was built and locked at M1; CO inherits the same primitives. State-adapter code lives in `ingestion/states/colorado/`. Per M1's S03.1/S03.3 lesson, **pre-validated URLs do not survive contact with the live CDN**: every URL is HEAD-verified live before pinning, and a SHA-256 drift on re-fetch raises `PdfFetchError` and writes a `<id>-<publication_date>-pending-reextraction.flag` marker that S06.3/S06.4/S06.5 refuse to start against.
+
+S05.4 closure noted that the CPW Big Game brochure URL is unresolved (404 on all 4 candidate URLs as of 2026-06-03). **The URL is resolved as part of S06.0 and is hard-precondition for S06.1.** S06.1 does not start until S06.0 records the live-HEAD-verified URL.
+
+CO `sources.yaml` already has the `gis_layers:` section (S05.1) and a reserved comment for the `pdfs:` section. S06.1 adds the `pdfs:` section with entries for:
+
+- **CPW Big Game brochure 2026** (primary regulation text) — `document_type: annual_regulations`; `publication_date` set to the HTTP `Last-Modified` header (per M1's S03.1 pitfall — slug ≠ cadence; confirm by reading the PDF itself, not the URL)
+- **Any CPW species-specific supplements** (TBD — Black Bear may or may not be a separate brochure; structural-discovery happens at S06.1)
+- **Any 2026 correction PDFs** (analog of MT's 2026-03-18 black bear correction; ADR-019 doc-type-precedence applies if a correction exists; entries with `pending: true` if URL is TBD — S06.3/S06.4/S06.5 won't start until populated)
+
+**Deliverables:**
+
+- `ingestion/states/colorado/fetch_pdfs.py` (new, ~230 LOC, fail-loud aggregating orchestrator) — mirrors `ingestion/states/montana/fetch_pdfs.py` shape; reuses `ingestion/ingestion/lib/pdf_fetch.py:fetch_pdf` + `PdfMetadata` + `PdfFetchError`
+- `ingestion/states/colorado/sources.yaml` — extended with new `pdfs:` top-level key alongside the existing `gis_layers:`
+- Per-PDF manifests committed at first fetch (mirrors S05.0/S05.2/S05.4 manifest-commit pattern); raw PDFs gitignored at ~MB per source per the existing fetch-pdfs convention
+- Drift-marker policy reused as-is — SHA-256 drift on re-fetch raises `PdfFetchError` and writes a `<id>-<publication_date>-pending-reextraction.flag` marker
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md), [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md), [ADR-014](../adrs/ADR-014-source-citation-gis-layer-document-type.md), [ADR-019](../adrs/ADR-019-doc-type-precedence-multi-source-merge.md).
+
+**Depends on:** S06.0 (CPW Big Game brochure URL resolved + live-HEAD-verified).
+
+**Unblocks:** S06.2 (conditional pdfplumber extension), S06.3 (Big Game brochure extraction), S06.4 (Black Bear extraction if separate), S06.5 (no-hunt-zone `verbatim_rule` population).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/fetch_pdfs.py` exists, mirrors MT's `fetch_pdfs.py` shape, reuses shared-lib primitives without modification (zero `ingestion/ingestion/lib/pdf_fetch.py` edits; `TestNoColoradoLeakIntoSharedLib` stays green)
+- [ ] `ingestion/states/colorado/sources.yaml` `pdfs:` section added with the 2026 CPW Big Game brochure entry (URL HEAD-verified live, Content-Type: `application/pdf`, 200)
+- [ ] Any 2026 CPW species supplements OR correction PDFs discovered at S06.1 are entered with HEAD-verified URLs OR marked `pending: true` if URL is genuinely TBD
+- [ ] **`pending: true` entries** in `sources.yaml` have NO `expected_sha256` (deliberate — URL is unresolved); `fetch_pdfs.py` raises `PdfFetchError` if invoked against a `pending: true` entry, naming the source id and instructing the operator to populate the URL + first-fetch SHA before re-running; downstream stories S06.3 / S06.4 / S06.5 check for and refuse to start against any `pending: true` entry in their declared source set (regression test mirrors S03.1's drift-marker test)
+- [ ] The drift-marker policy ALSO fires on a transition from `pending: true` → resolved URL (the first-fetch manifest is committed in the same PR as the URL resolution; later fetches compare against the committed manifest per the standard SHA-256 pin contract)
+- [ ] Per-PDF manifests committed at first fetch (analog of S05.0/S05.2 manifest commits)
+- [ ] `expected_sha256` in `sources.yaml` per non-`pending` entry; runtime SHA-256 mismatch raises `PdfFetchError` (regression test mirrors S03.1)
+- [ ] Drift-marker creation behavior verified via unit test (mirrors S03.1's marker test)
+- [ ] Test baseline grows additively only; new tests in `ingestion/tests/test_fetch_co_pdfs.py` (new file) or `test_pdf_fetch.py` adapter-extension class
+- [ ] No `ingestion/ingestion/lib/` edits; AST CO-leak guard test passes
+
+---
+
+### S06.2 (conditional): pdfplumber primitives extension
+
+**Status:** Not Started; **may be omitted if no CPW-specific table shape requires a primitive extension** (PM expectation per M2 PM prompt line 198)
+
+**As a** developer extending state-agnostic PDF extraction primitives
+**I want** any CPW-specific table shape M1's pdfplumber primitives don't already handle to be supported by extending `ingestion/ingestion/lib/pdf.py`
+**So that** S06.3 / S06.4 extraction adapters consume shared primitives, not state-specific extraction code in `ingestion/ingestion/lib/`
+
+**UAT: no**
+
+**Context:**
+
+Most CO extraction is expected to reuse M1's primitives (`PdfDocument`, `open_pdf`, `iter_pages`, `extract_text`, `extract_tables`, `find_section`, `PageReference` + `page_reference_to_str` + `ConfidenceTier` + `min_tier` + `demote_one_tier` + `PdfExtractionError`) as-is. The library has 8 pitfalls accumulated against `pdfplumber` 0.11.x: column-collapse vs. byte-exact text; `find_tables()` not `extract_tables()` for bbox; lexicographic-trap on raw tier strings; `-` as universal absence sentinel; merged-cell carry-forward via `None`; one-table-per-page-not-per-HD; FWP three-column layout; rotated chapter sidebars + multi-page headings.
+
+**Trigger condition for S06.2 to ship:** the S06.3 implementer (during Stage-1 discovery against the live PDF) finds a CPW table shape that doesn't fit the M1 primitives' contract. Examples of triggers: a CPW table cell uses a non-`-` absence sentinel; a CPW page uses 4-column layout instead of 3; CPW carries species fan-out via a column not a row.
+
+If no trigger fires, S06.2 is omitted entirely (story header removed mid-epic; closure note records "no primitive extension needed; M1 primitives sufficient"). If a trigger fires, S06.2 ships as a state-agnostic-clean extension with `TestNoColoradoLeakIntoSharedLib` (S05.1's CO-isolation guard) staying green and 1+ unit test in `ingestion/tests/test_pdf.py` per new primitive.
+
+**Acceptance Criteria (only if S06.2 ships):**
+
+- [ ] Extension to `ingestion/ingestion/lib/pdf.py` is state-agnostic-clean (no CO-specific strings, no CPW-specific URLs, no CO-state-code constants); `TestNoColoradoLeakIntoSharedLib` stays green
+- [ ] New primitive has 1+ unit test in `ingestion/tests/test_pdf.py`; lexicographic-trap-style regression test if applicable
+- [ ] Module docstring at `pdf.py` documents the new primitive + cleanup rule scope
+- [ ] No regression to M1's 8 existing pitfalls; M1 test count grows additively
+
+**If omitted:** closure note in `docs/planning/epics/E06-confidence-findings/S06.2.md` records "M1 pdfplumber primitives sufficient; no CPW-specific extension needed at S06.3 discovery time."
+
+---
+
+### S06.3: CPW Big Game brochure extraction (deer + elk + pronghorn)
+
+**Status:** Not Started
+
+**As a** developer extracting CPW Big Game brochure regulation data
+**I want** every applicable CO GMU's per-species regulation rows extracted into a deterministic JSON artifact with verbatim text + section context + confidence per ADR-017
+**So that** S06.6 / S06.7 / S06.8 ingestion stories consume a structured artifact, not raw PDFs
+
+**UAT: yes** — faithfulness review against the source PDF; mirrors M1's S03.3 DEA UAT pattern. PM-run UAT spot-check against ≥4 representative GMUs across the 3 species (deer / elk / pronghorn) before close.
+
+**Context:**
+
+CPW Big Game brochure is the primary source. CPW publishes structured per-GMU regulation tables analogous to MT's DEA booklet (S03.3). The exact table structure is TBD at S06.3 entry — Stage-1 discovery against the live PDF will surface: how species are partitioned (one section per species vs. unified table); how GMU codes are coded (CPW uses numeric GMU IDs; check whether GMU range syntax appears); whether per-GMU sections carry per-row apply-by / quota / weapon-type / season-window columns; whether antelope (pronghorn) has a STATEWIDE-equivalent row analog of MT's `900-20`.
+
+**The S03.3 lesson is load-bearing: do not trust the spec's research notes against the live PDF.** Stage-1 discovery against the actual 2026 brochure surfaces all per-PDF reality. The implementer should expect ≥3 deviations from any pre-spec research notes (S03.3 had 9 real-PDF discoveries baked into the implementation; some PRs are larger than expected because real-PDF reality only surfaces at extraction time).
+
+**Cleanup rules** (mirrors S03.3 module-docstring pattern; the implementer documents each rule with regex + scope + rationale + locking test name):
+
+1. `-` as universal absence sentinel — null-out `-` in apply_by / quota_range / extras
+2. Merged-cell `None` carry-forward for license codes (S03.3 pattern) IF CPW uses the same convention; document deviation otherwise
+3. Multi-page section continuation suffix handling (S03.3 ` - Continued` pattern; check for CPW equivalent)
+4. Whitespace collapse rule for extras-text only (S03.3 `re.sub(r"\s+", " ", ...)` per row at write-site)
+5. ANY ADDITIONAL CPW-specific cleanup rule discovered mid-implementation lands as a 5th+ rule in the module docstring; AC #547 strict-parity discipline applies
+
+**Output artifact:**
+
+- `ingestion/states/colorado/extracted/big-game-2026.json` — list of `CpwSectionExtraction` (or species-specific structure surfaced at Stage-1; CO will likely use a sibling artifact split per species if CPW publishes them that way)
+- Per-row schema: species, gmu_number, license_code, apply_by, quota, quota_range, weapon_types, residency, season_windows (1 row per row, NOT 1 row per HD — the per-row windows lesson from S03.3 UAT D1; per-row windows are LOAD-BEARING for license_season asymmetric coverage in S06.7), extras, page_reference, extraction_confidence (per ADR-017 `_assign_row_confidence` logic)
+- Confidence rules: `high` for rows where every value field is present + non-`-`; `medium` for rows with ≥1 null/absent value; `low` reserved for genuinely-ambiguous rows (M1 had zero `low`; if E06 has even one, surface as Q18-style framework-vs-data signal to the human — ADR-017 §7 Trigger 2 may fire, but per S03.11 FINALIZE, the trigger is data-shape not framework-shape and the framework stays unmodified)
+
+**Deliverables:**
+
+- `ingestion/states/colorado/extract_big_game.py` (new, structural analog of MT's `extract_dea.py`; expected 1000-1500 LOC depending on CPW table-shape complexity)
+- `ingestion/states/colorado/extracted/big-game-2026.json` — deterministic SHA-256 across re-runs; committed as the durable text-side fixture
+- 30-100 unit tests in `ingestion/tests/test_extract_co_big_game.py` (new file; mirror S03.3's 84-test structure)
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md), [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md), [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md), [ADR-017](../adrs/ADR-017-confidence-calibration.md).
+
+**Depends on:** S06.1 (CPW Big Game brochure pinned + HEAD-verified + fetched at known SHA).
+
+**Unblocks:** S06.6 (regulation_record ingestion), S06.7 (link-table ingestion), S06.8 (draw_spec ingestion).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/extract_big_game.py` exists, state-agnostic-clean per `TestNoColoradoLeakIntoSharedLib` (no `ingestion/ingestion/lib/` edits unless S06.2 shipped); single-writer contract (no DB imports — locked by AST guard test)
+- [ ] `extracted/big-game-2026.json` deterministic SHA-256 across two consecutive extraction runs (verified via the 2-step determinism recipe S03.3 established)
+- [ ] Per-row windows extracted faithfully (the S03.3 UAT D1 lesson — per-row variable fields are interpretive and section-level first-observation-wins is NOT faithful)
+- [ ] **ADR-008 paraphrase prohibition (extraction surface):** `verbatim_text` and `verbatim_rule` fields on every emitted row are byte-equivalent to `pdf.extract_text` output (S03.2 word-grouping baseline) for the source span; the ONLY permitted normalizations are the explicitly-documented cleanup rules in the module docstring; no normalization rule may change a numeric token, a unit, or a lexical word; the cleanup-rules docstring section is grep-verified against runtime-applied normalizations (parity test mirrors S03.3 AC #547)
+- [ ] `pdf.extract_text` is invoked WITHOUT `layout=True` anywhere in the extractor; AST guard test asserts no `layout=True` literal in the extraction module (mirrors S03.2 `test_no_layout_true_regression_guard`)
+- [ ] Cleanup rules documented in module docstring with regex + scope + rationale + locking test name; AC #547 strict-parity discipline holds
+- [ ] Confidence distribution surfaced in run summary: `{high: N, medium: M, low: K}`. Per S03.11 FINALIZE, `low > 0` is data-shape signal, NOT framework signal — the ADR-017 framework stays unmodified. Surface counts for human review; do NOT propose framework changes. (Reverse of the L248 phrasing — `low=0` is absence-by-data-property per S03.11; `low > 0` is normal when CPW data has more `medium`-tier ambiguities than MT's data did.)
+- [ ] 30+ tests in `ingestion/tests/test_extract_co_big_game.py`; pdfplumber-pitfall regression tests for the relevant pitfalls
+- [ ] **UAT:** PM-run spot-check on ≥4 representative GMUs across the 3 species (deer / elk / pronghorn) cross-checked against the source PDF; closure note records the verification
+
+---
+
+### S06.4: Black Bear extraction (CPW Black Bear brochure OR Big Game brochure section)
+
+**Status:** Not Started; **structural detail TBD at S06.1 discovery time** — if CPW publishes a separate Black Bear brochure, S06.4 mirrors S03.4's pattern; if Black Bear is a section of the Big Game brochure, S06.4 may be folded into S06.3 mid-epic
+
+**As a** developer extracting CPW black bear regulation data
+**I want** every CPW black-bear-applicable region's regulation rows extracted into a deterministic JSON artifact with verbatim text + section context + confidence
+**So that** S06.6 / S06.7 / S06.9 ingestion stories consume the structured artifact
+
+**UAT: yes** — faithfulness review against the source PDF; mirrors M1's S03.4 Black Bear UAT.
+
+**Context:**
+
+CPW black bear regulations may be a separate publication or a section of the Big Game brochure. The S06.1 discovery pass against the live brochure structure decides which. If separate, S06.4 ships as its own extractor following S03.4's pattern (which evolved through 12 real-PDF discoveries + a UAT-driven fix cycle); if integrated, S06.4 is folded into S06.3 as a per-species section (the species fan-out pattern stays the same).
+
+**S06.4 folds into S06.3 ONLY IF (a) Black Bear is a section of the Big Game brochure AND (b) no separate Black Bear correction PDF exists for 2026.** If a correction PDF exists for the Big Game brochure as a whole (touching Black Bear and other species), the three-pass arbitration scaffolding lives in S06.3 — but S06.4 still ships separately to encapsulate the per-species correction-handling logic.
+
+**ADR-019 correction handling:** If CPW publishes a mid-year correction (analog of MT's 2026-03-18 black bear correction), the doc-type-precedence rule applies: `correction > annual_regulations`. The three-pass arbitration pattern from S03.4 (Pass 1: base extraction; Pass 2: correction operations per BMU; Pass 3: merge with `applied_correction=true` + confidence demote-one-tier per ADR-017 §4) carries forward as-is.
+
+**Cleanup rules:** Mirror S03.4's 8 pitfalls — rotated-table handling; correction-merge per-BMU touched-once-only; quota cell word-orderings; female-sub-quota `*` footnote suffix; etc. — and document any CPW-specific deviations.
+
+**Output artifact:**
+
+- `ingestion/states/colorado/extracted/black-bear-2026.json` if separate publication, OR section of `big-game-2026.json` if integrated
+- Per-row schema mirrors S03.3/S03.4 with CO-specific fields surfaced at Stage-1
+- If a correction PDF exists: `corrections-{date}.json` + merged `black-bear-2026.json` (three-pass arbitration per S03.4)
+
+**Deliverables:**
+
+- `ingestion/states/colorado/extract_black_bear.py` (if separate brochure)
+- `ingestion/states/colorado/extracted/black-bear-2026.json` (if separate brochure)
+- 30-100 unit tests in `ingestion/tests/test_extract_co_black_bear.py`
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md), [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md), [ADR-017](../adrs/ADR-017-confidence-calibration.md), [ADR-019](../adrs/ADR-019-doc-type-precedence-multi-source-merge.md).
+
+**Depends on:** S06.1 (Black Bear brochure OR Big Game brochure pinned).
+
+**Unblocks:** S06.6, S06.7, S06.9.
+
+**Acceptance Criteria:**
+
+- [ ] Extractor (separate file if separate brochure; section of S06.3 extractor if integrated) ships state-agnostic-clean
+- [ ] Deterministic SHA-256 across two consecutive runs
+- [ ] Per-row windows + per-BMU/region structure preserved faithfully
+- [ ] **ADR-008 paraphrase prohibition (extraction surface):** identical AC as S06.3 — `verbatim_text` and `verbatim_rule` are byte-equivalent to `pdf.extract_text` output per the S03.2 word-grouping boundary; no `layout=True` (AST guard); cleanup-rules docstring grep-parity with runtime normalizations
+- [ ] Cleanup rules documented in module docstring with regex + scope + rationale + locking test name; AC #547 strict-parity discipline (S03.3) holds; grep-verified against runtime normalizations
+- [ ] If correction PDF exists: three-pass arbitration per S03.4; `applied_correction=true` + `supersedes` populated; confidence demote-one-tier per ADR-017 §4 (single demote per row regardless of corrections count)
+- [ ] If a CPW publication carries `SourceCitation.document_type` other than `{annual_regulations, correction}` (e.g., `supplement`, `errata`, `emergency_order`, `rule_change`, `gis_layer`), build fails loud with a `ValueError` naming the source id + `document_type`; ADR-019 §"Decision" item 5 amendment required before the source may participate in the merge — no silent enum participation, no implicit default rank
+- [ ] **UAT:** PM-run spot-check on ≥3 representative regions/BMUs cross-checked against source PDF
+- [ ] Closure note documents whether S06.4 shipped as separate extractor or folded into S06.3
+
+---
+
+### S06.5: Restricted-area `verbatim_rule` population for the 10 S05.4 no-hunt zones
+
+**Status:** Not Started
+
+**As a** developer populating regulatory text for the 10 federal no-hunt zones from S05.4
+**I want** `geometry.verbatim_rule` populated for each of the 10 `kind='restricted_area'` rows from the CPW Big Game brochure + the S06.0-decided `source` field updated per the chosen multi-source provenance disposition
+**So that** the regulatory authority for each prohibition is preserved verbatim per ADR-001/ADR-008 and the 10 zones carry their regulatory-text-source provenance correctly
+
+**UAT: no** (verification-gated against SQL spot-checks; faithfulness verified at SQL-row level against the brochure)
+
+**Context:**
+
+S05.4 shipped 10 PAD-US-sourced `kind='restricted_area'` geometry rows with `verbatim_rule=None` deliberately deferred. S06.0 resolved the unresolved CPW Big Game brochure URL + the multi-source provenance question (PRD 002 § "Open decisions resolved during M2" candidate). S06.5 executes the deferred text-population pass.
+
+S06.5's exact shape depends on the S06.0 multi-source provenance decision:
+
+- **If (a) UPDATE `source` to CPW citation** — the loader UPDATEs both `verbatim_rule` AND `source` to the CPW Big Game brochure citation (`document_type='annual_regulations'`); the PAD-US geometry-provenance citation is lost from the `source` field and lives in the discovery report only
+- **If (b) accept split-provenance, PAD-US wins `source`** — the loader UPDATEs only `verbatim_rule`; `source` stays as the PAD-US citation
+- **If (c) ADR + migration for multi-source provenance** — S06.0 would have already shipped the migration; S06.5 populates both citations via the new field
+
+**Phrasing question** (resolved at extraction time): the brochure may publish (1) a single generic sentence covering "national parks are closed" (one shared string across all 9 NPS rows) or (2) per-park named sentences (9 distinct strings). The text-extraction script reads the brochure and writes per-row verbatim text accordingly. If REG + COMMENTS-style annotation both exist for a zone, combine per ADR-015's `\n\n--- COMMENTS ---\n\n` separator.
+
+**Deliverables:**
+
+- `ingestion/states/colorado/load_restricted_area_verbatim.py` (new, ~150-200 LOC, single-purpose loader; mirrors S05.0's small-table-UPDATE pattern with `db.update_geometry_verbatim` analog OR an in-script targeted UPDATE per the S06.0 decision)
+- 5-15 unit tests in `ingestion/tests/test_load_co_restricted_area_verbatim.py`
+- (Conditional) new `db.py` helper if a fail-loud UPDATE primitive is needed analog of `update_legal_description` from S03.6 (PM-cannot-land-autonomously; flag-and-discuss at S06.5 entry)
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md), [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md), [ADR-015](../adrs/ADR-015-geometry-verbatim-rule-and-reg-comments-handling.md), [ADR-019](../adrs/ADR-019-doc-type-precedence-multi-source-merge.md), [ADR-021](../adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md) (context — `no_hunt_zone` role bound in S06.10 against these geometry rows).
+
+**Depends on:** S06.0 (multi-source provenance decision), S06.3 (CPW Big Game brochure extracted; verbatim text available for the 10 zones).
+
+**Unblocks:** S06.10 (binding loader writes `role='no_hunt_zone'` against geometry rows with populated `verbatim_rule`).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/load_restricted_area_verbatim.py` exists; state-agnostic-clean per AST guard
+- [ ] All 10 S05.4 geometry rows (`CO-restricted-{slug}-geom`) have `verbatim_rule` populated post-load; SQL spot-check verifies non-null across all 10
+- [ ] `source` field updated per S06.0 decision (UPDATE to CPW citation OR retained as PAD-US OR multi-source); SQL verifies field matches decision
+- [ ] **ADR-008 paraphrase prohibition (UPDATE surface):** the brochure-source string written to `geometry.verbatim_rule` for each of the 10 zones is byte-equivalent to `pdf.extract_text` output (S03.2 word-grouping baseline) for the source span; if extraction from the brochure produces a per-zone `verbatim_rule` candidate that requires hand-editing to read as a coherent sentence, build fails loud and surfaces the candidate as flag-and-discuss; no silent rewording
+- [ ] **Phrasing case locked:** implementer records in the closure note which case fired — (1) single generic sentence shared across all 9 NPS rows, or (2) per-park named sentences (9 distinct strings) — and the chosen case is locked by a regression test asserting either uniform vs distinct content across the 9 NPS rows
+- [ ] Per-row text faithful to source PDF; PM-run spot-check on ≥3 of the 10 zones (e.g., Rocky Mountain NP, Mesa Verde NP, AFA) cross-checks against the brochure
+- [ ] If REG + COMMENTS combination: ADR-015's `\n\n--- COMMENTS ---\n\n` separator used; spot-check verifies
+- [ ] `db.update_geometry_verbatim` helper exists with `cur.rowcount == 0` fail-loud guard if added per S06.0 conditional-6th-decision (mirrors `update_legal_description` pattern post-S03.6)
+- [ ] Test suite grows additively; 5-15 tests in `test_load_co_restricted_area_verbatim.py`
+- [ ] No production-DB writes from the build session (live UPDATE is operator-driven); operator runbook in `docs/planning/epics/E06-confidence-findings/S06.5.md`
+
+---
+
+### S06.6: `regulation_record` ingestion (5 V1 species × applicable CO GMUs + statewide anchors)
+
+**Status:** Not Started
+
+**As a** developer writing the canonical anchor entity for CO regulations
+**I want** every applicable CO GMU's per-species `regulation_record` row written with verbatim text + source citation + confidence per ADR-017, plus CO statewide-anchor rows analogous to MT's `MT-STATEWIDE-bear`/`MT-STATEWIDE-antelope`
+**So that** S06.7 / S06.8 / S06.9 / S06.10 link-table + sibling-entity ingestion stories have an anchor to FK to
+
+**UAT: no** (verification-gated against SQL counts; faithfulness verified at S06.3 / S06.4)
+
+**Context:**
+
+First E06 DB-write story. Mirrors M1's S03.6 pattern with CO species fan-out (artifact may use `deer` → DB `mule_deer` + `whitetail`; check CPW's structure at S06.3 closure). Atomic three-phase transaction: build → guards pre-`db.connect()` → conn loop / commit / rollback / close. Row-count fail-loud guard via OQ7 ±30% band fires pre-`db.connect()`.
+
+**Statewide anchors:** CO statewide-anchor `regulation_record` rows analog of MT's `MT-STATEWIDE-bear` / `MT-STATEWIDE-antelope` are populated when the data requires:
+
+- If CPW publishes a brochure-wide "STATEWIDE" antelope (pronghorn) row analog of MT's `900-20`, a `CO-STATEWIDE-pronghorn` regulation_record FK'd to `CO-STATEWIDE-geom` is written (mirrors S03.6 logic for MT antelope `900-20`)
+- If CPW publishes statewide bear coursework / Bear ID Test / pre-purchase prerequisites analog of MT's Bear ID Test (S03.6.1 carve-out), a `CO-STATEWIDE-bear` regulation_record is written via a similar pattern
+- If CPW publishes other species-statewide content, additional rows are added per the data; **the flag operational definition fires for any new statewide-anchor candidate not pre-registered here**
+
+**Species fan-out:** DEA-style `deer` species in the artifact may fan out to `mule_deer` + `whitetail` in the DB (per S03.7's `_DEA_SPECIES_FANOUT` precedent). The fan-out is artifact-level → DB-level only — `season_definition.species` + `license_tag.species` stay at artifact-level granularity per S03.7 OQ-S7-1/2. If CPW separates `mule_deer` from `whitetail` at row-level (Q16 trigger), this is a flag-and-discuss event.
+
+**Verbatim decomposition** per ADR-018 / Q15: per-license-row text → `license_tag.verbatim_rule` (S06.7); per-season-window text → `season_definition.verbatim_rule` (S06.7); GMU-wide NOTE lines → `regulation_record.additional_rules` (this story); the `regulation_record` row itself has no `verbatim_rule` column (Q15 / ADR-018 §3 disposition).
+
+**Deliverables:**
+
+- `ingestion/states/colorado/load_regulation_records.py` (new, structural analog of MT's; expected 500-700 LOC)
+- ~300-500 `regulation_record` rows written in one atomic transaction (estimate: 5 species × ~186 GMUs filtered down to applicable rows; expected band documented in closure note)
+- Statewide-anchor row(s) for pronghorn (if `STATEWIDE` row exists in CPW brochure) + bear (if statewide coursework analog exists)
+- `_JURISDICTION_BINDING_ID_FORMAT` constant defined for S06.10 to import (mirrors S03.6.1's lock; format string for binding ids per the symmetric derive-and-assert UPSERT no-op contract)
+- 50-80 tests in `ingestion/tests/test_load_co_regulation_records.py`
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md), [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md), [ADR-010](../adrs/ADR-010-decomposed-entity-model.md), [ADR-017](../adrs/ADR-017-confidence-calibration.md), [ADR-018](../adrs/ADR-018-e03-schema-additions.md).
+
+**Depends on:** S06.3 (Big Game brochure extracted), S06.4 (Black Bear extracted; folded into S06.3 OR separate), S05.0 (CO statewide geometry exists for statewide-anchor FK), S05.2 (CO GMU geometry exists for per-GMU FK).
+
+**Unblocks:** S06.7 (link tables FK regulation_record), S06.8 (draw_spec referenced from license_tag in S06.7), S06.9 (reporting_obligation linked via regulation_reporting in S06.10), S06.10 (binding loader FKs to regulation_record).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/load_regulation_records.py` exists, state-agnostic-clean, three-phase shape (build → guards → conn/commit)
+- [ ] Per-species fan-out applied: artifact `deer` → DB `mule_deer` + `whitetail` (verified by test asserting emit count for a GMU with `deer` artifact rows is 2 DB rows)
+- [ ] Bear DB `species_group="bear"` not `"black_bear"` (per S03.6 pitfall)
+- [ ] Row-count fail-loud guard ±30% band fires pre-`db.connect()` (OQ7); band documented in closure note
+- [ ] Atomic transaction: all rows commit OR rollback together
+- [ ] Source citation populated on every row; `SourceCitation.document_type` ∈ `{annual_regulations, correction}` for every CO `regulation_record.source` written by S06.6; **any other value encountered during build (including the existing-but-unranked `rule_change` / `emergency_order` / `gis_layer`) raises `ValueError` at build time and is surfaced as a flag-and-discuss event per ADR-019 §"Decision" item 5** — no silent enum participation, no implicit default rank, ADR-019 amendment required before adoption. The merge itself happens at S06.4 build time; S06.6 receives the post-Pass-3 merged artifact and reads `document_type` per row from it
+- [ ] CO statewide-anchor row(s) written if CPW data requires (pronghorn STATEWIDE row analog of MT `900-20`; bear statewide coursework analog of S03.6.1). **PM expects 0-2 statewide-anchor rows**. **If extraction surfaces a 3rd candidate**, the implementer STOPS, files a flag-and-discuss event with the source span + rationale; PM consolidates and a human approves the candidate BEFORE the row is written. Silent addition of a 3rd statewide anchor is a process violation
+- [ ] `_JURISDICTION_BINDING_ID_FORMAT` constant defined in module + locked by **three tests** (mirrors S03.6.1 / S03.10 pattern): (1) format string byte-identical to MT's `_JURISDICTION_BINDING_ID_FORMAT` in `load_regulation_records.py` (or an explicitly-documented CO-specific divergence with rationale); (2) the constant is importable by S06.10 (the S05.6 scaffold's symmetric derive-and-assert contract); (3) any CO statewide-anchor regulation_record written here produces a binding-id under this format that S06.10 re-derives byte-identically (UPSERT no-op contract)
+- [ ] NOTE-line extraction follows S03.6's hardened `^NOTE:[ \t]*` regex (cross-NOTE absorption guard); SQL-spot-checks verify NOTE lines land in `regulation_record.additional_rules`
+- [ ] No `db.py` helper additions unless explicitly required; if added (e.g., `upsert_regulation_record` for any CO-specific quirk), reused pattern from S03.6
+- [ ] **ADR-017 FINALIZE lock:** framework is unmodified per S03.11 FINALIZE verdict; `low`-tier rows in CO are data-shape signal, not framework signal. Any candidate framework change is a flag-and-discuss event surfaced to the human; PM does NOT draft an ADR-017 amendment autonomously. The S03.11 deliberation (PM PARTIAL DEFER recommendation overridden to FINALIZE by user) is the precedent
+- [ ] Test baseline grows additively; 50+ tests in `test_load_co_regulation_records.py`
+
+---
+
+### S06.7: `season_definition` + `license_tag` + `license_season` ingestion (drift_guard.assert_id_matches mandatory)
+
+**Status:** Not Started
+
+**As a** developer writing CO's per-season + per-license entities + their cross-shared link table
+**I want** `season_definition`, `license_tag`, `license_season`, `regulation_season`, `regulation_license` rows written with verbatim per-season-window + per-license text, with ADR-020 `drift_guard.assert_id_matches` instrumenting the row-construction surfaces
+**So that** S06.8 (draw_spec) has FK targets in `license_tag`, S06.10 (binding) sees the full multi-link picture, and id-text-PK drift is impossible at runtime
+
+**UAT: no** (verification at SQL-count level; faithfulness already established at S06.3)
+
+**Context:**
+
+Mirrors M1's S03.7 pattern. CO's multi-link adapter — the first E06 story producing two link tables alongside two entities. Atomic three-phase transaction; guards fire pre-`db.connect()`.
+
+**ADR-020 drift_guard mandate:** per the helper-to-table mapping:
+
+- `db.upsert_season_definition` UPSERT → `season_definition` id is built from `(state, hunt_code_or_gmu, season_key)` or analog; the `season_definition` build function MUST call `drift_guard.assert_id_matches(season_def, expected_id_template)` per ADR-020's `assert_id_matches` primitive
+- `db.upsert_license_tag` UPSERT → `license_tag` id is built from `(state, gmu_number_or_similar, license_code)` or analog; the `license_tag` build function MUST call `drift_guard.assert_id_matches(license_tag, expected_id_template)` per ADR-020
+- `db.write_license_season` link-table write → NOT instrumented (link-table builder carve-out preserved; M1 regression-guard AST test enforces)
+- `db.write_regulation_season` / `db.write_regulation_license` → NOT instrumented (same carve-out)
+
+**11 decisions to bake in** (per S03.7 OQ-S7-1 through OQ-S7-11 — CO-specific values; surface every divergence from MT to human via flag-and-discuss):
+
+1. **License-tag species granularity** — CO artifact-level `deer` vs DB `mule_deer`/`whitetail` — flag if CPW separates at row level (Q16 trigger)
+2. **Season-definition species granularity** — same Q16 trigger
+3. **Asymmetric license-coverage demonstrator** — find a CO equivalent of MT HD 170 elk where A-license-coverage ≠ B-license-coverage; lock in test (PRD 002 success criterion #2 — milestone-level UAT)
+4. **Season-name rendering** — `_SEASON_NAME_BY_KEY` analog for CO season keys
+5. **Bear closure_predicate attachment** — if CO publishes bear quotas with sex/threshold predicates (M1's `sex_threshold` / `quota_threshold` patterns), check if CO uses the same shape; if CO surfaces a closure conditional on calendar gate AND quota threshold, the `effective_after` ADR-candidate triggers (closure-temporal-anchors.md)
+6. **License-tag kind heuristic** — 5-ordered-branch heuristic from S03.7 OQ-S7-7 + S03.8's `apply_by`-inspection fix; check CPW's `apply_by` cell format for OTC discriminator
+7. **Window parser** — handles CPW date formats (DEA-style "Aug. 15-Nov. 08" or different convention)
+8. **verbatim_rule fallback chain** — per-row text → per-section text → null (S03.7 OQ-S7-9 pattern)
+9. **draw_spec_key=None on every row at S06.7** — S06.8 backfills per ADR-012
+10. **purchase_url evergreen** vs per-row — CO convention TBD at extraction; the artifact-level URL is likely correct
+11. **Bear → NULL quota_range** vs DEA-style int range — per CPW's bear publication
+
+**Output artifact-shape question:** the S03.7 license_tag fan-out for cross-listed B-licenses (S03.8 amendment) is a likely CO trigger — surface every CO cross-listing during build; if CO has cross-listed structural conflicts mirroring MT HD 210, the `_KNOWN_CROSS_LISTING_OVERRIDES` workaround applies (PRD 002 R3 Q17 trigger).
+
+**Asymmetric license-coverage demonstrator** (PRD 002 success criterion #2): find a CO equivalent of MT HD 170 elk where two licenses covering the same GMU+species have different weapon-type / season-window coverage sets. Lock in test as `test_license_season_asymmetric_coverage_m2_criterion` (mirrors S03.7 M1 lock). If CO doesn't have asymmetric A/B-license-equivalents, document the deviation and PM flags-and-discusses with human.
+
+**Deliverables:**
+
+- `ingestion/states/colorado/load_seasons_and_licenses.py` (new, structural analog of MT's ~1180 LOC; CO loader expected at 800-1200 LOC depending on cross-listing complexity)
+- Five entity/link DB write counts surfaced in run summary (e.g., MT shipped 8542 rows total); CO band documented in closure note
+- 80-120 tests in `ingestion/tests/test_load_co_seasons_and_licenses.py`
+- (Conditional) `db.upsert_season_definition` / `db.upsert_license_tag` / `db.write_license_season` / `db.write_regulation_season` / `db.write_regulation_license` helpers if extension needed; reuse M1's pattern as-is if CO doesn't surface a new shape
+
+**Relevant ADRs:** [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md), [ADR-010](../adrs/ADR-010-decomposed-entity-model.md), [ADR-012](../adrs/ADR-012-draw-mechanics-sibling-entity.md), [ADR-017](../adrs/ADR-017-confidence-calibration.md), [ADR-018](../adrs/ADR-018-e03-schema-additions.md), [ADR-020](../adrs/ADR-020-id-text-pk-slug-derivation.md).
+
+**Depends on:** S06.6 (regulation_record exists; FK target).
+
+**Unblocks:** S06.8 (license_tag exists for draw_spec_key backfill), S06.10 (link tables seen by binding loader for the cross-product picture).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/load_seasons_and_licenses.py` exists, state-agnostic-clean, three-phase shape
+- [ ] **ADR-020 `assert_id_matches`** invoked **in every per-row entity-construction site** inside the `season_definition` and `license_tag` build functions (mirrors MT precedent's 4 call sites at `load_seasons_and_licenses.py:589 / 660 / 926 / 1100`: one per `_build_*_season_definitions` and one per `_build_*_license_tags`, fanned by source — deer-equivalent + elk-equivalent + pronghorn-equivalent + bear-equivalent + any CO-specific source split). Each call site passes the entity's id and the value returned by re-calling a pure id-derivation function (e.g., `_co_season_definition_id` / `_co_license_tag_id`) on the entity's structured fields; the derivation function lives at module level and is the single source of id-construction truth (mirrors `_season_definition_id` / `_license_tag_id` at `load_seasons_and_licenses.py:370/387`). The verification test enumerates every build function in the module and asserts each constructs entities via `assert_id_matches` against a pure id-derivation function (mirrors M1's `TestDriftGuardCallSites` pattern). **A new build function added later without an `assert_id_matches` call must fail the test**
+- [ ] Link-table builders NOT instrumented (`drift_guard` not imported in `_build_license_season_links` / `_build_regulation_season_links` / `_build_regulation_license_links`; AST regression-guard test from M1 stays green)
+- [ ] 5 row-count fail-loud guards fire pre-`db.connect()` (one per entity/link table); bands documented in closure note
+- [ ] All UPSERTs atomic in one transaction; CO license_tag.draw_spec_key = None on every row at S06.7 (S06.8 backfills per ADR-012)
+- [ ] **Asymmetric coverage demonstrator:** if CO has A/B-license-equivalent asymmetric coverage, locked by `test_license_season_asymmetric_coverage_m2_criterion`; if CO does not, deviation documented in closure note + flag-and-discuss (downstream consequence: PRD 002 success criterion #2 status at S06.11 UAT carries an operator note acknowledging the N/A clause)
+- [ ] **License-tag species fan-out** (Q16 trigger): if CPW publishes row-level mule_deer/whitetail separation, the implementer **STOPS adapter coding at that discovery**, files a flag-and-discuss event with the artifact-level evidence + page reference, and PM surfaces to the human BEFORE any CO-specific branching is added to the adapter. The fan-out decision flows through ADR-010 amendment + three-place sync; **the adapter does NOT branch on state until the ADR lands**. Artifact-level (deer) → DB-level decision recorded; verified by test
+- [ ] License-tag kind heuristic inspects `apply_by` for OTC discriminator (per S03.8 fix); 5-ordered-branch with fail-loud else
+- [ ] **Closure-predicate `effective_after` trigger:** for every bear/deer/elk closure prose in the CPW brochure, the implementer documents in the closure note: (a) is there a calendar gate? (b) is there a quota threshold? (c) are they conjoined? **If (a)+(b)+(c) all yes for any closure, the implementer STOPS adapter coding**, files a flag-and-discuss event with the verbatim prose + page reference, and PM surfaces to the human BEFORE any `closure_predicate` row is written for that case (per the `closure-temporal-anchors.md` ADR-candidate). **If a CO closure surfaces a predicate shape outside the M1-locked `sex_threshold` / `quota_threshold` enum AND outside the `effective_after` candidate, the implementer flags + halts** (do not silently widen the `ClosurePredicate` shape)
+- [ ] **Cross-listing structural agreement** validated across same-`license_code` rows (S03.8 lesson); **if CO has cross-listed structural conflicts (Q17 trigger), the implementer STOPS, files a flag-and-discuss event documenting the per-GMU shape + a candidate ADR-disposition (override-table V1 stopgap vs schema extension)**; PM surfaces to human BEFORE adopting `_KNOWN_CROSS_LISTING_OVERRIDES`-equivalent. The V1 stopgap is acceptable only with human approval; silent adoption is a process violation
+- [ ] Test baseline grows additively; 80+ tests in `test_load_co_seasons_and_licenses.py`
+
+---
+
+### S06.8: `draw_spec` ingestion (CPW preference-point hybrid — Q12/Q17 trigger surface)
+
+**Status:** Not Started
+
+**As a** developer modeling CPW's preference-point hybrid draw mechanics
+**I want** every applicable CO hunt code's `draw_spec` row written with `point_system.kind='preference_linear'`, 80/20 split allocation pools (`rank_ordered_by_points` + `unweighted_random`), `residency_cap.nonresident_max_share` populated where CPW publishes it, three-stage draw chained via `successor_hunt_code`
+**So that** PRD 002 success criterion #3 verifies, the multi-state schema claim is defensible on the CO axis, and any Q12/Q17 trigger surfaces as flag-and-discuss
+
+**UAT: yes** — draw-mechanics faithfulness review against the CPW Big Game brochure for ≥5 representative hunt codes (rank-ordered preference-point, hybrid 80/20, leftover-phase chain, residency-cap hunt, weighted-points moose/sheep/goat if any). PM-run UAT spot-check on hunt-code structure + brochure cross-reference.
+
+**Context:**
+
+CPW's draw is the M2 stress-test for the multi-state schema claim. The committed schema accommodates the mechanics per [`docs/research/colorado-draw-schema-proposal.md`](../../research/colorado-draw-schema-proposal.md). CO ships:
+
+- `point_system.kind="preference_linear"` with `accrual="annual_on_apply"`, `reset_on_success=true`, **`inactive_forfeit_years=null` on every row** (CPW does not forfeit points on inactivity per proposal §1 and §3 contrast with WY; explicit `null`, not omitted), `purchase_only_code` set per species to the CPW point-only hunt-code STRING (NOT a composite key — `PointSystem.purchase_only_code: string | null` per `architecture.md` `PointSystem` definition): elk=`E-P-999-99-P`, deer=`D-P-999-99-P`, pronghorn=`A-P-999-99-P` if CPW publishes (HEAD-verify at S06.3 brochure read; flag-and-discuss if pronghorn species code is not `A`), bear=`B-P-999-99-P` if CPW publishes a point-only bear code (some CPW species have no point-only code — leave `null`, do NOT invent a code; the schema explicitly permits null)
+- `pools[0]: {share: 0.80, selection: "rank_ordered_by_points", tie_break: "random"}` (no `eligibility.min_points`) + `pools[1]: {share: 0.20, selection: "unweighted_random", eligibility: {min_points: 5}}` for hybrid-eligible hunt codes
+- Non-hybrid hunt codes: single `pools[0]: {share: 1.0, selection: "rank_ordered_by_points", tie_break: "random"}`
+- **`residency_cap: {nonresident_max_share: 0.20}` when the hunt code is hybrid-eligible (rolling-three-year ≥6 points), `{nonresident_max_share: 0.25}` when not** (per `colorado-draw-schema-proposal.md` §1: "up to 20% if the three-year rolling point requirement is six or more, or up to 25% if it is fewer than six"). **The same upstream brochure-side determination drives BOTH the 80/20 vs 100/0 pool split AND the 20% vs 25% residency cap; if CPW publishes a per-hunt-code value that contradicts this coupling, flag-and-discuss as Q17/multi-source-provenance candidate before adopting**
+- `choices: {count: 4, points_used_in_choices: [1]}` — CPW's 4-choice convention; `points_used_in_choices: [1]` means "choice number 1 uses points" (1-indexed choice number, NOT a count of points); only the 1st choice consumes a preference point on draw; choices 2-4 are random draws against remaining licenses
+- `draw_phase ∈ {primary, secondary, leftover}` chained via `successor_hunt_code_key: {state: "US-CO", hunt_code: <leftover-code>, year: 2026}` (**composite-key object** per `architecture.md` `DrawSpec` definition, NOT a bare string; the research-doc §6 uses an older bare-string `successor_hunt_code?: string` form that is stale relative to the committed schema)
+- `application_deadline` populated on `draw_spec` (not `tag_info`/`license_tag`) per `architecture.md` `DrawSpec` definition and `colorado-draw-schema-proposal.md` §9 deprecation recommendation
+- `parameters=null` on every row — PM expects zero Q12 triggers; every CPW quirk surfaces as a flag-and-discuss event
+
+**Hybrid eligibility determination is UPSTREAM of the schema:** the rolling-three-year ≥6-point gate is an upstream brochure-side determination — it decides *whether* the 80/20 split applies to a given hunt code at all; the schema only encodes the resulting pools (per the proposal §"Out of scope for schema"). The implementer must NOT shoehorn this into `eligibility.min_points` — that field is for the within-hybrid 20%-pool gate, not the hybrid-vs-non-hybrid decision. **Flag if CPW publishes an eligibility shape that doesn't fit this dichotomy.**
+
+**Named module-level Final constants (recalibration discipline):** The `min_points=5` 20%-pool floor and the `0.80/0.20` split are CPW administrative parameters per proposal §1 — named module-level constants in `load_draw_specs.py` (e.g., `_HYBRID_RANDOM_POOL_MIN_POINTS: Final[int] = 5`; `_HYBRID_PREFERENCE_POOL_SHARE: Final[float] = 0.80`; `_HYBRID_RANDOM_POOL_SHARE: Final[float] = 0.20`; `_HYBRID_ELIGIBILITY_POINT_LINE: Final[int] = 6`), NOT inlined per row. If the 2026 brochure publishes a different floor or split, flag-and-discuss before changing the constant (the 2028 50/50 reform is a known coming change per proposal §8 #1).
+
+**V1 species scope:** V1 species (elk, mule_deer, whitetail, pronghorn, bear) do NOT include moose / sheep / goat — these species are explicitly out of PRD 002 V1 scope. CO ships zero `linear_weighted_random` `draw_spec` rows in E06. If a future story extends scope, the proposal §8 formula `random_number / (weighted_points + 1)` is the canonical CPW implementation; flag-and-discuss for a V2 ADR.
+
+**Leftover-phase rows — `choices` shape:** CPW's leftover phase is first-come-first-served, weekly; there is no application-with-4-choices. The `choices` field on leftover-phase `draw_spec` rows: **TBD at first encounter; flag-and-discuss if CPW's leftover phase doesn't fit the `{count, points_used_in_choices}` shape** (likely `count=0` or `null`; PM does not pre-decide).
+
+**Q12 / Q17 surface area:**
+
+- **Q12 `parameters` use** — every CO `draw_spec` row ships `parameters=null`. If a row genuinely needs `parameters` (e.g., a CPW point system shape outside the 3 enum values OR an eligibility shape the schema doesn't carry), the implementer **must flag the candidate to the human before adopting `parameters`** per the 4-step protocol. PRD 002 R2: every candidate is flag-and-discuss; the PM consolidates and either drafts an ADR amendment or accepts `parameters` use per the human's call.
+- **Q17 per-GMU allocation caps** — if CPW publishes per-GMU allocation caps that don't fit the `pools[].share` (numeric share sums to 1.0) shape (e.g., absolute count cap per GMU within a multi-GMU hunt code), the `_KNOWN_CROSS_LISTING_OVERRIDES`-equivalent workaround from S03.8 applies V1; PM flags as Q17 trigger.
+
+**S03.8 amendments carry forward:** the OTC discriminator via `apply_by` inspection (S03.8 fix at `_DEA_LICENSE_KIND_HEURISTIC`); the cross-listing consistency validator pattern; the defensive safety-net lookup pattern; the override-dispatch table pattern.
+
+**CPW special cases to surface explicitly** (per the draw-schema research):
+
+- **Moose / sheep / goat exponential weighting** — `linear_weighted_random` selection variant (the proposal §8 #5 flag); record explicitly at first CO ingestion sprint per the proposal note
+- **2028 50/50 reform** — value change only, no schema change (proposal §8 #1); not a V1 concern but note in closure note
+
+**Deliverables:**
+
+- `ingestion/states/colorado/load_draw_specs.py` (new, structural analog of MT's; expected 600-900 LOC depending on CPW complexity)
+- `draw_spec` rows for every applicable CO hunt code (band documented in closure note; expected hundreds)
+- `license_tag.draw_spec_key` backfilled for every limited-draw `license_tag` row (per ADR-012)
+- 80-130 tests in `ingestion/tests/test_load_co_draw_specs.py`
+
+**Relevant ADRs:** [ADR-010](../adrs/ADR-010-decomposed-entity-model.md), [ADR-012](../adrs/ADR-012-draw-mechanics-sibling-entity.md), [ADR-018](../adrs/ADR-018-e03-schema-additions.md), [ADR-020](../adrs/ADR-020-id-text-pk-slug-derivation.md) (drift_guard NOT applicable to `draw_spec` — composite-PK is `(state, hunt_code, year)` not id-text-PK; `db.upsert_draw_spec` uses native composite-PK ON CONFLICT, no drift risk).
+
+**Depends on:** S06.7 (license_tag exists for `draw_spec_key` backfill).
+
+**Unblocks:** S06.11 (M2 milestone UAT verifies draw_spec shape).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/load_draw_specs.py` exists, state-agnostic-clean, three-phase shape
+- [ ] Every CO `draw_spec` row has `point_system.kind="preference_linear"`, `accrual="annual_on_apply"`, `reset_on_success=true`, **`inactive_forfeit_years IS NULL`** (locked by SQL-count test — CPW does not forfeit on inactivity), `purchase_only_code` populated per species per the table above (or `null` for species CPW does not publish a point-only code for; verified against the CPW brochure's published point-only-code table)
+- [ ] Hybrid hunt codes have `pools=[{share:0.80, selection:"rank_ordered_by_points", tie_break:"random"}, {share:0.20, selection:"unweighted_random", eligibility:{min_points:_HYBRID_RANDOM_POOL_MIN_POINTS}}]`; non-hybrid have `pools=[{share:1.0, selection:"rank_ordered_by_points", tie_break:"random"}]`; verified by per-row test against the module-level Final constants
+- [ ] **`min_points`, pool shares, the hybrid-eligibility rolling-window point line, and the rolling-window length are named module-level `Final` constants** (`_HYBRID_RANDOM_POOL_MIN_POINTS = 5`; `_HYBRID_PREFERENCE_POOL_SHARE = 0.80`; `_HYBRID_RANDOM_POOL_SHARE = 0.20`; `_HYBRID_ELIGIBILITY_POINT_LINE = 6`); locked by test against the proposal §1 V1 values; recalibration in M3+ flows via the constant, not edits to per-row logic
+- [ ] **Coupling lock:** `residency_cap.nonresident_max_share` populated per CPW's per-hunt-code 20% / 25% determination; **test asserts the coupling: `pools[0].selection=='rank_ordered_by_points' AND len(pools)==2 ⇒ residency_cap.nonresident_max_share==0.20` and `len(pools)==1 ⇒ residency_cap.nonresident_max_share==0.25`** (verified by SQL-count tests; CPW's published value matches CO brochure)
+- [ ] `choices={count:4, points_used_in_choices:[1]}` populated per CPW convention for primary-phase rows; leftover-phase rows TBD at first encounter (flag-and-discuss if shape diverges from `{count, points_used_in_choices}`)
+- [ ] `draw_phase` set per CPW publication; **`successor_hunt_code_key` is the composite `{state, hunt_code, year}` object form (not bare string)**, chains primary → leftover for the 3-stage hunt codes; locked by test against the schema type
+- [ ] **`application_deadline` populated on `draw_spec` (not `tag_info`/`license_tag`) per `architecture.md` and `colorado-draw-schema-proposal.md` §9**; verified by SQL `SELECT COUNT(*) FROM draw_spec WHERE application_deadline IS NOT NULL` matching the drawable hunt-code count; `license_tag.application_deadline` (if the field exists) is NULL for CO rows
+- [ ] `parameters=null` on every row; if any row needs `parameters`, flag-and-discuss surfaced to PM + recorded in `draw-mechanics.md` per 4-step protocol
+- [ ] **Q17 per-GMU allocation caps:** if CPW publishes per-GMU absolute caps within a multi-GMU hunt code (e.g., HD 210-style structural conflict per MT precedent), the implementer **STOPS**, files a flag-and-discuss event documenting the per-GMU shape + a candidate ADR-disposition (override-table V1 stopgap vs schema extension); PM surfaces to human BEFORE adopting `_KNOWN_CROSS_LISTING_OVERRIDES`-equivalent OR `parameters` use. The V1 stopgap is acceptable only with human approval; **silent adoption of either is a process violation**
+- [ ] License-tag `draw_spec_key` backfilled for limited-draw rows (per ADR-012)
+- [ ] OTC discriminator via `apply_by` inspection (S03.8 fix); cross-listing structural-agreement validator (S03.8 pattern)
+- [ ] **`db.upsert_draw_spec` uses composite-PK `(state, hunt_code, year)` ON CONFLICT**; `drift_guard` is NOT imported by `load_draw_specs.py` (verified by AST guard test); the composite-PK is strictly stronger than slug-encoded drift protection per ADR-020 §"Decision"
+- [ ] Row-count fail-loud guard ±30% band fires pre-`db.connect()`
+- [ ] **UAT:** PM-run draw-mechanics faithfulness review against ≥5 representative CPW hunt codes (1 rank-ordered preference-point, 1 hybrid 80/20, 1 leftover-phase chain, 1 residency-cap split case, 1 point-only purchase code)
+- [ ] Test baseline grows additively; 80+ tests in `test_load_co_draw_specs.py`
+
+---
+
+### S06.9: `reporting_obligation` ingestion (drift_guard.assert_dispatch_dict_drift_free mandatory; Q18 trigger surface)
+
+**Status:** Not Started
+
+**As a** developer writing CO's post-harvest / in-season reporting duties
+**I want** every applicable CO `reporting_obligation` row written with verbatim text + region scope + dispatch-dict at module load instrumented per ADR-020 `assert_dispatch_dict_drift_free`, plus Q18 disposition (license-keyed per S06.0 decision) applied
+**So that** S06.10 binding loader writes `regulation_reporting` links and PRD 002 success criteria pass
+
+**UAT: yes** if CWD sampling rules surface; otherwise UAT: no (verification at SQL-count level)
+
+**Context:**
+
+Mirrors M1's S03.9 pattern. CO `reporting_obligation` rows come from the Big Game brochure (hunter reporting, harvest survey, mandatory check, CWD sampling, etc.).
+
+**Q18 disposition** (resolved at S06.0): the PM recommendation was license-keyed option (c) — 0 typed `reporting_obligation` rows for CWD sampling; verbatim CWD text stays in `regulation_record.additional_rules` from S06.6. **If S06.0 confirmed option (c):** S06.9 ships zero CWD `reporting_obligation` rows for CO; non-CWD reporting obligations (mandatory check, harvest survey, etc.) ship normally. **If S06.0 selected (a) zone-keyed or (b) license-keyed-as-typed-rows:** the spec for S06.9 changes materially per the S06.0 decision memo.
+
+**ADR-020 drift_guard mandate:** `assert_dispatch_dict_drift_free` called at module load on the CO `_REPORTING_ROW_SPEC` dispatch dict (mirrors S03.9 pattern). The carve-out for `db.upsert_reporting_obligation` is the table where `drift_guard` is specifically required per the helper-to-table mapping; `assert_dispatch_dict_drift_free` is the correct primitive (compile-time dispatch dict). The runtime `assert_id_matches` does NOT apply here.
+
+**S03.9 lessons carry forward:**
+
+- Per-(`region_scope`, `kind_hint`) dispatch dict
+- Three-phase shape (build → guards pre-`db.connect()` → conn loop / commit)
+- Source-audit upstream artifacts BEFORE planning; if CPW surfaces a reporting obligation type that doesn't fit the existing `kind` enum (`harvest_report | mandatory_check | tooth_submission | hide_skull_presentation | cwd_sample | other`), flag-and-discuss; do NOT silently widen the enum
+- `reporting_obligation.kind` semantic boundary — post-harvest / in-season only; pre-purchase prerequisites (e.g., the bear-coursework analog) go in `regulation_record.additional_rules` via a STATEWIDE anchor (the S03.6.1 carve-out pattern)
+
+**Deliverables:**
+
+- `ingestion/states/colorado/load_reporting_obligations.py` (new, structural analog of MT's ~600 LOC; CO loader expected at 400-600 LOC depending on CPW publication structure)
+- `reporting_obligation` rows for CO (band documented in closure note; expected 3-10 rows by analogy with MT's 3)
+- `regulation_reporting` link rows (written by S06.10's binding loader; CO band documented in closure note)
+- 40-60 tests in `ingestion/tests/test_load_co_reporting_obligations.py`
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md), [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md), [ADR-010](../adrs/ADR-010-decomposed-entity-model.md), [ADR-017](../adrs/ADR-017-confidence-calibration.md), [ADR-020](../adrs/ADR-020-id-text-pk-slug-derivation.md).
+
+**Depends on:** S06.6 (regulation_record exists), S06.0 (Q18 disposition decided).
+
+**Unblocks:** S06.10 (binding loader writes `regulation_reporting` link rows from this), S06.11 (M2 UAT).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/load_reporting_obligations.py` exists, state-agnostic-clean, three-phase shape
+- [ ] **ADR-020 `assert_dispatch_dict_drift_free`** invoked **at module top-level** (after the `_REPORTING_ROW_SPEC` definition; before any function definitions), passing the dispatch dict + a pure `_derive_reporting_obligation_id(key, entry)` callable + `helper_name="upsert_reporting_obligation"` (mirrors `load_reporting_obligations.py:342`). Verified by test that imports the module and asserts the assertion fires before any function executes
+- [ ] Per-row `kind` value uses existing 6-value enum (`harvest_report | mandatory_check | tooth_submission | hide_skull_presentation | cwd_sample | other`); if CPW surfaces a new `kind`, flag-and-discuss before adopting (do NOT silently widen). **Same silent-widening prohibition applies to `SourceCitation.document_type`**: any new doc-type encountered fails loud and requires ADR-019 amendment per §"Decision" item 5
+- [ ] Q18 disposition applied per S06.0 decision: option (c) ships 0 typed CWD rows; (a) zone-keyed or (b) license-keyed-as-typed-rows ship per the new spec
+- [ ] Row-count fail-loud guard ±30% band fires pre-`db.connect()`
+- [ ] Source citation populated on every row; `document_type` per S06.0 doc-type decisions
+- [ ] If CPW publishes a non-post-harvest/in-season reporting obligation (e.g., bear-coursework analog), it lands in `regulation_record.additional_rules` via STATEWIDE anchor at S06.6 (NOT `reporting_obligation`)
+- [ ] **ADR-017 FINALIZE lock:** framework is unmodified per S03.11 FINALIZE verdict; `low`-tier rows in CO are data-shape signal, not framework signal. Any candidate framework change is a flag-and-discuss event surfaced to the human; PM does NOT draft an ADR-017 amendment autonomously
+- [ ] **UAT (if CWD rules surface):** PM-run faithfulness review against CPW's CWD section + Q18 disposition verification
+- [ ] Test baseline grows additively; 40+ tests in `test_load_co_reporting_obligations.py`
+
+---
+
+### S06.10: `jurisdiction_binding` generation (consumes S05.5 fixture + S05.6 scaffold; final E06 DB-write story)
+
+**Status:** Not Started
+
+**As a** developer generating CO `jurisdiction_binding` rows for the V1 cross-product
+**I want** every applicable CO regulation_record × geometry binding row written across statewide + overlay + portion + no-hunt-zone-nearby builders, with cross-state spatial filter `_STATE='US-CO'` discipline, and the 10 federal no-hunt zones from S05.4 bound with `role='no_hunt_zone'`
+**So that** PRD 002 success criterion #4 verifies, the FK-direction-corrected E06→E05 dependency closes, and Q18/Known-Issue-#6/`_STATE`-naming decisions are operationalized
+
+**UAT: no** (verification at SQL-count level + the spatial-test-points spot-checks deferred to S06.11)
+
+**Context:**
+
+The last E06 DB-write story; mirrors M1's S03.10 cross-cutting binding loader pattern. Reads the S05.5 `geometry-overlays.json` × `regulation_record` cross product, applies per-species filtering, walks 4 binding sources (statewide / overlay self-row / overlay portions [CO has none] / no-hunt-zone nearby), and UPSERTs in one atomic three-phase transaction.
+
+**S05.6 scaffold pre-shipped for import:**
+
+- `_STATE: Final[str] = "US-CO"` — direct import; cross-state spatial-filter constant
+- `_NO_HUNT_ZONE_NEARBY_DISTANCE_M: Final[int] = 5000` — direct import; CO recalibration deferred until empirical data lands (the band may narrow after first run, analog of S04.2's T16 empirical narrowing for MT)
+- `_QUERY_NEARBY_GMUS_FOR_ZONE_SQL: Final[str]` — direct import; boundary-to-boundary `extensions.ST_DWithin` SQL with `state + zone-geom + distance` all `%s`-bound + `ORDER BY gmu.id` for determinism
+- `query_nearby_gmus_for_zone(conn, zone_geom_wkt) -> list[str]` — reference function; S06.10 calls it for each of the 10 S05.4 no-hunt zones to find the nearby GMUs
+
+**ADR-021 + Known Issue #6:** the 10 S05.4 federal no-hunt zones bind with `role='no_hunt_zone'` per ADR-021 (the DDL CHECK permits the value). Known Issue #6 (the `_VALID_ROLE_FOR_E03` subset-gate decision) was resolved at S06.0:
+
+- **If subset-gate widened** (S06.0 option A): CO no-hunt-zone bindings flow through the overlay-fixture path with `role_for_e03='no_hunt_zone'` in the fixture row; the CO loader's analogous `_VALID_ROLE_FOR_E03`-equivalent gate admits the value
+- **If hardcoded path** (S06.0 option B; matches MT precedent): CO no-hunt-zone bindings are constructed by a separate hardcoded builder analog of MT's `_build_no_hunt_zone_bindings`; the gate stays narrow
+
+**`_STATE` vs `CO_STATE_CODE` unification** (S06.0 decision): if `_STATE` wins, the rename ships in this story across the 4 existing CO loaders (S05.0/S05.2/S05.4/S05.5 + `build_overlay_fixture.py`); if `CO_STATE_CODE` wins, the S05.6 scaffold is renamed here.
+
+**id format and binding-id discipline:**
+
+- Use the `_JURISDICTION_BINDING_ID_FORMAT` constant from S06.6 (mirrors S03.10's import-and-share pattern from S03.6.1); deterministic + symmetric so re-runs UPSERT as no-ops
+- Statewide bindings: `CO-STATEWIDE-{species}` regulation_record × `CO-STATEWIDE-geom` (the statewide anchors from S06.6)
+- Overlay self-row bindings: every CO `regulation_record` × its `CO-GMU-{GMUID}-geom`
+- No-hunt-zone bindings: each `regulation_record` × each of the 10 nearby zones discovered via `query_nearby_gmus_for_zone()`, with `role='no_hunt_zone'`
+
+**S03.10's 18 fail-loud guards carry forward** (per the audit-stored convention); CO loader inherits the pattern with CO-specific id-derivation logic. 4 PR-review iteration rounds added 4 additional guards in S03.10; PM expects ≥18 guards in the CO loader.
+
+**Source attribution from `geometry.source`** via adapter-local `SELECT id, source FROM geometry WHERE id = ANY(%s)` (S03.10's choice; no new `db.py` helper); Pydantic `ValidationError` wrapped to name the failing geometry id (S03.10 review-fix C2 pattern).
+
+**Deliverables:**
+
+- `ingestion/states/colorado/load_jurisdiction_bindings.py` (already exists as S05.6 scaffold; S06.10 extends with `main()`, `argparse`, `db.connect()`, the 4-builder cross-product, and the row-count guard band)
+- `jurisdiction_binding` rows in 1 atomic transaction (band: empirically derived during build; spec band `[400, 1100]` from S03.10's MT carry-forward is the loose starting estimate)
+- 60-100 tests in `ingestion/tests/test_load_co_jurisdiction_bindings.py` (extending the existing `test_co_binding_reference.py` scaffold from S05.6)
+
+**Relevant ADRs:** [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md), [ADR-010](../adrs/ADR-010-decomposed-entity-model.md), [ADR-016](../adrs/ADR-016-digitization-tolerant-containment.md), [ADR-017](../adrs/ADR-017-confidence-calibration.md) (binding has no `confidence` column — spatial-confidence carve-out per ADR-017 §2), [ADR-018](../adrs/ADR-018-e03-schema-additions.md), [ADR-021](../adrs/ADR-021-jurisdiction-binding-no-hunt-zone-role.md).
+
+**Depends on:** S06.6 (regulation_record exists), S06.7 (link tables — for the cross-product picture), S06.9 (reporting_obligation exists for regulation_reporting link writes), S05.5 `geometry-overlays.json` (operator-pending Group B; live `geometry-overlays.json` is hard precondition for live S06.10 run; dry-run S06.10 can use the operator-pending fixture once captured).
+
+**Unblocks:** S06.11 (M2 milestone UAT).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/load_jurisdiction_bindings.py` extends the S05.6 scaffold with `main()`, `argparse`, `db.connect()`, the 4-builder cross-product
+- [ ] State-agnostic-clean per AST guard; no `ingestion/lib/` edits (S05.6's CO-leak guard test + S05.6 import contracts hold)
+- [ ] Reads `geometry-overlays.json` × `regulation_record` cross product; applies per-species filtering (mirrors S03.10 spec)
+- [ ] **4 builders shipped:** statewide / overlay self-row / overlay portions / no-hunt-zone nearby. The overlay-portions builder is **included as a code path** but the iteration yields zero rows because `geometry-overlays.json` contains zero `kind='portion'` entries for CO (S05.2 closure confirmed CO has no portion-equivalents). This guards against an implementer omitting the code path entirely (which would then break the moment CO ever surfaces portion-like geometries in M3+)
+- [ ] No-hunt-zone bindings: 10 `kind='restricted_area'` zones × their nearby GMUs (per `query_nearby_gmus_for_zone()`); `role='no_hunt_zone'` per ADR-021
+- [ ] Known Issue #6 disposition applied per S06.0 decision (subset-gate widened OR hardcoded path); test asserts the decision is locked
+- [ ] `_STATE` vs `CO_STATE_CODE` unification applied per S06.0 decision; verified by grep across all 5 CO loaders
+- [ ] ≥18 fail-loud guards (S03.10 pattern; surface count in run summary)
+- [ ] Cross-state spatial filter `state = 'US-CO'` baked into every SQL query (verified by regression test — analog of `test_co_binding_loader_sql_filters_by_state_co_pollution_guard` from S05.6, extended to cover the new SQL added by S06.10)
+- [ ] **`_NO_HUNT_ZONE_NEARBY_DISTANCE_M` constant is `%s`-bound (not hardcoded) in every nearby-GMU SQL execution**; recalibration flows through the constant only (mirrors S05.6 Stage-6 Critical fix at `load_jurisdiction_bindings.py:_QUERY_NEARBY_GMUS_FOR_ZONE_SQL`). Verified by test asserting `cur.execute(sql, (..., _NO_HUNT_ZONE_NEARBY_DISTANCE_M, ...))` is the only invocation pattern
+- [ ] PRD 002 success criterion #4 verifies in the spatial query verification step (deferred to S06.11; spot-check passes when `ST_Contains(geom, ST_GeogFromText('POINT(...)')) WHERE state = 'US-CO'` returns the expected GMU + overlays for known coord)
+- [ ] `_JURISDICTION_BINDING_ID_FORMAT` imported from S06.6; symmetric derive-and-assert via S03.10's review-fix-applied UPSERT contract; re-runs UPSERT as no-ops
+- [ ] Atomic three-phase transaction (build → guards → conn loop / commit); row-count guard band documented in closure note
+- [ ] **ADR-020 carve-out preserved:** `drift_guard` is NOT imported by `load_jurisdiction_bindings.py`; `db.upsert_jurisdiction_binding` is NOT instrumented (schema-level exclusion of identity fields from the UPDATE clause is strictly stronger per ADR-020 §"Context"). Verified by an AST guard test asserting `drift_guard` does not appear in the module's import list (mirrors M1's regression-guard pattern in `test_drift_guard.py:TestNoStateAdapterImports`)
+- [ ] Test baseline grows additively; 60+ tests in `test_load_co_jurisdiction_bindings.py`
+- [ ] Live `supabase` row count verified post-load: `SELECT COUNT(*) FROM jurisdiction_binding WHERE regulation_record_state = 'US-CO'` matches build count exactly (operator-driven; Group B verification step)
+
+---
+
+### S06.11: M2 milestone UAT preparation + handoff to M3 (final E06 story)
+
+**Status:** Not Started
+
+**As a** developer preparing M2 for milestone-level UAT sign-off + `m2` tag push
+**I want** the operator UAT runbook for the 10 PRD 002 success criteria + the M2-to-M3 handoff document drafted + the working-notes directory deleted per ADR-017 §6 + CLAUDE.md / planning README / CHANGELOG.md updated for M2 closure
+**So that** the M3 PM session can pick up MCP server work without ambiguity
+
+**UAT: yes** — milestone-level UAT runbook produced AND human-driven UAT sign-off captured
+
+**Context:**
+
+The final E06 story; mirrors M1's S03.12 pattern. Operator runs the 10 success-criteria SQL queries against the production project; PM consolidates results into the UAT capture analog of `M1-uat-results-2026-05-28.md`. M2 PM produces the M2-to-M3 handoff document at `docs/planning/handoffs/M2-to-M3-handoff.md` covering: what M2 built; final row counts (5 entities × 5 species × CO GMUs); ADRs accepted in M2 (ADR-021 + any Q12/Q16/Q17/Q18 ADRs); what M3 inherits; open-questions status at M2 close; deferred items.
+
+**Deliverables:**
+
+- `docs/runbooks/M2-uat.md` (new) — analog of `docs/runbooks/M1-uat.md`; 10 SQL query blocks per the 10 success criteria + operator batch-run sequence
+- `docs/planning/handoffs/M2-to-M3-handoff.md` (new) — analog of `docs/planning/handoffs/M1-to-M2-handoff.md`
+- `docs/planning/epics/E06-confidence-findings/` deleted per ADR-017 §6 + `.gitignore` updated
+- (Conditional) `docs/planning/epics/E06-confidence-calibration-synthesis.md` if any framework-vs-data calibration synthesis surfaces (lives outside `E06-confidence-findings/`; survives `m2` tag per E03 synthesis precedent)
+- CHANGELOG.md + planning README.md + CLAUDE.md updated to reflect M2 closure
+- E06 epic file migrated to `docs/planning/epics/completed/` (matches E03/E04/E05 precedent)
+- `m2` tag candidate identified for user push at the commit where UAT passes
+
+**Relevant ADRs:** [ADR-017](../adrs/ADR-017-confidence-calibration.md) §6 (deletion policy).
+
+**Depends on:** S06.10 (final E06 DB-write story complete), operator Group B verification across S05.0 + S05.2 + S05.3.5 + S05.4 + S05.5 + S05.7 (E05 hard precondition).
+
+**Unblocks:** `m2` tag push, M3 (MCP server) planning.
+
+**Acceptance Criteria:**
+
+- [ ] `docs/runbooks/M2-uat.md` exists with the 10 PRD 002 success-criteria SQL query blocks; operator batch-run sequence (`supabase db push` → loaders → fixture build → verification queries) extracted from working notes before deletion
+- [ ] `docs/planning/handoffs/M2-to-M3-handoff.md` exists; covers what M2 built + final row counts + ADRs accepted in M2 (ADR-021 + Q12/Q16/Q17/Q18 if any landed) + what M3 inherits + open-questions status at M2 close + deferred items
+- [ ] Working-notes `docs/planning/epics/E06-confidence-findings/` deleted; `.gitignore` updated (M1 S03.12 pattern)
+- [ ] If a framework-vs-data calibration synthesis surfaces: `docs/planning/epics/E06-confidence-calibration-synthesis.md` exists OUTSIDE the deletion target; survives `m2` tag
+- [ ] CHANGELOG.md has an `E06 — Colorado Regulation Text Ingestion` section + `M2 — Colorado Ingestion` closing section
+- [ ] Planning README.md reflects M2 Complete; CLAUDE.md preamble reflects M2 Complete; epic file migrated to `epics/completed/`
+- [ ] **UAT:** operator runs the 10 SQL queries against the production project; PM captures verbatim outputs in `docs/runbooks/M2-uat-results-{date}.md` (analog of M1's pattern); all 10 success criteria PASS or are documented as PARTIAL with rationale
+- [ ] `m2` tag candidate identified (PM does not push the tag; human-driven action)
+
+---
+
+## Exit Criteria
+
+- [ ] All 12 E06 stories complete (S06.0 through S06.11)
+- [ ] All 5 V1 CO species (elk, mule_deer, whitetail, pronghorn, bear) have `regulation_record` rows for every applicable CO GMU + statewide-anchor rows where the data requires
+- [ ] Every `regulation_record` has populated `source` (jsonb SourceCitation) + `confidence` (ADR-017 enum)
+- [ ] `season_definition`, `license_tag`, `license_season`, `regulation_season`, `regulation_license`, `draw_spec`, `reporting_obligation`, `regulation_reporting` rows present per the S06.7-S06.9 specs
+- [ ] Asymmetric license-coverage demonstrator verified via `license_season` join (CO analog of M1 success criterion #2)
+- [ ] `jurisdiction_binding` rows generated by S06.10 with cross-state spatial filter `state='US-CO'` (verified by PRD 002 success criterion #4)
+- [ ] The 10 S05.4 federal no-hunt-zone bindings use `role='no_hunt_zone'` per ADR-021
+- [ ] `verbatim_rule` populated on each of the 10 `kind='restricted_area'` geometry rows via S06.5
+- [ ] ADR-020 `drift_guard.assert_id_matches` invoked in `season_definition` + `license_tag` build functions; `assert_dispatch_dict_drift_free` invoked at module load on the CO `_REPORTING_ROW_SPEC` dispatch dict; `db.upsert_jurisdiction_binding` carve-out preserved
+- [ ] Test suite grows additively; M1 + E05 baseline at **1346 + 2 skipped** is the M2 floor; E06 grows to TBD but never subtracts
+- [ ] All 10 PRD 002 success criteria pass UAT (S06.11 captures)
+- [ ] ADRs documenting Q12 / Q16 / Q17 / Q18 / multi-source-provenance resolutions exist (or each is explicitly deferred to V2 with documentation)
+- [ ] CHANGELOG, CLAUDE.md, planning README reflect M2 closure
+- [ ] M2-to-M3 handoff document exists and is complete (`docs/planning/handoffs/M2-to-M3-handoff.md`)
+- [ ] E06 confidence-findings directory deleted per ADR-017 §6
+- [ ] `m2` tag pushed at the commit where milestone UAT passes (human-driven action; PM does not push)
+
+---
+
+## Parallelization Notes
+
+**Within E06: stories run sequentially.** Per M2 PM prompt §"Parallelization Strategy", the human creates a feature branch per story and merges before the next begins. The PM does not recommend parallel work within E06.
+
+**Recommended merge order:** S06.0 → S06.1 → S06.2 (conditional) → S06.3 → S06.4 (may fold into S06.3) → S06.5 → S06.6 → S06.7 → S06.8 → S06.9 → S06.10 → S06.11
+
+**Dependency rationale (in order):**
+
+- **S06.0 → S06.1**: hard precondition — S06.1 cannot start until S06.0 records the operator-resolved Big Game brochure URL + the 5 pre-registered decisions are captured
+- **S06.0 → S06.5**: multi-source provenance decision required before S06.5 spec
+- **S06.0 → S06.9**: Q18 disposition required before S06.9 spec
+- **S06.0 → S06.10**: Known Issue #6 + `_STATE` naming decisions required before S06.10 spec
+- **S06.1 → S06.2 → S06.3 → S06.4**: PDF fetch infra → primitives extension (conditional) → per-source extraction (parallelizable across S06.3 + S06.4 if Black Bear is separate brochure; but convention is sequential per the prompt)
+- **S06.3 + S06.4 → S06.6**: regulation_record ingestion needs all extraction artifacts available
+- **S06.6 → S06.7**: link-table ingestion FKs to regulation_record (FK-direction)
+- **S06.7 → S06.8**: draw_spec ingestion backfills license_tag.draw_spec_key (per ADR-012)
+- **S06.6 → S06.9**: reporting_obligation ingestion may FK to regulation_record per Q18 disposition
+- **S06.5 → S06.10**: binding loader writes `role='no_hunt_zone'` against geometry rows with populated `verbatim_rule` (S06.5 ships first)
+- **S06.6 + S06.7 + S06.9 + S05.5 fixture → S06.10**: binding loader consumes the regulation_record × geometry-overlays.json cross product + writes regulation_reporting links
+- **S06.10 → S06.11**: M2 UAT cannot start until all DB-write stories close
+- **E05 operator Group B → S06.6 onward**: the operator must run the E05 Group B batch (`supabase db push` → loaders → fixture build → spatial-test-points.json) before S06.6+ executes against live state. **S06.0 through S06.5 are dry-run-decoupled and can begin without Group B.**
+
+**Cross-milestone parallelization:** M2 may begin in parallel with M3 (MCP server) per the roadmap, but M3 is a future-PM's concern. The M2 PM does not recommend or coordinate cross-milestone parallel work.
+
+---
+
+## Open Questions and Deferred Items
+
+The following items are pre-registered at E06 plan time. Resolutions land either in S06.0 (the schema-prep gate decisions) OR mid-epic via the flag-and-discuss protocol.
+
+### Pre-registered at S06.0 (require human decision before downstream story specs draft)
+
+1. **Q18 license-keyed disposition** (final call) — PM recommendation: retain V1 license-keyed (option c). Resolved at S06.0.
+2. **Known Issue #6 — `_VALID_ROLE_FOR_E03` subset-gate vs hardcoded path** for CO no-hunt zones. Resolved at S06.0.
+3. **`_STATE` vs `CO_STATE_CODE` naming unification.** PM recommendation: `_STATE` wins (matches MT precedent). Resolved at S06.0.
+4. **CPW Big Game brochure URL hard precondition** — operator must resolve before S06.1. Resolved at S06.0.
+5. **Multi-source provenance for the 10 S05.4 federal no-hunt zones.** Resolved at S06.0.
+
+### M2-resolution candidates per PRD 002 § "Open decisions resolved during M2"
+
+- **Q12 `parameters` enforcement** — first CO `draw_spec` row to require `parameters` triggers ADR. PM expectation: zero triggers across E06; every candidate is flag-and-discuss per R2 mitigation.
+- **Q16 species granularity** — if CPW separates mule_deer / whitetail at row level (artifact-level fan-out → row-level fan-out), trigger ADR-010 amendment.
+- **Q17 per-GMU allocation caps in `draw_spec`** — if CPW publishes per-GMU caps that don't fit `pools[].share` (numeric share sums to 1.0) shape, trigger ADR-candidate. `_KNOWN_CROSS_LISTING_OVERRIDES`-equivalent workaround applies V1.
+- **`role='no_hunt_zone'` enum addition** — RESOLVED via ADR-021 (S05.3.5); E06 inherits.
+- **Multi-source geometry provenance** — third trigger candidate may surface at S06.5 if S06.0 chose option (c); resolves via ADR-candidate.
+- **`effective_after: date | None` on `ClosurePredicate`** — closure-temporal-anchors.md ADR-candidate; trigger condition: any CO closure conditional on BOTH a quota threshold AND a calendar gate. S06.7 evaluates.
+
+### Explicitly NOT resolved in M2 (per PRD 002 §"Explicitly NOT resolved in M2")
+
+- Cell-level source attribution — V1 row-level only
+- Free-prose non-NOTE HD-wide content — V1 simplification stands
+- Q10 product name; Q13 public/license posture — not E06 scope
+
+---
+
+## Known Issues to Escalate
+
+These items are surfaced to the human for decision; they do not block E06 story drafting at plan time but require resolution before downstream consumers fire.
+
+1. **Operator Group B batched live-write session** — the hard precondition feeding S06.6 onward live execution. Six S05.X Group B verifications outstanding (S05.0 + S05.2 + S05.3.5 + S05.4 + S05.5 + S05.7). Sequence: `supabase db push` → `load_state_boundary` → `load_gmus` → `load_restricted_areas` → `build_overlay_fixture` → generate `spatial-test-points.json` → run the 7 verification steps from `docs/runbooks/E05-colorado-geometry-verification.md`. PM ticks Group B ACs in follow-up doc-only commits once operator captures results. **PM recommendation: sequence before/with E06 spec drafting** so E06 references the verified live state.
+
+2. **`.roughly/known-pitfalls.md` reorg/dedup** — at ~1045 LOC; doc-writer flagged in 5 consecutive E05 stories (S05.3.5 → S05.4 → S05.5 → S05.6 → S05.7; recurring). Worth scheduling a dedicated documentation-hygiene session when the M2 hygiene sweep opens.
+
+3. **Recurring-RLS-gap M2 open question** (E04 §"Known Issues to Escalate" #1) — if E06 ships any new `public.*` table (via Q18 / Q16 / Q17 / multi-source-provenance ADR resolutions), the migration must include inline deny-all RLS for `authenticated` + `anon` + RLS verification queries per the M1 UAT canonical pattern. The gap discipline persists.
+
+4. **Known Issue #7 — narrow overlay-builder shared-lib extraction** (post-E05 tech-debt; from E05 epic). Standalone post-E06 hygiene-sweep PR. Touches merged + audited MT code so needs its own review.
+
+5. **E05 research-doc accuracy item** at `docs/research/colorado-restricted-areas-evaluation.md:249` (the softer "same federal-authoritative chain" MT-contrast phrasing). PM does not edit `docs/research/` autonomously; surface to human at convenient point.
+
+6. **Q12 / Q16 / Q17 / multi-source-provenance ADR drafting** — when any of these triggers fire mid-E06, the human (or an explicit ADR-drafting session) authors the ADR. PM does not draft ADRs autonomously; PM consolidates findings + flags + drafts open-question prose for human review.
+
+If E06 implementation surfaces issues out of E06 scope, implementation agents flag on the relevant story rather than silently widening scope. PM surfaces to human.
+
+---
+
+## References
+
+- **PRD source:** [`docs/planning/prds/002-M2-colorado-ingestion.md`](../prds/002-M2-colorado-ingestion.md)
+- **M1→M2 handoff:** [`docs/planning/handoffs/M1-to-M2-handoff.md`](../handoffs/M1-to-M2-handoff.md)
+- **E05 epic (audited):** [`epics/completed/E05-colorado-geometry-ingestion.md`](completed/E05-colorado-geometry-ingestion.md)
+- **E05 audit:** [`epics/completed/E05-audit.md`](completed/E05-audit.md)
+- **E03 epic (M1 reference shape):** [`epics/completed/E03-regulation-text-ingestion.md`](completed/E03-regulation-text-ingestion.md)
+- **CO draw schema proposal:** [`docs/research/colorado-draw-schema-proposal.md`](../../research/colorado-draw-schema-proposal.md)
+- **CO restricted-areas evaluation:** [`docs/research/colorado-restricted-areas-evaluation.md`](../../research/colorado-restricted-areas-evaluation.md)
+- **Architecture data model:** [`docs/architecture.md`](../../architecture.md)
+- **ADRs accepted at M2 plan time:** ADR-001, ADR-003, ADR-004, ADR-005, ADR-006, ADR-007, ADR-008, ADR-010, ADR-011, ADR-012, ADR-014, ADR-015, ADR-016, ADR-017, ADR-018, ADR-019, ADR-020, ADR-021 (the 8th value `no_hunt_zone` for `jurisdiction_binding.role`)
+- **E03 deferred items (carried into E06 trigger inventory):** [`epics/completed/E03-deferred-items/draw-mechanics.md`](completed/E03-deferred-items/draw-mechanics.md), [`epics/completed/E03-deferred-items/cwd-sampling-modeling.md`](completed/E03-deferred-items/cwd-sampling-modeling.md), [`epics/completed/E03-deferred-items/closure-temporal-anchors.md`](completed/E03-deferred-items/closure-temporal-anchors.md), [`epics/completed/E03-deferred-items/README.md`](completed/E03-deferred-items/README.md)
+- **E05 operator runbook (precondition for E06 live execution):** [`docs/runbooks/E05-colorado-geometry-verification.md`](../../runbooks/E05-colorado-geometry-verification.md)
+- **S05.6 binding-loader scaffold (E06 S06.10 imports):** [`ingestion/states/colorado/load_jurisdiction_bindings.py`](../../../ingestion/states/colorado/load_jurisdiction_bindings.py)
