@@ -1,0 +1,21 @@
+.roughly/plans/S06.0-pre-e06-decisions-and-schema-prep-plan.md
+  s_d0a2b11151dbd5::t_964d562869d01a 3-24,26-76
+  s_d0a2b11151dbd5::t_0cf8e71ea962e6 1-2
+  s_d0a2b11151dbd5::t_cf7b1daa7f1625 25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "21b4640a68f8ab63979592f297eb53046be68d50",
+  "prompts": {},
+  "sessions": {
+    "s_d0a2b11151dbd5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2ce4e8ac-d30c-4235-b083-1257708972a8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
