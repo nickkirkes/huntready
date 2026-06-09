@@ -419,6 +419,147 @@ class TestFetchPdfCitationRoundTrip:
         assert manifest["citation_id"] == "mt-fwp-black-bear-2026-correction-2026-03-18"
 
 
+class TestExpectedSha256PinEnforcement:
+    """A real operator-verified ``expected_sha256`` pin must be enforced on
+    EVERY fetch — including the first, before any artifact is written. This
+    closes the trust-on-first-use gap: the manifest-drift check needs a prior
+    manifest, so without pin enforcement a corrupt/wrong/stale first fetch
+    would silently become the baseline. The ``"unknown"`` sentinel and ``None``
+    skip enforcement (the M1 default for un-pinned entries)."""
+
+    def test_matching_pin_passes_and_writes(
+        self,
+        fixture_dir: Path,
+        sample_pdf_bytes: bytes,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        correct = hashlib.sha256(sample_pdf_bytes).hexdigest()
+        session = _mock_session_returning(sample_pdf_bytes)
+        meta = fetch_pdf(
+            citation_id="pin-match",
+            url="https://example.com/doc.pdf",
+            publication_date="2026-01-01",
+            document_type="annual_regulations",
+            fixture_dir=fixture_dir,
+            expected_sha256=correct,
+            session=session,
+        )
+        assert meta.pdf_sha256 == correct
+        assert (fixture_dir / "pin-match-2026-01-01.pdf").exists()
+        assert (fixture_dir / "pin-match-2026-01-01-pdf-manifest.json").exists()
+
+    def test_mismatching_pin_raises_and_writes_nothing(
+        self,
+        fixture_dir: Path,
+        sample_pdf_bytes: bytes,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        wrong_pin = "0" * 64  # valid 64-hex shape, but not the real digest
+        session = _mock_session_returning(sample_pdf_bytes)
+        with pytest.raises(PdfFetchError, match="pin mismatch"):
+            fetch_pdf(
+                citation_id="pin-wrong",
+                url="https://example.com/doc.pdf",
+                publication_date="2026-01-01",
+                document_type="annual_regulations",
+                fixture_dir=fixture_dir,
+                expected_sha256=wrong_pin,
+                session=session,
+            )
+        # No artifact persisted — the gate fires before any write, so a bad
+        # first fetch cannot become the baseline.
+        assert not (fixture_dir / "pin-wrong-2026-01-01.pdf").exists()
+        assert not (fixture_dir / "pin-wrong-2026-01-01-pdf-manifest.json").exists()
+
+    def test_unknown_sentinel_skips_enforcement(
+        self,
+        fixture_dir: Path,
+        sample_pdf_bytes: bytes,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # `expected_sha256: unknown` is the M1 default for un-verified entries
+        # and must NOT be treated as a malformed pin — enforcement is skipped.
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        session = _mock_session_returning(sample_pdf_bytes)
+        meta = fetch_pdf(
+            citation_id="pin-unknown",
+            url="https://example.com/doc.pdf",
+            publication_date="2026-01-01",
+            document_type="annual_regulations",
+            fixture_dir=fixture_dir,
+            expected_sha256="unknown",
+            session=session,
+        )
+        assert meta.pdf_sha256 == hashlib.sha256(sample_pdf_bytes).hexdigest()
+        assert (fixture_dir / "pin-unknown-2026-01-01.pdf").exists()
+
+    def test_uppercase_pin_normalized_and_matches(
+        self,
+        fixture_dir: Path,
+        sample_pdf_bytes: bytes,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        upper = hashlib.sha256(sample_pdf_bytes).hexdigest().upper()
+        session = _mock_session_returning(sample_pdf_bytes)
+        meta = fetch_pdf(
+            citation_id="pin-upper",
+            url="https://example.com/doc.pdf",
+            publication_date="2026-01-01",
+            document_type="annual_regulations",
+            fixture_dir=fixture_dir,
+            expected_sha256=upper,
+            session=session,
+        )
+        assert meta.pdf_sha256 == hashlib.sha256(sample_pdf_bytes).hexdigest()
+
+    def test_malformed_pin_raises(
+        self,
+        fixture_dir: Path,
+        sample_pdf_bytes: bytes,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # A non-"unknown" value that is not 64-char hex is an operator error
+        # and must fail loud, not silently skip enforcement.
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        session = _mock_session_returning(sample_pdf_bytes)
+        with pytest.raises(PdfFetchError, match="malformed"):
+            fetch_pdf(
+                citation_id="pin-malformed",
+                url="https://example.com/doc.pdf",
+                publication_date="2026-01-01",
+                document_type="annual_regulations",
+                fixture_dir=fixture_dir,
+                expected_sha256="deadbeef",
+                session=session,
+            )
+        assert not (fixture_dir / "pin-malformed-2026-01-01.pdf").exists()
+
+    def test_non_string_pin_raises(
+        self,
+        fixture_dir: Path,
+        sample_pdf_bytes: bytes,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # A YAML entry could yield a non-string expected_sha256 (e.g. a bare
+        # number); the gate must reject it with a clear error rather than crash
+        # on .strip().
+        monkeypatch.setattr("ingestion.lib.arcgis.time.sleep", lambda _s: None)
+        session = _mock_session_returning(sample_pdf_bytes)
+        with pytest.raises(PdfFetchError, match="must be a string"):
+            fetch_pdf(
+                citation_id="pin-nonstring",
+                url="https://example.com/doc.pdf",
+                publication_date="2026-01-01",
+                document_type="annual_regulations",
+                fixture_dir=fixture_dir,
+                expected_sha256=12345,  # type: ignore[arg-type]
+                session=session,
+            )
+
+
 class TestFetchPdfNoStateAdapterImports:
     """The shared library must remain state-agnostic per ADR-005 — no imports
     from any state adapter and no state-specific identifiers in the source.

@@ -41,6 +41,7 @@ import hashlib
 import io
 import json
 import logging
+import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +56,13 @@ from ingestion.lib import arcgis
 _logger = logging.getLogger(__name__)
 
 _VALID_DOCUMENT_TYPES: frozenset[str] = frozenset({"annual_regulations", "correction"})
+
+# A sources.yaml `expected_sha256` of this literal means "no operator byte pin
+# yet" (the M1 default for un-verified entries) — pin enforcement is skipped.
+# Any other non-empty value MUST be a real 64-char lowercase hex digest and IS
+# enforced on every fetch (see `fetch_pdf`'s expected-SHA gate).
+_PIN_UNKNOWN_SENTINEL: str = "unknown"
+_SHA256_HEX_RE = re.compile(r"[0-9a-f]{64}")
 
 
 class PdfFetchError(Exception):
@@ -124,6 +132,7 @@ def fetch_pdf(
     publication_date: str,
     document_type: str,
     fixture_dir: Path,
+    expected_sha256: str | None = None,
     session: requests.Session | None = None,
 ) -> PdfMetadata:
     """Fetch a PDF, drift-check against prior manifest, write fixture + manifest.
@@ -146,6 +155,14 @@ def fetch_pdf(
         One of ``{"annual_regulations", "correction"}``.
     fixture_dir:
         Directory where the PDF and manifest are written. Created if absent.
+    expected_sha256:
+        Optional operator-verified byte pin from ``sources.yaml``. When this is
+        a real 64-char lowercase hex digest, the fetched bytes' SHA-256 must
+        equal it or ``PdfFetchError`` is raised BEFORE any PDF or manifest is
+        written — this enforces integrity on the FIRST fetch, which the
+        manifest-drift check (which needs a prior manifest) cannot. ``None`` or
+        the literal ``"unknown"`` skips enforcement (the M1 default for entries
+        without an operator pin). A malformed non-``"unknown"`` value fails loud.
     session:
         Optional pre-built ``requests.Session``. If ``None``, a session is
         constructed via ``arcgis._build_session()`` so that this call and any
@@ -161,7 +178,9 @@ def fetch_pdf(
     PdfFetchError
         On any of: empty/None ``url``; invalid ``publication_date`` format;
         unknown ``document_type``; stale drift-detection marker present;
-        HTTP >= 400; pypdf parse failure; SHA-256 drift against prior manifest.
+        HTTP >= 400; pypdf parse failure; SHA-256 drift against prior manifest;
+        SHA-256 mismatch against a real ``expected_sha256`` pin; malformed
+        ``expected_sha256``.
     """
     # --- 1. Validate inputs ---
     if not url:
@@ -214,6 +233,41 @@ def fetch_pdf(
 
     # --- 7. SHA-256 ---
     pdf_sha256 = hashlib.sha256(content).hexdigest()
+
+    # --- 7b. Expected-SHA pin enforcement (eliminates trust-on-first-use) ---
+    # When the caller supplies a REAL operator-verified byte pin (not the
+    # "unknown" sentinel), enforce it on EVERY fetch — including the first,
+    # before any PDF or manifest is written. The step-9 manifest-drift check
+    # only fires on a re-fetch against a prior committed manifest, so without
+    # this gate a corrupt / wrong / stale FIRST fetch would silently become the
+    # baseline. A malformed pin is an operator error and fails loud rather than
+    # silently skipping enforcement. No marker is written here: nothing was
+    # persisted, so there is no prior-extraction state to block on — the raised
+    # error surfaces in the caller's aggregation, and a clean re-fetch can
+    # follow once the source or the pin is corrected.
+    if expected_sha256 is not None:
+        if not isinstance(expected_sha256, str):
+            raise PdfFetchError(
+                f"expected_sha256 for {citation_id} must be a string or None, "
+                f"got {type(expected_sha256).__name__}: {expected_sha256!r}"
+            )
+        pin = expected_sha256.strip().lower()
+        if pin and pin != _PIN_UNKNOWN_SENTINEL:
+            if not _SHA256_HEX_RE.fullmatch(pin):
+                raise PdfFetchError(
+                    f"expected_sha256 for {citation_id} is malformed "
+                    f"({expected_sha256!r}) — must be a 64-char lowercase hex "
+                    f"SHA-256 or the literal {_PIN_UNKNOWN_SENTINEL!r}"
+                )
+            if pin != pdf_sha256:
+                raise PdfFetchError(
+                    f"SHA-256 pin mismatch for {citation_id}: the bytes fetched "
+                    f"from {url} hash to {pdf_sha256}, but sources.yaml pins "
+                    f"{pin}. The source does not match the operator-verified "
+                    f"pin — stop and investigate (wrong / corrupt / stale CDN "
+                    f"copy) before trusting this fetch. No PDF or manifest "
+                    f"written."
+                )
 
     # --- 8. Page count ---
     try:

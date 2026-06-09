@@ -467,20 +467,20 @@ When asked "does MT have a layer for X," check all three hosts before concluding
 
 Surfaced by S02.5 investigation on 2026-05-01; extended to MSDI by S03.0 source investigation on 2026-05-04.
 
-### `expected_sha256` in `sources.yaml` is documentation intent, not a runtime gate
+### `expected_sha256` in `sources.yaml`: a real pin IS enforced on first fetch; `unknown`/absent is documentation-only; the manifest is the re-fetch drift gate
 
-`ingestion/states/montana/sources.yaml` carries `expected_sha256: <hex>` (or the literal `unknown`) per entry. The field reads like a runtime check, but it is **not** read by the fetcher. The actual drift-detection comparison in `ingestion/ingestion/lib/pdf_fetch.py` is between the observed SHA from the network fetch and the prior committed `*-pdf-manifest.json` file's `pdf_sha256` field — not against `sources.yaml`.
+There are TWO independent SHA gates in `ingestion/ingestion/lib/pdf_fetch.py`, and they answer different questions:
 
-Two consequences:
+1. **Manifest re-fetch drift gate** (since S03.1): compares the observed SHA against the prior committed `*-pdf-manifest.json` `pdf_sha256`. Fires only on a *re-fetch* (a prior manifest must exist). Writes a `*-pending-reextraction.flag` marker + raises on drift. It does NOT read `sources.yaml`.
+2. **Expected-SHA pin gate** (since S06.1): `fetch_pdf` takes an optional `expected_sha256` param; when the caller passes a *real* 64-char lowercase hex pin (not the `"unknown"` sentinel, not `None`), the fetched bytes must match it or `PdfFetchError` is raised **before any PDF/manifest is written** — on EVERY fetch including the first. A malformed non-`"unknown"` value fails loud. This closes the trust-on-first-use gap (gate 1 can't fire on the first fetch, so without gate 2 a corrupt/wrong/stale first fetch would silently become the baseline).
 
-1. The first run against a new entry never compares anything (no prior manifest exists). The observed SHA is recorded in the manifest unconditionally; no marker is written.
-2. Updating `sources.yaml` to a new `expected_sha256` value does NOT cause the next fetch to fail or warn. Drift is detected purely from on-disk manifest state.
+Consequences / how to use it:
 
-The field exists so reviewers can see operator intent in `git diff` ("the operator pinned this hash; did it change?") and so a corrupted manifest can be cross-checked against the YAML for forensic purposes. It is documentation, not enforcement.
+- `"unknown"` (the M1 default for un-verified entries) and an absent field both SKIP gate 2 — so Montana, whose entries are all `expected_sha256: unknown`, is unaffected by the S06.1 change. The orchestrator must opt in by passing `expected_sha256=entry.get("expected_sha256")` to `fetch_pdf` (CO's `fetch_pdfs.py` does; MT's does not, since it has no real pins).
+- For an entry with a real pin, the first fetch is now gated: pin only AFTER the operator has out-of-band downloaded + byte-verified the document (the S06.0/D4 pattern), because the automated fetch must match the pin exactly.
+- Gate 1's "first run records the observed SHA unconditionally" behavior still holds for `unknown`/un-pinned entries.
 
-If a future operator wants `sources.yaml` to actively gate fetches, that is a behavior change — read the field in `fetch_pdf` and compare against the observed SHA. As of S03.1 this is intentionally not wired up to avoid coupling fetch behavior to a hand-edited YAML field.
-
-Surfaced by S03.1 implementation on 2026-05-04.
+Surfaced by S03.1 (2026-05-04, gate 1) and refined by S06.1 (2026-06-09, gate 2 — the first CO entries carried real operator-verified pins; an unenforced pin was flagged as a first-fetch integrity P2).
 
 ### `sources.yaml` URL slug ≠ publication cadence — confirm cadence by reading the PDF, not the URL
 
@@ -1048,3 +1048,11 @@ Surfaced by S05.4 Stage-6 review on 2026-06-03.
 **Fix:** When an item is genuinely covered, assert the ABSENCE of the allowlist/orphan INFO log line: `assert not any("ADR-016 allowlist" in r.message for r in caplog.records)`. The absence of the orphan log is the only signal that the coverage path actually fired. This extends the S05.4 pitfall "an enumerated expected-set constant is only a guard if compared against actual output at the write boundary" — here the allowlist masks a filter bug rather than an id-substitution bug. Reference: `ingestion/tests/test_build_co_overlay_fixture.py::TestValidateCoverage::test_all_children_covered_no_raise` (S05.5 review-triad W1 fix).
 
 Surfaced by S05.5 Stage-6 review on 2026-06-04.
+
+### Forking a state-adapter module means forking its test suite too — verify guard-parity before closing the story
+
+**Symptom:** A new state's adapter module is created as a near-verbatim copy of an existing state's module (e.g., CO `fetch_pdfs.py` forked from MT `fetch_pdfs.py` with only docstring/path/argparse substitutions). A handful of new-state-specific tests are written, but the sibling state's orchestrator-behavior test classes are not ported. The copied module carries fail-loud guards (malformed-entry, empty-or-invalid-field, empty-url), but those guards have zero test coverage in the new state. A future accidental weakening of a copied guard passes CI silently.
+
+**Cause:** The shared-lib primitive (`pdf_fetch.fetch_pdf`) is covered once in `test_pdf_fetch.py`, but the per-state orchestrator copy is a separate artifact — each state's copy needs its own behavior coverage. Writing only new-state-specific tests leaves the inherited guard logic dark.
+
+**Fix:** When forking a state-adapter module, port the sibling's behavior-test classes too (CO-renamed, with updated import paths). Verify guard-parity by diffing the new test file's class list against the sibling's before closing the story. Surfaced by S06.1 Stage-6 silent-failure-hunter: porting MT's `TestMalformedEntryShape`, `TestEmptyOrInvalidFieldValuesFailLoud`, and `TestEmptyUrlEntryFailsLoud` classes raised CO's orchestrator coverage from 12 → 22 tests and closed the guard-parity gap.
