@@ -1,0 +1,19 @@
+.roughly/known-pitfalls.md
+  s_04e465dcaaec0a::t_a0b424240b6c8c 1051-1058
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "f8ca7efa15052c22c8dbe7dc512eff0faa6b9818",
+  "prompts": {},
+  "sessions": {
+    "s_04e465dcaaec0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d08f547e-1cbc-4c14-8feb-7ba91d00c4d8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
