@@ -15,3 +15,19 @@
 
 # Atomic-write tmp files orphaned by interrupted writes (rare).
 *.tmp
+
+# Raw PDF source documents — committing these would add ~MB per fetch to git
+# (the 2026 CPW Big Game brochure alone is ~96.7MB / 84 pages). Per S06.1
+# (mirrors S03.1), PDFs stay local-only, paired with a committed per-fetch
+# *-pdf-manifest.json carrying SHA-256, page count, and source provenance.
+*.pdf
+
+# Drift-detection marker files written when SHA-256 of a re-fetch differs from
+# the committed manifest. The operator deletes the marker after acknowledging
+# the drift; until then, downstream extraction stories (S06.3 / S06.4 / S06.5)
+# refuse to proceed. Markers are runtime state, not committed artifacts.
+*-pending-reextraction.flag
+
+# Per-PDF manifests (S06.1) — *-pdf-manifest.json (~1KB each) ARE committed for
+# cross-operator drift detection. No glob rule is needed since manifests don't
+# match *.pdf — this comment anchors the policy.
