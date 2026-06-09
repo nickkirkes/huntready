@@ -1,0 +1,26 @@
+.roughly/plans/S06.1-cpw-pdf-fetch-infra-plan.md
+  s_04e465dcaaec0a::t_8eaffa357e9049 153
+  s_04e465dcaaec0a::t_27e4e35320c4d2 3-71,73-113,115-122,124-125,127-128,130-152
+  s_04e465dcaaec0a::t_405380dd3920dd 126
+  s_04e465dcaaec0a::t_863ec97c433d8c 123
+  s_04e465dcaaec0a::t_95efd8693e9356 1-2
+  s_04e465dcaaec0a::t_4e126e5296e3b2 72
+  s_04e465dcaaec0a::t_2df810bfa2a19b 114
+  s_04e465dcaaec0a::t_aefdd86298de24 129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "04badee1b97a3354cd03ec7df3463009b5cd8847",
+  "prompts": {},
+  "sessions": {
+    "s_04e465dcaaec0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d08f547e-1cbc-4c14-8feb-7ba91d00c4d8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
