@@ -648,3 +648,74 @@ pdfs:
                 "--fixture-dir", str(fixture_dir),
             ])
         stub.assert_not_called()
+
+
+class TestColoradoOrchestratorPassesExpectedSha256:
+    """The CO orchestrator must forward each entry's expected_sha256 pin to
+    fetch_pdf so the pin is enforced on the FIRST fetch (CO carries real pins,
+    unlike MT). Locks the S06.1 fix for the unenforced-first-fetch P2."""
+
+    def test_orchestrator_forwards_pin_to_fetch_pdf(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        pin = "a" * 64  # synthetic 64-hex pin (not a real digest)
+        sources_path.write_text(
+            f"""\
+pdfs:
+  - id: test-doc
+    agency: Test Agency
+    title: "Test Document"
+    url: "https://example.com/x.pdf"
+    expected_page_count: 10
+    expected_sha256: "{pin}"
+    document_type: annual_regulations
+    publication_date: "2026-01-01"
+""",
+            encoding="utf-8",
+        )
+        # Stub fetch_pdf (page_count matches expected so no marker path fires).
+        stub = MagicMock(return_value=_make_metadata(page_count=10))
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        fetch_pdfs.main([
+            "--sources", str(sources_path),
+            "--fixture-dir", str(fixture_dir),
+        ])
+
+        stub.assert_called_once()
+        assert stub.call_args.kwargs["expected_sha256"] == pin
+
+    def test_orchestrator_forwards_none_when_pin_absent(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # An entry with no expected_sha256 field forwards None (enforcement
+        # skipped) — fetch_pdf.dict.get returns None, not a KeyError.
+        sources_path = tmp_path / "sources.yaml"
+        fixture_dir = tmp_path / "fixtures"
+        fixture_dir.mkdir()
+        sources_path.write_text(
+            """\
+pdfs:
+  - id: test-doc
+    agency: Test Agency
+    title: "Test Document"
+    url: "https://example.com/x.pdf"
+    expected_page_count: 10
+    document_type: annual_regulations
+    publication_date: "2026-01-01"
+""",
+            encoding="utf-8",
+        )
+        stub = MagicMock(return_value=_make_metadata(page_count=10))
+        monkeypatch.setattr(fetch_pdfs, "fetch_pdf", stub)
+
+        fetch_pdfs.main([
+            "--sources", str(sources_path),
+            "--fixture-dir", str(fixture_dir),
+        ])
+
+        stub.assert_called_once()
+        assert stub.call_args.kwargs["expected_sha256"] is None

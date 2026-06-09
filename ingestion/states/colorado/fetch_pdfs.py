@@ -173,12 +173,20 @@ def main(argv: list[str] | None = None) -> int:
             ))
             continue
         try:
+            # Pass the operator-verified byte pin (when present) so fetch_pdf
+            # enforces it on the FIRST fetch, not just on manifest re-fetch.
+            # CO carries real expected_sha256 pins (resolved at S06.0/D4),
+            # unlike MT whose entries are all the "unknown" sentinel; fetch_pdf
+            # skips enforcement for "unknown"/absent pins, so this is a safe
+            # no-op for un-pinned entries. (Sole intentional divergence from
+            # the MT orchestrator, whose entries have no real pin to enforce.)
             metadata = fetch_pdf(
                 citation_id=entry["id"],
                 url=entry["url"],
                 publication_date=entry["publication_date"],
                 document_type=entry["document_type"],
                 fixture_dir=args.fixture_dir,
+                expected_sha256=entry.get("expected_sha256"),
             )
         except PdfFetchError as exc:
             logger.error("fetch failed for %s: %s", entry_id, exc)

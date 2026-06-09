@@ -64,14 +64,17 @@ gis_layers:
 # CPW regulation PDFs (S06.1; URLs + SHA-256 + page counts resolved at S06.0/D4,
 # operator-verified 2026-06-08). Mirrors the Montana `pdfs:` schema (S03.1).
 #
-# `expected_sha256` here is the operator's first-fetch byte pin and is the
-# AUTHORITATIVE drift gate per ADR-001 / E06 review finding #5: at runtime,
-# pdf_fetch.fetch_pdf compares the observed SHA-256 against the committed
-# *-pdf-manifest.json (NOT against this field), and a mismatch writes a
-# <id>-<publication_date>-pending-reextraction.flag marker + raises
-# PdfFetchError. The HTTP `Last-Modified` header corroborates; a `Content-Length`
-# delta with a MATCHING SHA-256 is benign (CDN re-compression / transfer-encoding
-# variance) and must NOT raise.
+# `expected_sha256` here is the operator's byte pin and is the AUTHORITATIVE
+# drift gate per ADR-001 / E06 review finding #5. fetch_pdfs.py passes it to
+# pdf_fetch.fetch_pdf, which enforces it on EVERY fetch — including the first,
+# before any PDF/manifest is written — so a corrupt/wrong/stale first fetch
+# cannot silently become the baseline (the S06.1 pin gate; a mismatch raises
+# PdfFetchError). A SEPARATE manifest re-fetch gate also compares the observed
+# SHA against the committed *-pdf-manifest.json and writes a
+# <id>-<publication_date>-pending-reextraction.flag marker on drift. The HTTP
+# `Last-Modified` header corroborates; a `Content-Length` delta with a MATCHING
+# SHA-256 is benign (CDN re-compression / transfer-encoding variance) and must
+# NOT raise.
 #
 # `publication_date` is the document's stated date, not the fetch date (Big Game
 # brochure: HTTP Last-Modified "Wed, 04 Mar 2026"; correction PDF: its stated
