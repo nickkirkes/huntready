@@ -1048,3 +1048,11 @@ Surfaced by S05.4 Stage-6 review on 2026-06-03.
 **Fix:** When an item is genuinely covered, assert the ABSENCE of the allowlist/orphan INFO log line: `assert not any("ADR-016 allowlist" in r.message for r in caplog.records)`. The absence of the orphan log is the only signal that the coverage path actually fired. This extends the S05.4 pitfall "an enumerated expected-set constant is only a guard if compared against actual output at the write boundary" — here the allowlist masks a filter bug rather than an id-substitution bug. Reference: `ingestion/tests/test_build_co_overlay_fixture.py::TestValidateCoverage::test_all_children_covered_no_raise` (S05.5 review-triad W1 fix).
 
 Surfaced by S05.5 Stage-6 review on 2026-06-04.
+
+### Forking a state-adapter module means forking its test suite too — verify guard-parity before closing the story
+
+**Symptom:** A new state's adapter module is created as a near-verbatim copy of an existing state's module (e.g., CO `fetch_pdfs.py` forked from MT `fetch_pdfs.py` with only docstring/path/argparse substitutions). A handful of new-state-specific tests are written, but the sibling state's orchestrator-behavior test classes are not ported. The copied module carries fail-loud guards (malformed-entry, empty-or-invalid-field, empty-url), but those guards have zero test coverage in the new state. A future accidental weakening of a copied guard passes CI silently.
+
+**Cause:** The shared-lib primitive (`pdf_fetch.fetch_pdf`) is covered once in `test_pdf_fetch.py`, but the per-state orchestrator copy is a separate artifact — each state's copy needs its own behavior coverage. Writing only new-state-specific tests leaves the inherited guard logic dark.
+
+**Fix:** When forking a state-adapter module, port the sibling's behavior-test classes too (CO-renamed, with updated import paths). Verify guard-parity by diffing the new test file's class list against the sibling's before closing the story. Surfaced by S06.1 Stage-6 silent-failure-hunter: porting MT's `TestMalformedEntryShape`, `TestEmptyOrInvalidFieldValuesFailLoud`, and `TestEmptyUrlEntryFailsLoud` classes raised CO's orchestrator coverage from 12 → 22 tests and closed the guard-parity gap.
