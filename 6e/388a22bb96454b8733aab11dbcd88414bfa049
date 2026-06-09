@@ -1,0 +1,29 @@
+ingestion/tests/test_fetch_co_pdfs.py
+  s_04e465dcaaec0a::t_883672cbb9b108 1-310
+  s_04e465dcaaec0a::t_6e36846d2ac8b5 311-650
+ingestion/states/colorado/sources.yaml
+  s_04e465dcaaec0a::t_a113dd1289d3ce 63-103
+docs/planning/epics/E06-confidence-findings/S06.1.md
+  s_04e465dcaaec0a::t_d6f6ecde6e6d80 42-46
+  s_04e465dcaaec0a::t_71540d8b336375 1-41,47-56
+ingestion/states/colorado/fetch_pdfs.py
+  s_04e465dcaaec0a::t_1ae3238c4963ea 1-278
+ingestion/states/colorado/fixtures/.gitignore
+  s_04e465dcaaec0a::t_6879c4360bd3bf 18-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "6e388a22bb96454b8733aab11dbcd88414bfa049",
+  "prompts": {},
+  "sessions": {
+    "s_04e465dcaaec0a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d08f547e-1cbc-4c14-8feb-7ba91d00c4d8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
