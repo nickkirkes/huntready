@@ -1,0 +1,23 @@
+.roughly/plans/S06.3-cpw-big-game-extraction-plan.md
+  s_dee9feec9456d6::t_af70d626256a20 3-57,60-123,125-168
+  s_dee9feec9456d6::t_2941bec7b9799b 58-59
+  s_dee9feec9456d6::t_5f0b16b9ea3d30 169
+  s_dee9feec9456d6::t_80195046ba9cca 124
+  s_dee9feec9456d6::t_18e43a0b3b33c7 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "21773eba9d339752eb8092f190ce181cbcb9709d",
+  "prompts": {},
+  "sessions": {
+    "s_dee9feec9456d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "343ebdb7-85bb-402b-bad3-49338196f318",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
