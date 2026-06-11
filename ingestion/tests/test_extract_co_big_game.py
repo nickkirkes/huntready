@@ -528,6 +528,15 @@ class TestRowFilters:
         assert _is_map_page_text("x" * 119, table_count=0) is True
         assert _is_map_page_text("x" * 120, table_count=0) is False
 
+    def test_short_page_with_hunt_code_not_dropped(self) -> None:
+        """Rule R10 safeguard: a short, no-table page that contains a hunt code
+        is regulation content and must NOT be classified as a map page (guards
+        against silently dropping a real page if pdfplumber misses its table).
+        """
+        assert _is_map_page_text("D-M-001-O1-A A", table_count=0) is False
+        # Genuine map page (short, no table, no hunt code) is still skipped.
+        assert _is_map_page_text("Colorado map legend", table_count=0) is True
+
     # --- _is_garbage_row ---
 
     def _make_garbage_row(

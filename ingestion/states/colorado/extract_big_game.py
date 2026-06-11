@@ -671,6 +671,16 @@ def _is_map_page_text(text: str | None, table_count: int) -> bool:
     and a sparsely-worded section header ≥ 30 chars.  Only genuinely empty or
     garbled pages fall below the threshold.
 
+    **Positive-content safeguard:** the negative signals above (no table + short
+    text) could in principle drop a legitimate regulation page if a future CPW
+    layout change made pdfplumber miss its table AND its text happened to be
+    short.  To prevent that silent loss, a page whose text contains ANY
+    hunt-code-shaped token (``_HUNT_CODE_FRAGMENT_RE``) is treated as regulation
+    content and is NEVER classified as a map page, regardless of table detection
+    or text length — ``extract_text`` returns cell words even when table
+    detection fails, so a real regulation page always carries hunt codes while a
+    genuine map/photo page carries none.
+
     This is a pure function (caller supplies the already-extracted text and
     table count) so it can be unit-tested without a live PDF.
 
@@ -680,7 +690,11 @@ def _is_map_page_text(text: str | None, table_count: int) -> bool:
         return False
     if text is None:
         return True
-    return len(text.strip()) < _MAP_PAGE_MIN_TEXT_CHARS
+    stripped = text.strip()
+    # Positive-content safeguard: regulation pages always carry hunt codes.
+    if _HUNT_CODE_FRAGMENT_RE.search(stripped):
+        return False
+    return len(stripped) < _MAP_PAGE_MIN_TEXT_CHARS
 
 
 def _is_garbage_row(row: "CpwRowExtraction") -> bool:
@@ -2290,7 +2304,14 @@ def extract(pdf_path: Path = _PDF_PATH) -> list[CpwSectionExtraction]:
 
                 # Rule R10: skip map / photo pages.
                 if _is_map_page_text(page_text, table_count):
-                    _logger.debug("page %d: map/photo page — skipping", page_num_1based)
+                    # INFO (not DEBUG) so the set of skipped pages is observable
+                    # in normal runs — a regression that drops a real page would
+                    # otherwise be invisible at the default log level.
+                    _logger.info(
+                        "page %d: no tables + no hunt codes + short text — "
+                        "skipping as map/photo page",
+                        page_num_1based,
+                    )
                     continue
 
                 # --- Scan page text for heading context ---
