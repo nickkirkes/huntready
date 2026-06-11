@@ -1650,6 +1650,10 @@ def _extract_block_row(
     # the row's own method (from its hunt code) is authoritative. A legitimate
     # same-method header still applies (header_window_method matches, or is
     # None when provenance is unknown — then fall back to permissive behaviour).
+    # The row's own method (from its hunt code) gates the header window; fall
+    # back to the table-level method_group only when there is no method letter.
+    # (The orchestrator re-derives the emitted ``method_group`` field per-row in
+    # extract(); this local value is used only for the header-method match.)
     row_method = _method_group_for(method_letter) if method_letter else method_group
     header_method_ok = header_window_method is None or header_window_method == row_method
     # Use per-row Dates cell if present; otherwise the matching header_window.
@@ -1903,22 +1907,20 @@ def _parse_table_block(
     results: list[CpwRowExtraction] = []
 
     for raw_row in rows:
-        # --- Skip structural / non-data rows ---
-        if _is_heading_only_row(raw_row):
-            continue
-        if _is_header_row(raw_row):
-            continue
-
-        # --- Rule R14: uniform character-doubling recovery ---
+        # --- Rule R14: uniform character-doubling recovery (FIRST) ---
         # pdfplumber double-renders certain GMU-20-area pages so every glyph
         # (letter, digit, punctuation, space) is emitted exactly twice.
         # _looks_doubled_row gates on a single long uniformly-doubled cell
         # (≥ 10 stripped chars) as an unambiguous signal; _undouble_text
         # recovers each cell independently (the per-cell length guard leaves
         # any short or non-doubled cell untouched).  The recovered row is
-        # re-assigned to raw_row so ALL downstream logic (header detection,
-        # see-unit / footnote filters, column mapping, hunt-code parse,
-        # season-window parse, confidence) sees the true source text.
+        # re-assigned to raw_row so EVERY downstream check — INCLUDING the
+        # structural skip filters below — sees the true source text.  This MUST
+        # run before _is_heading_only_row / _is_header_row / _is_see_unit_row /
+        # _is_footnote_row: on a doubled page those filters would otherwise see
+        # garbled text and could (a) fail to recognise a doubled header row (so
+        # it is parsed as data) or (b) misread a doubled single-cell data row
+        # as a heading (so a real row is dropped).
         if _looks_doubled_row(raw_row):
             raw_row = [_undouble_text(c) for c in raw_row]
             _logger.debug(
@@ -1926,6 +1928,12 @@ def _parse_table_block(
                 page_ref.get("page_num_1based", 0),
                 raw_row,
             )
+
+        # --- Skip structural / non-data rows (on the recovered text) ---
+        if _is_heading_only_row(raw_row):
+            continue
+        if _is_header_row(raw_row):
+            continue
 
         # --- Apply per-block extraction ---
         if variant == "8col":
