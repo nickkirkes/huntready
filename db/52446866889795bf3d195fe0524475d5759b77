@@ -1,0 +1,21 @@
+ingestion/states/colorado/extract_big_game.py
+  s_dee9feec9456d6::t_e0aed2a1c59993 1653-1654
+  s_dee9feec9456d6::t_cbdbfff040ec3c 1910,1917-1923,1932-1936
+  s_dee9feec9456d6::t_a4bd636d6349ab 1655-1656
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "db52446866889795bf3d195fe0524475d5759b77",
+  "prompts": {},
+  "sessions": {
+    "s_dee9feec9456d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "343ebdb7-85bb-402b-bad3-49338196f318",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
