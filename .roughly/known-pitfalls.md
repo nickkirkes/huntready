@@ -346,6 +346,56 @@ The FWP Legal Descriptions PDF carries a `"Visit fwp.mt.gov <page#>"` running fo
 
 **Fix:** crop the bottom-most 50pt (not 20pt). The cutoff at `page.height - 50 = 706` is well above the footer's top y of 716. Probe footer position with `page.extract_words()` filtered to the bottom region before settling on a strip value. Reference: `ingestion/states/montana/extract_legal_descriptions.py::_FOOTER_STRIP_PT` (S03.5, 2026-05-13). Locked by `TestArtifactRegression::test_no_running_footer_leak_in_verbatim_descriptions`.
 
+### pdfplumber uniform character-doubling on some pages — detect and recover per token
+
+**Symptom:** On certain CPW Big Game PDF pages (e.g., GMU-20-area deer/elk), every glyph is emitted twice: `"Oct. 24–Nov. 1"` extracts as `"OOcctt.. 2244––NNoovv.. 11"`, hunt codes like `"D-M-020-O2-R"` become `"DD--MM--002200--OO22--RR"`. The MT analog is rotated-table `_reverse_cell_text`; this is a different artifact of pdfplumber's word-grouping on certain font encodings.
+
+**Cause:** pdfplumber's glyph-to-text reconstruction replays each glyph twice for some embedded-font pages. The doubling is uniform across the whole cell when no whitespace is present (hunt codes recover cleanly with `s[::2]`), but doubled spaces get collapsed to single spaces during word-grouping, so whole-string positional de-doubling (`s[::2] == s[1::2]`) silently fails for any cell that contains whitespace.
+
+**Fix:** Two-stage recovery. (1) Whole-string check: `len(s) >= 6 and len(s) % 2 == 0 and s[::2] == s[1::2]` — recovers no-whitespace cells via `s[::2]`. (2) Token-level fallback: split on whitespace, check that EVERY token is uniformly doubled AND at least one is long enough to anchor (`len(tok) >= 4 and tok[::2] == tok[1::2]`); if so, de-double each token and rejoin. Gate (2) only fires when ALL tokens pass to avoid corrupting coincidental short repeated patterns. Apply de-doubling row-level (gate on a long uniformly-doubled cell) BEFORE see-unit/footnote/header skip filters so doubled rows are not misclassified. Recovery is ADR-008-faithful — you are undoing a render artifact. Reference: `ingestion/states/colorado/extract_big_game.py` R14 de-doubling logic (S06.3).
+
+Surfaced by S06.3 real-PDF probe on 2026-06-10.
+
+### "Ranching for Wildlife" / private-land table sections use a different column layout — date-shaped `valid_gmus` signals a column shift
+
+**Symptom:** ~160 rows extracted from CPW Big Game pages 32/44/51 have a structured `valid_gmus` field that contains a date string (e.g., `"Oct. 1–Nov. 30"`) and an empty season window. No valid GMU list ever looks like a date.
+
+**Cause:** Ranching for Wildlife and some private-land hunt sections use a 5-column layout (`Ranch/Units | Dates | Sex | Hunt Code | List`) instead of the standard 6-column layout that includes a `Valid GMUs` column. The standard column-mapping code writes the Dates cell into `valid_gmus` and leaves the season window empty.
+
+**Fix:** After standard column extraction, detect the column shift: when a structured `valid_gmus` value is date-shaped (matches a date-range pattern), treat it as the misplaced per-row season window — parse it into the season window and null `valid_gmus`. The detection is safe because a real GMU list never contains month names or date separators. This was only caught by cubic review, not by the original column-mapping logic — add a regression test asserting that date-shaped `valid_gmus` values are never written to the artifact. Reference: `ingestion/states/colorado/extract_big_game.py` Ranching for Wildlife column-shift handler (S06.3).
+
+Surfaced by S06.3 cubic review on 2026-06-10.
+
+### Page-level "Season Dates:" headers must be applied method-aware — a header from one weapon group bleeds onto the next group's rows
+
+**Symptom:** On multi-section pages (e.g., muzzleloader section followed by rifle section), a `"Season dates:"` header row captured for the muzzleloader section bleeds onto rifle rows that follow on the same page. Rifle rows then carry the muzzleloader date window as their season window.
+
+**Cause:** Two coupled failure modes: (a) a page-level `current_method_group` advances past a table via page-text pre-scan before the table rows have been read — so the method attributed to the header row no longer matches the method attributed to the table rows below it; (b) when a bare `"Season dates:"` heading-only row appears inside a table, attributing it to the page-level `current_method_group` (which the pre-scan already advanced) gives it the wrong method.
+
+**Fix:** Two paired rules: (a) a header-set season window only applies to rows whose weapon method (derived from the hunt code) matches the method the header came from; (b) when a bare heading row appears inside a table, derive its method from the TABLE's own first hunt code, not the page-advanced `current_method_group`. Reference: `ingestion/states/colorado/extract_big_game.py` method-aware header attribution (S06.3).
+
+Surfaced by S06.3 cubic review iteration 4 on 2026-06-10.
+
+### Presentation glyphs (`■` OTC-marker) and map-page OCR leak into structured fields — strip the glyph and skip garbage rows with diagnostics
+
+**Symptom:** 136 `unit` / `valid_gmus` fields carry values like `'■1'` or `'3\n■'`. Some rows extracted from map pages contain large scrambled-OCR blobs in their `valid_gmus` field with no parseable hunt code.
+
+**Cause:** Two distinct sources: (1) CPW uses the `■` glyph as an OTC marker adjacent to unit numbers in table cells; `_normalize_cell` stripped whitespace and `-` but not `■`. (2) Map pages interleave image-OCR output with table-extraction, producing rows where no valid hunt code can be parsed and `valid_gmus` is a multi-line OCR dump.
+
+**Fix:** (1) Strip `■` in the cell normalizer (`_normalize_cell`); it is a marker, not a value. (2) For garbage-row detection, use a three-condition gate: hunt code doesn't parse AND cell contains no hunt-code-shaped substring (`[A-Z]-[A-Z]-\d{3}` pattern) AND has no valid List value (`A`/`B`/`C`/`OTC`). Only rows passing all three are skipped, and they are WARNING-logged (not silently dropped) so operators can audit. The fragment-substring check preserves multi-hunt-code cells like `'D-M-082-O2-R\nD-M-082-O3-R'`. Reference: `ingestion/states/colorado/extract_big_game.py` `_normalize_cell` + garbage-row gate (S06.3).
+
+Surfaced by S06.3 cubic review iteration 1 on 2026-06-10.
+
+### Same-month date ranges drop the month from the end token — inherit start's month into the convenience field, keep `raw_text` verbatim
+
+**Symptom:** A parsed date range like `"Sept. 2–30"` produces `end_date` with a bare `"30"` — no month — making the standalone end-date field ambiguous or unparseable.
+
+**Cause:** State regulation PDFs commonly omit the month on the end token when start and end share the same month (`"Sept. 2–30"` rather than `"Sept. 2–Sept. 30"`). The date-range parser extracts the end token `"30"` as-is without inheriting the start month.
+
+**Fix:** In the shared date-range helper, after parsing the start date, check whether the end token contains no month indicator. If so, inherit the start's month into the parsed `end_date` convenience field (e.g., `"Sept. 30"`). Apply only to the structured convenience field — `raw_text` always stays byte-verbatim. Apply this fix in the SHARED helper so both cell-date and section-header-date paths benefit; using separate regex paths in each call site causes the fix to be applied inconsistently. Reference: `ingestion/states/colorado/extract_big_game.py` shared date-range helper month-inheritance (S06.3).
+
+Surfaced by S06.3 cubic review iteration 3 on 2026-06-10.
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
@@ -977,6 +1027,16 @@ Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
 
 **Fix:** Describe the broken idiom in prose rather than embedding the exact token adjacent to corrected code — e.g., "the direct geography-to-geometry cast" instead of `geom::geometry`. The fix is a one-line reword and keeps the post-fix cubic pass clean. Low-severity / tooling-hygiene; surfaced by S05.7 Stage-6 cubic re-flag after the cast fix (2026-06-06).
 
+### Large real-PDF extractors require multiple cubic iterations — budget for layered bug discovery, not a single clean pass
+
+**Symptom:** A new real-PDF extractor passes an initial cubic review with only cosmetic findings. A second cubic pass after fixing those findings surfaces a structurally different, more specific bug (e.g., residency leaking into section keys). A third pass surfaces a date-format issue, a fourth a column-shift, a fifth a header-bleed. Each round's findings are real and correct — they were hidden by noisier bugs above them in the data path.
+
+**Cause:** Cubic matches against the artifact the extractor currently produces. When an obvious bug (e.g., `■` glyph in 136 `unit` fields) is present, all subsequent artifact rows downstream of that bug look wrong for multiple reasons simultaneously. Fixing the top-level bug clears the noise and exposes the next-layer issue that was previously masked. S06.3 took 6 cubic rounds (■ leak / garbage rows → residency-in-section-key → date-format → valid_gmus column-shift → header-bleed → clean) against the 84-page CPW Big Game PDF.
+
+**Fix:** Plan for at least 3–5 cubic iterations on any new large state-PDF extractor that introduces new column layouts, multi-section pages, or new PDF encoding patterns. Do not assume the first clean-ish pass is the last word. Treat each iteration as revealing real bugs, not as tooling noise. The iteration budget is proportional to how structurally different the new PDF is from prior adapters (CPW Big Game's GMU tables differ from FWP DEA tables in column layout, presentation glyphs, method-group header rows, and font encoding).
+
+Surfaced by S06.3 6-round cubic iteration sequence on 2026-06-10.
+
 ## Conventions — Python
 
 ### PEP 563 deferred annotations do not satisfy ruff F821 — hoist annotation-only names to module level
@@ -1048,6 +1108,16 @@ Surfaced by S05.4 Stage-6 review on 2026-06-03.
 **Fix:** When an item is genuinely covered, assert the ABSENCE of the allowlist/orphan INFO log line: `assert not any("ADR-016 allowlist" in r.message for r in caplog.records)`. The absence of the orphan log is the only signal that the coverage path actually fired. This extends the S05.4 pitfall "an enumerated expected-set constant is only a guard if compared against actual output at the write boundary" — here the allowlist masks a filter bug rather than an id-substitution bug. Reference: `ingestion/tests/test_build_co_overlay_fixture.py::TestValidateCoverage::test_all_children_covered_no_raise` (S05.5 review-triad W1 fix).
 
 Surfaced by S05.5 Stage-6 review on 2026-06-04.
+
+### A docstring `locked by: TestClass::method` citation can be a phantom — add a parity test that asserts the named test actually exists
+
+**Symptom:** A module docstring or cleanup-rules section says `locked by: TestStatewideOverlayColumnFaithful::test_x`. The named class or method does not exist. A parity test that only checks that the rule text IS PRESENT in the docstring passes cleanly while the phantom citation rots undetected.
+
+**Cause:** Docstring citations are free-form prose; nothing in Python or pytest enforces that the named class+method actually exists. A cleanup rule added during a fast iteration can reference a test that was renamed or never written.
+
+**Fix:** Add a parity test that (a) parses every `locked by:` citation from the docstring via regex and (b) asserts that the named test class and method can be found in the test module (e.g., `assert hasattr(test_module, class_name)` and `assert hasattr(getattr(test_module, class_name), method_name)`). A presence-only parity test is insufficient — it confirms the rule text exists but not that the lock is real. Reference: `ingestion/states/colorado/extract_big_game.py` cleanup-rules parity discipline (S06.3).
+
+Surfaced by S06.3 review on 2026-06-10.
 
 ### Forking a state-adapter module means forking its test suite too — verify guard-parity before closing the story
 
