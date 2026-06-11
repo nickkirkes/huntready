@@ -368,13 +368,21 @@ _DOUBLED_ROW_MIN_CELL_LEN: int = 10
 class CpwSeasonWindow(TypedDict):
     """A single season's date window for a CPW hunt-code row.
 
-    ``start_date`` and ``end_date`` carry the parsed begin/end date strings
-    exactly as printed in the brochure (e.g. ``"Sept. 2"`` / ``"Sept. 30"``).
-    ``raw_text`` carries the full unparsed cell text (e.g. ``"Sept. 2–30"``
-    or ``"Sept. 2–30 (Unless otherwise noted)"``), preserved verbatim per
-    ADR-008.  Both ``start_date`` and ``end_date`` may be ``None`` when the
-    date range cannot be parsed; ``raw_text`` is always populated when the
-    window is present.
+    ``start_date`` is the begin date exactly as printed in the brochure
+    (e.g. ``"Sept. 2"``).  ``end_date`` is the end date — but note that for a
+    SAME-MONTH range, where CPW drops the redundant month on the end token
+    (``"Sept. 2–30"`` prints a bare ``"30"``), the month is INFERRED from
+    ``start_date`` so the field is an unambiguous standalone date
+    (``"Sept. 30"``, never a bare ``"30"``); cross-month ends already carry
+    their own printed month and are left as-is.  ``raw_text`` carries the full
+    unparsed cell text verbatim per ADR-008 (e.g. ``"Sept. 2–30"`` or
+    ``"Sept. 2–30 (Unless otherwise noted)"``) and is AUTHORITATIVE for exactly
+    what the brochure printed — a consumer that needs to distinguish a printed
+    month from an inferred one compares ``end_date`` against ``raw_text``.
+    Both ``start_date`` and ``end_date`` may be ``None`` when the range cannot
+    be parsed (e.g. a future CPW format change surfaces as a parse failure, NOT
+    a silent inference — ``raw_text`` is preserved); ``raw_text`` is always
+    populated when the window is present.
     """
 
     start_date: str | None
