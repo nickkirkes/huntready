@@ -695,9 +695,13 @@ class TestWeaponAndSpecies:
     def test_method_group_rifle(self) -> None:
         assert _method_group_for("R") == "rifle"
 
+    def test_method_group_season_choice(self) -> None:
+        """CPW 'X' (Season Choice) → 'season_choice' (its own method group)."""
+        assert _method_group_for("X") == "season_choice"
+
     def test_method_group_unknown_returns_none(self) -> None:
-        """Unknown method letter returns None — does not raise."""
-        assert _method_group_for("X") is None
+        """A genuinely unknown method letter returns None — does not raise."""
+        assert _method_group_for("Z") is None
         assert _method_group_for("") is None
 
     # --- _weapon_types_for ---
@@ -712,9 +716,17 @@ class TestWeaponAndSpecies:
         """Rule: CPW 'R' (rifle) → ['any_legal_weapon'], not ['rifle']."""
         assert _weapon_types_for("R") == ["any_legal_weapon"]
 
+    def test_weapon_types_season_choice(self) -> None:
+        """CPW 'X' (Season Choice) → union of the three choosable methods."""
+        assert _weapon_types_for("X") == [
+            "archery",
+            "muzzleloader",
+            "any_legal_weapon",
+        ]
+
     def test_weapon_types_unknown_returns_empty_list(self) -> None:
-        """Unknown letter → [] (does not raise)."""
-        assert _weapon_types_for("X") == []
+        """A genuinely unknown letter → [] (does not raise)."""
+        assert _weapon_types_for("Z") == []
         assert _weapon_types_for("") == []
 
     # --- _species_group_for ---
@@ -1075,7 +1087,7 @@ class TestArtifactRegression:
             return json.load(f)  # type: ignore[no-any-return]
 
     def test_section_and_row_counts(self) -> None:
-        """Artifact contains exactly 731 sections and 2758 total rows.
+        """Artifact contains exactly 737 sections and 2758 total rows.
 
         P1-1 (Rule R15 ■ strip): 136 unit/valid_gmus fields cleaned — row count
         unchanged but field VALUES updated.
@@ -1084,9 +1096,13 @@ class TestArtifactRegression:
         P1-3 (residency_scope in section key): 6 elk-archery sections that mixed
         ``both`` + ``nonresident`` rows split into separate sections; section
         count 725 → 731 (row count unchanged).
+        Season Choice ('X'): the 10 season-choice deer rows now group into their
+        own ``season_choice`` method sections (separate from the rifle sections
+        they previously fell into), raising the section count 731 → 737 (row
+        count unchanged).
         """
         data = self._load()
-        assert len(data) == 731
+        assert len(data) == 737
         total_rows = sum(len(s.get("rows", [])) for s in data)
         assert total_rows == 2758
 
@@ -1150,6 +1166,10 @@ class TestArtifactRegression:
         reducing mule_deer 306→305, whitetail 32→31, elk 256→254 (4 sections total).
         P1-3 (residency_scope in section key): 6 elk-archery sections split on
         residency, raising elk 254→260 (other species unchanged).
+        Season Choice ('X'): the 10 season-choice deer rows split into their own
+        season_choice sections; the units explicitly marked "white-tailed only"
+        become whitetail (whitetail 31→34) and the rest stay mule_deer
+        (mule_deer 305→308). elk/pronghorn unchanged.
         """
         from collections import Counter
 
@@ -1161,10 +1181,32 @@ class TestArtifactRegression:
             "pronghorn",
         }
         section_counts = Counter(s["species_group"] for s in data)
-        assert section_counts["mule_deer"] == 305
-        assert section_counts["whitetail"] == 31
+        assert section_counts["mule_deer"] == 308
+        assert section_counts["whitetail"] == 34
         assert section_counts["elk"] == 260
         assert section_counts["pronghorn"] == 135
+
+    def test_season_choice_rows_classified(self) -> None:
+        """Season Choice ('X') rows are method_group='season_choice' with the
+        union weapon_types, not a silent rifle fallback with empty weapon_types.
+        """
+        data = self._load()
+        x_rows = [
+            r
+            for s in data
+            for r in s.get("rows", [])
+            if r.get("method_letter") == "X"
+        ]
+        assert x_rows, "no Season Choice ('X') rows found in artifact"
+        for r in x_rows:
+            assert r["method_group"] == "season_choice", (
+                f"{r['hunt_code']} should be season_choice, got {r['method_group']}"
+            )
+            assert r["weapon_types"] == [
+                "archery",
+                "muzzleloader",
+                "any_legal_weapon",
+            ], f"{r['hunt_code']} weapon_types={r['weapon_types']}"
 
     def test_no_mixed_residency_sections(self) -> None:
         """P1-3 lock: no section mixes more than one residency_scope.
@@ -1281,12 +1323,12 @@ class TestDeterministicJsonOutput:
 
         Two consecutive ``extract()`` runs against the committed PDF produced
         byte-identical output with SHA-256:
-            779a591c9d5a33e753a4da29150741ad1a8a5fb7128d7de3375c093c583cc109
+            71a3af10794389317d554a1f6bf1790fb120c25bc1a713e3e5a7d624dfad98e2
         """
         import pytest as _pytest
 
         _pytest.skip(
             "integration — requires real CPW Big Game PDF (~96 MB, gitignored); "
             "determinism verified by manual 2-run SHA recipe "
-            "(SHA-256: 779a591c9d5a33e753a4da29150741ad1a8a5fb7128d7de3375c093c583cc109)"
+            "(SHA-256: 71a3af10794389317d554a1f6bf1790fb120c25bc1a713e3e5a7d624dfad98e2)"
         )

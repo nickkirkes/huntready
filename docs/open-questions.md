@@ -442,6 +442,38 @@ Drift between slug-derivation logic and the structured fields under the same `id
 
 ---
 
+## Q20: How are CPW "Season Choice" licenses modeled as `season_definition` / `license_tag` in S06.7?
+
+**Status:** Open (S06.7 decision; extraction side handled in S06.3)
+**Surfaced by:** S06.3 (2026-06-12, CPW Big Game extraction)
+**Touches:** `season_definition`, `license_tag`, ADR-010 (decomposed entities), ADR-012 (draw mechanics)
+
+### Context
+
+CPW publishes "Season Choice" licenses — one license, valid for the hunter's **choice** among the archery, muzzleloader and rifle seasons. Their hunt codes carry method letter `X` (e.g. the eastern-plains deer codes `D-?-NNN-O2-X` on brochure p.42, and the moose season-choice `M-M-038-O1-X` referenced on p.2). They are extracted from the 8-column "Season Choice" table, so each row carries **multiple season windows** (one per choosable method).
+
+### What S06.3 (extraction) already did
+
+The extractor recognises `X` as its own `method_group="season_choice"` and sets `weapon_types = ["archery", "muzzleloader", "any_legal_weapon"]` (the union of the three choosable methods). The per-row season windows are captured faithfully. So the **data is present**; only the downstream entity shape is open. (10 such deer rows in CO V1; the moose codes are out of V1 species scope.)
+
+### The open question (S06.7)
+
+How should one season-choice license become `season_definition` + `license_tag` rows? The schema has no "season choice" license/weapon type — the concept is *license flexibility*, not a weapon type. Options to evaluate:
+
+- **(a) One `license_tag` → N `season_definition` rows** (one per choosable season window), each `season_definition` carrying that season's own `weapon_types`. Most decomposed; the "choice" is implicit in the multiple linked seasons.
+- **(b) A single `season_definition`** holding all windows + a license-level "season choice" marker, with `weapon_types` = the union. Simpler; loses per-season weapon precision.
+- **(c) Defer** — ingest as a single rifle-equivalent season for V1 (lossy) and revisit when CPW season-choice volume justifies it.
+
+### What moves this to a decision
+
+S06.7 (season_definition / license_tag ingestion) is drafted. The choice should be made before S06.7's loader is written, since it determines the link-table fan-out for these rows.
+
+### Affected entries
+
+10 CO deer `season_choice` rows in `big-game-2026.json` (`method_group="season_choice"`); the moose `-X` codes (out of V1 species scope, but the same modeling applies if/when moose is added).
+
+---
+
 ## Parking lot
 
 ### P1. Observability and error tracking

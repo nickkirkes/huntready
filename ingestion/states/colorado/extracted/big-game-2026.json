@@ -31115,79 +31115,11 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "high",
-        "extras": null,
-        "gmu_code": "087",
-        "hunt_code": "D-E-087-O2-X",
-        "list_value": "B",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "O2",
-        "season_windows": [
-          {
-            "end_date": "Oct. 23",
-            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
-            "start_date": "Oct. 1"
-          },
-          {
-            "end_date": "Oct. 18",
-            "raw_text": "Oct. 10–18",
-            "start_date": "Oct. 10"
-          },
-          {
-            "end_date": "Nov. 3",
-            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14",
-            "start_date": "Oct. 24"
-          }
-        ],
-        "sex_code": "E",
-        "species_letter": "D",
-        "unit": "87, 88, 89, 90, 95\nPlains,\nwhite-tailed only",
-        "valid_gmus": null,
-        "weapon_types": []
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "gmu_code": "087",
-        "hunt_code": "D-F-087-O2-X",
-        "list_value": "C",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "O2",
-        "season_windows": [],
-        "sex_code": "F",
-        "species_letter": "D",
-        "unit": null,
-        "valid_gmus": null,
-        "weapon_types": []
       }
     ],
     "source_id": "co-cpw-big-game-2026-brochure",
     "species_group": "mule_deer",
-    "verbatim_text": "87\nPlains | 87 | Oct. 24–Nov. 3 | M | D-M-087-O1-R | A\n |  | F | D-F-087-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-087-L1-R | A\n |  | F | D-F-087-L1-R | A\n87, 88, 89, 90, 95\nPlains,\nwhite-tailed only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14 | E | D-E-087-O2-X | B\n |  | F | D-F-087-O2-X | C"
+    "verbatim_text": "87\nPlains | 87 | Oct. 24–Nov. 3 | M | D-M-087-O1-R | A\n |  | F | D-F-087-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-087-L1-R | A\n |  | F | D-F-087-L1-R | A"
   },
   {
     "extracted_at": "2026-06-09T14:39:44.025982+00:00",
@@ -31785,53 +31717,11 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "high",
-        "extras": null,
-        "gmu_code": "091",
-        "hunt_code": "D-F-091-P5-X",
-        "list_value": "C",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "P5",
-        "season_windows": [
-          {
-            "end_date": "Oct. 23",
-            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
-            "start_date": "Oct. 1"
-          },
-          {
-            "end_date": "Oct. 18",
-            "raw_text": "Oct. 10–18",
-            "start_date": "Oct. 10"
-          },
-          {
-            "end_date": "Nov. 3",
-            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027",
-            "start_date": "Oct. 24"
-          }
-        ],
-        "sex_code": "F",
-        "species_letter": "D",
-        "unit": "91\nPlains,\nprivate land only",
-        "valid_gmus": null,
-        "weapon_types": []
       }
     ],
     "source_id": "co-cpw-big-game-2026-brochure",
     "species_group": "mule_deer",
-    "verbatim_text": "91\nPlains | 91 | Oct. 24–Nov. 3 | M | D-M-091-O1-R | A\n |  | F | D-F-091-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-091-L1-R | A\n |  | F | D-F-091-L1-R | A\n | 91\nprivate land\nonly | Dec. 1–14\nLate | M | D-M-091-P5-R | A\n91\nPlains,\nprivate land only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027 | F | D-F-091-P5-X | C"
+    "verbatim_text": "91\nPlains | 91 | Oct. 24–Nov. 3 | M | D-M-091-O1-R | A\n |  | F | D-F-091-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-091-L1-R | A\n |  | F | D-F-091-L1-R | A\n | 91\nprivate land\nonly | Dec. 1–14\nLate | M | D-M-091-P5-R | A"
   },
   {
     "extracted_at": "2026-06-09T14:39:44.025982+00:00",
@@ -32003,53 +31893,11 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "high",
-        "extras": null,
-        "gmu_code": "092",
-        "hunt_code": "D-F-092-P5-X",
-        "list_value": "C",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "P5",
-        "season_windows": [
-          {
-            "end_date": "Oct. 23",
-            "raw_text": "Oct. 1–23\nNov. 3–30\nDec. 15–31",
-            "start_date": "Oct. 1"
-          },
-          {
-            "end_date": "Oct. 18",
-            "raw_text": "Oct. 10–18",
-            "start_date": "Oct. 10"
-          },
-          {
-            "end_date": "Nov. 3",
-            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027",
-            "start_date": "Oct. 24"
-          }
-        ],
-        "sex_code": "F",
-        "species_letter": "D",
-        "unit": "92\nPlains,\nprivate land only",
-        "valid_gmus": null,
-        "weapon_types": []
       }
     ],
     "source_id": "co-cpw-big-game-2026-brochure",
     "species_group": "mule_deer",
-    "verbatim_text": "92\nPlains | 92 | Oct. 24–Nov. 3 | M | D-M-092-O1-R | A\n |  | F | D-F-092-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-092-L1-R | A\n |  | F | D-F-092-L1-R | A\n | 92\nprivate land\nonly | Dec. 1–14\nLate | M | D-M-092-P5-R | A\n92\nPlains,\nprivate land only |  | Oct. 1–23\nNov. 3–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027 | F | D-F-092-P5-X | C"
+    "verbatim_text": "92\nPlains | 92 | Oct. 24–Nov. 3 | M | D-M-092-O1-R | A\n |  | F | D-F-092-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-092-L1-R | A\n |  | F | D-F-092-L1-R | A\n | 92\nprivate land\nonly | Dec. 1–14\nLate | M | D-M-092-P5-R | A"
   },
   {
     "extracted_at": "2026-06-09T14:39:44.025982+00:00",
@@ -32187,79 +32035,11 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "high",
-        "extras": null,
-        "gmu_code": "093",
-        "hunt_code": "D-E-093-O2-X",
-        "list_value": "B",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "O2",
-        "season_windows": [
-          {
-            "end_date": "Oct. 23",
-            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
-            "start_date": "Oct. 1"
-          },
-          {
-            "end_date": "Oct. 18",
-            "raw_text": "Oct. 10–18",
-            "start_date": "Oct. 10"
-          },
-          {
-            "end_date": "Nov. 3",
-            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14",
-            "start_date": "Oct. 24"
-          }
-        ],
-        "sex_code": "E",
-        "species_letter": "D",
-        "unit": "93, 97, 98, 99,\n100\nPlains,\nwhite-tailed only",
-        "valid_gmus": null,
-        "weapon_types": []
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "gmu_code": "093",
-        "hunt_code": "D-F-093-O2-X",
-        "list_value": "C",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "O2",
-        "season_windows": [],
-        "sex_code": "F",
-        "species_letter": "D",
-        "unit": null,
-        "valid_gmus": null,
-        "weapon_types": []
       }
     ],
     "source_id": "co-cpw-big-game-2026-brochure",
     "species_group": "mule_deer",
-    "verbatim_text": "93\nPlains | 93 | Oct. 24–Nov. 3 | M | D-M-093-O1-R | A\n |  | F | D-F-093-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-093-L1-R | A\n |  | F | D-F-093-L1-R | A\n93, 97, 98, 99,\n100\nPlains,\nwhite-tailed only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14 | E | D-E-093-O2-X | B\n |  | F | D-F-093-O2-X | C"
+    "verbatim_text": "93\nPlains | 93 | Oct. 24–Nov. 3 | M | D-M-093-O1-R | A\n |  | F | D-F-093-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-093-L1-R | A\n |  | F | D-F-093-L1-R | A"
   },
   {
     "extracted_at": "2026-06-09T14:39:44.025982+00:00",
@@ -32715,95 +32495,11 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "high",
-        "extras": null,
-        "gmu_code": "096",
-        "hunt_code": "D-F-096-P5-X",
-        "list_value": "C",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "P5",
-        "season_windows": [
-          {
-            "end_date": "Oct. 23",
-            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
-            "start_date": "Oct. 1"
-          },
-          {
-            "end_date": "Oct. 18",
-            "raw_text": "Oct. 10–18",
-            "start_date": "Oct. 10"
-          },
-          {
-            "end_date": "Nov. 3",
-            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027",
-            "start_date": "Oct. 24"
-          }
-        ],
-        "sex_code": "F",
-        "species_letter": "D",
-        "unit": "96\nPlains,\nprivate land only",
-        "valid_gmus": null,
-        "weapon_types": []
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "high",
-        "extras": null,
-        "gmu_code": "096",
-        "hunt_code": "D-F-096-P6-X",
-        "list_value": "C",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "P6",
-        "season_windows": [
-          {
-            "end_date": "Oct. 23",
-            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
-            "start_date": "Oct. 1"
-          },
-          {
-            "end_date": "Oct. 18",
-            "raw_text": "Oct. 10–18",
-            "start_date": "Oct. 10"
-          },
-          {
-            "end_date": "Nov. 3",
-            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027",
-            "start_date": "Oct. 24"
-          }
-        ],
-        "sex_code": "F",
-        "species_letter": "D",
-        "unit": "96\nPlains,\nprivate land only,\nE of Hwy. 71 only",
-        "valid_gmus": null,
-        "weapon_types": []
       }
     ],
     "source_id": "co-cpw-big-game-2026-brochure",
     "species_group": "mule_deer",
-    "verbatim_text": "96\nPlains | 96 | Oct. 24–Nov. 3 | M | D-M-096-O1-R | A\n |  | F | D-F-096-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-096-L1-R | A\n |  | F | D-F-096-L1-R | A\n | 96\nprivate land\nonly | Dec. 1–14\nLate | M | D-M-096-P5-R | A\n96\nPlains,\nprivate land only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027 | F | D-F-096-P5-X | C\n96\nPlains,\nprivate land only,\nE of Hwy. 71 only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027 | F | D-F-096-P6-X | C"
+    "verbatim_text": "96\nPlains | 96 | Oct. 24–Nov. 3 | M | D-M-096-O1-R | A\n |  | F | D-F-096-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-096-L1-R | A\n |  | F | D-F-096-L1-R | A\n | 96\nprivate land\nonly | Dec. 1–14\nLate | M | D-M-096-P5-R | A"
   },
   {
     "extracted_at": "2026-06-09T14:39:44.025982+00:00",
@@ -33509,79 +33205,11 @@
         "weapon_types": [
           "any_legal_weapon"
         ]
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "high",
-        "extras": null,
-        "gmu_code": "101",
-        "hunt_code": "D-E-101-O2-X",
-        "list_value": "A",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "O2",
-        "season_windows": [
-          {
-            "end_date": "Oct. 23",
-            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
-            "start_date": "Oct. 1"
-          },
-          {
-            "end_date": "Oct. 18",
-            "raw_text": "Oct. 10–18",
-            "start_date": "Oct. 10"
-          },
-          {
-            "end_date": "Nov. 3",
-            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14",
-            "start_date": "Oct. 24"
-          }
-        ],
-        "sex_code": "E",
-        "species_letter": "D",
-        "unit": "101, 102\nPlains,\nwhite-tailed only",
-        "valid_gmus": null,
-        "weapon_types": []
-      },
-      {
-        "apply_by": null,
-        "extraction_confidence": "medium",
-        "extras": null,
-        "gmu_code": "101",
-        "hunt_code": "D-F-101-O2-X",
-        "list_value": "C",
-        "method_group": "rifle",
-        "method_letter": "X",
-        "page_reference": {
-          "bbox": null,
-          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
-          "page_num_1based": 42,
-          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
-        },
-        "quota": null,
-        "quota_range": null,
-        "residency_scope": "both",
-        "season_code": "O2",
-        "season_windows": [],
-        "sex_code": "F",
-        "species_letter": "D",
-        "unit": null,
-        "valid_gmus": null,
-        "weapon_types": []
       }
     ],
     "source_id": "co-cpw-big-game-2026-brochure",
     "species_group": "mule_deer",
-    "verbatim_text": "101\nPlains | 101 | Oct. 24–Nov. 3 | M | D-M-101-O1-R | A\n |  | F | D-F-101-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-101-L1-R | A\n |  | F | D-F-101-L1-R | A\n101, 102\nPlains,\nwhite-tailed only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14 | E | D-E-101-O2-X | A\n |  | F | D-F-101-O2-X | C"
+    "verbatim_text": "101\nPlains | 101 | Oct. 24–Nov. 3 | M | D-M-101-O1-R | A\n |  | F | D-F-101-O1-R | A\n |  | Dec. 1–14\nLate | M | D-M-101-L1-R | A\n |  | F | D-F-101-L1-R | A"
   },
   {
     "extracted_at": "2026-06-09T14:39:44.025982+00:00",
@@ -40823,6 +40451,244 @@
   },
   {
     "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+    "gmu_code": "091",
+    "license_year": 2026,
+    "method_group": "season_choice",
+    "page_reference": {
+      "bbox": null,
+      "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+      "page_num_1based": 42,
+      "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+    },
+    "residency_scope": "both",
+    "rows": [
+      {
+        "apply_by": null,
+        "extraction_confidence": "high",
+        "extras": null,
+        "gmu_code": "091",
+        "hunt_code": "D-F-091-P5-X",
+        "list_value": "C",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "P5",
+        "season_windows": [
+          {
+            "end_date": "Oct. 23",
+            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
+            "start_date": "Oct. 1"
+          },
+          {
+            "end_date": "Oct. 18",
+            "raw_text": "Oct. 10–18",
+            "start_date": "Oct. 10"
+          },
+          {
+            "end_date": "Nov. 3",
+            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027",
+            "start_date": "Oct. 24"
+          }
+        ],
+        "sex_code": "F",
+        "species_letter": "D",
+        "unit": "91\nPlains,\nprivate land only",
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      }
+    ],
+    "source_id": "co-cpw-big-game-2026-brochure",
+    "species_group": "mule_deer",
+    "verbatim_text": "91\nPlains,\nprivate land only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027 | F | D-F-091-P5-X | C"
+  },
+  {
+    "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+    "gmu_code": "092",
+    "license_year": 2026,
+    "method_group": "season_choice",
+    "page_reference": {
+      "bbox": null,
+      "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+      "page_num_1based": 42,
+      "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+    },
+    "residency_scope": "both",
+    "rows": [
+      {
+        "apply_by": null,
+        "extraction_confidence": "high",
+        "extras": null,
+        "gmu_code": "092",
+        "hunt_code": "D-F-092-P5-X",
+        "list_value": "C",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "P5",
+        "season_windows": [
+          {
+            "end_date": "Oct. 23",
+            "raw_text": "Oct. 1–23\nNov. 3–30\nDec. 15–31",
+            "start_date": "Oct. 1"
+          },
+          {
+            "end_date": "Oct. 18",
+            "raw_text": "Oct. 10–18",
+            "start_date": "Oct. 10"
+          },
+          {
+            "end_date": "Nov. 3",
+            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027",
+            "start_date": "Oct. 24"
+          }
+        ],
+        "sex_code": "F",
+        "species_letter": "D",
+        "unit": "92\nPlains,\nprivate land only",
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      }
+    ],
+    "source_id": "co-cpw-big-game-2026-brochure",
+    "species_group": "mule_deer",
+    "verbatim_text": "92\nPlains,\nprivate land only |  | Oct. 1–23\nNov. 3–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027 | F | D-F-092-P5-X | C"
+  },
+  {
+    "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+    "gmu_code": "096",
+    "license_year": 2026,
+    "method_group": "season_choice",
+    "page_reference": {
+      "bbox": null,
+      "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+      "page_num_1based": 42,
+      "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+    },
+    "residency_scope": "both",
+    "rows": [
+      {
+        "apply_by": null,
+        "extraction_confidence": "high",
+        "extras": null,
+        "gmu_code": "096",
+        "hunt_code": "D-F-096-P5-X",
+        "list_value": "C",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "P5",
+        "season_windows": [
+          {
+            "end_date": "Oct. 23",
+            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
+            "start_date": "Oct. 1"
+          },
+          {
+            "end_date": "Oct. 18",
+            "raw_text": "Oct. 10–18",
+            "start_date": "Oct. 10"
+          },
+          {
+            "end_date": "Nov. 3",
+            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027",
+            "start_date": "Oct. 24"
+          }
+        ],
+        "sex_code": "F",
+        "species_letter": "D",
+        "unit": "96\nPlains,\nprivate land only",
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      },
+      {
+        "apply_by": null,
+        "extraction_confidence": "high",
+        "extras": null,
+        "gmu_code": "096",
+        "hunt_code": "D-F-096-P6-X",
+        "list_value": "C",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "P6",
+        "season_windows": [
+          {
+            "end_date": "Oct. 23",
+            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
+            "start_date": "Oct. 1"
+          },
+          {
+            "end_date": "Oct. 18",
+            "raw_text": "Oct. 10–18",
+            "start_date": "Oct. 10"
+          },
+          {
+            "end_date": "Nov. 3",
+            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027",
+            "start_date": "Oct. 24"
+          }
+        ],
+        "sex_code": "F",
+        "species_letter": "D",
+        "unit": "96\nPlains,\nprivate land only,\nE of Hwy. 71 only",
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      }
+    ],
+    "source_id": "co-cpw-big-game-2026-brochure",
+    "species_group": "mule_deer",
+    "verbatim_text": "96\nPlains,\nprivate land only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027 | F | D-F-096-P5-X | C\n96\nPlains,\nprivate land only,\nE of Hwy. 71 only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14\nJan. 1–31, 2027 | F | D-F-096-P6-X | C"
+  },
+  {
+    "extracted_at": "2026-06-09T14:39:44.025982+00:00",
     "gmu_code": "103",
     "license_year": 2026,
     "method_group": "archery",
@@ -43770,6 +43636,288 @@
     "source_id": "co-cpw-big-game-2026-brochure",
     "species_group": "whitetail",
     "verbatim_text": "139, 145\nPlains |  | Oct. 24–Nov. 3 | E | D-E-139-O2-R | A\n |  | F | D-F-139-O2-R | B\n |  | Dec. 1–14\nLate | E | D-E-139-L2-R | A\n |  | F | D-F-139-L2-R | B"
+  },
+  {
+    "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+    "gmu_code": "087",
+    "license_year": 2026,
+    "method_group": "season_choice",
+    "page_reference": {
+      "bbox": null,
+      "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+      "page_num_1based": 42,
+      "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+    },
+    "residency_scope": "both",
+    "rows": [
+      {
+        "apply_by": null,
+        "extraction_confidence": "high",
+        "extras": null,
+        "gmu_code": "087",
+        "hunt_code": "D-E-087-O2-X",
+        "list_value": "B",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "O2",
+        "season_windows": [
+          {
+            "end_date": "Oct. 23",
+            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
+            "start_date": "Oct. 1"
+          },
+          {
+            "end_date": "Oct. 18",
+            "raw_text": "Oct. 10–18",
+            "start_date": "Oct. 10"
+          },
+          {
+            "end_date": "Nov. 3",
+            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14",
+            "start_date": "Oct. 24"
+          }
+        ],
+        "sex_code": "E",
+        "species_letter": "D",
+        "unit": "87, 88, 89, 90, 95\nPlains,\nwhite-tailed only",
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      },
+      {
+        "apply_by": null,
+        "extraction_confidence": "medium",
+        "extras": null,
+        "gmu_code": "087",
+        "hunt_code": "D-F-087-O2-X",
+        "list_value": "C",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "O2",
+        "season_windows": [],
+        "sex_code": "F",
+        "species_letter": "D",
+        "unit": null,
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      }
+    ],
+    "source_id": "co-cpw-big-game-2026-brochure",
+    "species_group": "whitetail",
+    "verbatim_text": "87, 88, 89, 90, 95\nPlains,\nwhite-tailed only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14 | E | D-E-087-O2-X | B\n |  | F | D-F-087-O2-X | C"
+  },
+  {
+    "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+    "gmu_code": "093",
+    "license_year": 2026,
+    "method_group": "season_choice",
+    "page_reference": {
+      "bbox": null,
+      "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+      "page_num_1based": 42,
+      "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+    },
+    "residency_scope": "both",
+    "rows": [
+      {
+        "apply_by": null,
+        "extraction_confidence": "high",
+        "extras": null,
+        "gmu_code": "093",
+        "hunt_code": "D-E-093-O2-X",
+        "list_value": "B",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "O2",
+        "season_windows": [
+          {
+            "end_date": "Oct. 23",
+            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
+            "start_date": "Oct. 1"
+          },
+          {
+            "end_date": "Oct. 18",
+            "raw_text": "Oct. 10–18",
+            "start_date": "Oct. 10"
+          },
+          {
+            "end_date": "Nov. 3",
+            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14",
+            "start_date": "Oct. 24"
+          }
+        ],
+        "sex_code": "E",
+        "species_letter": "D",
+        "unit": "93, 97, 98, 99,\n100\nPlains,\nwhite-tailed only",
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      },
+      {
+        "apply_by": null,
+        "extraction_confidence": "medium",
+        "extras": null,
+        "gmu_code": "093",
+        "hunt_code": "D-F-093-O2-X",
+        "list_value": "C",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "O2",
+        "season_windows": [],
+        "sex_code": "F",
+        "species_letter": "D",
+        "unit": null,
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      }
+    ],
+    "source_id": "co-cpw-big-game-2026-brochure",
+    "species_group": "whitetail",
+    "verbatim_text": "93, 97, 98, 99,\n100\nPlains,\nwhite-tailed only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14 | E | D-E-093-O2-X | B\n |  | F | D-F-093-O2-X | C"
+  },
+  {
+    "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+    "gmu_code": "101",
+    "license_year": 2026,
+    "method_group": "season_choice",
+    "page_reference": {
+      "bbox": null,
+      "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+      "page_num_1based": 42,
+      "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+    },
+    "residency_scope": "both",
+    "rows": [
+      {
+        "apply_by": null,
+        "extraction_confidence": "high",
+        "extras": null,
+        "gmu_code": "101",
+        "hunt_code": "D-E-101-O2-X",
+        "list_value": "A",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "O2",
+        "season_windows": [
+          {
+            "end_date": "Oct. 23",
+            "raw_text": "Oct. 1–23\nNov. 4–30\nDec. 15–31",
+            "start_date": "Oct. 1"
+          },
+          {
+            "end_date": "Oct. 18",
+            "raw_text": "Oct. 10–18",
+            "start_date": "Oct. 10"
+          },
+          {
+            "end_date": "Nov. 3",
+            "raw_text": "Oct. 24–Nov. 3\nDec. 1–14",
+            "start_date": "Oct. 24"
+          }
+        ],
+        "sex_code": "E",
+        "species_letter": "D",
+        "unit": "101, 102\nPlains,\nwhite-tailed only",
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      },
+      {
+        "apply_by": null,
+        "extraction_confidence": "medium",
+        "extras": null,
+        "gmu_code": "101",
+        "hunt_code": "D-F-101-O2-X",
+        "list_value": "C",
+        "method_group": "season_choice",
+        "method_letter": "X",
+        "page_reference": {
+          "bbox": null,
+          "extracted_at": "2026-06-09T14:39:44.025982+00:00",
+          "page_num_1based": 42,
+          "pdf_filename": "co-cpw-big-game-2026-brochure-2026-03-04.pdf"
+        },
+        "quota": null,
+        "quota_range": null,
+        "residency_scope": "both",
+        "season_code": "O2",
+        "season_windows": [],
+        "sex_code": "F",
+        "species_letter": "D",
+        "unit": null,
+        "valid_gmus": null,
+        "weapon_types": [
+          "archery",
+          "muzzleloader",
+          "any_legal_weapon"
+        ]
+      }
+    ],
+    "source_id": "co-cpw-big-game-2026-brochure",
+    "species_group": "whitetail",
+    "verbatim_text": "101, 102\nPlains,\nwhite-tailed only |  | Oct. 1–23\nNov. 4–30\nDec. 15–31 | Oct. 10–18 | Oct. 24–Nov. 3\nDec. 1–14 | E | D-E-101-O2-X | A\n |  | F | D-F-101-O2-X | C"
   },
   {
     "extracted_at": "2026-06-09T14:39:44.025982+00:00",

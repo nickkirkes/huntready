@@ -863,6 +863,12 @@ _METHOD_GROUP_BY_LETTER: dict[str, str] = {
     "A": "archery",
     "M": "muzzleloader",
     "R": "rifle",
+    # "X" is CPW's "Season Choice" designation — one license valid for the
+    # hunter's choice among the archery / muzzleloader / rifle seasons (the
+    # brochure's own term, e.g. the moose "Season Choice" hunt code
+    # M-M-038-O1-X on p.2, and the eastern-plains deer season-choice codes
+    # D-?-NNN-O2-X on p.42). It is its own method_group, not a rifle variant.
+    "X": "season_choice",
 }
 
 
@@ -921,6 +927,7 @@ def _weapon_types_for(method_letter: str) -> list[str]:
         "A" → ["archery"]
         "M" → ["muzzleloader"]
         "R" → ["any_legal_weapon"]
+        "X" → ["archery", "muzzleloader", "any_legal_weapon"]  (Season Choice)
 
     The ``"R"`` (rifle) method maps to ``"any_legal_weapon"`` — not
     ``"rifle"`` — because CPW rifle seasons are unrestricted general-weapon
@@ -930,6 +937,12 @@ def _weapon_types_for(method_letter: str) -> list[str]:
     both ``"rifle"`` and ``"any_legal_weapon"``; ``"any_legal_weapon"`` is
     the correct choice for CPW rifle seasons.
 
+    The ``"X"`` (Season Choice) license is valid for the hunter's choice among
+    the archery, muzzleloader and rifle seasons, so its ``weapon_types`` is the
+    UNION of those three methods' eligibility. (The precise per-season binding
+    — which weapon applies in which chosen season — is a downstream S06.7 data-
+    model question; see docs/open-questions.md.)
+
     Returns ``[]`` for an unknown letter — the caller handles unknown method
     letters (typically by logging a warning and demoting confidence).  Does
     NOT raise.
@@ -938,6 +951,7 @@ def _weapon_types_for(method_letter: str) -> list[str]:
         "A": ["archery"],
         "M": ["muzzleloader"],
         "R": ["any_legal_weapon"],
+        "X": ["archery", "muzzleloader", "any_legal_weapon"],
     }
     return mapping.get(method_letter, [])
 
@@ -1113,6 +1127,15 @@ _METHOD_HEADING_RE = re.compile(
 _WHITETAIL_HEADING_RE = re.compile(
     r"(?i)white[- ]?tailed\s+deer\s+only"
 )
+
+# Per-row whitetail signal (Rule R11, eastern-plains case). The page-44
+# heading switches the whole remaining deer range to whitetail, but the
+# eastern-plains deer on page 42 (units ~87–101) are interleaved with mule
+# deer in the same rifle/season-choice table and are flagged only by a
+# ``"white-tailed only"`` qualifier in their Unit cell. This matches that
+# qualifier so those rows are tagged whitetail (not mule_deer) even before the
+# page-44 heading. Broader than _WHITETAIL_HEADING_RE (no "deer only" suffix).
+_WHITETAIL_UNIT_RE = re.compile(r"(?i)white[- ]?tail")
 
 # ---------------------------------------------------------------------------
 # Season Dates header regex (Rule R7 fallback).
@@ -2443,6 +2466,13 @@ def extract(pdf_path: Path = _PDF_PATH) -> list[CpwSectionExtraction]:
                     )
 
                     # Assign confidence and group into sections.
+                    # Rule R11 (eastern-plains case): a "white-tailed only" Unit
+                    # cell tags that row — and following rows that share the unit
+                    # (the Doe row carries an empty Unit) — as whitetail. The
+                    # sticky flag carries the last seen Unit's whitetail-ness to
+                    # unit-less rows; a new Unit cell that is NOT white-tailed
+                    # resets it. Scoped per table.
+                    unit_whitetail_sticky = False
                     for row in extracted_rows:
                         row["extraction_confidence"] = _assign_row_confidence(row)
 
@@ -2459,14 +2489,23 @@ def extract(pdf_path: Path = _PDF_PATH) -> list[CpwSectionExtraction]:
                             )
                             continue
 
+                        # Update the sticky plains-whitetail flag from this row's
+                        # own Unit cell (only when it actually carries one).
+                        unit_text = row["unit"]
+                        if unit_text:
+                            unit_whitetail_sticky = bool(
+                                _WHITETAIL_UNIT_RE.search(unit_text)
+                            )
+                        row_whitetail = is_whitetail or unit_whitetail_sticky
+
                         # Derive species_group per-row from the hunt code.
                         species_letter = row["species_letter"]
                         if species_letter:
-                            row_species = _species_group_for(species_letter, is_whitetail)
+                            row_species = _species_group_for(species_letter, row_whitetail)
                         else:
                             # Unparseable hunt code: use the current context
                             # species based on the page range.
-                            row_species = "whitetail" if is_whitetail else default_species
+                            row_species = "whitetail" if row_whitetail else default_species
 
                         # Derive method_group per-row from method_letter.
                         row_method_letter = row["method_letter"]
