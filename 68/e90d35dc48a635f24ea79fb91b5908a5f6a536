@@ -1,0 +1,34 @@
+ingestion/states/colorado/extract_big_game.py
+  s_dee9feec9456d6::t_87d8f44d3d7d6d 866-871
+  s_dee9feec9456d6::t_d2501d1d733803 930,940-945,954
+  s_dee9feec9456d6::t_3237420ac3578c 2469-2475,2492-2500,2504,2508
+  s_dee9feec9456d6::t_e9e15d248cc6c7 1131-1139
+docs/open-questions.md
+  s_dee9feec9456d6::t_fbc32cea337941 445-476
+ingestion/states/colorado/extracted/big-game-2026.json
+  s_dee9feec9456d6::t_3b8457cf1e0c3b 31122,31724,31900,32042,32498-32516,32521-32523,32525,32529,32535,33212,40454,40456,40460,40469-40473,40477,40483,40487,40489-40498,40503,40506-40508,40513-40514,40518,40520,40524,40533-40537,40541,40547,40551,40553-40562,40565,40567,40570-40572,40574-40592,40597-40601,40605-40801,43640-43920
+ingestion/tests/test_extract_co_big_game.py
+  s_dee9feec9456d6::t_3f8e42abaf3eb8 698-701,703-704
+  s_dee9feec9456d6::t_6c6b98e576e3af 1105
+  s_dee9feec9456d6::t_d60bf5e8f456c6 1169-1172,1184-1185
+  s_dee9feec9456d6::t_0e9cffc4c7e52f 1090,1099-1102
+  s_dee9feec9456d6::t_09ab27e51b6a08 1189-1210
+  s_dee9feec9456d6::t_16098d88a6391f 1326,1333
+  s_dee9feec9456d6::t_36f0f2b7eb53f1 719-726,728-729
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "68e90d35dc48a635f24ea79fb91b5908a5f6a536",
+  "prompts": {},
+  "sessions": {
+    "s_dee9feec9456d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "343ebdb7-85bb-402b-bad3-49338196f318",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
