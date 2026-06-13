@@ -345,8 +345,9 @@ def write_extraction_artifact(records: Sequence[object], path: Path) -> None:
 
     Why one-record-per-line rather than ``indent=2`` pretty-print: these
     artifacts are large (hundreds–thousands of records) and committed to git.
-    Pretty-printing inflates them ~100x in line count (a ~2,700-record artifact
-    is ~104k lines), which blows past code-review line-count limits — e.g.
+    Pretty-printing inflates them roughly two orders of magnitude in line count
+    (CO's 737-section big-game artifact is ~104k lines pretty-printed vs 739 one
+    record per line), which blows past code-review line-count limits — e.g.
     cubic's 50,000-changed-line cap. (``.gitattributes`` does NOT help: GitHub
     counts raw diff lines regardless of ``-diff`` / ``linguist-generated``.)
     One record per line keeps the artifact at ~one line per record while staying
@@ -373,8 +374,16 @@ def write_extraction_artifact(records: Sequence[object], path: Path) -> None:
     else:
         payload = "[]\n"
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Using path.parent / (path.name + ".tmp") avoids Path.with_suffix
-    # misinterpreting ".json.tmp" as a double-extension.
+    # Deterministic ".tmp" sibling — matches the atomic-write convention in
+    # build_overlay_fixture.py and extract_black_bear.py, which this helper
+    # generalizes. Safe because the ingestion pipeline is offline + single-writer
+    # (one extractor per artifact path; ``make ingest-all`` parallelizes across
+    # states, never the same path), so there is no concurrent-writer race. A
+    # crashed run leaves exactly one predictable ".tmp" that the next run's
+    # truncating write_text overwrites (self-healing) — whereas unique tmp names
+    # would leak orphan ".tmp" files on every crash. (path.parent / (name +
+    # ".tmp") also avoids Path.with_suffix misreading ".json.tmp" as a
+    # double-extension.)
     tmp_path = path.parent / (path.name + ".tmp")
     tmp_path.write_text(payload, encoding="utf-8")
     tmp_path.replace(path)  # atomic on POSIX; replace() safe on Windows too
