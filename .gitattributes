@@ -1,0 +1,14 @@
+# Generated extraction artifacts produced by the state `extract_*.py` adapters
+# (committed as durable text-side fixtures, consumed by the loaders and the
+# artifact-regression tests; never hand-edited — regenerate with the adapter).
+#
+# `linguist-generated`: mark as generated so GitHub collapses them in PRs and
+# excludes them from language statistics.
+#
+# NOTE: line-count-based review limits (e.g. cubic's 50k-changed-line cap) are
+# driven by GitHub's RAW diff line count, which `.gitattributes` does NOT
+# reduce (`-diff` / `linguist-generated` only affect display + language stats).
+# These artifacts are therefore serialized ONE SECTION PER LINE by the adapters
+# (not indent=2 pretty-print) to keep their committed line count small — see
+# the write step in extract_big_game.py.
+ingestion/states/*/extracted/*.json linguist-generated

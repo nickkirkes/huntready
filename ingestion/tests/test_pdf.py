@@ -574,3 +574,60 @@ class TestPdfNoStateAdapterImports:
                 f"state-specific code belongs in states/{slug}/, not in the "
                 f"shared library (ADR-005)."
             )
+
+
+class TestWriteExtractionArtifact:
+    """Unit tests for ``pdf.write_extraction_artifact`` — the canonical
+    one-record-per-line serializer for committed extraction artifacts."""
+
+    def test_one_record_per_array_line(self, tmp_path: Path) -> None:
+        out = tmp_path / "a.json"
+        pdf.write_extraction_artifact([{"b": 1, "a": 2}, {"c": 3}], out)
+        lines = out.read_text(encoding="utf-8").splitlines()
+        # "[" + one line per record + "]" = 4 lines for 2 records.
+        assert lines[0] == "["
+        assert lines[-1] == "]"
+        assert len(lines) == 4
+
+    def test_roundtrips_via_json_load(self, tmp_path: Path) -> None:
+        import json
+
+        records = [{"x": 1}, {"y": "two"}]
+        out = tmp_path / "a.json"
+        pdf.write_extraction_artifact(records, out)
+        assert json.loads(out.read_text(encoding="utf-8")) == records
+
+    def test_keys_sorted_within_each_record(self, tmp_path: Path) -> None:
+        out = tmp_path / "a.json"
+        pdf.write_extraction_artifact([{"b": 1, "a": 2}], out)
+        # sort_keys=True → "a" precedes "b" in the serialized record.
+        record_line = out.read_text(encoding="utf-8").splitlines()[1]
+        assert record_line.index('"a"') < record_line.index('"b"')
+
+    def test_embedded_newline_escaped_stays_one_line(self, tmp_path: Path) -> None:
+        import json
+
+        out = tmp_path / "a.json"
+        pdf.write_extraction_artifact([{"v": "line1\nline2"}], out)
+        # The newline inside the value is JSON-escaped, so the record is still
+        # exactly one physical line: "[" + record + "]" = 3 lines.
+        assert len(out.read_text(encoding="utf-8").splitlines()) == 3
+        assert json.loads(out.read_text(encoding="utf-8")) == [{"v": "line1\nline2"}]
+
+    def test_empty_records(self, tmp_path: Path) -> None:
+        out = tmp_path / "a.json"
+        pdf.write_extraction_artifact([], out)
+        assert out.read_text(encoding="utf-8") == "[]\n"
+
+    def test_deterministic_same_bytes(self, tmp_path: Path) -> None:
+        records = [{"b": 1, "a": 2}, {"z": [3, 2, 1]}]
+        o1, o2 = tmp_path / "1.json", tmp_path / "2.json"
+        pdf.write_extraction_artifact(records, o1)
+        pdf.write_extraction_artifact(records, o2)
+        assert o1.read_bytes() == o2.read_bytes()
+
+    def test_creates_parent_and_leaves_no_tmp(self, tmp_path: Path) -> None:
+        out = tmp_path / "nested" / "dir" / "a.json"
+        pdf.write_extraction_artifact([{"a": 1}], out)
+        assert out.exists()
+        assert not (out.parent / (out.name + ".tmp")).exists()

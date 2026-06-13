@@ -41,15 +41,18 @@ Public API:
     page_reference_to_str — format a PageReference as a human-readable citation string
     min_tier            — return the lower-confidence tier of two ConfidenceTiers
     demote_one_tier     — return the next-lower tier (HIGH→MEDIUM, MEDIUM→LOW, LOW→LOW)
+    write_extraction_artifact — atomically write a list of records as a JSON
+                          array, one record per line (committed-fixture format)
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from enum import Enum
 from pathlib import Path
-from typing import Iterable, Iterator, TypedDict, cast
+from typing import Iterable, Iterator, Sequence, TypedDict, cast
 
 import pdfplumber
 from pdfplumber.page import Page
@@ -330,3 +333,57 @@ def find_section(
             )
             return (page_num_1based, bbox)
     return None
+
+
+def write_extraction_artifact(records: Sequence[object], path: Path) -> None:
+    """Atomically write *records* to *path* as a JSON array, ONE record per line.
+
+    This is the canonical serializer for committed extraction artifacts (the
+    ``ingestion/states/<state>/extracted/*.json`` fixtures produced by the
+    ``extract_*.py`` adapters and consumed by loaders + artifact-regression
+    tests). Use it instead of ``json.dumps(..., indent=2)``.
+
+    Why one-record-per-line rather than ``indent=2`` pretty-print: these
+    artifacts are large (hundreds–thousands of records) and committed to git.
+    Pretty-printing inflates them roughly two orders of magnitude in line count
+    (CO's 737-section big-game artifact is ~104k lines pretty-printed vs 739 one
+    record per line), which blows past code-review line-count limits — e.g.
+    cubic's 50,000-changed-line cap. (``.gitattributes`` does NOT help: GitHub
+    counts raw diff lines regardless of ``-diff`` / ``linguist-generated``.)
+    One record per line keeps the artifact at ~one line per record while staying
+    valid JSON, diffable per record, and ``json.load``-parseable.
+
+    Determinism (so re-runs are byte-identical for regression/SHA pins): pass an
+    already-sorted *records* sequence; each record is dumped with
+    ``sort_keys=True``. Any newlines inside string values are JSON-escaped
+    (``\\n``), so every record occupies exactly one physical line.
+
+    Atomic + state-agnostic (ADR-005): serializes to a ``.tmp`` sibling then
+    ``Path.replace()`` (atomic on POSIX, safe on Windows); creates the parent
+    directory if needed. No state-specific logic — usable by every adapter.
+
+    :param records: JSON-serializable records, pre-sorted by the caller.
+    :param path: destination ``.json`` path (parents created if missing).
+    """
+    if records:
+        body = ",\n".join(
+            json.dumps(record, sort_keys=True, ensure_ascii=False)
+            for record in records
+        )
+        payload = "[\n" + body + "\n]\n"
+    else:
+        payload = "[]\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Deterministic ".tmp" sibling — matches the atomic-write convention in
+    # build_overlay_fixture.py and extract_black_bear.py, which this helper
+    # generalizes. Safe because the ingestion pipeline is offline + single-writer
+    # (one extractor per artifact path; ``make ingest-all`` parallelizes across
+    # states, never the same path), so there is no concurrent-writer race. A
+    # crashed run leaves exactly one predictable ".tmp" that the next run's
+    # truncating write_text overwrites (self-healing) — whereas unique tmp names
+    # would leak orphan ".tmp" files on every crash. (path.parent / (name +
+    # ".tmp") also avoids Path.with_suffix misreading ".json.tmp" as a
+    # double-extension.)
+    tmp_path = path.parent / (path.name + ".tmp")
+    tmp_path.write_text(payload, encoding="utf-8")
+    tmp_path.replace(path)  # atomic on POSIX; replace() safe on Windows too
