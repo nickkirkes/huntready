@@ -1,0 +1,16 @@
+# Generated extraction artifacts: large, deterministic, pretty-printed JSON
+# data files produced by the state `extract_*.py` adapters (e.g.
+# ingestion/states/colorado/extracted/big-game-2026.json is ~104k lines). They
+# are committed as durable text-side fixtures (consumed by the loaders and the
+# artifact-regression tests), but they are NOT human-reviewed source.
+#
+# - `-diff`            : treat as binary for diffs, so `git diff` / `--numstat`
+#                        report no line-by-line changes. This keeps the change
+#                        out of line-count-based review limits (cubic's 50k
+#                        changed-line cap) and out of noisy 100k-line diffs.
+# - `linguist-generated`: mark as generated so GitHub collapses them in PRs and
+#                        excludes them from language statistics.
+#
+# Regenerate with the relevant `extract_*.py`; never hand-edit. The committed
+# content is still version-controlled — only its textual diff is suppressed.
+ingestion/states/*/extracted/*.json -diff linguist-generated
