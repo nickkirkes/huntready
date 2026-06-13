@@ -1,0 +1,30 @@
+.roughly/known-pitfalls.md
+  s_dee9feec9456d6::t_0824551880047d 473-480
+ingestion/ingestion/lib/pdf.py
+  s_dee9feec9456d6::t_17c3f363c63593 50,55
+  s_dee9feec9456d6::t_587df4d671c7b5 44-45
+  s_dee9feec9456d6::t_d221e5d41609e8 336-380
+.secrets.baseline
+  s_dee9feec9456d6::t_81321ee82b182a 136,329
+ingestion/tests/test_pdf.py
+  s_dee9feec9456d6::t_cfcc0b009190ae 577-633
+ingestion/states/colorado/extract_big_game.py
+  s_dee9feec9456d6::t_0e77489efe7ee4 240
+  s_dee9feec9456d6::t_912411ac43f319 2671-2678
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "1293031d8fc1536f16066d2e7f71d894557e1a50",
+  "prompts": {},
+  "sessions": {
+    "s_dee9feec9456d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "343ebdb7-85bb-402b-bad3-49338196f318",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
