@@ -1,0 +1,23 @@
+ingestion/ingestion/lib/pdf.py
+  s_dee9feec9456d6::t_bf53d35559b40d 348-350
+  s_dee9feec9456d6::t_ef5a7a178c15e9 377-386
+.roughly/known-pitfalls.md
+  s_dee9feec9456d6::t_6a39d2013ac456 475
+  s_dee9feec9456d6::t_538986443e3273 477
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "802b996d8d2bac7022881495d56446a9d28dab28",
+  "prompts": {},
+  "sessions": {
+    "s_dee9feec9456d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "343ebdb7-85bb-402b-bad3-49338196f318",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
