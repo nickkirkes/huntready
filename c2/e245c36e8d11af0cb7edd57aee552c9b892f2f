@@ -1,0 +1,19 @@
+ingestion/states/colorado/extract_big_game.py
+  s_dee9feec9456d6::t_657f4987715f36 317-331
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "c2e245c36e8d11af0cb7edd57aee552c9b892f2f",
+  "prompts": {},
+  "sessions": {
+    "s_dee9feec9456d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "343ebdb7-85bb-402b-bad3-49338196f318",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
