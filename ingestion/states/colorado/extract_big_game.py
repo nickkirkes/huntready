@@ -237,6 +237,7 @@ from ingestion.lib.pdf import (
     extract_text,
     iter_pages,
     open_pdf,
+    write_extraction_artifact,
 )
 
 # ---------------------------------------------------------------------------
@@ -2667,33 +2668,14 @@ def main(argv: list[str] | None = None) -> int:
         dist.get("low", 0),
     )
 
-    # Ensure output directory exists.
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-
-    # Atomic write: serialize to a .tmp sibling, then replace.
-    # Using args.out.parent / (args.out.name + ".tmp") avoids Path.with_suffix
-    # misinterpreting ".json.tmp" as a double-extension.
-    #
-    # Serialize ONE SECTION PER LINE (compact JSON per section, newline-joined
-    # inside the array) rather than indent=2 pretty-print. The artifact is a
-    # committed fixture (~737 sections); pretty-printing made it ~104k lines,
-    # which blew past code-review line-count limits (e.g. cubic's 50k-changed-
-    # line cap — .gitattributes -diff does NOT help because GitHub counts raw
-    # diff lines regardless). One-section-per-line keeps it valid JSON, still
-    # diffable per section, and ~1 line per section. Deterministic: `sections`
-    # is already sorted (see _sort_key) and each object uses sort_keys=True;
-    # embedded newlines inside string fields are JSON-escaped (\n), so each
-    # section is exactly one physical line.
-    if sections:
-        body = ",\n".join(
-            json.dumps(s, sort_keys=True, ensure_ascii=False) for s in sections
-        )
-        payload = "[\n" + body + "\n]\n"
-    else:
-        payload = "[]\n"
-    tmp_path = args.out.parent / (args.out.name + ".tmp")
-    tmp_path.write_text(payload, encoding="utf-8")
-    tmp_path.replace(args.out)  # atomic on POSIX; replace() safe on Windows too
+    # Atomic, ONE-SECTION-PER-LINE write via the shared lib helper. The artifact
+    # is a committed fixture (~737 sections); indent=2 pretty-printing made it
+    # ~104k lines and blew past code-review line-count limits (e.g. cubic's 50k
+    # cap; .gitattributes does NOT help — GitHub counts raw diff lines). The
+    # helper writes one record per line (valid JSON, still diffable). `sections`
+    # is already sorted by _sort_key; write_extraction_artifact dumps each with
+    # sort_keys=True, so output is deterministic.
+    write_extraction_artifact(sections, args.out)
 
     _logger.info("wrote %d sections to %s", len(sections), args.out)
     return 0

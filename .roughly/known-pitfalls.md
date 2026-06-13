@@ -470,6 +470,14 @@ Surfaced by S03.8 Stage 8 wrap-up on 2026-05-18.
 
 ## Conventions — Ingestion adapters
 
+### Serialize committed extraction artifacts one-record-per-line, not `indent=2`
+
+Committed `ingestion/states/<state>/extracted/*.json` fixtures are large (hundreds–thousands of records). `json.dumps(..., indent=2)` inflates them ~100× in line count — S06.3's `big-game-2026.json` was **103,854 lines** (2,758 sections). That blows past code-review line-count limits: cubic refuses any PR over **50,000 changed lines**, and GitHub computes the PR's raw `+/-` line count from the diff — **`.gitattributes` (`-diff` / `linguist-generated`) does NOT reduce it** (those only affect display and language stats; verified — the PR still reported +108,201 with `-diff` set). The only fix that works is reducing the actual committed line count.
+
+Use the shared helper **`ingestion.lib.pdf.write_extraction_artifact(records, path)`** (not a hand-rolled `json.dumps`). It writes one compact record per physical line inside the JSON array (`[\n{rec},\n{rec}\n]\n`): still valid JSON, still `json.load`-parseable, still diffable per record, but ~one line per record instead of ~100. S06.3's artifact dropped 103,854 → 739 lines (PR 108,201 → ~5,100 changed lines). Determinism is preserved (pass a pre-sorted `records`; the helper dumps each with `sort_keys=True`; embedded newlines in string values are JSON-escaped so each record stays one physical line). It also does the atomic `.tmp`+`replace` write and creates the parent dir.
+
+Every NEW extractor must use this helper. The Montana extractors (`extract_dea.py`, `extract_black_bear.py`, `extract_legal_descriptions.py`) still pretty-print with `indent=2` — `dea-2026.json` is already **47,956 lines**, one bigger brochure from the 50k cap; migrate them to the helper at their next re-extraction (a format-only change: re-pin the determinism SHA, data unchanged).
+
 ### Shared predicate module when two stories partition a single source layer
 
 When two stories must apply mutually exclusive filters over the same source layer (e.g. S02.4 ingests non-CWD rows of MT FWP layer #2 as `kind='restricted_area'`; S02.5 ingests the CWD rows of the same layer as `kind='cwd_zone'`), the discriminator predicate **must** live in a shared module that both adapters import. The naive approach — let one story write rows with one `kind`, then have the other mutate matching rows to a different `kind` — has an idempotency hole: re-running the first story reverts the kind via UPSERT.
