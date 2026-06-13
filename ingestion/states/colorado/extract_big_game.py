@@ -2673,7 +2673,24 @@ def main(argv: list[str] | None = None) -> int:
     # Atomic write: serialize to a .tmp sibling, then replace.
     # Using args.out.parent / (args.out.name + ".tmp") avoids Path.with_suffix
     # misinterpreting ".json.tmp" as a double-extension.
-    payload = json.dumps(sections, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+    #
+    # Serialize ONE SECTION PER LINE (compact JSON per section, newline-joined
+    # inside the array) rather than indent=2 pretty-print. The artifact is a
+    # committed fixture (~737 sections); pretty-printing made it ~104k lines,
+    # which blew past code-review line-count limits (e.g. cubic's 50k-changed-
+    # line cap — .gitattributes -diff does NOT help because GitHub counts raw
+    # diff lines regardless). One-section-per-line keeps it valid JSON, still
+    # diffable per section, and ~1 line per section. Deterministic: `sections`
+    # is already sorted (see _sort_key) and each object uses sort_keys=True;
+    # embedded newlines inside string fields are JSON-escaped (\n), so each
+    # section is exactly one physical line.
+    if sections:
+        body = ",\n".join(
+            json.dumps(s, sort_keys=True, ensure_ascii=False) for s in sections
+        )
+        payload = "[\n" + body + "\n]\n"
+    else:
+        payload = "[]\n"
     tmp_path = args.out.parent / (args.out.name + ".tmp")
     tmp_path.write_text(payload, encoding="utf-8")
     tmp_path.replace(args.out)  # atomic on POSIX; replace() safe on Windows too

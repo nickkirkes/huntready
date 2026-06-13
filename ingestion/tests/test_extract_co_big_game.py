@@ -1323,12 +1323,12 @@ class TestDeterministicJsonOutput:
 
         Two consecutive ``extract()`` runs against the committed PDF produced
         byte-identical output with SHA-256:
-            71a3af10794389317d554a1f6bf1790fb120c25bc1a713e3e5a7d624dfad98e2
+            3c2ecd90066cad3ec527f5ff18d054083d0f827485adae2337cde9f63cca015d
         """
         import pytest as _pytest
 
         _pytest.skip(
             "integration — requires real CPW Big Game PDF (~96 MB, gitignored); "
             "determinism verified by manual 2-run SHA recipe "
-            "(SHA-256: 71a3af10794389317d554a1f6bf1790fb120c25bc1a713e3e5a7d624dfad98e2)"
+            "(SHA-256: 3c2ecd90066cad3ec527f5ff18d054083d0f827485adae2337cde9f63cca015d)"
         )
