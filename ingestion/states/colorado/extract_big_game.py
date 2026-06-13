@@ -314,11 +314,21 @@ _HYPHEN_LINEBREAK_RE = re.compile(r"(?<=[a-zA-Z0-9])-\n(?=[a-zA-Z0-9])")
 _OTC_BULLET: str = "■"  # U+25A0 BLACK SQUARE
 _OTC_BULLET_RE = re.compile(r"\s*■\s*")  # Rule R15
 
-# FIX 2: compiled fragment regex for _is_garbage_row.
-# Matches a hunt-code-shaped substring (e.g. "D-M-082") within any text.
-# Rows with species_letter == "" AND no fragment like this are garbage (map-OCR
-# leakage); rows with a multi-code cell like "D-M-082-O2-R\nD-M-082-O3-R" DO
-# contain this pattern and are NOT garbage.
+# Compiled "contains a hunt code" fragment regex, used UNANCHORED via
+# ``.search()`` in two places: _is_garbage_row (FIX 2) and the _is_map_page_text
+# positive-content safeguard (Rule R10). It detects a hunt-code-shaped substring
+# (e.g. "D-M-082") anywhere in a string.
+#   - _is_garbage_row: a row with species_letter == "" AND no such fragment is
+#     map-OCR garbage; a multi-code cell like "D-M-082-O2-R\nD-M-082-O3-R" DOES
+#     contain it and is NOT garbage.
+#   - _is_map_page_text: a page whose text contains one is regulation content,
+#     never a map page.
+# ``\d{3}`` (not ``\d{3,4}``) is deliberate and matches BOTH 3- and 4-digit GMU
+# codes: because the regex is unanchored, ``\d{3}`` matches the first three
+# digits of a 4-digit code (e.g. it matches "D-M-020" inside "D-M-0201-O1-A").
+# Valid CPW hunt codes always carry a zero-padded GMU of ≥3 digits (the full
+# parse regex requires ``\d{3,4}``), so every valid code is detected. Widening
+# to ``\d{3,4}`` here would be a behavioural no-op.
 _HUNT_CODE_FRAGMENT_RE = re.compile(r"[A-Z]-[A-Z]-\d{3}")
 
 # Rule R5: "See Unit NNN" cross-reference rows in the Valid-GMUs cell.
