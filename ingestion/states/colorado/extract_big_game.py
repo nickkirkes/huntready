@@ -2161,11 +2161,11 @@ def _load_extracted_at_from_manifest(pdf_path: Path) -> str:
     return fetched_at
 
 
-def _sort_key(section: CpwSectionExtraction) -> tuple[int, int, str, int, str, str]:
+def _sort_key(section: CpwSectionExtraction) -> tuple[int, int, str, int, str, str, int]:
     """Return a deterministic sort key for a ``CpwSectionExtraction``.
 
     Ordering: (species_order, method_order, method_group, gmu_numeric, gmu_code,
-    residency_scope)
+    residency_scope, page)
 
     - ``species_order``: mule_deer=0, whitetail=1, elk=2, pronghorn=3.
     - ``method_order``: archery=0, muzzleloader=1, rifle=2; unknown=99.
@@ -2178,6 +2178,10 @@ def _sort_key(section: CpwSectionExtraction) -> tuple[int, int, str, int, str, s
     - ``residency_scope``: raw string tiebreaker; ``"both"`` < ``"nonresident"``
       < ``"resident"`` lexicographically, giving a stable total order when two
       sections share the same species/method/GMU but differ in residency.
+    - ``page``: first-page tiebreaker. Inert for normal sections (only one
+      section exists per species/method/GMU/residency), but gives a stable
+      total order to the page-disambiguated empty-GMU sections that hold
+      unparseable rows (see the grouping key in ``extract()``).
 
     Rows within a section preserve PDF order (not re-sorted here).
     """
@@ -2193,7 +2197,15 @@ def _sort_key(section: CpwSectionExtraction) -> tuple[int, int, str, int, str, s
     else:
         gmu_numeric = _NON_NUMERIC_GMU_SENTINEL
 
-    return (sp, meth_num, section["method_group"], gmu_numeric, gmu_code, section["residency_scope"])
+    return (
+        sp,
+        meth_num,
+        section["method_group"],
+        gmu_numeric,
+        gmu_code,
+        section["residency_scope"],
+        section["page_reference"]["page_num_1based"],
+    )
 
 
 def _residency_scope_from_text(text: str) -> str:
@@ -2529,7 +2541,18 @@ def extract(pdf_path: Path = _PDF_PATH) -> list[CpwSectionExtraction]:
 
                         gmu_code = row["gmu_code"]
                         row_residency = row["residency_scope"]
-                        key = (row_species, row_method, gmu_code, row_residency)
+                        # Unparseable rows have gmu_code == "" (no parseable hunt
+                        # code). Disambiguate the section key by page for those so
+                        # empty-GMU rows from DIFFERENT pages are NOT coalesced
+                        # into one section (which would make the section's
+                        # page_reference / verbatim_text describe rows from
+                        # multiple pages). Real GMU codes are never empty, so
+                        # normal sections are unaffected. The NUL-prefixed
+                        # placeholder can never collide with a real gmu_code; the
+                        # section's own gmu_code field is taken from the rows
+                        # (always "" for these), not from this key component.
+                        gmu_key = gmu_code or f"\x00unparsed-p{page_num_1based}"
+                        key = (row_species, row_method, gmu_key, row_residency)
 
                         if key not in sections_map:
                             sections_map[key] = (page_ref, [])
@@ -2537,14 +2560,18 @@ def extract(pdf_path: Path = _PDF_PATH) -> list[CpwSectionExtraction]:
 
     # --- Build CpwSectionExtraction list ---
     sections: list[CpwSectionExtraction] = []
-    for (species_group, method_group, gmu_code, residency_scope), (first_page_ref, rows) in sections_map.items():
+    for (species_group, method_group, _gmu_key, residency_scope), (first_page_ref, rows) in sections_map.items():
         verbatim = _verbatim_text_for_section(rows)
+        # gmu_code comes from the rows (all rows in a section share it), NOT the
+        # key's gmu component — which may be a page-disambiguated placeholder for
+        # empty-GMU (unparseable) sections. Real sections are unaffected (their
+        # key gmu == rows[0]["gmu_code"]); empty-GMU sections get "" here.
         sections.append(
             CpwSectionExtraction(
                 source_id=_SOURCE_ID,
                 species_group=species_group,
                 method_group=method_group,
-                gmu_code=gmu_code,
+                gmu_code=rows[0]["gmu_code"],
                 residency_scope=residency_scope,
                 license_year=_LICENSE_YEAR,
                 extracted_at=extracted_at,
