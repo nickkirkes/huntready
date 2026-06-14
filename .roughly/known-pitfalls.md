@@ -1184,3 +1184,13 @@ A closure note's forward-note (e.g., S06.1's "the 2026 CPW correction PDF is moo
 **Bonus signal:** when a correction PDF contains content the prior story said it wouldn't, flag the upstream extractor (S06.3 in this case) as a potential gap — the elk muzzleloader correction may not have been applied to `big-game-2026.json`. Reference: S06.4 `_extract_correction` in `ingestion/states/colorado/extract_black_bear.py`.
 
 Surfaced by S06.4 real-PDF probe on 2026-06-13.
+
+### An out-of-domain hunt code on a single-species page is a structural anomaly — fail loud, matching the extractor's other structural guards
+
+A bear extractor parses bear-only pages (CPW PDF 72–77). A parsed-but-non-bear hunt code there (e.g. `D-E-050-O1-A` — a deer code) is not a degraded-but-valid bear row; it signals page-bleed, a wrong page range, or a parser bug. The original code only *warned* on `species_letter != "B"` while `_assign_bear_row_confidence` keyed LOW on `species_letter == ""` (unparseable) — so a misclassified code was promoted to **HIGH** and would be persisted by S06.6 as `species_group="black_bear"` (corrupt data).
+
+**Fix:** `_extract_bear_block_row` raises `PdfExtractionError` on a non-`"B"` species letter (naming code + page), mirroring big-game `_species_group_for`'s raise-on-unknown. This matches the module's other structural-anomaly guards (unrecognized OTC heading, fused-row misalignment, `document_type`, count-band) which all fail hard before any write. Extraction is deterministic + re-runnable, so aborting is not permanent data loss — it forces a parser fix, the correct response. Keep `_parse_hunt_code` itself permissive (pure parser, used by the R16 embedded-search check); enforce at the emit site.
+
+**Review-cycling note:** a code-review bot (cubic) objected to *every* candidate behavior across successive runs — `raise` ("discards other rows"), `emit-at-LOW` ("leaks non-bear data into the artifact"), and `warn+skip` ("silently drops; prefer a hard failure"). These objections are mutually exclusive; no behavior satisfies all three. When review findings *cycle* (contradict prior rounds) rather than *narrow*, stop iterating and decide on convention + domain priority, then document the rationale (here: fail-hard, because for a regulatory artifact a hard failure is more detectable than missing/leaked rows, and it matches the module + sibling convention). Reference: S06.4 `_extract_bear_block_row` (`06dcce8`).
+
+Surfaced by S06.4 post-merge review on 2026-06-14.
