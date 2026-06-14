@@ -1,0 +1,25 @@
+.roughly/plans/S06.4-black-bear-extraction-plan.md
+  s_2f6064e02e9182::t_120b1376281620 3-98,106-149,151-209,215-271,277-288,291-337
+  s_2f6064e02e9182::t_d74c7e4668c544 150
+  s_2f6064e02e9182::t_379b79607aea14 272-276
+  s_2f6064e02e9182::t_c9f6c964701cb4 289-290
+  s_2f6064e02e9182::t_4f7bbadd77caeb 1-2
+  s_2f6064e02e9182::t_5c09ffe17803df 210-214
+  s_2f6064e02e9182::t_6d393703947839 99-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "5c0f4907a00d604c40b8b21bcb247bdc95711972",
+  "prompts": {},
+  "sessions": {
+    "s_2f6064e02e9182": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "22a04cdc-9041-405d-a3c2-18a4861bd93d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
