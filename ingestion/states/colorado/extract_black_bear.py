@@ -249,12 +249,27 @@ NOTE on species_group:
       locked by: TestBearParseHuntCode::test_valid_bear_code_parsed,
                  TestBearParseHuntCode::test_non_bear_species_letter_logged
 
-  Rule R9: hunt-code multi-line cell split (``"B-E-058-O1-M\\nB-E-059-O1-M"``)
+  Rule R9: single-code multi-line Hunt Code cell normalisation
+      scope: Hunt Code column cells that contain a newline but hold only ONE
+             full hunt code (e.g. a wrapped GMU list or a spurious trailing
+             newline introduced by pdfplumber).  The first non-empty line is
+             used as the canonical ``hunt_code`` value; any remaining lines are
+             logged at DEBUG and discarded.  Multi-code cells (two or more full
+             hunt codes separated by ``\\n``) are handled by Rule R17, not R9.
+      locked by: TestBearExtractBlockRow::test_single_code_multiline_uses_first
+
+  Rule R17: fused multi-row split (``"B-E-058-O1-M\\nB-E-059-O1-M"`` → 2 rows)
       scope: Hunt Code column — confirmed live on PDF p. 74 muzzleloader table:
-             cell ``'B-E-058-O1-M\\nB-E-059-O1-M'`` packages two codes.
-             The first code is used as ``hunt_code``; the second is logged at
-             DEBUG.  Future T3 sectioning may need to handle multi-code cells.
-      locked by: TestBearExtractBlockRow::test_multiline_hunt_code_uses_first
+             cell ``'B-E-058-O1-M\\nB-E-059-O1-M'`` carries TWO full hunt codes
+             because pdfplumber merged adjacent PDF rows when the inter-row
+             ruling was missing.  ``_split_fused_block_row`` detects N≥2 full
+             codes via ``_HUNT_CODE_EMBEDDED_RE.findall`` and splits every
+             present block cell on ``\\n``, producing N synthetic rows.  Fails
+             loud (``PdfExtractionError``) when a present, non-empty block cell
+             does not split into exactly N parts — misalignment would corrupt
+             the split.
+      locked by: TestFusedRowSplit::test_two_code_fused_row_splits_to_two_rows,
+                 TestFusedRowSplit::test_misaligned_cell_raises
 
   Rule R10: "see unit N" cross-reference rows skipped
       regex: ``(?i)^\\s*see\\s+unit\\s+\\d+``
@@ -1274,6 +1289,97 @@ def _bear_get_cell(row: list[str | None], idx: int) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# T2: Fused-row splitter (Rule R17)
+# ---------------------------------------------------------------------------
+
+
+def _split_fused_block_row(
+    row: list[str | None],
+    block: tuple[int, ...],
+) -> list[list[str | None]]:
+    """Rule R17: split a pdfplumber-merged multi-row block into N logical rows.
+
+    When the Hunt Code cell of *block* contains 2+ full hunt codes separated
+    by ``\\n`` — a pdfplumber artifact where two adjacent PDF rows were merged
+    because the inter-row ruling was missing — split every present block cell
+    on ``\\n`` and return N synthetic copies of *row*, each carrying one part
+    in this block's columns.  Returns ``[row]`` unchanged when the Hunt Code
+    cell has 0 or 1 full hunt code (the common case).
+
+    Parameters
+    ----------
+    row:
+        The original pdfplumber table row (all columns).
+    block:
+        5-tuple ``(unit_idx, valid_gmus_idx, dates_idx, hunt_code_idx,
+        list_idx)`` where ``_BEAR_NO_COL`` (-1) means the field is absent.
+
+    Returns
+    -------
+    list of rows — either ``[row]`` (no fusion detected) or N synthetic rows.
+
+    Raises
+    ------
+    PdfExtractionError
+        When a present, non-empty block cell does not split into exactly N
+        parts (ADR-001 fail-loud — misalignment would corrupt the split).
+
+    # Rule R17
+    Locked by: TestFusedRowSplit::test_two_code_fused_row_splits_to_two_rows,
+               TestFusedRowSplit::test_misaligned_cell_raises
+    """
+    hunt_code_idx = block[3]
+    raw_hunt = _bear_get_cell(row, hunt_code_idx)
+    codes = _HUNT_CODE_EMBEDDED_RE.findall(raw_hunt or "")
+    if len(codes) < 2:
+        # Zero or one full hunt code — no row fusion; return unchanged.
+        return [row]
+
+    n = len(codes)
+    # For each present block column, split its cell value on '\n' and verify
+    # the split count matches n.  Absent (_BEAR_NO_COL) or None cells produce
+    # [None] * n without splitting.
+    col_parts: dict[int, list[str | None]] = {}
+    for idx in block:
+        if idx == _BEAR_NO_COL:
+            continue
+        cell = _bear_get_cell(row, idx)
+        if cell is None:
+            col_parts[idx] = [None] * n
+        else:
+            parts = cell.split("\n")
+            if len(parts) != n:
+                raise PdfExtractionError(
+                    f"_split_fused_block_row (Rule R17): block column {idx} "
+                    f"has {len(parts)} newline-separated parts but Hunt Code "
+                    f"cell contains {n} full codes.  "
+                    f"Cell value: {cell!r}.  "
+                    f"Hunt Code cell: {raw_hunt!r}.  "
+                    f"Codes found: {codes}.  "
+                    f"Cannot split without corrupting row alignment (ADR-001)."
+                )
+            col_parts[idx] = [p.strip() if p.strip() else None for p in parts]
+
+    # Build n synthetic rows, each a shallow copy of the original row with the
+    # block columns replaced by the k-th part for each column.
+    synthetic_rows: list[list[str | None]] = []
+    for k in range(n):
+        srow: list[str | None] = list(row)
+        for col_idx, col_part_list in col_parts.items():
+            srow[col_idx] = col_part_list[k]
+        synthetic_rows.append(srow)
+
+    _logger.debug(
+        "_split_fused_block_row (Rule R17): fused block with %d codes %r → "
+        "%d synthetic rows",
+        n,
+        codes,
+        n,
+    )
+    return synthetic_rows
+
+
+# ---------------------------------------------------------------------------
 # T2: Per-block row extractor
 # ---------------------------------------------------------------------------
 
@@ -1304,9 +1410,13 @@ def _extract_bear_block_row(
         banner parses to ``None`` so the fallback path is never reached in
         practice for rifle).
 
-    Hunt-code multi-line handling (Rule R9): if the Hunt Code cell contains
-    a newline (e.g. ``"B-E-058-O1-M\\nB-E-059-O1-M"``), only the first line
-    is used for structured fields; the remainder is logged at DEBUG.
+    Hunt-code single-code multi-line handling (Rule R9): if the Hunt Code
+    cell contains a newline but only ONE full hunt code, the first non-empty
+    line is used and any remainder is logged at DEBUG.  Cells with TWO or
+    more full hunt codes (pdfplumber row-fusion artifact) are split into
+    separate logical rows by ``_split_fused_block_row`` (Rule R17) BEFORE
+    this function is called — by the time this function runs, the cell
+    contains at most one valid code.
     """
     unit_idx, valid_gmus_idx, dates_idx, hunt_code_idx, list_idx = block
 
@@ -1319,12 +1429,17 @@ def _extract_bear_block_row(
 
     raw_hunt = _bear_get_cell(row, hunt_code_idx)
 
-    # Rule R9: multi-line Hunt Code cell — use first line only.
+    # Rule R9: single-code multi-line Hunt Code cell — use first non-empty line.
+    # By the time this runs, _split_fused_block_row (Rule R17) has already
+    # split any cell that contained 2+ full hunt codes.  Cells reaching here
+    # with a newline have only one valid code (wrapped text, trailing newline,
+    # etc.) — take the first non-empty line and log any remainder at DEBUG.
     if raw_hunt and "\n" in raw_hunt:
         lines = [ln.strip() for ln in raw_hunt.split("\n") if ln.strip()]
         if len(lines) > 1:
             _logger.debug(
-                "_extract_bear_block_row: multi-line hunt code cell %r — using first line %r",
+                "_extract_bear_block_row: Rule R9 single-code multi-line cell %r "
+                "— using first line %r, discarding remainder",
                 raw_hunt,
                 lines[0],
             )
@@ -1566,17 +1681,23 @@ def _bear_parse_table_block(
                 )
                 continue
 
-            extracted = _extract_bear_block_row(
-                raw_row,
-                block,
-                current_window,
-                method_group,
-                residency_scope,
-                page_ref,
-                license_kind=license_kind,
-            )
-            if extracted is not None:
-                results.append(extracted)
+            # Rule R17: split any pdfplumber row-fusion (2+ hunt codes in one
+            # cell) into N logical rows before extraction.  Skip checks above
+            # operate on the original raw_row block_cells (pre-split) — the
+            # fused row is a real data row, not a see-unit/footnote row, so
+            # it passes those checks.  The split is applied here, after skips.
+            for srow in _split_fused_block_row(raw_row, block):
+                extracted = _extract_bear_block_row(
+                    srow,
+                    block,
+                    current_window,
+                    method_group,
+                    residency_scope,
+                    page_ref,
+                    license_kind=license_kind,
+                )
+                if extracted is not None:
+                    results.append(extracted)
 
     return results
 

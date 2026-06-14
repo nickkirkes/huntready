@@ -228,17 +228,17 @@ class TestNoLayoutTrue:
 
 class TestCleanupRulesDocstringParity:
     """Docstring parity guard: the module docstring must document every cleanup
-    rule R1 through R16.
+    rule R1 through R17.
 
     Per the S03.3 AC #547 analog (grep-parity discipline): every cleanup rule
     applied to row cells must appear in the module docstring's "Cleanup rules"
     section.  The exact format used in the module docstring is ``Rule RN:``.
     """
 
-    _RULE_COUNT: int = 16
+    _RULE_COUNT: int = 17
 
     def test_every_rule_has_a_docstring_entry(self) -> None:
-        """Rule R1 through R16 must each appear in the module docstring."""
+        """Rule R1 through R17 must each appear in the module docstring."""
         docstring = extract_black_bear.__doc__ or ""
         assert docstring, "extract_black_bear module has no docstring"
 
@@ -254,7 +254,7 @@ class TestCleanupRulesDocstringParity:
         )
 
     def test_rule_count_locked(self) -> None:
-        """Exactly 16 rule entries appear in the docstring (no silent additions)."""
+        """Exactly 17 rule entries appear in the docstring (no silent additions)."""
         docstring = extract_black_bear.__doc__ or ""
         found = [n for n in range(1, 50) if f"Rule R{n}:" in docstring]
         assert len(found) == self._RULE_COUNT, (
@@ -1077,38 +1077,39 @@ class TestArtifactStructureInvariants:
         )
 
     def test_record_counts_pinned(self) -> None:
-        """Artifact: 172 records = 169 section + 1 reporting_obligation + 2 statewide_rule.
+        """Artifact: 173 records = 170 section + 1 reporting_obligation + 2 statewide_rule.
 
-        Section count dropped from 170→169 because 3 empty add_on_otc noise sections
-        (no hunt code, page-76 footnote spill) are now dropped by the garbage-row guard.
+        Section count rose 169→170 because Rule R17 (fused-row split) now produces
+        two sections for the previously fused GMU 058+059 muzzleloader row on p. 74.
         """
         from collections import Counter
 
         data = self._load()
-        assert len(data) == 172, f"Expected 172 records; got {len(data)}"
+        assert len(data) == 173, f"Expected 173 records; got {len(data)}"
         ct = Counter(r["record_type"] for r in data)
-        assert ct["section"] == 169, f"Expected 169 section records; got {ct['section']}"
+        assert ct["section"] == 170, f"Expected 170 section records; got {ct['section']}"
         assert ct["reporting_obligation"] == 1
         assert ct["statewide_rule"] == 2
 
     def test_total_row_count_pinned(self) -> None:
-        """All section rows total 214.
+        """All section rows total 215.
 
-        Change from 217:
-          +1  Plains OTC B-E-087-U6-R recovered (was dropped as low-conf by anchored RE)
-          -3  Empty add_on_otc noise rows dropped by garbage-row guard
-          = 214 net
+        Change from 214:
+          +1  Rule R17 fused-row split: B-E-058-O1-M + B-E-059-O1-M are now
+              two separate rows (previously only B-E-058-O1-M was kept)
+          = 215 net
         """
         data = self._load()
         total = sum(len(r.get("rows", [])) for r in data if r["record_type"] == "section")
-        assert total == 214, f"Expected 214 rows total; got {total}"
+        assert total == 215, f"Expected 215 rows total; got {total}"
 
     def test_confidence_distribution_pinned(self) -> None:
-        """Confidence distribution: high=214, medium=0, low=0.
+        """Confidence distribution: high=215, medium=0, low=0.
 
-        All rows are now HIGH confidence:
-          - Plains OTC B-E-087-U6-R recovered via Rule R16 → HIGH (has code + list + window)
+        All rows are HIGH confidence:
+          - Plains OTC B-E-087-U6-R recovered via Rule R16 → HIGH
           - 3 former LOW empty noise rows eliminated by garbage-row guard
+          - Rule R17 new B-E-059-O1-M row is HIGH (parsed code + list + window)
         """
         from collections import Counter
 
@@ -1119,16 +1120,16 @@ class TestArtifactStructureInvariants:
             if r["record_type"] == "section"
             for row in r.get("rows", [])
         )
-        assert dict(dist) == {"high": 214}, (
+        assert dict(dist) == {"high": 215}, (
             f"Confidence distribution mismatch: {dict(dist)}"
         )
 
     def test_license_kind_distribution_pinned(self) -> None:
-        """License-kind breakdown: limited_draw=137, add_on_otc=29, over_the_counter=10,
+        """License-kind breakdown: limited_draw=138, add_on_otc=29, over_the_counter=10,
         private_land_otc=37, plains_otc=1.
 
-        add_on_otc dropped 32→29: 3 empty noise rows eliminated by garbage-row guard.
-        plains_otc=1: the B-E-087-U6-R row recovered via Rule R16.
+        limited_draw rose 137→138: Rule R17 fused-row split produces one extra
+        B-E-059-O1-M muzzleloader limited_draw row.
         """
         from collections import Counter
 
@@ -1139,7 +1140,7 @@ class TestArtifactStructureInvariants:
             if r["record_type"] == "section"
             for row in r.get("rows", [])
         )
-        assert dist["limited_draw"] == 137
+        assert dist["limited_draw"] == 138
         assert dist["add_on_otc"] == 29
         assert dist["over_the_counter"] == 10
         assert dist["private_land_otc"] == 37
@@ -1379,29 +1380,33 @@ class TestBearSectionAssembly:
 
 
 # ---------------------------------------------------------------------------
-# 19. TestBearExtractBlockRow  (Rule R9 — multiline hunt code)
+# 19. TestBearExtractBlockRow  (Rule R9 — single-code multiline hunt code)
 # ---------------------------------------------------------------------------
 
 
 class TestBearExtractBlockRow:
-    """Tests for multiline hunt-code cell handling.
+    """Tests for hunt-code cell handling in _extract_bear_block_row.
 
     Method name locked by module docstring citation:
-      TestBearExtractBlockRow::test_multiline_hunt_code_uses_first
+      TestBearExtractBlockRow::test_single_code_multiline_uses_first
     """
 
-    def test_multiline_hunt_code_uses_first(self) -> None:
-        """Rule R9: multi-line hunt code cell uses the first line only.
+    def test_single_code_multiline_uses_first(self) -> None:
+        """Rule R9: single-code multi-line cell uses first non-empty line.
 
-        Confirmed live on PDF p. 74 muzzleloader table: 'B-E-058-O1-M\nB-E-059-O1-M'
-        packages two codes.  After _normalize_bear_cell → _parse_hunt_code the
-        first code wins; the second is logged at DEBUG.
+        When the Hunt Code cell has a newline but only ONE full hunt code
+        (e.g. a trailing newline or wrapped text), _extract_bear_block_row
+        takes the first non-empty line and discards the rest.
+
+        This is distinct from Rule R17 (two+ full codes → split into two rows).
+        Here the cell has one code followed by empty/whitespace.
         """
         from states.colorado.extract_black_bear import _extract_bear_block_row, _BEAR_NO_COL
 
         # Simulate a 4-col single block: (unit=0, valid_gmus=1, dates=-1, hunt_code=2, list=3)
         block = (0, 1, _BEAR_NO_COL, 2, 3)
-        row: list[str | None] = ["58", "58, 59", "B-E-058-O1-M\nB-E-059-O1-M", "A"]
+        # Single code with a trailing newline (not a fused row — only 1 full code)
+        row: list[str | None] = ["58", "58, 581", "B-E-058-O1-M\n", "A"]
 
         header_window = CpwSeasonWindow(
             start_date="Sept. 12", end_date="Sept. 20", raw_text="Sept. 12–20"
@@ -1415,8 +1420,7 @@ class TestBearExtractBlockRow:
             page_ref=_make_page_ref(74),
         )
         assert result is not None
-        # First line wins; hunt_code is the first code
-        assert "B-E-058-O1-M" in result["hunt_code"]
+        assert result["hunt_code"] == "B-E-058-O1-M"
         assert result["gmu_code"] == "058"
 
 
@@ -1591,7 +1595,248 @@ class TestExtractCorrectionFailLoud:
 
 
 # ---------------------------------------------------------------------------
-# 22. TestDeterministicJsonOutput
+# 22. TestFusedRowSplit  (Rule R17 — unit tests for _split_fused_block_row)
+# ---------------------------------------------------------------------------
+
+
+class TestFusedRowSplit:
+    """Unit tests for ``_split_fused_block_row`` (Rule R17).
+
+    Method names locked by module docstring citations:
+      TestFusedRowSplit::test_two_code_fused_row_splits_to_two_rows
+      TestFusedRowSplit::test_misaligned_cell_raises
+    """
+
+    def _make_block_no_dates(self) -> tuple[int, ...]:
+        """4-col no-Dates block: (unit=0, valid_gmus=1, dates=-1, hunt_code=2, list=3)."""
+        from states.colorado.extract_black_bear import _BEAR_NO_COL
+        return (0, 1, _BEAR_NO_COL, 2, 3)
+
+    def test_single_code_returns_unchanged(self) -> None:
+        """A cell with only one full hunt code → [row] unchanged (no split needed)."""
+        from states.colorado.extract_black_bear import _split_fused_block_row
+        block = self._make_block_no_dates()
+        row: list[str | None] = ["58", "58, 581", "B-E-058-O1-M", "B"]
+        result = _split_fused_block_row(row, block)
+        assert result == [row]
+        assert result[0] is row  # same object — no copy
+
+    def test_no_hunt_code_returns_unchanged(self) -> None:
+        """A cell with no full hunt code → [row] unchanged."""
+        from states.colorado.extract_black_bear import _split_fused_block_row
+        block = self._make_block_no_dates()
+        row: list[str | None] = ["58", "58, 581", None, "B"]
+        result = _split_fused_block_row(row, block)
+        assert result == [row]
+
+    def test_two_code_fused_row_splits_to_two_rows(self) -> None:
+        """Rule R17: a fused cell with 2 full hunt codes → 2 synthetic rows.
+
+        Mirrors the confirmed live PDF p. 74 muzzleloader fused row:
+          ['58\\n59', '58, 581\\n59, 511, 591', 'B-E-058-O1-M\\nB-E-059-O1-M', 'B\\nB']
+
+        After split:
+          row 0: unit='58', valid_gmus='58, 581', hunt_code='B-E-058-O1-M', list='B'
+          row 1: unit='59', valid_gmus='59, 511, 591', hunt_code='B-E-059-O1-M', list='B'
+        """
+        from states.colorado.extract_black_bear import _split_fused_block_row
+        block = self._make_block_no_dates()
+        fused_row: list[str | None] = [
+            "58\n59",
+            "58, 581\n59, 511, 591",
+            "B-E-058-O1-M\nB-E-059-O1-M",
+            "B\nB",
+        ]
+        result = _split_fused_block_row(fused_row, block)
+        assert len(result) == 2, f"Expected 2 rows; got {len(result)}"
+        # Row 0
+        assert result[0][0] == "58"
+        assert result[0][1] == "58, 581"
+        assert result[0][2] == "B-E-058-O1-M"
+        assert result[0][3] == "B"
+        # Row 1
+        assert result[1][0] == "59"
+        assert result[1][1] == "59, 511, 591"
+        assert result[1][2] == "B-E-059-O1-M"
+        assert result[1][3] == "B"
+
+    def test_none_block_cell_becomes_n_nones(self) -> None:
+        """A None block cell in a fused row → [None, None] for each synthetic row."""
+        from states.colorado.extract_black_bear import _split_fused_block_row
+        # Block with dates present (5-col): (unit=0, valid_gmus=1, dates=2, hunt_code=3, list=4)
+        block = (0, 1, 2, 3, 4)
+        fused_row: list[str | None] = [
+            "58\n59",
+            "58, 581\n59, 511, 591",
+            None,  # Dates column absent in this muzzleloader table
+            "B-E-058-O1-M\nB-E-059-O1-M",
+            "B\nB",
+        ]
+        result = _split_fused_block_row(fused_row, block)
+        assert len(result) == 2
+        # Dates column is None in both synthetic rows
+        assert result[0][2] is None
+        assert result[1][2] is None
+
+    def test_misaligned_cell_raises(self) -> None:
+        """Rule R17: a block cell with wrong part count raises PdfExtractionError.
+
+        If the Hunt Code cell has 2 codes but a parallel cell only has 1 part
+        (or 3 parts), the split would corrupt row alignment — must fail loud
+        per ADR-001.
+        """
+        from states.colorado.extract_black_bear import _split_fused_block_row
+        block = self._make_block_no_dates()
+        # Hunt code has 2 codes but unit only has 1 part (no '\n')
+        misaligned_row: list[str | None] = [
+            "58",            # unit — only 1 part, but 2 codes present
+            "58, 581\n59, 511, 591",
+            "B-E-058-O1-M\nB-E-059-O1-M",
+            "B\nB",
+        ]
+        with pytest.raises(PdfExtractionError, match="Cannot split without corrupting"):
+            _split_fused_block_row(misaligned_row, block)
+
+    def test_three_code_fused_row_splits_to_three_rows(self) -> None:
+        """Rule R17: generalises to N>2 codes — 3 codes → 3 synthetic rows."""
+        from states.colorado.extract_black_bear import _split_fused_block_row
+        block = self._make_block_no_dates()
+        fused_row: list[str | None] = [
+            "58\n59\n60",
+            "58, 581\n59, 511, 591\n60",
+            "B-E-058-O1-M\nB-E-059-O1-M\nB-E-060-O1-M",
+            "B\nB\nB",
+        ]
+        result = _split_fused_block_row(fused_row, block)
+        assert len(result) == 3
+        assert result[0][2] == "B-E-058-O1-M"
+        assert result[1][2] == "B-E-059-O1-M"
+        assert result[2][2] == "B-E-060-O1-M"
+
+    def test_non_block_columns_preserved_unchanged(self) -> None:
+        """Columns outside the block tuple are copied unchanged to all synthetic rows."""
+        from states.colorado.extract_black_bear import _split_fused_block_row, _BEAR_NO_COL
+        # 8-col dual block: left block is (0, 1, -1, 2, 3); right block exists at (4, 5, -1, 6, 7)
+        # We test the left block only; right-block columns (4-7) must be unchanged.
+        block = (0, 1, _BEAR_NO_COL, 2, 3)
+        fused_row: list[str | None] = [
+            "58\n59",           # col 0 — unit (in block)
+            "58, 581\n59, 511", # col 1 — valid_gmus (in block)
+            "B-E-058-O1-M\nB-E-059-O1-M",  # col 2 — hunt_code (in block)
+            "B\nB",             # col 3 — list (in block)
+            "right_unit",       # col 4 — NOT in this block; must be copied verbatim
+            "right_gmus",       # col 5
+            "B-E-999-O1-M",     # col 6
+            "A",                # col 7
+        ]
+        result = _split_fused_block_row(fused_row, block)
+        assert len(result) == 2
+        # Right-block columns unchanged in both synthetic rows
+        for srow in result:
+            assert srow[4] == "right_unit"
+            assert srow[5] == "right_gmus"
+            assert srow[6] == "B-E-999-O1-M"
+            assert srow[7] == "A"
+
+
+# ---------------------------------------------------------------------------
+# 23. TestFusedRowArtifactLock  (Rule R17 — artifact-level lock)
+# ---------------------------------------------------------------------------
+
+
+class TestFusedRowArtifactLock:
+    """Artifact-level lock for Rule R17: the fused muzzleloader row on PDF p. 74
+    is now split into two correct well-formed rows.
+
+    Locked by: the committed black-bear-2026.json artifact.
+    """
+
+    @staticmethod
+    def _load() -> list[dict]:  # type: ignore[type-arg]
+        p = extract_black_bear._MERGED_OUTPUT_PATH
+        if not p.exists():
+            pytest.skip(
+                "black-bear-2026.json not generated — run extract_black_bear.py first"
+            )
+        with open(p) as f:
+            return json.load(f)  # type: ignore[no-any-return]
+
+    def test_b_e_058_o1_m_is_separate_well_formed_row(self) -> None:
+        """Rule R17: B-E-058-O1-M is a separate row with unit='58', valid_gmus='58, 581',
+        list_value='B', and HIGH confidence.
+        """
+        data = self._load()
+        rows = [
+            row
+            for r in data if r["record_type"] == "section"
+            for row in r["rows"]
+            if row["hunt_code"] == "B-E-058-O1-M" and r.get("method_group") == "muzzleloader"
+        ]
+        assert len(rows) == 1, (
+            f"Expected exactly 1 muzzleloader row for B-E-058-O1-M; got {len(rows)}"
+        )
+        r = rows[0]
+        assert r["unit"] == "58", f"unit: {r['unit']!r}"
+        assert r["valid_gmus"] == "58, 581", f"valid_gmus: {r['valid_gmus']!r}"
+        assert r["list_value"] == "B", f"list_value: {r['list_value']!r}"
+        assert r["extraction_confidence"] == "high"
+
+    def test_b_e_059_o1_m_is_separate_well_formed_row(self) -> None:
+        """Rule R17: B-E-059-O1-M is now a separate row with unit='59',
+        valid_gmus='59, 511, 591', list_value='B', and HIGH confidence.
+
+        Previously this row was silently dropped by Rule R9's 'first line only'
+        approach — the confirmed P1 defect.
+        """
+        data = self._load()
+        rows = [
+            row
+            for r in data if r["record_type"] == "section"
+            for row in r["rows"]
+            if row["hunt_code"] == "B-E-059-O1-M" and r.get("method_group") == "muzzleloader"
+        ]
+        assert len(rows) == 1, (
+            f"Expected exactly 1 muzzleloader row for B-E-059-O1-M; got {len(rows)}: "
+            f"previously this row was silently dropped by old Rule R9"
+        )
+        r = rows[0]
+        assert r["unit"] == "59", f"unit: {r['unit']!r}"
+        assert r["valid_gmus"] == "59, 511, 591", f"valid_gmus: {r['valid_gmus']!r}"
+        assert r["list_value"] == "B", f"list_value: {r['list_value']!r}"
+        assert r["extraction_confidence"] == "high"
+
+    def test_no_row_has_newline_in_list_value(self) -> None:
+        """Rule R17: no artifact row has a newline in list_value.
+
+        Before the fix the fused row produced list_value='B\\nB' — malformed.
+        """
+        data = self._load()
+        bad = [
+            (r.get("gmu_code"), row.get("hunt_code"), row.get("list_value"))
+            for r in data if r["record_type"] == "section"
+            for row in r.get("rows", [])
+            if row.get("list_value") and "\n" in str(row.get("list_value", ""))
+        ]
+        assert not bad, (
+            f"Found {len(bad)} row(s) with newline in list_value (pre-fix artifact): {bad}"
+        )
+
+    def test_no_row_has_newline_in_unit(self) -> None:
+        """Rule R17: no artifact row has a newline in unit (e.g. '58\\n59')."""
+        data = self._load()
+        bad = [
+            (r.get("gmu_code"), row.get("hunt_code"), row.get("unit"))
+            for r in data if r["record_type"] == "section"
+            for row in r.get("rows", [])
+            if row.get("unit") and "\n" in str(row.get("unit", ""))
+        ]
+        assert not bad, (
+            f"Found {len(bad)} row(s) with newline in unit (pre-fix artifact): {bad}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 24. TestDeterministicJsonOutput
 # ---------------------------------------------------------------------------
 
 
@@ -1606,10 +1851,10 @@ class TestDeterministicJsonOutput:
 
         Two consecutive ``extract()`` runs against the committed PDF produced
         byte-identical output with SHA-256:
-            f2eac70531bb57981175de8eb47c2a8f1e7586d736af84366fbe53bdf4b6c6e8  # pragma: allowlist secret
+            95b98358f80197eccfd3f45003b7093f6f6f1875275c02a062c6689205c274bd  # pragma: allowlist secret
         """
         pytest.skip(
             "integration — requires real CPW Big Game PDF (~96 MB, gitignored); "
             "determinism verified by manual 2-run SHA recipe "
-            "(SHA-256: f2eac70531bb57981175de8eb47c2a8f1e7586d736af84366fbe53bdf4b6c6e8)"  # pragma: allowlist secret
+            "(SHA-256: 95b98358f80197eccfd3f45003b7093f6f6f1875275c02a062c6689205c274bd)"  # pragma: allowlist secret
         )
