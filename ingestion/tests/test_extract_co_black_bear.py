@@ -910,6 +910,41 @@ class TestMergeWithCorrections:
         assert touched[0]["applied_correction"] is True
         assert touched[0]["list_value"] == "B"
 
+    def test_correction_updates_all_duplicate_hunt_code_rows(self) -> None:
+        """A hunt code in multiple rows: a correction updates EVERY matching row.
+
+        The extractor preserves one row per constituent unit sub-row (same hunt
+        code, e.g. B-E-083-O1-A for units 83 and 851).  A correction targets by
+        hunt code only, so it must update all matching rows — not just the last
+        (the dict-overwrite bug where row_index was keyed dict[str, dict]).
+        Each touched row is demoted exactly once (ADR-017 §4).
+        """
+        base = self._make_base_record("B-E-083-O1-A", "A")
+        row2 = dict(base["rows"][0])
+        row2["unit"] = "851"
+        row2["extraction_confidence"] = "high"
+        base["rows"] = [base["rows"][0], row2]
+        op = _make_correction_op(
+            target_license_code="B-E-083-O1-A",
+            target_field="list_value",
+            new_value="B",
+        )
+        merged = _merge_with_corrections([base], [op], "co-cpw-big-game-2026-brochure")
+        touched = [
+            row
+            for record in merged
+            if record.get("record_type") == "section"
+            for row in record.get("rows", [])
+            if row.get("hunt_code") == "B-E-083-O1-A"
+        ]
+        assert len(touched) == 2, f"expected 2 duplicate rows, got {len(touched)}"
+        for row in touched:
+            assert row["list_value"] == "B", f"duplicate row left stale: {row}"
+            assert row["applied_correction"] is True
+            assert row["supersedes"] == "co-cpw-big-game-2026-brochure"
+            # demoted exactly once per row: high -> medium (not low).
+            assert row["extraction_confidence"] == "medium", row["extraction_confidence"]
+
     def test_demote_fires_exactly_once_per_touched_row(self) -> None:
         """Two correction ops on one row → confidence demoted exactly once (ADR-017 §4).
 

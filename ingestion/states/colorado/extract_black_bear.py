@@ -3083,23 +3083,29 @@ def _merge_with_corrections(
         winning_op_by_cell[(code, field)] = winners[0]
 
     # --- Stage 2: apply field-level value changes ---
-    # Build a row index by hunt_code across all section records.
-    row_index: dict[str, dict] = {}  # type: ignore[type-arg]
+    # Build a row index by hunt_code across all section records.  A hunt code
+    # can appear in MULTIPLE rows (the same license listed once per constituent
+    # unit sub-row — see the duplicate-hunt-code pitfall).  A correction targets
+    # by hunt code only (no unit component), so it applies to EVERY row sharing
+    # that code.  Index to a LIST, not a single row, or later duplicates would
+    # overwrite earlier ones and only the last row would be corrected.
+    row_index: dict[str, list[dict]] = {}  # type: ignore[type-arg]
     for record in merged:
         if record.get("record_type") == "section":
             for row in record.get("rows", []):
                 hc = row.get("hunt_code", "")
                 if hc:
-                    row_index[hc] = row
+                    row_index.setdefault(hc, []).append(row)
 
     for (code, field), winning_op in winning_op_by_cell.items():
-        row = row_index.get(code)
-        if row is None:
+        rows = row_index.get(code)
+        if not rows:
             raise PdfExtractionError(
                 f"_merge_with_corrections: correction targets unknown hunt_code "
                 f"{code!r} (not found in base records)"
             )
-        row[field] = winning_op["new_value"]
+        for row in rows:
+            row[field] = winning_op["new_value"]
 
     # --- Stage 3: row-level provenance + confidence demotion (exactly once per touched row) ---
     # Group winning ops by which hunt_code they touch.
@@ -3108,24 +3114,27 @@ def _merge_with_corrections(
         code_touched_ops.setdefault(code, []).append(winning_op)
 
     for code, winning_ops in code_touched_ops.items():
-        row = row_index.get(code)
-        if row is None:
+        rows = row_index.get(code)
+        if not rows:
             continue  # already raised above in Stage 2; guard for safety
         # Two-pass: max date, then lex-smallest source_id to break date ties.
         row_max_date = max(op["publication_date"] for op in winning_ops)
         row_date_ties = [op for op in winning_ops if op["publication_date"] == row_max_date]
         row_winner = min(row_date_ties, key=lambda op: op["source_id"])
 
-        row["applied_correction"] = True
-        row["supersedes"] = brochure_source_id
-        row["source_id"] = row_winner["source_id"]
-        row["source_publication_date"] = row_winner["publication_date"]
-        # ADR-017 §4: fire demote_one_tier EXACTLY ONCE per touched row.
-        current_conf = row.get("extraction_confidence", "")
-        if current_conf:
-            row["extraction_confidence"] = demote_one_tier(
-                ConfidenceTier(current_conf)
-            )
+        # Apply to EVERY row sharing this hunt code (duplicate unit sub-rows).
+        # demote_one_tier still fires EXACTLY ONCE PER ROW (ADR-017 §4) — the
+        # per-row loop guarantees one demotion per distinct row, not per op.
+        for row in rows:
+            row["applied_correction"] = True
+            row["supersedes"] = brochure_source_id
+            row["source_id"] = row_winner["source_id"]
+            row["source_publication_date"] = row_winner["publication_date"]
+            current_conf = row.get("extraction_confidence", "")
+            if current_conf:
+                row["extraction_confidence"] = demote_one_tier(
+                    ConfidenceTier(current_conf)
+                )
 
     return merged
 
