@@ -491,7 +491,7 @@ class TestBearParseHuntCode:
 
     Method names locked by module docstring citations:
       TestBearParseHuntCode::test_valid_bear_code_parsed
-      TestBearParseHuntCode::test_non_bear_species_letter_logged
+      TestBearParseHuntCode::test_non_bear_species_letter_still_parses
       TestBearParseHuntCode::test_plus_suffix_stripped
     """
 
@@ -505,8 +505,13 @@ class TestBearParseHuntCode:
         assert result["season_code"] == "O1"
         assert result["method_letter"] == "M"
 
-    def test_non_bear_species_letter_logged(self) -> None:
-        """Rule R8: a non-'B' species letter (e.g. 'D') still parses — caller logs WARNING."""
+    def test_non_bear_species_letter_still_parses(self) -> None:
+        """Rule R8: _parse_hunt_code is species-letter-agnostic — a non-'B' code still
+        returns a parsed dict.  The parser must stay permissive so the Rule R16
+        embedded-search '_parse_hunt_code(...) is None' check works correctly.
+        The fail-loud raise for non-'B' letters happens in _extract_bear_block_row,
+        not here.
+        """
         result = _parse_hunt_code("D-E-050-O1-A")
         assert result is not None
         assert result["species_letter"] == "D"
@@ -1387,8 +1392,9 @@ class TestBearSectionAssembly:
 class TestBearExtractBlockRow:
     """Tests for hunt-code cell handling in _extract_bear_block_row.
 
-    Method name locked by module docstring citation:
+    Method names locked by module docstring citations:
       TestBearExtractBlockRow::test_single_code_multiline_uses_first
+      TestBearExtractBlockRow::test_non_bear_species_letter_raises
     """
 
     def test_single_code_multiline_uses_first(self) -> None:
@@ -1422,6 +1428,38 @@ class TestBearExtractBlockRow:
         assert result is not None
         assert result["hunt_code"] == "B-E-058-O1-M"
         assert result["gmu_code"] == "058"
+
+    def test_non_bear_species_letter_raises(self) -> None:
+        """Rule R8 (ADR-001 fail-loud): _extract_bear_block_row raises PdfExtractionError
+        when the parsed hunt code has a non-'B' species letter.
+
+        Bear pages (72–77) must contain only 'B' (Black Bear) codes.  A parsed
+        non-'B' code (e.g. 'D-E-050-O1-A') is a structural extraction anomaly
+        and must never be silently emitted at any confidence tier.
+
+        Note: _parse_hunt_code itself remains permissive (returns the dict) so
+        the Rule R16 embedded-search check still works.  The raise lives here,
+        at the emit site, mirroring big-game _species_group_for's convention.
+        """
+        from states.colorado.extract_black_bear import _extract_bear_block_row, _BEAR_NO_COL
+
+        # Simulate a 4-col single block: (unit=0, valid_gmus=1, dates=-1, hunt_code=2, list=3)
+        block = (0, 1, _BEAR_NO_COL, 2, 3)
+        # Non-bear species letter 'D' — well-formed code but wrong species.
+        row: list[str | None] = ["50", "50", "D-E-050-O1-A", "A"]
+
+        header_window = CpwSeasonWindow(
+            start_date="Sept. 2", end_date="Sept. 30", raw_text="Sept. 2–30"
+        )
+        with pytest.raises(PdfExtractionError, match="non-bear species letter"):
+            _extract_bear_block_row(
+                row,
+                block,
+                header_window,
+                method_group="archery",
+                residency_scope="both",
+                page_ref=_make_page_ref(73),
+            )
 
 
 # ---------------------------------------------------------------------------

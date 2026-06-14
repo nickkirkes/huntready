@@ -245,9 +245,16 @@ NOTE on species_group:
       scope: ``Hunt Code`` column cells
       rationale: CPW hunt codes follow a fixed 5-component grammar; a successful
                  parse populates all five component fields; failure degrades
-                 confidence to LOW per ADR-017.
+                 confidence to LOW per ADR-017.  ``_parse_hunt_code`` is
+                 species-letter-agnostic (returns the dict for any well-formed
+                 code) so Rule R16's ``_parse_hunt_code(...) is None`` check
+                 works correctly; ``_extract_bear_block_row`` raises
+                 ``PdfExtractionError`` on a parsed non-``"B"`` species letter
+                 per ADR-001 fail-loud (mirrors big-game
+                 ``_species_group_for``'s raise-on-unknown convention).
       locked by: TestBearParseHuntCode::test_valid_bear_code_parsed,
-                 TestBearParseHuntCode::test_non_bear_species_letter_logged
+                 TestBearParseHuntCode::test_non_bear_species_letter_still_parses,
+                 TestBearExtractBlockRow::test_non_bear_species_letter_raises
 
   Rule R9: single-code multi-line Hunt Code cell normalisation
       scope: Hunt Code column cells that contain a newline but hold only ONE
@@ -860,11 +867,14 @@ def _parse_hunt_code(code: str) -> dict[str, str] | None:
     ``"sex_code"``, ``"gmu_code"``, ``"season_code"``, and ``"method_letter"``
     when the code conforms to the CPW format ``B-{Sex}-{GMU}-{Season}-{Method}``.
 
-    For bear extraction, the expected species letter is ``"B"``.  A non-``"B"``
-    species letter is allowed through (the dict is returned) — the caller
-    (``_extract_bear_block_row``) logs a WARNING and the row is still emitted
-    so nothing is silently dropped; ADR-017 confidence degrades to LOW for
-    unrecognised hunt codes.
+    For bear extraction, the expected species letter is ``"B"``.  The parser
+    is species-letter-agnostic: it returns the dict for any well-formed code
+    so that callers (e.g. the Rule R16 embedded-search ``_parse_hunt_code(...) is None``
+    check) can distinguish "malformed" from "parsed but unexpected".  The caller
+    ``_extract_bear_block_row`` **raises** ``PdfExtractionError`` on a non-``"B"``
+    species letter — a non-bear code on bear-only pages (72–77) is a structural
+    anomaly, not a degraded-but-valid row (ADR-001 fail-loud; mirrors big-game
+    ``_species_group_for``'s raise-on-unknown convention).
 
     Returns ``None`` on parse failure (code does not match ``_HUNT_CODE_RE``).
     Does NOT raise.
@@ -1516,13 +1526,17 @@ def _extract_bear_block_row(
         gmu_code = parsed["gmu_code"]
         season_code = parsed["season_code"]
         method_letter = parsed["method_letter"]
-        # Warn on unexpected species letter but do not drop the row (ADR-001).
+        # Fail loud on non-bear species letter (ADR-001 / mirrors big-game
+        # _species_group_for raise-on-unknown).  Bear pages (72–77) must
+        # contain only 'B' codes; a parsed non-'B' code is a structural
+        # extraction anomaly, not a degraded-but-valid row.
         if species_letter != "B":
-            _logger.warning(
-                "_extract_bear_block_row: unexpected species letter %r in hunt code %r "
-                "(expected 'B' for Black Bear) — row emitted at LOW confidence",
-                species_letter,
-                hunt_code_str,
+            pg = page_ref.get("page_num_1based", "?")
+            raise PdfExtractionError(
+                f"_extract_bear_block_row: non-bear species letter {species_letter!r} "
+                f"in hunt code {hunt_code_str!r} on page {pg} — bear pages (72-77) "
+                f"must contain only 'B' codes; a non-bear code is a structural "
+                f"extraction anomaly (ADR-001 fail-loud)."
             )
     else:
         species_letter = ""
@@ -2231,6 +2245,9 @@ def _assign_bear_row_confidence(row: CpwBearRowExtraction) -> str:
     page_num = row["page_reference"].get("page_num_1based", "?")
 
     # LOW: structurally unidentifiable — hunt code did not parse.
+    # Note: a parsed non-'B' species letter is caught upstream by
+    # _extract_bear_block_row (raises PdfExtractionError) and therefore
+    # never reaches this function.
     if row["species_letter"] == "":
         _logger.warning(
             "_assign_bear_row_confidence: row %r (page %s) has unparseable hunt code "
