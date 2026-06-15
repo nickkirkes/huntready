@@ -1,0 +1,43 @@
+ingestion/states/colorado/extract_big_game.py
+  s_2f6064e02e9182::t_df0d7fe89b4b0e 1846-1856,1865
+  s_2f6064e02e9182::t_13723ce20ab5d0 240
+  s_2f6064e02e9182::t_c144310b136104 1721-1734
+  s_2f6064e02e9182::t_39a1f966f2a80f 466
+  s_2f6064e02e9182::t_3e713257ea7399 2277
+  s_2f6064e02e9182::t_f79e6470738c9b 2300
+ingestion/ingestion/lib/pdf.py
+  s_2f6064e02e9182::t_ab3ed25e8b289a 390-448
+ingestion/tests/test_extract_co_black_bear.py
+  s_2f6064e02e9182::t_d12510d505b41a 1934-2058
+  s_2f6064e02e9182::t_c8ca818283ab62 1927,1932
+ingestion/tests/test_extract_co_big_game.py
+  s_2f6064e02e9182::t_85797fe59bac09 1335-1397
+  s_2f6064e02e9182::t_bcc3fe7ed403a7 1398-1401
+  s_2f6064e02e9182::t_a9c71b03da4dcb 1326,1333
+ingestion/states/colorado/extract_black_bear.py
+  s_2f6064e02e9182::t_709b1ce0c5b107 2308-2313,2330
+  s_2f6064e02e9182::t_769a358f4e6390 543-548
+  s_2f6064e02e9182::t_717e69e40e3f87 373
+  s_2f6064e02e9182::t_d00f56c105cb67 587
+  s_2f6064e02e9182::t_05cd29a2bccd1b 1512-1526
+  s_2f6064e02e9182::t_a98ae3a649a409 1606
+ingestion/tests/test_pdf.py
+  s_2f6064e02e9182::t_49d071eb1638f5 635-744
+  s_2f6064e02e9182::t_c83bb5436c5666 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "8013f856f3f7d093cdf275c71aea0293d7ff5b79",
+  "prompts": {},
+  "sessions": {
+    "s_2f6064e02e9182": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "22a04cdc-9041-405d-a3c2-18a4861bd93d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
