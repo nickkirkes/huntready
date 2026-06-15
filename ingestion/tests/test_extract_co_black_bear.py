@@ -2168,3 +2168,87 @@ class TestSplitValidGmus:
         assert _split_valid_gmus(
             "4, 5, 14, 214, 441 private land only"
         ) == ("4, 5, 14, 214, 441", "private land only")
+
+
+# ---------------------------------------------------------------------------
+# 25. TestOtcFusedRowSplit — Rule R17 wired into the OTC has-Dates path
+# ---------------------------------------------------------------------------
+
+
+class _FakeTable:
+    def __init__(self, rows: list[list[str | None]]) -> None:
+        self._rows = rows
+
+    def extract(self) -> list[list[str | None]]:
+        return self._rows
+
+
+class _FakePage:
+    def __init__(self, tables: list[_FakeTable]) -> None:
+        self._tables = tables
+
+    def find_tables(self) -> list[_FakeTable]:
+        return self._tables
+
+
+class _FakePdf:
+    def __init__(self, pages: list[_FakePage]) -> None:
+        self.pages = pages
+
+
+class TestOtcFusedRowSplit:
+    """Rule R17 also guards the OTC has-Dates path (Plains/Private-Land/Rifle OTC).
+
+    The OTC has-Dates path (Rule R13 multi-window consolidation) walks tbl_rows
+    directly rather than via _bear_parse_table_block, so it must apply
+    _split_fused_block_row itself or a pdfplumber-merged fused OTC row would
+    silently drop its 2nd+ hunt code via the first-line fallback.
+    """
+
+    @staticmethod
+    def _pdf_with_otc_table(rows: list[list[str | None]]) -> _FakePdf:
+        # _extract_otc_rows iterates pages[75] and pages[76] (PDF pages 76-77).
+        # Put the OTC table on page index 76; page 75 is empty.
+        pages = [_FakePage([]) for _ in range(77)]
+        pages[76] = _FakePage([_FakeTable(rows)])
+        return _FakePdf(pages)
+
+    def test_fused_otc_row_splits_to_two_rows(self) -> None:
+        """A fused Plains-OTC row (Hunt Code cell with 2 codes) yields 2 rows."""
+        from states.colorado.extract_black_bear import _extract_otc_rows
+
+        # 4-col OTC-with-Dates layout: Valid GMUs | Dates | Hunt Code | List.
+        rows: list[list[str | None]] = [
+            ["Rifle — Plains — Over-the-Counter Licenses", None, None, None],
+            ["Valid GMUs", "Dates", "Hunt Code", "List"],
+            [
+                "87\n88",
+                "Sept. 2–Nov. 22\nSept. 2–Nov. 22",
+                "B-E-087-U6-R\nB-E-088-U6-R",
+                "C\nC",
+            ],
+        ]
+        pdf = self._pdf_with_otc_table(rows)
+        out = _extract_otc_rows(pdf, extracted_at="2026-06-15T00:00:00Z")
+        codes = sorted(row["hunt_code"] for row, _note in out)
+        assert codes == ["B-E-087-U6-R", "B-E-088-U6-R"], (
+            f"fused OTC row was not split — both codes must survive; got {codes}"
+        )
+
+    def test_fused_otc_row_misaligned_raises(self) -> None:
+        """A misaligned fused OTC row (2 codes, 1-part GMU cell) fails loud."""
+        from states.colorado.extract_black_bear import _extract_otc_rows
+
+        rows: list[list[str | None]] = [
+            ["Rifle — Plains — Over-the-Counter Licenses", None, None, None],
+            ["Valid GMUs", "Dates", "Hunt Code", "List"],
+            [
+                "87",  # only 1 part — misaligned with the 2-code Hunt Code cell
+                "Sept. 2–Nov. 22\nSept. 2–Nov. 22",
+                "B-E-087-U6-R\nB-E-088-U6-R",
+                "C\nC",
+            ],
+        ]
+        pdf = self._pdf_with_otc_table(rows)
+        with pytest.raises(PdfExtractionError):
+            _extract_otc_rows(pdf, extracted_at="2026-06-15T00:00:00Z")

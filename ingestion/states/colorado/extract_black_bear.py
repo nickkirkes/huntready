@@ -2234,33 +2234,42 @@ def _extract_otc_rows(
                         if _bear_is_see_unit_row(block_cells):
                             continue
 
-                        raw_hunt = _bear_get_cell(raw_row, hunt_code_idx)
-                        hunt_norm = _normalize_bear_cell(raw_hunt)
-                        raw_dates = _bear_get_cell(raw_row, dates_idx)
-                        dates_norm = _normalize_bear_cell(raw_dates)
+                        # Rule R17: a pdfplumber-merged fused row (Hunt Code cell
+                        # with N≥2 full codes) is split into N logical rows here
+                        # too — the OTC has-Dates path walks tbl_rows directly for
+                        # Rule R13 window consolidation and would otherwise drop
+                        # the 2nd+ codes (via _extract_bear_block_row's first-line
+                        # fallback) with no fail-loud.  _split_fused_block_row
+                        # returns [raw_row] unchanged for the common ≤1-code case
+                        # (and fails loud on misaligned multi-code cells).
+                        for srow in _split_fused_block_row(raw_row, block):
+                            raw_hunt = _bear_get_cell(srow, hunt_code_idx)
+                            hunt_norm = _normalize_bear_cell(raw_hunt)
+                            raw_dates = _bear_get_cell(srow, dates_idx)
+                            dates_norm = _normalize_bear_cell(raw_dates)
 
-                        if hunt_norm is not None:
-                            # New primary row — flush pending first.
-                            if pending_row is not None:
-                                results.append((pending_row, pending_note))
-                            # Build the new primary row.
-                            new_row = _extract_bear_block_row(
-                                raw_row,
-                                block,
-                                current_header_window,
-                                current_method,
-                                residency_scope,
-                                page_ref,
-                                license_kind=current_license_kind,
-                            )
-                            pending_row = new_row
-                            pending_note = current_note
-                        elif dates_norm is not None and pending_row is not None:
-                            # Continuation-dates row (Rule R13) — add window.
-                            win = _parse_bear_season_window(dates_norm)
-                            if win is not None:
-                                pending_row["season_windows"].append(win)
-                        # else: empty continuation row — skip.
+                            if hunt_norm is not None:
+                                # New primary row — flush pending first.
+                                if pending_row is not None:
+                                    results.append((pending_row, pending_note))
+                                # Build the new primary row.
+                                new_row = _extract_bear_block_row(
+                                    srow,
+                                    block,
+                                    current_header_window,
+                                    current_method,
+                                    residency_scope,
+                                    page_ref,
+                                    license_kind=current_license_kind,
+                                )
+                                pending_row = new_row
+                                pending_note = current_note
+                            elif dates_norm is not None and pending_row is not None:
+                                # Continuation-dates row (Rule R13) — add window.
+                                win = _parse_bear_season_window(dates_norm)
+                                if win is not None:
+                                    pending_row["season_windows"].append(win)
+                            # else: empty continuation row — skip.
 
                     # Flush the last pending row for this block.
                     if pending_row is not None:
