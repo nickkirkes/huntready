@@ -1,0 +1,21 @@
+ingestion/states/colorado/extract_black_bear.py
+  s_2f6064e02e9182::t_47c5059cb565fd 2237-2272
+ingestion/tests/test_extract_co_black_bear.py
+  s_2f6064e02e9182::t_1cf672003c270d 2171-2254
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "153789734c2f9584d950a1bccd41cb38ce4fbc9a",
+  "prompts": {},
+  "sessions": {
+    "s_2f6064e02e9182": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "22a04cdc-9041-405d-a3c2-18a4861bd93d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
