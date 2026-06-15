@@ -237,7 +237,6 @@ from ingestion.lib.pdf import (
     extract_text,
     iter_pages,
     open_pdf,
-    split_valid_gmus,
     write_extraction_artifact,
 )
 
@@ -623,6 +622,65 @@ def _collapse_whitespace(text: str) -> str:
     # Rule R4
     """
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _split_valid_gmus(cell: str | None) -> tuple[str | None, str | None]:
+    """Split a 'Valid GMUs' table cell into (clean_gmu_list, qualifier).
+
+    A CPW Valid-GMUs cell is a leading run of GMU tokens (1-4 digit numbers,
+    each optionally suffixed '+', comma/whitespace separated) optionally
+    followed by a free-text qualifier (e.g. 'private land only', 'Except
+    Bosque del Oso SWA', 'Note: No hunting access to GMU 211').  A leading
+    'New' marker (a what's-new indicator) may precede the GMU run.
+
+    GMU numbers that appear INSIDE the qualifier (the excluded '211'; the
+    'private land in 12, 23, 24' units) are part of the prose and stay in the
+    qualifier — they are NOT promoted to the clean list.
+
+    Returns:
+      - clean_gmu_list: the leading GMU run, comma-joined (', '), or None.
+      - qualifier: the free text (any leading 'New' marker + everything from
+        the first non-GMU, non-marker word onward), collapsed to single
+        spaces, or None.
+
+    A cell with NO qualifier is returned UNCHANGED as (cell, None) — do not
+    reformat pure-GMU cells (avoids needless churn in the hundreds of
+    newline-wrapped clean cells).
+    """
+    if cell is None:
+        return (None, None)
+    if not cell.strip():
+        return (None, None)
+
+    tokens = cell.split()
+
+    def _is_gmu_token(t: str) -> bool:
+        return re.fullmatch(r"\d{1,4}\+?", t.rstrip(",")) is not None
+
+    _LEADING_MARKERS = {"new"}
+
+    gmu_tokens: list[str] = []
+    qualifier_tokens: list[str] = []
+    in_leading = True
+
+    for tok in tokens:
+        if in_leading:
+            if _is_gmu_token(tok):
+                gmu_tokens.append(tok.rstrip(","))
+            elif tok.rstrip(",").lower() in _LEADING_MARKERS:
+                qualifier_tokens.append(tok.rstrip(","))
+            else:
+                in_leading = False
+                qualifier_tokens.append(tok)
+        else:
+            qualifier_tokens.append(tok)
+
+    if not qualifier_tokens:
+        return (cell, None)
+
+    clean: str | None = ", ".join(gmu_tokens) if gmu_tokens else None
+    qualifier = " ".join(qualifier_tokens)
+    return (clean, qualifier)
 
 
 def _is_see_unit_row(row: list[str | None]) -> bool:
@@ -1724,7 +1782,7 @@ def _extract_block_row(
     # Applied AFTER the RFW date-shift recovery so a nulled cell is not split.
     vg_qualifier: str | None = None
     if valid_gmus:
-        valid_gmus, vg_qualifier = split_valid_gmus(valid_gmus)
+        valid_gmus, vg_qualifier = _split_valid_gmus(valid_gmus)
     if vg_qualifier is not None:
         extras = (
             _collapse_whitespace(vg_qualifier)
@@ -1846,7 +1904,7 @@ def _parse_season_choice_row(
     # Split free-text qualifiers out of the Valid-GMUs cell; merge qualifier
     # into extras so verbatim_text retains it (ADR-008).
     vg_norm = _normalize_cell(_get_cell(row, valid_gmus_idx))
-    vg_clean, vg_qualifier = split_valid_gmus(vg_norm)
+    vg_clean, vg_qualifier = _split_valid_gmus(vg_norm)
     if vg_qualifier is not None:
         extras = (
             _collapse_whitespace(vg_qualifier)

@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 import states.colorado.extract_big_game as extract_big_game
+from states.colorado.extract_big_game import _split_valid_gmus
 
 # ---------------------------------------------------------------------------
 # Re-use the AST-walk helper from test_extract_dea (state-agnostic by design).
@@ -1337,7 +1338,7 @@ class TestDeterministicJsonOutput:
 # ---------------------------------------------------------------------------
 # 11c. TestValidGmusClean — valid_gmus carries only the structured GMU list;
 #      free-text qualifiers are routed to extras (and preserved in verbatim_text)
-#      via the shared lib.pdf.split_valid_gmus helper.
+#      via the module-private _split_valid_gmus helper.
 # ---------------------------------------------------------------------------
 
 
@@ -1399,3 +1400,113 @@ class TestValidGmusClean:
             # holds only the structured leading GMU run (no connector prose).
             vg = row.get("valid_gmus") or ""
             assert "and" not in vg and not re.search(r"[A-Za-z]", vg), vg
+
+
+# ---------------------------------------------------------------------------
+# 11d. TestSplitValidGmus — unit tests for the module-private _split_valid_gmus
+# ---------------------------------------------------------------------------
+
+
+class TestSplitValidGmus:
+    """Unit tests for ``extract_big_game._split_valid_gmus`` — CPW Valid-GMUs cell splitter."""
+
+    # --- None / empty inputs ------------------------------------------------
+
+    def test_none_returns_none_none(self) -> None:
+        assert _split_valid_gmus(None) == (None, None)
+
+    def test_whitespace_only_returns_none_none(self) -> None:
+        assert _split_valid_gmus("   ") == (None, None)
+
+    # --- Pure GMU cells (no qualifier) — must be returned UNCHANGED ----------
+
+    def test_pure_gmu_list_returned_unchanged(self) -> None:
+        # No reformatting: the original string is returned as-is.
+        assert _split_valid_gmus("83, 85, 140") == ("83, 85, 140", None)
+
+    def test_pure_gmu_list_with_newline_returned_unchanged(self) -> None:
+        # Newlines inside a pure-GMU cell must be preserved verbatim.
+        assert _split_valid_gmus("83, 85,\n140") == ("83, 85,\n140", None)
+
+    def test_pure_gmu_list_multi_newline_unchanged(self) -> None:
+        # Several GMUs split across multiple lines — still pure, still unchanged.
+        assert _split_valid_gmus("12, 13,\n23,\n24") == ("12, 13,\n23,\n24", None)
+
+    # --- GMUs + exclusion-clause qualifier ----------------------------------
+
+    def test_gmus_with_except_qualifier(self) -> None:
+        assert _split_valid_gmus(
+            "83, 85, 140, 851\nExcept Bosque del Oso SWA"
+        ) == ("83, 85, 140, 851", "Except Bosque del Oso SWA")
+
+    def test_gmus_with_private_land_qualifier(self) -> None:
+        assert _split_valid_gmus(
+            "12, 13, 23, 24\nprivate land only"
+        ) == ("12, 13, 23, 24", "private land only")
+
+    # --- Leading 'New' marker -----------------------------------------------
+
+    def test_new_marker_before_gmus_goes_to_qualifier(self) -> None:
+        # 'New' is a leading marker: it moves to qualifier_tokens, not gmu_tokens.
+        assert _split_valid_gmus(
+            "New 3, 11,\n211, 301\nprivate land only"
+        ) == ("3, 11, 211, 301", "New private land only")
+
+    def test_new_alone_returns_none_qualifier(self) -> None:
+        # 'New' with no GMUs → clean is None, qualifier is 'New'.
+        assert _split_valid_gmus("New") == (None, "New")
+
+    # --- Embedded GMU numbers in qualifier must NOT be promoted --------------
+
+    def test_embedded_gmu_in_note_stays_in_qualifier(self) -> None:
+        result = _split_valid_gmus(
+            "12, 13, 23, 24, 25, 26,\n33, 34, 131, 231\n"
+            "Note: No hunting access to\nGMU 211."
+        )
+        assert result == (
+            "12, 13, 23, 24, 25, 26, 33, 34, 131, 231",
+            "Note: No hunting access to GMU 211.",
+        )
+
+    def test_embedded_exclusion_211_not_in_clean_list(self) -> None:
+        # Explicit assertion that 211 (mentioned in the Note) is NOT a valid GMU.
+        clean, _qualifier = _split_valid_gmus(
+            "12, 13, 23, 24, 25, 26,\n33, 34, 131, 231\n"
+            "Note: No hunting access to\nGMU 211."
+        )
+        assert clean is not None
+        assert "211" not in clean.split(", ")
+
+    def test_private_land_in_gmus_stay_in_qualifier(self) -> None:
+        # 'and' triggers qualifier; the 12/23/24 that follow are NOT promoted.
+        assert _split_valid_gmus(
+            "11, 13, 22, 131, 211, 231 and private land in 12, 23, 24"
+        ) == ("11, 13, 22, 131, 211, 231", "and private land in 12, 23, 24")
+
+    # --- '+' connector / named-area qualifier --------------------------------
+
+    def test_gmu_plus_named_area(self) -> None:
+        assert _split_valid_gmus("851 + Bosque del Oso SWA only") == (
+            "851",
+            "+ Bosque del Oso SWA only",
+        )
+
+    def test_gmu_plus_named_area_with_newlines(self) -> None:
+        # '+' token is not a GMU token → qualifier boundary; prose collapsed.
+        assert _split_valid_gmus("851 +\nBosque del Oso\nSWA only") == (
+            "851",
+            "+ Bosque del Oso SWA only",
+        )
+
+    # --- No leading GMUs (qualifier only) ------------------------------------
+
+    def test_qualifier_only_no_gmus_returns_none_clean(self) -> None:
+        assert _split_valid_gmus("private land only") == (None, "private land only")
+
+    # --- GMUs without comma separators (space-only separation) --------------
+
+    def test_gmus_with_inline_prose_no_comma(self) -> None:
+        # 'private' is not a GMU token → boundary fires immediately after 441.
+        assert _split_valid_gmus(
+            "4, 5, 14, 214, 441 private land only"
+        ) == ("4, 5, 14, 214, 441", "private land only")

@@ -370,7 +370,6 @@ from ingestion.lib.pdf import (
     extract_text,
     iter_pages,
     open_pdf,
-    split_valid_gmus,
     write_extraction_artifact,
 )
 
@@ -543,7 +542,7 @@ class CpwBearRowExtraction(TypedDict):
     ``valid_gmus`` carries the ``Valid GMUs`` column CLEAN — free-text
     qualifiers (e.g. ``"Except Bosque del Oso SWA"``, ``"private land only"``,
     ``"Note: No hunting access to GMU 211"``) are stripped out by
-    ``split_valid_gmus`` and routed to ``extras`` so this field contains only
+    ``_split_valid_gmus`` and routed to ``extras`` so this field contains only
     the comma-joined GMU number list (or ``None``).  The qualifier is still
     present in ``verbatim_text`` via the row's ``extras`` (ADR-008).
 
@@ -584,7 +583,7 @@ class CpwBearRowExtraction(TypedDict):
     season_code: str  # from hunt code; "" if unparseable
     method_letter: str  # from hunt code; "" if unparseable
     unit: str | None  # "Unit" column verbatim (normalized); None for OTC sections
-    valid_gmus: str | None  # clean GMU list only; qualifier routed to extras via split_valid_gmus
+    valid_gmus: str | None  # clean GMU list only; qualifier routed to extras via _split_valid_gmus
     season_windows: list[CpwSeasonWindow]
     list_value: str | None  # "List" column: "A"/"B"/"C"/"OTC"/None
     apply_by: str | None  # universally None for CPW bear V1 (no apply_by column)
@@ -797,6 +796,65 @@ def _collapse_whitespace(text: str) -> str:
     # Rule R4
     """
     return re.sub(r"\s+", " ", text).strip()
+
+
+def _split_valid_gmus(cell: str | None) -> tuple[str | None, str | None]:
+    """Split a 'Valid GMUs' table cell into (clean_gmu_list, qualifier).
+
+    A CPW Valid-GMUs cell is a leading run of GMU tokens (1-4 digit numbers,
+    each optionally suffixed '+', comma/whitespace separated) optionally
+    followed by a free-text qualifier (e.g. 'private land only', 'Except
+    Bosque del Oso SWA', 'Note: No hunting access to GMU 211').  A leading
+    'New' marker (a what's-new indicator) may precede the GMU run.
+
+    GMU numbers that appear INSIDE the qualifier (the excluded '211'; the
+    'private land in 12, 23, 24' units) are part of the prose and stay in the
+    qualifier — they are NOT promoted to the clean list.
+
+    Returns:
+      - clean_gmu_list: the leading GMU run, comma-joined (', '), or None.
+      - qualifier: the free text (any leading 'New' marker + everything from
+        the first non-GMU, non-marker word onward), collapsed to single
+        spaces, or None.
+
+    A cell with NO qualifier is returned UNCHANGED as (cell, None) — do not
+    reformat pure-GMU cells (avoids needless churn in the hundreds of
+    newline-wrapped clean cells).
+    """
+    if cell is None:
+        return (None, None)
+    if not cell.strip():
+        return (None, None)
+
+    tokens = cell.split()
+
+    def _is_gmu_token(t: str) -> bool:
+        return re.fullmatch(r"\d{1,4}\+?", t.rstrip(",")) is not None
+
+    _LEADING_MARKERS = {"new"}
+
+    gmu_tokens: list[str] = []
+    qualifier_tokens: list[str] = []
+    in_leading = True
+
+    for tok in tokens:
+        if in_leading:
+            if _is_gmu_token(tok):
+                gmu_tokens.append(tok.rstrip(","))
+            elif tok.rstrip(",").lower() in _LEADING_MARKERS:
+                qualifier_tokens.append(tok.rstrip(","))
+            else:
+                in_leading = False
+                qualifier_tokens.append(tok)
+        else:
+            qualifier_tokens.append(tok)
+
+    if not qualifier_tokens:
+        return (cell, None)
+
+    clean: str | None = ", ".join(gmu_tokens) if gmu_tokens else None
+    qualifier = " ".join(qualifier_tokens)
+    return (clean, qualifier)
 
 
 # ---------------------------------------------------------------------------
@@ -1516,7 +1574,7 @@ def _extract_bear_block_row(
     # This must come AFTER the extras block above so the order is deterministic:
     # existing extras first, then the GMU qualifier.
     vg_norm = _normalize_bear_cell(_bear_get_cell(row, valid_gmus_idx))
-    vg_clean, vg_qualifier = split_valid_gmus(vg_norm)
+    vg_clean, vg_qualifier = _split_valid_gmus(vg_norm)
     if vg_qualifier is not None:
         extras = (
             _collapse_whitespace(vg_qualifier)
@@ -2308,7 +2366,7 @@ def _verbatim_text_for_bear_section(rows: list[CpwBearRowExtraction]) -> str:
         unit, valid_gmus, [season_windows[0].raw_text, ...], hunt_code, list_value, extras
 
     ``extras`` is included last so that free-text qualifiers stripped from
-    ``valid_gmus`` by ``split_valid_gmus`` (e.g. ``"Except Bosque del Oso SWA"``,
+    ``valid_gmus`` by ``_split_valid_gmus`` (e.g. ``"Except Bosque del Oso SWA"``,
     ``"Note: No hunting access to GMU 211"``) are still present in the faithful
     verbatim reconstruction (ADR-008).
 
