@@ -1924,10 +1924,136 @@ class TestDeterministicJsonOutput:
 
         Two consecutive ``extract()`` runs against the committed PDF produced
         byte-identical output with SHA-256:
-            95b98358f80197eccfd3f45003b7093f6f6f1875275c02a062c6689205c274bd  # pragma: allowlist secret
+            7b35c202fd614f37fb529c2cc308fbf0004192eefd07fdf6963772dcc867d5f6  # pragma: allowlist secret
         """
         pytest.skip(
             "integration — requires real CPW Big Game PDF (~96 MB, gitignored); "
             "determinism verified by manual 2-run SHA recipe "
-            "(SHA-256: 95b98358f80197eccfd3f45003b7093f6f6f1875275c02a062c6689205c274bd)"  # pragma: allowlist secret
+            "(SHA-256: 7b35c202fd614f37fb529c2cc308fbf0004192eefd07fdf6963772dcc867d5f6)"  # pragma: allowlist secret
+        )
+
+
+# ---------------------------------------------------------------------------
+# 23. TestValidGmusClean — split_valid_gmus wiring in _extract_bear_block_row
+# ---------------------------------------------------------------------------
+
+
+class TestValidGmusClean:
+    """Verify that split_valid_gmus is correctly wired into _extract_bear_block_row.
+
+    After the wiring:
+      - ``valid_gmus`` contains ONLY the leading GMU number list (no prose).
+      - Free-text qualifiers are in ``extras`` (and therefore in ``verbatim_text``).
+      - No artifact row has an alphabetic character in ``valid_gmus``.
+
+    Tests (a)–(c) use the committed merged artifact so they lock the real PDF
+    behaviour without requiring the PDF to be present.
+    """
+
+    _ARTIFACT_PATH = (
+        Path(__file__).resolve().parents[1]
+        / "states"
+        / "colorado"
+        / "extracted"
+        / "black-bear-2026.json"
+    )
+
+    def _load(self) -> list[dict]:  # type: ignore[type-arg]
+        if not self._ARTIFACT_PATH.exists():
+            pytest.skip("merged artifact not present — run extract_black_bear.py first")
+        with self._ARTIFACT_PATH.open() as f:
+            return json.load(f)
+
+    def _all_rows(self) -> list[dict]:  # type: ignore[type-arg]
+        data = self._load()
+        return [
+            row
+            for rec in data
+            if rec.get("record_type") == "section"
+            for row in rec.get("rows", [])
+        ]
+
+    def _sections(self) -> list[dict]:  # type: ignore[type-arg]
+        return [rec for rec in self._load() if rec.get("record_type") == "section"]
+
+    # (a) No row's valid_gmus contains any alphabetic character.
+    def test_no_valid_gmus_contains_alpha(self) -> None:
+        """valid_gmus is a pure GMU number list — no prose, no letters anywhere.
+
+        Before the split_valid_gmus wiring, 41 rows carried text like
+        'Except Bosque del Oso SWA' or 'Note: No hunting access to GMU 211'
+        inside valid_gmus.  After wiring, the field must be digits/commas/spaces
+        only (or None).
+        """
+        bad = [
+            (row["hunt_code"], row["valid_gmus"])
+            for row in self._all_rows()
+            if row.get("valid_gmus") and any(c.isalpha() for c in row["valid_gmus"])
+        ]
+        assert not bad, (
+            f"Found {len(bad)} row(s) with alphabetic characters in valid_gmus "
+            f"(split_valid_gmus wiring broken): {bad[:5]}"
+        )
+
+    # (b) B-E-083-O1-A: clean GMU list, qualifier in extras AND in verbatim_text.
+    def test_b_e_083_o1_a_valid_gmus_clean_and_extras_qualifier(self) -> None:
+        """B-E-083-O1-A had 'Except Bosque del Oso SWA' fused into valid_gmus.
+
+        After wiring:
+          - valid_gmus == '83, 85, 140, 851' (no 'Except')
+          - extras contains 'Except Bosque del Oso SWA'
+          - the section's verbatim_text contains 'Except Bosque del Oso SWA'
+            (qualifier preserved in the faithful reconstruction, ADR-008)
+        """
+        sections = self._sections()
+
+        # Find the row and its parent section.
+        found_row = None
+        found_section = None
+        for sec in sections:
+            for row in sec.get("rows", []):
+                if row.get("hunt_code") == "B-E-083-O1-A":
+                    found_row = row
+                    found_section = sec
+                    break
+            if found_row is not None:
+                break
+
+        assert found_row is not None, "B-E-083-O1-A not found in artifact"
+        assert found_section is not None
+
+        assert found_row["valid_gmus"] == "83, 85, 140, 851", (
+            f"valid_gmus should be clean GMU list; got {found_row['valid_gmus']!r}"
+        )
+        assert found_row["extras"] is not None and "Except Bosque del Oso SWA" in found_row["extras"], (
+            f"extras should contain qualifier; got {found_row['extras']!r}"
+        )
+        vt = found_section.get("verbatim_text", "")
+        assert "Except Bosque del Oso SWA" in vt, (
+            "verbatim_text must contain 'Except Bosque del Oso SWA' (ADR-008 preservation); "
+            f"verbatim_text snippet: {vt[:300]!r}"
+        )
+
+    # (c) B-E-012-U5-R: '211' excluded from valid_gmus, qualifier (extras) contains it.
+    def test_b_e_012_u5_r_gmu_211_not_in_valid_gmus(self) -> None:
+        """B-E-012-U5-R had 'Note: No hunting access to GMU 211.' fused into valid_gmus.
+
+        After wiring:
+          - '211' must NOT appear as a GMU entry in valid_gmus (it is inside
+            a prose note — a prohibited-access qualifier, not a valid hunt unit)
+          - extras contains 'Note: No hunting access to GMU 211.' (or equivalent)
+        """
+        all_rows = self._all_rows()
+        found = [r for r in all_rows if r.get("hunt_code") == "B-E-012-U5-R"]
+        assert found, "B-E-012-U5-R not found in artifact"
+        row = found[0]
+
+        vg = row.get("valid_gmus") or ""
+        gmu_entries = [e.strip() for e in vg.split(",") if e.strip()]
+        assert "211" not in gmu_entries, (
+            f"'211' must not be a GMU entry in valid_gmus (it is a prose note); "
+            f"valid_gmus={vg!r}, gmu_entries={gmu_entries}"
+        )
+        assert row.get("extras") is not None and "211" in (row["extras"] or ""), (
+            f"extras should contain the '211' prose qualifier; got {row.get('extras')!r}"
         )

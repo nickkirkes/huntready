@@ -370,6 +370,7 @@ from ingestion.lib.pdf import (
     extract_text,
     iter_pages,
     open_pdf,
+    split_valid_gmus,
     write_extraction_artifact,
 )
 
@@ -539,7 +540,12 @@ class CpwBearRowExtraction(TypedDict):
 
     ``unit`` carries the ``Unit`` column verbatim (normalized via R1/R2/R3),
     or ``None`` for OTC sections that have no ``Unit`` column.
-    ``valid_gmus`` carries the ``Valid GMUs`` column verbatim (normalized).
+    ``valid_gmus`` carries the ``Valid GMUs`` column CLEAN — free-text
+    qualifiers (e.g. ``"Except Bosque del Oso SWA"``, ``"private land only"``,
+    ``"Note: No hunting access to GMU 211"``) are stripped out by
+    ``split_valid_gmus`` and routed to ``extras`` so this field contains only
+    the comma-joined GMU number list (or ``None``).  The qualifier is still
+    present in ``verbatim_text`` via the row's ``extras`` (ADR-008).
 
     ``list_value`` carries the ``List`` column value: ``"A"``, ``"B"``,
     ``"C"``, ``"OTC"``, or ``None``.  This is the draw-mechanic indicator
@@ -578,7 +584,7 @@ class CpwBearRowExtraction(TypedDict):
     season_code: str  # from hunt code; "" if unparseable
     method_letter: str  # from hunt code; "" if unparseable
     unit: str | None  # "Unit" column verbatim (normalized); None for OTC sections
-    valid_gmus: str | None  # "Valid GMUs" column verbatim (normalized)
+    valid_gmus: str | None  # clean GMU list only; qualifier routed to extras via split_valid_gmus
     season_windows: list[CpwSeasonWindow]
     list_value: str | None  # "List" column: "A"/"B"/"C"/"OTC"/None
     apply_by: str | None  # universally None for CPW bear V1 (no apply_by column)
@@ -1503,6 +1509,21 @@ def _extract_bear_block_row(
             else f"{prose_prefix_for_extras} {extras}"
         )
 
+    # Split the Valid-GMUs cell into a clean GMU list and a free-text qualifier.
+    # The qualifier (e.g. "Except Bosque del Oso SWA", "private land only",
+    # "Note: No hunting access to GMU 211") is appended to extras so it is
+    # preserved in verbatim_text (ADR-008) while valid_gmus stays structured.
+    # This must come AFTER the extras block above so the order is deterministic:
+    # existing extras first, then the GMU qualifier.
+    vg_norm = _normalize_bear_cell(_bear_get_cell(row, valid_gmus_idx))
+    vg_clean, vg_qualifier = split_valid_gmus(vg_norm)
+    if vg_qualifier is not None:
+        extras = (
+            _collapse_whitespace(vg_qualifier)
+            if extras is None
+            else _collapse_whitespace(f"{extras} {vg_qualifier}")
+        )
+
     # Skip orphan-fragment blocks: no hunt code, no extras, and no identifying content.
     # Excludes dates_idx from the content check (pdfplumber row-split artifacts
     # can land a bare date with no hunt code / unit / list — not a regulation row).
@@ -1582,7 +1603,7 @@ def _extract_bear_block_row(
         season_code=season_code,
         method_letter=method_letter,
         unit=_normalize_bear_cell(_bear_get_cell(row, unit_idx)),
-        valid_gmus=_normalize_bear_cell(_bear_get_cell(row, valid_gmus_idx)),
+        valid_gmus=vg_clean,
         season_windows=season_windows,
         list_value=_normalize_bear_cell(_bear_get_cell(row, list_idx)),
         apply_by=None,  # universally None for CPW bear V1 — no apply_by column
@@ -2284,7 +2305,12 @@ def _verbatim_text_for_bear_section(rows: list[CpwBearRowExtraction]) -> str:
 
     For each row the verbatim source cells are joined with `` | `` separators
     in this order:
-        unit, valid_gmus, [season_windows[0].raw_text, ...], hunt_code, list_value
+        unit, valid_gmus, [season_windows[0].raw_text, ...], hunt_code, list_value, extras
+
+    ``extras`` is included last so that free-text qualifiers stripped from
+    ``valid_gmus`` by ``split_valid_gmus`` (e.g. ``"Except Bosque del Oso SWA"``,
+    ``"Note: No hunting access to GMU 211"``) are still present in the faithful
+    verbatim reconstruction (ADR-008).
 
     (No ``sex_code`` field: bear tables have no Sex column — all V1 bear rows
     are ``E``/Either, confirmed 2026-06-13.)  Rows joined with ``"\\n"``.
@@ -2301,6 +2327,7 @@ def _verbatim_text_for_bear_section(rows: list[CpwBearRowExtraction]) -> str:
         parts.extend([
             row["hunt_code"],
             row["list_value"] or "",
+            row["extras"] or "",
         ])
         lines.append(" | ".join(parts))
     return "\n".join(lines)

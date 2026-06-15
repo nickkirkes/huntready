@@ -237,6 +237,7 @@ from ingestion.lib.pdf import (
     extract_text,
     iter_pages,
     open_pdf,
+    split_valid_gmus,
     write_extraction_artifact,
 )
 
@@ -462,7 +463,7 @@ class CpwRowExtraction(TypedDict):
     season_code: str  # from hunt code; "" if unparseable
     method_letter: str  # from hunt code; "" if unparseable
     unit: str | None  # "Unit" column verbatim (normalized)
-    valid_gmus: str | None  # "Valid GMUs" column verbatim (normalized)
+    valid_gmus: str | None  # clean GMU list (qualifier prose routed to extras)
     season_windows: list[CpwSeasonWindow]
     list_value: str | None  # "List" column: "A"/"B"/"C"/"OTC"/None
     apply_by: str | None  # universally None for CPW V1 (no apply_by column)
@@ -1717,6 +1718,20 @@ def _extract_block_row(
             season_windows = [recovered]
             valid_gmus = None
 
+    # Split free-text qualifiers out of the Valid-GMUs cell (e.g. "private land
+    # only", "Except Bosque del Oso SWA") into extras so valid_gmus stays
+    # structured while the qualifier is preserved in verbatim_text (ADR-008).
+    # Applied AFTER the RFW date-shift recovery so a nulled cell is not split.
+    vg_qualifier: str | None = None
+    if valid_gmus:
+        valid_gmus, vg_qualifier = split_valid_gmus(valid_gmus)
+    if vg_qualifier is not None:
+        extras = (
+            _collapse_whitespace(vg_qualifier)
+            if extras is None
+            else _collapse_whitespace(f"{extras} {vg_qualifier}")
+        )
+
     return CpwRowExtraction(
         hunt_code=hunt_code_str,
         species_letter=species_letter,
@@ -1828,6 +1843,17 @@ def _parse_season_choice_row(
     extras_raw = " ".join(extra_parts) if extra_parts else None
     extras = _collapse_whitespace(extras_raw) if extras_raw else None
 
+    # Split free-text qualifiers out of the Valid-GMUs cell; merge qualifier
+    # into extras so verbatim_text retains it (ADR-008).
+    vg_norm = _normalize_cell(_get_cell(row, valid_gmus_idx))
+    vg_clean, vg_qualifier = split_valid_gmus(vg_norm)
+    if vg_qualifier is not None:
+        extras = (
+            _collapse_whitespace(vg_qualifier)
+            if extras is None
+            else _collapse_whitespace(f"{extras} {vg_qualifier}")
+        )
+
     return CpwRowExtraction(
         hunt_code=hunt_code_str,
         species_letter=species_letter,
@@ -1836,7 +1862,7 @@ def _parse_season_choice_row(
         season_code=season_code,
         method_letter=method_letter,
         unit=_normalize_cell(_get_cell(row, unit_idx)),
-        valid_gmus=_normalize_cell(_get_cell(row, valid_gmus_idx)),
+        valid_gmus=vg_clean,
         season_windows=season_windows,
         list_value=_normalize_cell(_get_cell(row, list_idx)),
         apply_by=None,
@@ -2248,7 +2274,7 @@ def _verbatim_text_for_section(rows: list[CpwRowExtraction]) -> str:
     For each row, the verbatim source cells are joined with ``" | "``
     separators in this order:
         unit, valid_gmus, [season_windows[0].raw_text, ...], sex_code,
-        hunt_code, list_value
+        hunt_code, list_value, extras
 
     Rows are joined with ``"\\n"``.  ``None`` cells are emitted as empty
     strings so the structure is preserved (a consumer can split on ``" | "``
@@ -2271,6 +2297,7 @@ def _verbatim_text_for_section(rows: list[CpwRowExtraction]) -> str:
             row["sex_code"],
             row["hunt_code"],
             row["list_value"] or "",
+            row["extras"] or "",
         ])
         lines.append(" | ".join(parts))
     return "\n".join(lines)

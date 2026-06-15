@@ -1323,12 +1323,79 @@ class TestDeterministicJsonOutput:
 
         Two consecutive ``extract()`` runs against the committed PDF produced
         byte-identical output with SHA-256:
-            3c2ecd90066cad3ec527f5ff18d054083d0f827485adae2337cde9f63cca015d
+            e5c7c33a728a95f3d2845894ce53d4de664ed20bfc40853eaa421ac8d12e6d1e
         """
         import pytest as _pytest
 
         _pytest.skip(
             "integration — requires real CPW Big Game PDF (~96 MB, gitignored); "
             "determinism verified by manual 2-run SHA recipe "
-            "(SHA-256: 3c2ecd90066cad3ec527f5ff18d054083d0f827485adae2337cde9f63cca015d)"
+            "(SHA-256: e5c7c33a728a95f3d2845894ce53d4de664ed20bfc40853eaa421ac8d12e6d1e)"
         )
+
+
+# ---------------------------------------------------------------------------
+# 11c. TestValidGmusClean — valid_gmus carries only the structured GMU list;
+#      free-text qualifiers are routed to extras (and preserved in verbatim_text)
+#      via the shared lib.pdf.split_valid_gmus helper.
+# ---------------------------------------------------------------------------
+
+
+class TestValidGmusClean:
+    """valid_gmus is a clean GMU list; prose qualifiers live in extras.
+
+    Loads the committed artifact directly (no live PDF). Locks the coordinated
+    cross-extractor fix: the 'Valid GMUs' cell's free-text qualifier (e.g.
+    'private land only', 'Except Bosque del Oso SWA', 'and private land in
+    12, 23, 24') no longer contaminates the structured valid_gmus field.
+    """
+
+    @staticmethod
+    def _rows() -> list[dict]:  # type: ignore[type-arg]
+        import json
+
+        import pytest
+
+        if not extract_big_game._OUTPUT_PATH.exists():
+            pytest.skip("artifact not generated — run extract_big_game.py")
+        with open(extract_big_game._OUTPUT_PATH) as f:
+            recs = json.load(f)
+        return [row for r in recs if "rows" in r for row in r["rows"]]
+
+    def test_no_alpha_in_valid_gmus(self) -> None:
+        """No section row's valid_gmus contains an alphabetic character."""
+        bad = [
+            row["valid_gmus"]
+            for row in self._rows()
+            if row.get("valid_gmus") and re.search(r"[A-Za-z]", row["valid_gmus"])
+        ]
+        assert not bad, f"{len(bad)} valid_gmus values still carry prose: {bad[:5]}"
+
+    def test_qualifier_routed_to_extras_and_verbatim(self) -> None:
+        """An 'Except Bosque del Oso SWA' qualifier is in extras, not valid_gmus."""
+        rows = self._rows()
+        hits = [
+            row
+            for row in rows
+            if row.get("extras") and "Except Bosque del Oso SWA" in row["extras"]
+        ]
+        assert hits, "expected at least one row with the SWA exclusion in extras"
+        for row in hits:
+            assert "Except" not in (row.get("valid_gmus") or ""), (
+                f"qualifier leaked back into valid_gmus: {row['valid_gmus']!r}"
+            )
+
+    def test_private_land_in_units_not_promoted(self) -> None:
+        """'and private land in 12, 23, 24' keeps 12/23/24 OUT of valid_gmus."""
+        rows = self._rows()
+        hits = [
+            row
+            for row in rows
+            if row.get("extras") and "private land in" in row["extras"]
+        ]
+        assert hits, "expected a 'private land in N' qualifier row"
+        for row in hits:
+            # The qualifier (incl. its embedded units) lives in extras; valid_gmus
+            # holds only the structured leading GMU run (no connector prose).
+            vg = row.get("valid_gmus") or ""
+            assert "and" not in vg and not re.search(r"[A-Za-z]", vg), vg
