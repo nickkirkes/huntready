@@ -1757,6 +1757,30 @@ class TestFusedRowSplit:
         with pytest.raises(PdfExtractionError, match="not cleanly delimited"):
             _split_fused_block_row(abutted_row, self._BLOCK_6COL)
 
+    def test_continuation_comma_in_distributed_cell_raises(self) -> None:
+        """Rule R16: a distributed cell whose part ends in a comma fails loud.
+
+        A shared value that line-wraps to N parts (e.g. valid_gmus
+        ``"107, 112,\\n113, 114"`` — one GMU list across two physical lines) must
+        NOT be distributed as two per-row values; that would silently truncate
+        the shared cell.  The trailing-comma continuation signal triggers a raise
+        (ADR-001) rather than a silent mis-distribution.
+        """
+        import pytest
+
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        wrapped_shared_row: list[str | None] = [
+            "82",                              # unit — broadcast
+            "107, 112,\n113, 114",            # valid_gmus — WRAPPED single list
+            "Oct. 24-Nov. 1",                  # dates — broadcast
+            "",                                # sex
+            "D-M-082-O2-R\nD-M-082-O3-R",    # hunt_code — 2 codes
+            "A\nA",                            # list — distribute
+        ]
+        with pytest.raises(PdfExtractionError, match="continuation comma"):
+            _split_fused_block_row(wrapped_shared_row, self._BLOCK_6COL)
+
     def test_none_block_cell_becomes_n_nones(self) -> None:
         """A None block cell in a fused row → [None, None, …] for each synthetic row."""
         from states.colorado.extract_big_game import _split_fused_block_row
@@ -1774,3 +1798,45 @@ class TestFusedRowSplit:
         assert len(result) == 2, f"Expected 2 rows; got {len(result)}"
         assert result[0][0] is None, f"unit row0 should be None: {result[0][0]!r}"
         assert result[1][0] is None, f"unit row1 should be None: {result[1][0]!r}"
+
+
+class TestHuntCodeGrammarSingleSourceOfTruth:
+    """The anchored parser and the embedded scanner derive from one grammar.
+
+    Rule R8 (`_HUNT_CODE_RE`) and Rule R16 (`_HUNT_CODE_EMBEDDED_RE`) must encode
+    the SAME hunt-code shape — if they drift, the splitter could detect a
+    different set of codes than the parser accepts.  These tests lock that both
+    are built from the shared `_HUNT_CODE_GRAMMAR` fragment so a future grammar
+    change has exactly one source of truth.
+    """
+
+    def test_both_regexes_derive_from_shared_grammar(self) -> None:
+        from states.colorado.extract_big_game import (
+            _HUNT_CODE_EMBEDDED_RE,
+            _HUNT_CODE_GRAMMAR,
+            _HUNT_CODE_RE,
+        )
+
+        assert _HUNT_CODE_EMBEDDED_RE.pattern == _HUNT_CODE_GRAMMAR
+        assert _HUNT_CODE_RE.pattern == f"^{_HUNT_CODE_GRAMMAR}$"
+
+    def test_parser_and_scanner_agree_on_code_shape(self) -> None:
+        """Every code the anchored parser accepts is detected by the scanner, and
+        a malformed shape is rejected by both."""
+        from states.colorado.extract_big_game import (
+            _HUNT_CODE_EMBEDDED_RE,
+            _HUNT_CODE_RE,
+        )
+
+        valid = ["D-M-082-O2-R", "E-F-044-O1-R", "A-M-012-O1-M", "B-E-0201-O1-A"]
+        for code in valid:
+            assert _HUNT_CODE_RE.match(code), f"parser rejected valid {code!r}"
+            found = [m.group(0) for m in _HUNT_CODE_EMBEDDED_RE.finditer(code)]
+            assert found == [code], f"scanner did not detect {code!r}: {found!r}"
+
+        malformed = ["D-082-O2-R", "DM-082-O2-R", "D-M-82-O2-R", "D-M-082-O2"]
+        for bad in malformed:
+            assert not _HUNT_CODE_RE.match(bad), f"parser accepted malformed {bad!r}"
+            assert not [
+                m.group(0) for m in _HUNT_CODE_EMBEDDED_RE.finditer(bad)
+            ], f"scanner detected malformed {bad!r}"

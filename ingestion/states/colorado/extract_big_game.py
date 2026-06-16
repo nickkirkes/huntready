@@ -354,13 +354,21 @@ _SEE_UNIT_RE = re.compile(r"(?i)^\s*see\s+unit\s+\d+")
 #   E-F-044-O1-R  (elk, female, GMU 044, option 1, rifle)
 #   A-M-012-O1-M  (pronghorn/antelope, male, GMU 012, option 1, muzzleloader)
 # NOTE: CPW uses "A" (Antelope) as the pronghorn species letter — not "P".
-_HUNT_CODE_RE = re.compile(r"^([A-Z])-([A-Z])-(\d{3,4})-([A-Z0-9]+)-([A-Z])$")  # Rule R8
+# Single source of truth for the CPW hunt-code grammar.  Both the anchored
+# single-code parser (_HUNT_CODE_RE, Rule R8) and the unanchored embedded
+# scanner (_HUNT_CODE_EMBEDDED_RE, Rule R16) derive from this one fragment, so
+# the grammar can never be re-encoded inconsistently in two places — the
+# splitter is guaranteed to detect exactly the code shape the parser accepts.
+_HUNT_CODE_GRAMMAR = r"([A-Z])-([A-Z])-(\d{3,4})-([A-Z0-9]+)-([A-Z])"
+_HUNT_CODE_RE = re.compile(rf"^{_HUNT_CODE_GRAMMAR}$")  # Rule R8 — anchored single-code parser
 
-# Rule R16: full embedded hunt-code matcher for row-fusion detection.
-# Unlike _HUNT_CODE_FRAGMENT_RE (first 3 components only, used for the
-# garbage-row filter), this matches the COMPLETE 5-component code so that
-# _split_fused_block_row can COUNT how many full codes a fused cell carries.
-_HUNT_CODE_EMBEDDED_RE = re.compile(r"([A-Z]-[A-Z]-\d{3,4}-[A-Z0-9]+-[A-Z])")
+# Rule R16: the SAME grammar, unanchored, used by _split_fused_block_row to
+# COUNT full hunt codes embedded in a pdfplumber-fused cell.  (Distinct from
+# _HUNT_CODE_FRAGMENT_RE, which matches only the first 3 components for the
+# garbage-row filter.)  Because _HUNT_CODE_GRAMMAR carries component capture
+# groups, callers scan with finditer()/group(0) to recover whole-code strings —
+# findall() would return group tuples instead.
+_HUNT_CODE_EMBEDDED_RE = re.compile(_HUNT_CODE_GRAMMAR)
 
 # Rule R10: threshold for classifying a page as a map/non-table page.
 # When a page has zero tables AND its extracted text (stripped) is shorter than
@@ -1673,6 +1681,14 @@ def _split_fused_block_row(
     part count that is neither 1 nor N is the split genuinely ambiguous and
     therefore raises (ADR-001 fail-loud).
 
+    A distributed (N-part) cell is additionally rejected when any part ends in a
+    continuation comma — the signature of a single list value that line-wrapped
+    to N lines (e.g. ``"107, 112,\\n113, 114"``) rather than N distinct per-row
+    values.  This converts the most common mis-distribution into a loud failure.
+    Residual limitation: a shared value that wraps to exactly N parts *without* a
+    trailing-comma signal remains indistinguishable from N per-row values on
+    part-count alone; no such case exists in the 2026 brochure.
+
     Parameters
     ----------
     row:
@@ -1700,7 +1716,9 @@ def _split_fused_block_row(
     """
     hunt_code_idx = block[4]  # big-game block is 6-element; hunt code is [4]
     raw_hunt = _get_cell(row, hunt_code_idx)
-    codes = _HUNT_CODE_EMBEDDED_RE.findall(raw_hunt or "")
+    # group(0) (whole match), not findall (which would return component tuples
+    # because _HUNT_CODE_GRAMMAR carries capture groups).
+    codes = [m.group(0) for m in _HUNT_CODE_EMBEDDED_RE.finditer(raw_hunt or "")]
     if len(codes) < 2:
         # Zero or one full hunt code — no row fusion; return unchanged.
         return [row]
@@ -1723,11 +1741,11 @@ def _split_fused_block_row(
 
     # For each present block column, split its cell value on '\n'.
     # Distribute (len == n), broadcast (len == 1), or raise (anything else).
-    # NOTE (known limitation): the broadcast/distribute decision is purely
-    # part-count based, so a fused row whose shared cell (e.g. valid_gmus)
-    # happens to be a single value that line-wraps to N parts would be
-    # mis-distributed rather than broadcast. No such case exists in the 2026
-    # brochure; see .roughly/known-pitfalls.md (R16 partial-column fusion).
+    # The distribute path additionally rejects line-wrapped shared values via the
+    # continuation-comma guard below.  Residual known limitation: a shared value
+    # that line-wraps to exactly N parts WITHOUT a trailing-comma signal (rare)
+    # is still indistinguishable from N per-row values on part-count alone — see
+    # .roughly/known-pitfalls.md (R16 partial-column fusion).
     col_parts: dict[int, list[str | None]] = {}
     for idx in block:
         if idx == _NO_COL:
@@ -1738,8 +1756,24 @@ def _split_fused_block_row(
         else:
             parts = cell.split("\n")
             if len(parts) == n:
+                stripped = [p.strip() for p in parts]
+                # A distributed part ending in a comma is a list-continuation
+                # fragment: the cell is ONE value that line-wrapped (e.g.
+                # "107, 112,\n113, 114"), not N per-row values.  Distributing it
+                # would silently truncate a shared cell, defeating the fail-loud
+                # goal — raise instead (ADR-001).  Genuine per-code values (e.g.
+                # "3, 301" / "4, 5") never end in a trailing comma.
+                if any(p.endswith(",") for p in stripped):
+                    raise PdfExtractionError(
+                        f"_split_fused_block_row (Rule R16): block column {idx} "
+                        f"splits into {n} parts {stripped!r}, but a part ends in "
+                        f"a continuation comma — this is a single line-wrapped "
+                        f"value, not {n} per-row values.  "
+                        f"Hunt Code cell: {raw_hunt!r}.  "
+                        f"Distributing would truncate a shared cell (ADR-001)."
+                    )
                 # Distribute: each synthetic row gets its own part.
-                col_parts[idx] = [p.strip() or None for p in parts]
+                col_parts[idx] = [p or None for p in stripped]
             elif len(parts) == 1:
                 # Broadcast: single shared value applies to all N rows.
                 v = cell.strip() or None
