@@ -134,10 +134,10 @@ class TestCleanupRulesDocstringParity:
     (e.g., ``Rule R1:``, ``Rule R14:``).
     """
 
-    _RULE_COUNT: int = 15
+    _RULE_COUNT: int = 16
 
     def test_every_rule_has_a_docstring_entry(self) -> None:
-        """Rule R1 through R15 must each appear in the module docstring."""
+        """Rule R1 through R16 must each appear in the module docstring."""
         docstring = extract_big_game.__doc__ or ""
         assert docstring, "extract_big_game module has no docstring"
 
@@ -155,7 +155,7 @@ class TestCleanupRulesDocstringParity:
         )
 
     def test_rule_count_locked(self) -> None:
-        """Exactly 15 rule entries appear in the docstring (no silent additions).
+        """Exactly 16 rule entries appear in the docstring (no silent additions).
 
         If a new rule is added to the implementation, both the docstring AND
         this test's ``_RULE_COUNT`` must be updated intentionally.
@@ -1088,7 +1088,7 @@ class TestArtifactRegression:
             return json.load(f)  # type: ignore[no-any-return]
 
     def test_section_and_row_counts(self) -> None:
-        """Artifact contains exactly 737 sections and 2758 total rows.
+        """Artifact contains exactly 736 sections and 2762 total rows.
 
         P1-1 (Rule R15 ■ strip): 136 unit/valid_gmus fields cleaned — row count
         unchanged but field VALUES updated.
@@ -1101,14 +1101,19 @@ class TestArtifactRegression:
         own ``season_choice`` method sections (separate from the rifle sections
         they previously fell into), raising the section count 731 → 737 (row
         count unchanged).
+        S06.3.1 (Rule R16 row-fusion split): 4 previously-dropped hunt codes
+        recovered from pdfplumber-fused cells (D-M-082-O3-R, D-F-107-O1-R,
+        A-M-004-O1-M, A-F-118-O1-R), raising rows 2758 → 2762 (+4).  The
+        placeholder section that had held the fused-row codes collapsed once R16
+        gave the rows real GMU codes, dropping section count 737 → 736 (−1).
         """
         data = self._load()
-        assert len(data) == 737
+        assert len(data) == 736
         total_rows = sum(len(s.get("rows", [])) for s in data)
-        assert total_rows == 2758
+        assert total_rows == 2762
 
     def test_confidence_distribution(self) -> None:
-        """Confidence distribution is pinned: high=2069, medium=684, low=5.
+        """Confidence distribution is pinned: high=2178, medium=583, low=1.
 
         P1-2 (garbage-row filter): 31 of the previous 36 LOW rows were pure
         map-OCR garbage.  After filtering, 5 real LOW rows remain (all
@@ -1126,6 +1131,10 @@ class TestArtifactRegression:
         header no longer bleeds onto rifle rows (those lose the wrong window →
         MEDIUM), while muzzleloader rows correctly retain it. Net: high
         2229→2170, medium 524→583 (low unchanged at 5).
+        S06.3.1 (Rule R16 row-fusion split): 4 previously-fused LOW rows each
+        split cleanly into HIGH rows (good hunt code + valid GMU extracted). The
+        4 fused LOW rows became 8 HIGH rows (2 per fused cell): high 2170→2178
+        (+8), low 5→1 (−4), medium unchanged at 583.
         """
         from collections import Counter
 
@@ -1135,7 +1144,7 @@ class TestArtifactRegression:
             for s in data
             for row in s.get("rows", [])
         )
-        assert dict(dist) == {"high": 2170, "medium": 583, "low": 5}
+        assert dict(dist) == {"high": 2178, "medium": 583, "low": 1}
 
     def test_no_rifle_header_window_bleed(self) -> None:
         """P1-6 lock: no rifle row carries a header-style season window.
@@ -1171,6 +1180,9 @@ class TestArtifactRegression:
         season_choice sections; the units explicitly marked "white-tailed only"
         become whitetail (whitetail 31→34) and the rest stay mule_deer
         (mule_deer 305→308). elk/pronghorn unchanged.
+        S06.3.1 (Rule R16 row-fusion split): the mule_deer placeholder section
+        that had held the fused-row codes collapsed once R16 gave those rows real
+        GMU codes, dropping mule_deer 308→307. whitetail, elk, pronghorn unchanged.
         """
         from collections import Counter
 
@@ -1182,7 +1194,7 @@ class TestArtifactRegression:
             "pronghorn",
         }
         section_counts = Counter(s["species_group"] for s in data)
-        assert section_counts["mule_deer"] == 308
+        assert section_counts["mule_deer"] == 307
         assert section_counts["whitetail"] == 34
         assert section_counts["elk"] == 260
         assert section_counts["pronghorn"] == 135
@@ -1324,14 +1336,14 @@ class TestDeterministicJsonOutput:
 
         Two consecutive ``extract()`` runs against the committed PDF produced
         byte-identical output with SHA-256:
-            e5c7c33a728a95f3d2845894ce53d4de664ed20bfc40853eaa421ac8d12e6d1e
+            9312e2595071a80cc317250504e4ba6a7eaaae33a201a313db275aa0f0c8bb2f
         """
         import pytest as _pytest
 
         _pytest.skip(
             "integration — requires real CPW Big Game PDF (~96 MB, gitignored); "
             "determinism verified by manual 2-run SHA recipe "
-            "(SHA-256: e5c7c33a728a95f3d2845894ce53d4de664ed20bfc40853eaa421ac8d12e6d1e)"
+            "(SHA-256: 9312e2595071a80cc317250504e4ba6a7eaaae33a201a313db275aa0f0c8bb2f)"
         )
 
 
@@ -1510,3 +1522,255 @@ class TestSplitValidGmus:
         assert _split_valid_gmus(
             "4, 5, 14, 214, 441 private land only"
         ) == ("4, 5, 14, 214, 441", "private land only")
+
+
+# ---------------------------------------------------------------------------
+# 23. TestFusedRowSplit  (Rule R16 — unit tests for _split_fused_block_row)
+# ---------------------------------------------------------------------------
+
+
+class TestFusedRowSplit:
+    """Unit tests for ``_split_fused_block_row`` (Rule R16).
+
+    Big-game blocks are 6-element tuples:
+    ``(unit_idx, valid_gmus_idx, dates_idx, sex_idx, hunt_code_idx, list_idx)``
+    The standard 6-column block is ``(0, 1, 2, 3, 4, 5)``.
+
+    Method names locked by module docstring citations:
+      TestFusedRowSplit::test_two_code_fused_row_splits_to_two_rows
+      TestFusedRowSplit::test_misaligned_cell_raises
+    """
+
+    # Standard 6-col block: (unit=0, valid_gmus=1, dates=2, sex=3, hunt_code=4, list=5)
+    _BLOCK_6COL: tuple[int, ...] = (0, 1, 2, 3, 4, 5)
+
+    def test_single_code_returns_unchanged(self) -> None:
+        """A cell with only one full hunt code → [row] unchanged (no split needed)."""
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        row: list[str | None] = ["082", "82", "Oct. 24-Nov. 1", "M", "D-M-082-O2-R", "A"]
+        result = _split_fused_block_row(row, self._BLOCK_6COL)
+        assert result == [row]
+        assert result[0] is row  # same object — no copy
+
+    def test_no_hunt_code_returns_unchanged(self) -> None:
+        """A cell with no full hunt code → [row] unchanged."""
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        # None hunt code
+        row_none: list[str | None] = ["082", "82", "Oct. 24-Nov. 1", "M", None, "A"]
+        result = _split_fused_block_row(row_none, self._BLOCK_6COL)
+        assert result == [row_none]
+
+        # Empty string hunt code
+        row_empty: list[str | None] = ["082", "82", "Oct. 24-Nov. 1", "M", "", "A"]
+        result2 = _split_fused_block_row(row_empty, self._BLOCK_6COL)
+        assert result2 == [row_empty]
+
+    def test_two_code_fused_row_splits_to_two_rows(self) -> None:
+        """Rule R16: a fused cell with 2 full hunt codes → 2 synthetic rows.
+
+        Mirrors a real CPW big-game table where pdfplumber merged two adjacent
+        rows (missing inter-row ruling).  The Unit and Valid GMUs columns each
+        hold a single shared value (broadcast) while Hunt Code and List each
+        hold two newline-separated values (distribute).
+
+        After split:
+          row 0: unit=None, valid_gmus='82', dates='Oct. 24-Nov. 1',
+                 sex=None, hunt_code='D-M-082-O2-R', list='A'
+          row 1: unit=None, valid_gmus='82', dates='Nov. 7-15',
+                 sex=None, hunt_code='D-M-082-O3-R', list='A'
+        """
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        fused_row: list[str | None] = [
+            None,                              # unit — absent
+            "82",                              # valid_gmus — broadcast (single value)
+            "Oct. 24–Nov. 1\nNov. 7–15",  # dates — distribute 2 parts
+            "",                                # sex — empty → None after strip
+            "D-M-082-O2-R\nD-M-082-O3-R",    # hunt_code — 2 codes, distribute
+            "A\nA",                            # list — distribute 2 parts
+        ]
+        result = _split_fused_block_row(fused_row, self._BLOCK_6COL)
+        assert len(result) == 2, f"Expected 2 rows; got {len(result)}"
+
+        # Row 0
+        r0 = result[0]
+        assert r0[4] == "D-M-082-O2-R", f"hunt_code row0: {r0[4]!r}"
+        assert r0[1] == "82", f"valid_gmus row0 (broadcast): {r0[1]!r}"
+        assert r0[2] == "Oct. 24–Nov. 1", f"dates row0: {r0[2]!r}"
+        assert r0[5] == "A", f"list row0: {r0[5]!r}"
+        assert r0[0] is None, f"unit row0: {r0[0]!r}"
+        assert r0[3] is None, f"sex row0 (empty → None): {r0[3]!r}"
+
+        # Row 1
+        r1 = result[1]
+        assert r1[4] == "D-M-082-O3-R", f"hunt_code row1: {r1[4]!r}"
+        assert r1[1] == "82", f"valid_gmus row1 (broadcast): {r1[1]!r}"
+        assert r1[2] == "Nov. 7–15", f"dates row1: {r1[2]!r}"
+        assert r1[5] == "A", f"list row1: {r1[5]!r}"
+        assert r1[0] is None, f"unit row1: {r1[0]!r}"
+        assert r1[3] is None, f"sex row1 (empty → None): {r1[3]!r}"
+
+    def test_sec736_r0_distinct_list_values(self) -> None:
+        """Fused row where List distributes to distinct values per synthetic row.
+
+        Mirrors a pronghorn fused row with distinct List values 'A' and 'B'.
+        Unit distributes ('118' and 'Plains'); Valid GMUs is broadcast ('118');
+        Dates is broadcast ('Oct. 3-11').
+
+        After split:
+          row 0: unit='118', valid_gmus='118', dates='Oct. 3-11',
+                 hunt_code='A-M-118-O1-R', list='A'
+          row 1: unit='Plains', valid_gmus='118', dates='Oct. 3-11',
+                 hunt_code='A-F-118-O1-R', list='B'
+        """
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        fused_row: list[str | None] = [
+            "118\nPlains",          # unit — distribute
+            "118",                  # valid_gmus — broadcast
+            "Oct. 3-11",            # dates — broadcast
+            "",                     # sex — empty → None
+            "A-M-118-O1-R\nA-F-118-O1-R",  # hunt_code — 2 codes, distribute
+            "A\nB",                 # list — distribute (distinct)
+        ]
+        result = _split_fused_block_row(fused_row, self._BLOCK_6COL)
+        assert len(result) == 2, f"Expected 2 rows; got {len(result)}"
+
+        r0 = result[0]
+        assert r0[0] == "118", f"unit row0: {r0[0]!r}"
+        assert r0[1] == "118", f"valid_gmus row0 (broadcast): {r0[1]!r}"
+        assert r0[2] == "Oct. 3-11", f"dates row0 (broadcast): {r0[2]!r}"
+        assert r0[4] == "A-M-118-O1-R", f"hunt_code row0: {r0[4]!r}"
+        assert r0[5] == "A", f"list row0: {r0[5]!r}"
+
+        r1 = result[1]
+        assert r1[0] == "Plains", f"unit row1: {r1[0]!r}"
+        assert r1[1] == "118", f"valid_gmus row1 (broadcast): {r1[1]!r}"
+        assert r1[2] == "Oct. 3-11", f"dates row1 (broadcast): {r1[2]!r}"
+        assert r1[4] == "A-F-118-O1-R", f"hunt_code row1: {r1[4]!r}"
+        assert r1[5] == "B", f"list row1: {r1[5]!r}"
+
+    def test_sec660_r0_unit_and_gmus_distribute(self) -> None:
+        """Fused row where Unit AND Valid GMUs both distribute independently.
+
+        Mirrors a pronghorn fused row where both unit and valid_gmus have
+        per-row distinct values (2-part each) and dates is broadcast.
+
+        After split:
+          row 0: unit='3', valid_gmus='3, 301', hunt_code='A-M-003-O1-M'
+          row 1: unit='4', valid_gmus='4, 5', hunt_code='A-M-004-O1-M'
+          dates='Season dates: Sept. 21-29' broadcast to both.
+        """
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        fused_row: list[str | None] = [
+            "3\n4",                         # unit — distribute
+            "3, 301\n4, 5",                 # valid_gmus — distribute
+            "Season dates: Sept. 21-29",    # dates — broadcast
+            "",                             # sex — empty → None
+            "A-M-003-O1-M\nA-M-004-O1-M",  # hunt_code — 2 codes, distribute
+            "A\nA",                         # list — distribute
+        ]
+        result = _split_fused_block_row(fused_row, self._BLOCK_6COL)
+        assert len(result) == 2, f"Expected 2 rows; got {len(result)}"
+
+        r0 = result[0]
+        assert r0[0] == "3", f"unit row0: {r0[0]!r}"
+        assert r0[1] == "3, 301", f"valid_gmus row0: {r0[1]!r}"
+        assert r0[2] == "Season dates: Sept. 21-29", f"dates row0 (broadcast): {r0[2]!r}"
+        assert r0[4] == "A-M-003-O1-M", f"hunt_code row0: {r0[4]!r}"
+
+        r1 = result[1]
+        assert r1[0] == "4", f"unit row1: {r1[0]!r}"
+        assert r1[1] == "4, 5", f"valid_gmus row1: {r1[1]!r}"
+        assert r1[2] == "Season dates: Sept. 21-29", f"dates row1 (broadcast): {r1[2]!r}"
+        assert r1[4] == "A-M-004-O1-M", f"hunt_code row1: {r1[4]!r}"
+
+    def test_three_code_fused_row_splits_to_three_rows(self) -> None:
+        """Rule R16 generalises to N>2 codes — 3 codes → 3 synthetic rows."""
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        fused_row: list[str | None] = [
+            "1\n2\n3",                                          # unit — distribute 3
+            "001\n002\n003",                                    # valid_gmus — distribute 3
+            "Oct. 1-9",                                         # dates — broadcast
+            "",                                                 # sex — empty → None
+            "D-M-001-O1-R\nD-M-002-O1-R\nD-M-003-O1-R",       # hunt_code — 3 codes
+            "A\nA\nA",                                          # list — distribute 3
+        ]
+        result = _split_fused_block_row(fused_row, self._BLOCK_6COL)
+        assert len(result) == 3, f"Expected 3 rows; got {len(result)}"
+        assert result[0][4] == "D-M-001-O1-R"
+        assert result[1][4] == "D-M-002-O1-R"
+        assert result[2][4] == "D-M-003-O1-R"
+        # Dates broadcast to all 3
+        assert result[0][2] == "Oct. 1-9"
+        assert result[1][2] == "Oct. 1-9"
+        assert result[2][2] == "Oct. 1-9"
+
+    def test_misaligned_cell_raises(self) -> None:
+        """Rule R16: a block cell with wrong part count raises PdfExtractionError.
+
+        If the Hunt Code cell has 2 codes but a parallel present block cell has
+        3 ``\\n``-separated parts (neither 1/broadcast nor 2/distribute), the
+        split would corrupt row alignment — must fail loud per ADR-001.
+        """
+        import pytest
+
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        # Hunt code has 2 codes but dates has 3 parts
+        misaligned_row: list[str | None] = [
+            "082",                          # unit — broadcast (1 part)
+            "82",                           # valid_gmus — broadcast (1 part)
+            "a\nb\nc",                      # dates — 3 parts (misaligned!)
+            "",                             # sex — empty
+            "D-M-082-O2-R\nD-M-082-O3-R",  # hunt_code — 2 codes
+            "A\nA",                         # list — 2 parts
+        ]
+        with pytest.raises(PdfExtractionError, match="Cannot split without corrupting"):
+            _split_fused_block_row(misaligned_row, self._BLOCK_6COL)
+
+    def test_hunt_code_codes_without_newline_delimiter_raises(self) -> None:
+        """Rule R16: 2+ codes detected but the Hunt Code cell has no ``\\n``.
+
+        The Hunt Code cell is the authority for fusion detection.  If it reports
+        N codes but does not itself split into N newline-separated parts (e.g.
+        two codes abutted without a delimiter), broadcasting the concatenated
+        string would emit N rows each carrying the same unparseable code — a
+        silent degradation.  Must fail loud per ADR-001 instead.
+        """
+        import pytest
+
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        abutted_row: list[str | None] = [
+            "082",                          # unit
+            "82",                           # valid_gmus
+            "Oct. 24-Nov. 1",               # dates
+            "",                             # sex
+            "D-M-082-O2-RD-M-082-O3-R",    # hunt_code — 2 codes, NO newline
+            "A",                            # list
+        ]
+        with pytest.raises(PdfExtractionError, match="not cleanly delimited"):
+            _split_fused_block_row(abutted_row, self._BLOCK_6COL)
+
+    def test_none_block_cell_becomes_n_nones(self) -> None:
+        """A None block cell in a fused row → [None, None, …] for each synthetic row."""
+        from states.colorado.extract_big_game import _split_fused_block_row
+
+        # Unit column is None in the fused row.
+        fused_row: list[str | None] = [
+            None,                              # unit — None → [None, None]
+            "82",                              # valid_gmus — broadcast
+            "Oct. 24-Nov. 1",                  # dates — broadcast
+            "",                                # sex — empty → None
+            "D-M-082-O2-R\nD-M-082-O3-R",    # hunt_code — 2 codes
+            "A\nA",                            # list — distribute
+        ]
+        result = _split_fused_block_row(fused_row, self._BLOCK_6COL)
+        assert len(result) == 2, f"Expected 2 rows; got {len(result)}"
+        assert result[0][0] is None, f"unit row0 should be None: {result[0][0]!r}"
+        assert result[1][0] is None, f"unit row1 should be None: {result[1][0]!r}"

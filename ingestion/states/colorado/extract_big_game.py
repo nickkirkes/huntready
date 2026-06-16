@@ -213,6 +213,16 @@ Cleanup rules (applied only to structured ``rows`` cells, never to
                  ``_parse_season_window``, not ``_normalize_cell``, so ADR-008
                  verbatim discipline for date text is preserved.
       locked by: TestNormalizeCell::test_strips_otc_bullet
+
+  Rule R16: pdfplumber row-fusion split — when a single Hunt Code cell carries
+            2+ full hunt codes (a missing inter-row ruling merged two PDF rows),
+            _split_fused_block_row splits the block into N logical rows. Block
+            cells with N newline-parts distribute; single-value cells broadcast
+            to all N rows; any other part-count fails loud (ADR-001). Diverges
+            from the bear extractor's strict R17 (which requires all cells be
+            N-part) because big-game fusion is partial-column.
+      locked by: TestFusedRowSplit::test_two_code_fused_row_splits_to_two_rows,
+                 TestFusedRowSplit::test_misaligned_cell_raises
 """
 
 # State-specific module — must NOT import from ingestion.states.<other_state>.
@@ -345,6 +355,12 @@ _SEE_UNIT_RE = re.compile(r"(?i)^\s*see\s+unit\s+\d+")
 #   A-M-012-O1-M  (pronghorn/antelope, male, GMU 012, option 1, muzzleloader)
 # NOTE: CPW uses "A" (Antelope) as the pronghorn species letter — not "P".
 _HUNT_CODE_RE = re.compile(r"^([A-Z])-([A-Z])-(\d{3,4})-([A-Z0-9]+)-([A-Z])$")  # Rule R8
+
+# Rule R16: full embedded hunt-code matcher for row-fusion detection.
+# Unlike _HUNT_CODE_FRAGMENT_RE (first 3 components only, used for the
+# garbage-row filter), this matches the COMPLETE 5-component code so that
+# _split_fused_block_row can COUNT how many full codes a fused cell carries.
+_HUNT_CODE_EMBEDDED_RE = re.compile(r"([A-Z]-[A-Z]-\d{3,4}-[A-Z0-9]+-[A-Z])")
 
 # Rule R10: threshold for classifying a page as a map/non-table page.
 # When a page has zero tables AND its extracted text (stripped) is shorter than
@@ -1633,6 +1649,132 @@ def _get_cell(row: list[str | None], idx: int) -> str | None:
     return row[idx]
 
 
+def _split_fused_block_row(
+    row: list[str | None],
+    block: tuple[int, ...],
+) -> list[list[str | None]]:
+    """Rule R16: split a pdfplumber-merged multi-row block into N logical rows.
+
+    When the Hunt Code cell of *block* contains 2+ full hunt codes — a
+    pdfplumber artifact where two adjacent PDF rows were merged because the
+    inter-row ruling was missing — split the relevant block cells and return N
+    synthetic copies of *row*, each carrying one logical row's data.
+
+    Returns ``[row]`` unchanged when the Hunt Code cell has 0 or 1 full hunt
+    code (the common, unfused case).
+
+    **Big-game broadcast rule (divergence from bear's strict splitter):**
+    Big-game row fusion is *partial-column* — some columns carry one shared
+    value across both logical rows (e.g. a single Unit or Valid GMUs entry that
+    applies to every fused row), while only a subset of columns (Hunt Code,
+    List, sometimes Sex) are actually repeated.  When a present cell splits
+    into exactly 1 part (``\\n`` not present), that single value is *broadcast*
+    to all N synthetic rows rather than raising.  Only when a cell produces a
+    part count that is neither 1 nor N is the split genuinely ambiguous and
+    therefore raises (ADR-001 fail-loud).
+
+    Parameters
+    ----------
+    row:
+        The original pdfplumber table row (all columns).
+    block:
+        6-tuple ``(unit_idx, valid_gmus_idx, dates_idx, sex_idx,
+        hunt_code_idx, list_idx)`` where ``_NO_COL`` (-1) means the field is
+        absent in this table variant.
+
+    Returns
+    -------
+    list of rows — either ``[row]`` (no fusion detected) or N synthetic rows.
+
+    Raises
+    ------
+    PdfExtractionError
+        When a present, non-empty block cell splits into a part count that is
+        neither 1 (broadcast) nor N (distribute).  This indicates genuine
+        misalignment that cannot be resolved without corrupting row alignment
+        (ADR-001).
+
+    # Rule R16
+    Locked by: TestFusedRowSplit::test_two_code_fused_row_splits_to_two_rows,
+               TestFusedRowSplit::test_misaligned_cell_raises
+    """
+    hunt_code_idx = block[4]  # big-game block is 6-element; hunt code is [4]
+    raw_hunt = _get_cell(row, hunt_code_idx)
+    codes = _HUNT_CODE_EMBEDDED_RE.findall(raw_hunt or "")
+    if len(codes) < 2:
+        # Zero or one full hunt code — no row fusion; return unchanged.
+        return [row]
+
+    n = len(codes)
+    # The Hunt Code cell is the AUTHORITY for fusion detection. If it reports N
+    # codes yet does not itself split into N newline-separated parts (e.g. two
+    # codes abutted without a delimiter), the fusion is structurally ambiguous
+    # and must NOT fall through to the broadcast path below — broadcasting would
+    # emit N rows each carrying the same concatenated, unparseable hunt code.
+    # Fail loud per ADR-001 rather than silently degrading to LOW-confidence rows.
+    if len((raw_hunt or "").split("\n")) != n:
+        raise PdfExtractionError(
+            f"_split_fused_block_row (Rule R16): Hunt Code cell {raw_hunt!r} "
+            f"contains {n} full codes ({codes}) but does not split into {n} "
+            f"newline-separated parts — the codes are not cleanly delimited, so "
+            f"the fused row cannot be split without corrupting hunt-code "
+            f"alignment (ADR-001)."
+        )
+
+    # For each present block column, split its cell value on '\n'.
+    # Distribute (len == n), broadcast (len == 1), or raise (anything else).
+    # NOTE (known limitation): the broadcast/distribute decision is purely
+    # part-count based, so a fused row whose shared cell (e.g. valid_gmus)
+    # happens to be a single value that line-wraps to N parts would be
+    # mis-distributed rather than broadcast. No such case exists in the 2026
+    # brochure; see .roughly/known-pitfalls.md (R16 partial-column fusion).
+    col_parts: dict[int, list[str | None]] = {}
+    for idx in block:
+        if idx == _NO_COL:
+            continue
+        cell = _get_cell(row, idx)
+        if cell is None:
+            col_parts[idx] = [None] * n
+        else:
+            parts = cell.split("\n")
+            if len(parts) == n:
+                # Distribute: each synthetic row gets its own part.
+                col_parts[idx] = [p.strip() or None for p in parts]
+            elif len(parts) == 1:
+                # Broadcast: single shared value applies to all N rows.
+                v = cell.strip() or None
+                col_parts[idx] = [v] * n
+            else:
+                raise PdfExtractionError(
+                    f"_split_fused_block_row (Rule R16): block column {idx} "
+                    f"has {len(parts)} newline-separated parts but Hunt Code "
+                    f"cell contains {n} full codes — neither 1 (broadcast) "
+                    f"nor {n} (distribute).  "
+                    f"Cell value: {cell!r}.  "
+                    f"Hunt Code cell: {raw_hunt!r}.  "
+                    f"Codes found: {codes}.  "
+                    f"Cannot split without corrupting row alignment (ADR-001)."
+                )
+
+    # Build n synthetic rows, each a shallow copy of the original row with the
+    # block columns replaced by the k-th part for each column.
+    synthetic_rows: list[list[str | None]] = []
+    for k in range(n):
+        srow: list[str | None] = list(row)
+        for col_idx, col_part_list in col_parts.items():
+            srow[col_idx] = col_part_list[k]
+        synthetic_rows.append(srow)
+
+    _logger.debug(
+        "_split_fused_block_row (Rule R16): fused block with %d codes %r → "
+        "%d synthetic rows",
+        n,
+        codes,
+        n,
+    )
+    return synthetic_rows
+
+
 def _extract_block_row(
     row: list[str | None],
     block: tuple[int, ...],
@@ -2058,6 +2200,9 @@ def _parse_table_block(
             # Season Choice: single block with three date columns.
             if _is_see_unit_row(raw_row) or _is_footnote_row(raw_row):
                 continue
+            # Rule R16 (row-fusion split) is NOT wired here: Season Choice rows
+            # use a distinct column layout and do not fuse (verified — all fused
+            # rows in big-game-2026.json are standard rifle/muzzleloader rows).
             extracted = _parse_season_choice_row(
                 raw_row, blocks[0], page_ref, method_group, residency_scope
             )
@@ -2089,17 +2234,24 @@ def _parse_table_block(
                     )
                     continue
 
-                extracted = _extract_block_row(
-                    sub_row,
-                    block,
-                    header_window,
-                    method_group,
-                    residency_scope,
-                    page_ref,
-                    header_window_method,
-                )
-                if extracted is not None:
-                    results.append(extracted)
+                # Rule R16: split any pdfplumber row-fusion (2+ full hunt codes
+                # in the Hunt Code cell) into N logical rows before extraction.
+                # The skip checks above operate on the pre-split block_cells; a
+                # fused row is a real data row, not a see-unit/footnote row, so
+                # it passes those checks. _split_fused_block_row returns [sub_row]
+                # unchanged when there is no fusion (the common case).
+                for srow in _split_fused_block_row(sub_row, block):
+                    extracted = _extract_block_row(
+                        srow,
+                        block,
+                        header_window,
+                        method_group,
+                        residency_scope,
+                        page_ref,
+                        header_window_method,
+                    )
+                    if extracted is not None:
+                        results.append(extracted)
 
     return results
 

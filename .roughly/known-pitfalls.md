@@ -553,6 +553,7 @@ Surfaced by S03.1 (2026-05-04, gate 1) and refined by S06.1 (2026-06-09, gate 2 
 **Fix:** Treat the URL slug as opaque. Confirm cadence by reading the PDF cover page — that is the authoritative source for "this document covers years X through Y." If the slug and content disagree, name the citation id after what the document *contains*, not what the URL string says (or rename to match the URL if the content is also single-year — which is what we did for `mt-fwp-dea-2026-booklet`).
 
 Two concrete consequences:
+
 - `sources.yaml` `id` and `title` should reflect document content, not URL slug verbatim.
 - `expected_page_count` is a sanity-check claim, not a contract. The first live fetch reveals the true page count; pin `expected_sha256` only after the document content has been visually confirmed to match the spec's intent (or the spec has been amended).
 
@@ -1163,7 +1164,9 @@ When the PDF omits the horizontal ruling between two adjacent rows, pdfplumber r
 
 **Fix:** When a Hunt Code cell contains N≥2 full hunt codes (separated by `\n`), split every parallel block cell on `\n` into N logical rows. If any present, non-empty cell does not split into exactly N parts, raise immediately (ADR-001 — never guess the alignment). The split must happen before any downstream cell normalizer or confidence assignment so dropped rows surface as a hard error rather than a count-band miss. Reference: S06.4 Rule R17 `_split_fused_block_row` in `ingestion/states/colorado/extract_black_bear.py`.
 
-**Note:** the same latent issue exists in the big-game extractor — 9 fused cells appear in `big-game-2026.json`. Flag for a future hygiene pass.
+**Note:** the same latent issue existed in the big-game extractor. **Resolved 2026-06-16 via S06.3.1**: R17 was ported to `extract_big_game.py` as big-game Rule R16; the empirical count was **4** fused rows recovered (`D-M-082-O3-R`, `D-F-107-O1-R`, `A-M-004-O1-M`, `A-F-118-O1-R`), not 9 — the "9" was an unmeasured approximation at the time of discovery.
+
+**Big-game divergence — partial-column fusion (broadcast rule):** unlike bear (where a fused row doubled *every* column, so strict raise-on-any-mismatch is correct), big-game fusion is **partial-column** — some cells carry a single *shared* value spanning both logical rows (e.g. one `Valid GMUs = "82"` shared by `D-M-082-O2-R` and `D-M-082-O3-R`). So big-game's `_split_fused_block_row` uses `{N parts → distribute | 1 part → broadcast | else → raise}` rather than bear's strict rule. Two guard rails keep this fail-loud: (1) the **Hunt Code cell is the authority** — if it reports N codes but does not itself split into N `\n`-parts (e.g. codes abutted with no delimiter), raise rather than broadcast a concatenated unparseable code; (2) any non-1, non-N part count still raises. **Known residual limitation:** the broadcast/distribute decision is purely part-count based, so a fused row whose *shared* cell happens to be a single value that line-wraps to N parts would be mis-distributed (truncated) rather than broadcast. No such case exists in the 2026 brochure; if a future brochure year exhibits it, the symptom is a truncated `valid_gmus`/`unit` on a split row — disambiguation would need semantic awareness of what constitutes one GMU list vs two.
 
 Surfaced by S06.4 real-PDF probe on 2026-06-13.
 
