@@ -1,0 +1,19 @@
+ingestion/tests/test_extract_co_black_bear.py
+  s_2f6064e02e9182::t_8f0a9fdf9b2412 154-170,1115,1121,1135,1150,1164,1184,1199,1211,1226,1236,1244,1252,1286,1397,1510,1541,1564,1583,1809,1832,1854,1867,1922,1931
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "8a27ac0b6958b01f26cb8b7c04bfa17bf93f24a1",
+  "prompts": {},
+  "sessions": {
+    "s_2f6064e02e9182": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "22a04cdc-9041-405d-a3c2-18a4861bd93d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
