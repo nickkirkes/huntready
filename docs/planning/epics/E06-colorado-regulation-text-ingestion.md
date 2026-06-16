@@ -5,7 +5,7 @@
 **Dependencies:** E04 (M1 carry-forward + CO schema prep), E05 (CO geometry ingestion — all 9 stories closed + audited 2026-06-06; epic at [`completed/E05-colorado-geometry-ingestion.md`](completed/E05-colorado-geometry-ingestion.md))
 **Validated:** 2026-06-08 (E06 validation triad: Source Faithfulness + Draw-Mechanics & Confidence + Schema Stress-Test & Drift-Guard; verdicts LAND-WITH-MINOR-EDITS + LAND-WITH-EDITS + LAND-WITH-MINOR-EDITS; **all 11 MUST-FIX findings applied at draft time** — broken ADR-020 link sweep [5 occurrences]; S06.0 Last-Modified/Content-Length header capture + cover-page confirmation + multi-source option (a)/(c) consequence chains + conditional 6th `db.update_geometry_verbatim` decision + schema-gap enum-extension precision; S06.1 `pending: true` drift-marker semantics; S06.3/S06.4/S06.5 ADR-008 paraphrase-prohibition + no-`layout=True` AST guard + docstring grep-parity discipline; S06.4/S06.6/S06.9 `SourceCitation.document_type` silent-widening guard per ADR-019 §"Decision" item 5; S06.6 `_JURISDICTION_BINDING_ID_FORMAT` 3-test lock + statewide-anchor 3rd-candidate flag tighten + ADR-017 FINALIZE lock; S06.7 `drift_guard.assert_id_matches` every-build-function-site language + pure id-derivation function AC + Q16/Q17/closure-temporal-anchors pre-code flag protocols; S06.8 `successor_hunt_code_key` composite-key form + 20%/25% coupling rule + `application_deadline` location lock + `purchase_only_code` per-species string + `inactive_forfeit_years=null` + module-level `Final` constants for `_HYBRID_*` parameters + `draw_spec` composite-PK exclusion AC + Q17 per-GMU caps flag; S06.9 `assert_dispatch_dict_drift_free` module-top timing + pure `_derive_reporting_obligation_id` callable; S06.10 `drift_guard` NOT imported AC + AST guard + `%s`-bound distance lock + 4-builder portion code-path preservation. Plus the most load-bearing SHOULD-FIX items.)
 **Completed:** —
-**Estimated Stories:** 12 (S06.0 through S06.11; carve-outs added at sequencing slots per S03.6.1 precedent if surfaced mid-epic)
+**Estimated Stories:** 13 (S06.0 through S06.11, plus S06.3.1 carved out 2026-06-16 post-S06.4-closure to address Known Issues #10 + #11 per the S03.6.1 / S05.3.5 mid-epic carve-out precedent; carve-outs added at sequencing slots if surfaced mid-epic)
 **UAT Gating:** S06.3 / S06.4 (extraction faithfulness), S06.8 (draw_spec faithfulness against CPW publication), S06.11 (M2 milestone UAT). Most other stories are `UAT: no` — verification-gated against SQL counts deferred to S06.11. S06.5, S06.9 may flip to `UAT: yes` mid-epic if extraction surfaces faithfulness ambiguities.
 
 ---
@@ -350,6 +350,95 @@ CPW black bear regulations may be a separate publication or a section of the Big
 - [ ] PM-run spot-check on ≥3 representative bear regions cross-checked against source PDF (AC #343); runbook in `docs/planning/epics/E06-confidence-findings/S06.4.md` when captured — *PM-pending; not blocking S06.5 dispatch since S06.5 depends on S06.0 provenance + S06.3 brochure, not bear*
 
 - [x] Closure note (AC #345) documents: S06.4 shipped as **separate extractor** (not folded into S06.3); correction confirmed inert-for-bear; **correction-content correction surfaced**: the 2026 correction PDF is **moose + elk** (not moose-only as the S06.1 forward-note claimed) — page 2 is an elk-muzzleloader correction (E-M-…, p.44). Inert for bear, but **S06.3's elk extraction may need to apply this elk correction** — flagged as Known Issue #10 (PM decision pending)
+
+---
+
+### S06.3.1: Big Game extractor hygiene — R17 port + elk-correction investigation (carve-out post-S06.4 closure)
+
+**Status:** Not Started
+
+**Carved out 2026-06-16** post-S06.4 closure to address Known Issues #10 (latent S06.3 elk-correction-content gap) + #11 (latent big-game R17 row-fusion defect) as a single coherent carve-out. Mirrors the S03.6.1 / S05.3.5 mid-epic carve-out precedent. Combining both findings into one PR avoids two sequential SHA shifts on `big-game-2026.json` (which already absorbed one SHA shift via S06.4's coordinated `valid_gmus` cleanup `3c2ecd90…015d` → `e5c7c33a…6d1e`).
+
+**As a** developer fixing latent gaps in the S06.3 CPW Big Game extraction before downstream consumers (S06.6 regulation_record ingestion) touch the artifact
+**I want** the elk-correction-content gap resolved + the R17 pdfplumber row-fusion bug ported from `extract_black_bear.py` to `extract_big_game.py` + a single coordinated re-extraction with both fixes applied
+**So that** `big-game-2026.json` accurately reflects CPW's published regulations (post-correction merge if applicable) AND captures the 9 previously-dropped hunt codes that R17 silently lost, with one SHA shift documented as the final pre-S06.6 pin
+
+**UAT: yes** — PM-run spot-check on (a) the 9 newly-captured codes (whatever they prove to be) cross-checked against the source PDF + (b) any elk-muzzleloader rows updated by the correction merge (per Phase A outcome).
+
+**Context:**
+
+S06.4's build surfaced two findings about S06.3's already-merged `extract_big_game.py` + `big-game-2026.json`:
+
+- **Known Issue #10**: the 2026 CPW Big Game correction PDF is **moose + elk** (page 2 carries an elk-muzzleloader correction `E-M-…`, p.44), NOT moose-only as the S06.1 forward-note claimed. S06.3 closed treating the correction as moose-only inert and may have failed to apply the elk-muzzleloader correction merge. The `extract_big_game.py` three-pass arbitration scaffolding was wired but the question is whether S06.3's actual run produced a non-empty Pass-2 operations list for elk.
+- **Known Issue #11**: the same pdfplumber row-fusion bug that S06.4 Rule R17 fixed in bear extraction exists in `extract_big_game.py`; **9 fused cells in `big-game-2026.json` silently dropped codes**. R17 logic ports directly.
+
+Both findings affect the same code and the same committed artifact. Combining into one carve-out:
+
+- One PR, one SHA shift (third one on `big-game-2026.json`: original `3c2ecd90…015d` → S06.4 cleanup `e5c7c33a…6d1e` → S06.3.1 `<new>`)
+- Less audit churn
+- Phase A investigation outcome dictates whether the elk-correction merge actually fires; either way Phase B R17 port unconditionally fires
+- Phase C coordinated re-extraction + re-pin happens once
+
+**Sequencing**: lands **before S06.5** (PM + user decision 2026-06-16 — carve-out first sequencing keeps the artifact-state-of-truth correct before downstream consumers touch it; S06.5 is bear-independent so it doesn't block on this carve-out). Merge order updates to: S06.0 ✓ → S06.1 ✓ → S06.2 (omitted) → S06.3 ✓ → S06.4 ✓ → **S06.3.1 (NEW; next active)** → S06.5 → S06.6 → S06.7 → S06.8 → S06.9 → S06.10 → S06.11.
+
+**Phase A — Elk-correction investigation gate (Known Issue #10):**
+
+The Phase A implementer probes whether `extract_big_game.py`'s S06.3 run produced a non-empty Pass-2 operations list for elk-muzzleloader, and **what the actual elk-muzzleloader correction content does**. The investigation resolves to one of three outcomes:
+
+- **(a) Re-extract with elk correction applied** — Pass-2 has a non-empty elk-muzzleloader operations list AND the correction was NOT actually applied in S06.3's merged artifact. Phase C re-extracts with the correction applied; `applied_correction=true` + `supersedes` populated on the affected rows; confidence demote-one-tier per ADR-017 §4
+- **(b) Confirm structurally-outside-V1-scope** — the elk-muzzleloader correction targets non-V1 content (e.g., a hunt code not in V1 species scope per PRD 002); document the deviation in the S06.3.1.md memo + the closure note; no re-extraction merge action needed
+- **(c) Defer to S06.6 ingestion** — the correction is in scope but is better applied at load time than at extraction time (e.g., the structure of the correction maps better to a `regulation_record.additional_rules` annotation than to a per-row merge); document the deferral + carry forward to S06.6 spec
+
+The PM expectation is outcome (a) given S06.3 demonstrably wired the three-pass arbitration but the original S06.1 forward-note characterization led the S06.3 implementer to assume moose-only inert; if (b) or (c) fires, the S03.4 lesson "correction-PDF-contradicts-forward-note" pitfall (already in known-pitfalls.md) is the durable record.
+
+**Phase B — R17 port (Known Issue #11):**
+
+The Phase B implementer ports the R17 pdfplumber row-fusion split logic from `ingestion/states/colorado/extract_black_bear.py` to `ingestion/states/colorado/extract_big_game.py`:
+
+- Pattern: detect cells whose content contains multiple hunt-code fragments matching `_HUNT_CODE_FRAGMENT_RE` (the deer/elk/pronghorn analog of bear's matcher); split on multi-hunt-code cells; fail-loud on misalignment with the row's other column counts
+- Wire into all relevant row-walking paths in big-game (the analog of bear's "all three row-walking paths: limited, OTC no-Dates, OTC has-Dates")
+- Add an R17-equivalent docstring section + a locking test (`test_r17_fused_row_split_big_game` or similar) that pins ≥3 representative fused-cell cases discovered in `big-game-2026.json`
+- Pre-pre-fix snapshot: enumerate the 9 fused cells currently silently dropping codes; the test verifies all 9 are captured post-fix
+
+**Phase C — Coordinated re-extraction + re-pin:**
+
+Once Phase A outcome is locked AND Phase B R17 port is wired:
+
+- Re-run `python -m ingestion.states.colorado.extract_big_game` to regenerate `extracted/big-game-2026.json` (and `big-game-2026-base.json` + `corrections-2026-02-19.json` if Phase A outcome (a))
+- Verify counts: 737 sections (unchanged) + 2,758 rows + the 9 newly-captured codes (so the row count rises by at least 9 — TBD by R17 outcome); confidence distribution TBD by both fixes
+- Compute new SHA-256; re-pin in `test_extract_co_big_game.py`
+- Update the S06.3 closure narrative + S06.3 AC #279 to point at the new pin (third documented SHA on this artifact); annotate the lineage explicitly: `3c2ecd90…015d` (S06.3 close) → `e5c7c33a…6d1e` (S06.4 `valid_gmus` cleanup) → `<new>` (S06.3.1)
+- Capture a per-fix count delta in the S06.3.1.md closure memo: "Phase A applied N rows" + "Phase B captured 9 previously-dropped codes" so the closure note is the durable record of what changed
+
+**Deliverables:**
+
+- `docs/planning/epics/E06-confidence-findings/S06.3.1.md` — Phase A investigation memo + Phase B R17 port summary + Phase C re-extraction record + SHA-lineage chronicle (deletes at `m2` tag per ADR-017 §6)
+- Modified `ingestion/states/colorado/extract_big_game.py` with R17 logic ported (state-agnostic-clean preserved; `TestNoColoradoLeakIntoSharedLib` stays green)
+- Regenerated `ingestion/states/colorado/extracted/big-game-2026.json` (+ Pass-1 + corrections artifact if Phase A outcome (a))
+- Re-pinned SHA in `ingestion/tests/test_extract_co_big_game.py`
+- R17 locking test (analog of S06.4's R17 test)
+- Updated module docstring with the R17 cleanup rule entry (AC #547 strict-parity discipline)
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md) (fail-loud on misalignment), [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md) (paraphrase prohibition preserved across the re-extraction), [ADR-017](../adrs/ADR-017-confidence-calibration.md) (demote-one-tier per ADR-017 §4 if Phase A outcome (a) fires), [ADR-019](../adrs/ADR-019-doc-type-precedence-multi-source-merge.md) (correction precedence — outcome (a) makes the merge concrete; outcome (b) / (c) leave it as documented gap).
+
+**Depends on:** S06.3 closure (✓ 2026-06-13), S06.4 closure (✓ 2026-06-15 — surfaced both findings).
+
+**Unblocks:** S06.5 (sequencing only — S06.5 is bear-independent so technically NOT blocked, but PM decision is to sequence carve-out first to keep artifact-state-of-truth clean before S06.6); S06.6 regulation_record ingestion (avoids downstream silent gaps from the 9 lost codes).
+
+**Acceptance Criteria:**
+
+- [ ] `docs/planning/epics/E06-confidence-findings/S06.3.1.md` exists with Phase A investigation outcome captured verbatim (one of (a) / (b) / (c)) + Phase B R17 port summary + Phase C SHA-lineage chronicle
+- [ ] **Phase A**: implementer probes S06.3 run's actual Pass-2 elk-muzzleloader operations behavior; outcome documented; if (a), elk-muzzleloader correction merged into `big-game-2026.json` with `applied_correction=true` + `supersedes` populated + ADR-017 §4 demote-once-per-row applied; if (b) / (c), deviation documented + S06.6 spec implications noted (for (c))
+- [ ] **Phase B**: R17 pdfplumber row-fusion split logic ported to `extract_big_game.py` from `extract_black_bear.py`; wired into all relevant row-walking paths; fail-loud on misalignment; locking test pins ≥3 representative fused-cell cases; module docstring updated with the R17 entry (AC #547 strict-parity discipline)
+- [ ] **9 previously-dropped codes captured**: pre-fix snapshot enumerates the 9; post-fix `big-game-2026.json` contains them; locking test verifies (mirrors the S06.4 R17 test pattern)
+- [ ] `big-game-2026.json` regenerated; SHA computed + re-pinned in `test_extract_co_big_game.py`; SHA lineage `3c2ecd90…015d` → `e5c7c33a…6d1e` → `<new>` documented in the closure note + S06.3 closure narrative annotated
+- [ ] `extract_big_game.py` remains state-agnostic-clean per AST guard; `TestNoColoradoLeakIntoSharedLib` stays green; no `ingestion/lib/` edits (R17 logic stays per-extractor per CPW-specific convention, mirroring `_split_valid_gmus`)
+- [ ] **ADR-008 paraphrase prohibition** preserved across re-extraction: `verbatim_text` byte-equivalent to `pdf.extract_text` output for the source span; no `layout=True` (AST guard); cleanup-rules docstring grep-parity with runtime normalizations
+- [ ] Test baseline grows additively only; new test(s) for R17 + (conditional) Phase A correction-merge verification; ruff + mypy + detect-secrets clean; cubic clean
+- [ ] **UAT (PM-pending at story close):** PM-run spot-check on (a) the 9 newly-captured codes cross-checked against the source PDF + (b) any elk-muzzleloader rows updated by Phase A outcome (a) merge
+- [ ] Closure note documents per-fix count delta: "Phase A applied N rows (or N/A if outcome (b)/(c))" + "Phase B captured 9 previously-dropped codes"
+- [ ] Epic Known Issues #10 + #11 annotated as **RESOLVED via S06.3.1** (mirrors S05.3.5 → Known Issue #2 RESOLVED pattern)
+- [ ] No production-DB writes from the build session (S06.3.1 is documentation + extraction-side only; no DB)
 
 ---
 
@@ -872,9 +961,9 @@ These items are surfaced to the human for decision; they do not block E06 story 
 
 9. **Recurring-review pattern: "monolithic extractor module" P2 raised 3× against S06.3** (surfaced 2026-06-13). The S06.3 `extract_big_game.py` file at 2,685 LOC triggered the same "split this into smaller modules" review finding three times across iteration. Each time declined as out-of-scope: (a) uniform single-module convention across all 4 MT + future CO extractors; (b) coupling is test-mitigated (1,334-LOC test file locks the public surface); (c) modularization is an ADR-level project-wide call, not an in-review per-story refactor. Rationale recorded in `.roughly/known-pitfalls.md` to stop this from being re-litigated. **If modularization is on the table for V2**, draft as an ADR + apply uniformly across all CO + MT extractors in one PR — not piecemeal at review time.
 
-10. **🔴 Latent S06.3 elk-correction-content gap** (surfaced 2026-06-15 via S06.4 build). The 2026 CPW Big Game correction PDF is **moose + elk**, NOT moose-only as the S06.1 forward-note claimed. Page 2 is an elk-muzzleloader correction (hunt-code `E-M-…`, p.44). **S06.3 closed treating the correction as moose-only inert** and may have missed applying this elk-muzzleloader correction to `big-game-2026.json`'s elk extraction. **PM decision needed**: (a) re-extract S06.3's big-game artifact with the elk correction applied (analog of the S06.4-touched-S06.3 SHA shift; counts unchanged but elk-muzzleloader row(s) updated per ADR-019 `correction > annual_regulations`; re-pin SHA); (b) confirm the elk correction is structurally outside S06.3's V1 extraction scope (e.g., the corrected row is non-V1) and document the deviation; (c) defer to S06.6 ingestion to apply the correction at load time. **The three-pass arbitration scaffolding in `extract_big_game.py` was wired to apply the merge** — the question is whether S06.3's run actually used a non-empty Pass-2 operations list for elk. **Worth investigating before E06 proceeds to S06.6**; bear is inert and unaffected (S06.4 confirmed empty operations list for bear).
+10. **Latent S06.3 elk-correction-content gap** — **SCOPED TO S06.3.1** (carved out 2026-06-16 per user decision; mirrors S05.3.5 → Known Issue #2 RESOLVED pattern). The 2026 CPW Big Game correction PDF is **moose + elk**, NOT moose-only as the S06.1 forward-note claimed. Page 2 is an elk-muzzleloader correction (hunt-code `E-M-…`, p.44). S06.3 closed treating the correction as moose-only inert and may have missed applying this elk-muzzleloader correction. **S06.3.1 Phase A** investigation gate resolves to one of three outcomes ((a) re-extract with correction applied; (b) confirm structurally-outside-V1-scope; (c) defer to S06.6 load-time); see the S06.3.1 story spec for the full investigation protocol. Bear is inert and unaffected (S06.4 confirmed empty operations list for bear).
 
-11. **🔴 Latent `big-game-2026.json` row-fusion defect** (surfaced 2026-06-15 via S06.4 R17 discovery; **out of S06.4 scope**). The same pdfplumber row-fusion bug that S06.4's Rule R17 fixed in bear extraction exists in `extract_big_game.py` — **9 fused cells in `big-game-2026.json` silently dropped codes**. Out of S06.4 scope (would re-pin big-game SHA again + needs its own review). **R17 logic ports directly** to big-game (split on multi-hunt-code cells, fail-loud on misalignment). Recommended: separate hygiene story (analog of an S06.3.1 carve-out, mirroring the S03.6.1 / S05.3.5 mid-epic carve-out precedent) that ports R17 to big-game, re-runs the extractor, re-pins SHA, and confirms the 9 previously-dropped codes are now captured. Land before S06.6 (regulation_record ingestion) to avoid downstream silent gaps.
+11. **Latent `big-game-2026.json` row-fusion defect** — **SCOPED TO S06.3.1** (carved out 2026-06-16 per user decision; same combined carve-out as #10 since both touch the same code and produce one coordinated SHA shift). The same pdfplumber row-fusion bug that S06.4's Rule R17 fixed in bear extraction exists in `extract_big_game.py` — **9 fused cells in `big-game-2026.json` silently dropped codes**. **S06.3.1 Phase B** ports R17 logic directly (split on multi-hunt-code cells, fail-loud on misalignment); Phase C coordinated re-extraction captures all 9 codes + re-pins SHA. See the S06.3.1 story spec for the full port protocol.
 
 If E06 implementation surfaces issues out of E06 scope, implementation agents flag on the relevant story rather than silently widening scope. PM surfaces to human.
 
