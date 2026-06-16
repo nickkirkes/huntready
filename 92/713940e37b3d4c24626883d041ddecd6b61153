@@ -1,0 +1,25 @@
+docs/adrs/ADR-022-single-module-per-state-extractors.md
+  s_92715795b52a0f::t_0dee24a0e995df 1-61
+docs/planning/epics/E06-colorado-regulation-text-ingestion.md
+  s_92715795b52a0f::t_42b8368c05f6c7 962
+.roughly/known-pitfalls.md
+  s_92715795b52a0f::t_8fa8f76ee53e96 483
+docs/adrs/README.md
+  s_92715795b52a0f::t_4a4ed8da4ddd05 84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "92713940e37b3d4c24626883d041ddecd6b61153",
+  "prompts": {},
+  "sessions": {
+    "s_92715795b52a0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "07eaba30-4ed9-4279-9008-468eef4b9307",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
