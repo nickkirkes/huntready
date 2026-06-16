@@ -1,0 +1,61 @@
+ingestion/states/colorado/extracted/big-game-2026.json
+  s_92715795b52a0f::t_bd9c67a3ebc3df 232,255,629-630,712,737
+ingestion/states/colorado/extract_big_game.py
+  s_92715795b52a0f::t_bc472ca492ee47 224-225
+  s_92715795b52a0f::t_7de24e88145080 1652-1708,1724-1725,1731-1777
+  s_92715795b52a0f::t_27a2b01c2e0e77 1709-1723,1726-1730
+  s_92715795b52a0f::t_97378242d0a4e1 2203-2205,2237-2254
+  s_92715795b52a0f::t_0efaefc5ab19a2 359-364
+  s_92715795b52a0f::t_2c0ffb5f08b2f0 216-223
+docs/planning/epics/E06-confidence-findings/S06.3.1.md
+  s_92715795b52a0f::t_61c7229e14838a 1-167
+.roughly/known-pitfalls.md
+  s_92715795b52a0f::t_eecc90234f7f3e 1169
+  s_92715795b52a0f::t_f47ce113a82477 556
+  s_92715795b52a0f::t_be31ede0e7291a 1167
+docs/planning/epics/E06-colorado-regulation-text-ingestion.md
+  s_92715795b52a0f::t_c45c4db2f0a8fc 358
+  s_92715795b52a0f::t_00692cd3685d4f 438
+  s_92715795b52a0f::t_d1b9df864635b4 440
+  s_92715795b52a0f::t_9a6bd473a750d4 433
+  s_92715795b52a0f::t_a52f20b6f805c0 435
+  s_92715795b52a0f::t_c667edea64679b 441
+  s_92715795b52a0f::t_3352fe1a5a013f 279
+  s_92715795b52a0f::t_f3e74ca349d670 430
+  s_92715795b52a0f::t_4b968b50c955eb 436
+  s_92715795b52a0f::t_7c72cc521f8e55 964
+  s_92715795b52a0f::t_e59cf26d187575 966
+  s_92715795b52a0f::t_51998b460d52ad 439
+  s_92715795b52a0f::t_4b4f68266003dd 431
+  s_92715795b52a0f::t_af51bd6d4cc8a3 432
+  s_92715795b52a0f::t_1b0de2ae7eb406 437
+  s_92715795b52a0f::t_ba62772bfb06c2 434
+ingestion/tests/test_extract_co_big_game.py
+  s_92715795b52a0f::t_de20f4d5b03669 1339,1346
+  s_92715795b52a0f::t_69cdb1b55db4dd 1525-1527,1529-1532,1534-1570,1572-1691,1693-1713,1715-1719,1722-1735,1760-1776
+  s_92715795b52a0f::t_8160f6a888f3f4 1116,1135-1137,1147
+  s_92715795b52a0f::t_5e9226b61f08f8 1185,1197
+  s_92715795b52a0f::t_649953ab24d19d 158
+  s_92715795b52a0f::t_19b1a3e06f5f2e 137,140
+  s_92715795b52a0f::t_840875152bd268 1104,1134,1183-1184,1528,1533,1571,1692,1714
+  s_92715795b52a0f::t_dd97c08602e0b8 1736-1759
+  s_92715795b52a0f::t_f1b15b0b5e474a 1091,1105-1106,1108,1111,1113
+  s_92715795b52a0f::t_d9e63b92e11901 1720-1721
+  s_92715795b52a0f::t_87df1c5d18d70a 1107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "2133969e974fd109df86b5a7285a7d25182600fe",
+  "prompts": {},
+  "sessions": {
+    "s_92715795b52a0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "07eaba30-4ed9-4279-9008-468eef4b9307",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
