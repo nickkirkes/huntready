@@ -1,0 +1,20 @@
+.roughly/plans/S06.3.1-big-game-extractor-hygiene-plan.md
+  s_92715795b52a0f::t_c90ed0f2e9f871 1-2
+  s_92715795b52a0f::t_758d49b115b2e3 3-296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "daa642b1c49d999658a8b8f2f468e8220c8a7255",
+  "prompts": {},
+  "sessions": {
+    "s_92715795b52a0f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "07eaba30-4ed9-4279-9008-468eef4b9307",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
