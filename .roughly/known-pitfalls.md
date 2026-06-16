@@ -845,6 +845,16 @@ Surfaced by S05.4 Stage-6 code review on 2026-06-03.
 
 Surfaced by S05.5 Stage-6 review on 2026-06-04.
 
+### Duplicate hunt codes across "Unit" sub-rows are a faithful extraction shape — the loader collapses, not the extractor
+
+When one license covers multiple units, CPW lists each unit on its own sub-row sharing the same hunt code. The extractor must faithfully emit one row per sub-row (same `hunt_code`, differing `unit` / `valid_gmus` values). This matches the big-game artifact's shape (265 such groups in `big-game-2026.json`).
+
+**Do NOT add extractor-side dedup.** Deduplicating in the extractor diverges from the sibling and loses per-unit faithfulness — the downstream regulation_record loader (S06.6) keys by hunt code and collapses identical rows via UPSERT. The duplication is a data property of the source, not an extraction artifact. Adding a dedup step would require a parallel accumulator, add complexity, and would silently suppress per-unit distinctions that may matter for future loaders.
+
+Reference: S06.4 / S06.6 design decision; consistent with `ingestion/states/colorado/extract_big_game.py` multi-unit sub-row shape.
+
+Surfaced by S06.4 real-PDF probe on 2026-06-13.
+
 ## Conventions — Pre-commit & secrets
 
 ### `detect-secrets` flags ArcGIS `serviceItemId` UUIDs as hex high-entropy strings
@@ -1131,6 +1141,32 @@ Surfaced by S05.5 Stage-6 review on 2026-06-04.
 
 Surfaced by S06.3 review on 2026-06-10.
 
+### CPW per-species column layouts differ — probe each species' table shape against the live PDF, don't inherit from a sibling extractor
+
+CPW Black Bear hunt-code tables use a 4-column layout (`Unit | Valid GMUs | Hunt Code | List`) or a 5-column variant adding `Dates` — with **no Sex column**. The sibling CPW Big Game (deer/elk/pronghorn) tables are 5- or 6-column **with** a Sex column. Applying the big-game column-index mapping to bear tables mis-maps every row: what big-game reads as `sex` is bear's `hunt_code`; what big-game reads as `hunt_code` is bear's `list`. The failure is silent — no `KeyError`, just wrong field assignments.
+
+**Fix:** At Stage-1 discovery, open the target PDF and count actual column headers for each species' tables independently. Write a species-specific column-detection function (e.g., `_bear_classify_table_variant` in `ingestion/states/colorado/extract_black_bear.py`) rather than inheriting from a sibling extractor. When in doubt, emit a WARNING for unrecognized column counts rather than mapping blindly.
+
+Surfaced by S06.4 implementation on 2026-06-13.
+
+### Hunt code embedded in prose defeats an anchored regex — use an unanchored `re.search` fallback and store the prose verbatim
+
+A hunt-code cell can carry a prose prefix alongside the code, e.g. `"Sales agents only: B-E-087-U6-R"`. An anchored pattern (`^[A-Z]-[A-Z]-\d{3,4}-[A-Z]\d-[A-Z]$`) fails to match and the row collapses to empty or low-confidence, silently dropping a real license.
+
+**Fix:** After the anchored parse fails, attempt `re.search` for the full 5-component hunt-code pattern embedded anywhere in the cell. When found: use the extracted code for structured fields and store the surrounding prose verbatim in `extras` (ADR-008). Emit an INFO log so operators can audit. This recovered a dropped CO Plains-OTC bear license whose cell read `"Sales agents only: B-E-087-U6-R"` — a valid license that the anchored parser silently discarded. Reference: S06.4 Rule R16 in `ingestion/states/colorado/extract_black_bear.py`.
+
+Surfaced by S06.4 real-PDF probe on 2026-06-13.
+
+### pdfplumber merges two adjacent table rows into one when the inter-row ruling is missing — detect multi-hunt-code cells and split, fail loud on misalignment
+
+When the PDF omits the horizontal ruling between two adjacent rows, pdfplumber returns a single logical row with newline-joined cell pairs, e.g. `Hunt Code = "B-E-058-O1-M\nB-E-059-O1-M"`, `Unit = "58\n59"`, `List = "B\nB"`. A naive "use first line only" rule keeps the first code, leaves the other cells fused as `list_value="B\nB"`, and **silently drops the second hunt code** — a real license that never appears in the artifact.
+
+**Fix:** When a Hunt Code cell contains N≥2 full hunt codes (separated by `\n`), split every parallel block cell on `\n` into N logical rows. If any present, non-empty cell does not split into exactly N parts, raise immediately (ADR-001 — never guess the alignment). The split must happen before any downstream cell normalizer or confidence assignment so dropped rows surface as a hard error rather than a count-band miss. Reference: S06.4 Rule R17 `_split_fused_block_row` in `ingestion/states/colorado/extract_black_bear.py`.
+
+**Note:** the same latent issue exists in the big-game extractor — 9 fused cells appear in `big-game-2026.json`. Flag for a future hygiene pass.
+
+Surfaced by S06.4 real-PDF probe on 2026-06-13.
+
 ### Forking a state-adapter module means forking its test suite too — verify guard-parity before closing the story
 
 **Symptom:** A new state's adapter module is created as a near-verbatim copy of an existing state's module (e.g., CO `fetch_pdfs.py` forked from MT `fetch_pdfs.py` with only docstring/path/argparse substitutions). A handful of new-state-specific tests are written, but the sibling state's orchestrator-behavior test classes are not ported. The copied module carries fail-loud guards (malformed-entry, empty-or-invalid-field, empty-url), but those guards have zero test coverage in the new state. A future accidental weakening of a copied guard passes CI silently.
@@ -1138,3 +1174,23 @@ Surfaced by S06.3 review on 2026-06-10.
 **Cause:** The shared-lib primitive (`pdf_fetch.fetch_pdf`) is covered once in `test_pdf_fetch.py`, but the per-state orchestrator copy is a separate artifact — each state's copy needs its own behavior coverage. Writing only new-state-specific tests leaves the inherited guard logic dark.
 
 **Fix:** When forking a state-adapter module, port the sibling's behavior-test classes too (CO-renamed, with updated import paths). Verify guard-parity by diffing the new test file's class list against the sibling's before closing the story. Surfaced by S06.1 Stage-6 silent-failure-hunter: porting MT's `TestMalformedEntryShape`, `TestEmptyOrInvalidFieldValuesFailLoud`, and `TestEmptyUrlEntryFailsLoud` classes raised CO's orchestrator coverage from 12 → 22 tests and closed the guard-parity gap.
+
+### A correction/supplement PDF can contradict a prior story's forward-note — parse it in full and evidence its real content; never trust the claimed scope
+
+A closure note's forward-note (e.g., S06.1's "the 2026 CPW correction PDF is moose-only") is an observation recorded at the time that story closed — it is not a contract. The live 2-page correction extract turned out to be moose (p. 1) **AND** elk muzzleloader hunt codes (p. 2). An extractor that hardcodes the claimed scope ("skip this PDF; it only touches moose") would silently omit the elk correction, producing a faithfulness gap.
+
+**Fix:** Always open and scan the full correction PDF in the extractor's implementation, log the real content as structured evidence (e.g., section headers found, page count, species detected), and make the inert/active decision from that evidence — not from the upstream closure note. A forward-note is a breadcrumb, not a bypass.
+
+**Bonus signal:** when a correction PDF contains content the prior story said it wouldn't, flag the upstream extractor (S06.3 in this case) as a potential gap — the elk muzzleloader correction may not have been applied to `big-game-2026.json`. Reference: S06.4 `_extract_correction` in `ingestion/states/colorado/extract_black_bear.py`.
+
+Surfaced by S06.4 real-PDF probe on 2026-06-13.
+
+### An out-of-domain hunt code on a single-species page is a structural anomaly — fail loud, matching the extractor's other structural guards
+
+A bear extractor parses bear-only pages (CPW PDF 72–77). A parsed-but-non-bear hunt code there (e.g. `D-E-050-O1-A` — a deer code) is not a degraded-but-valid bear row; it signals page-bleed, a wrong page range, or a parser bug. The original code only *warned* on `species_letter != "B"` while `_assign_bear_row_confidence` keyed LOW on `species_letter == ""` (unparseable) — so a misclassified code was promoted to **HIGH** and would be persisted by S06.6 as `species_group="black_bear"` (corrupt data).
+
+**Fix:** `_extract_bear_block_row` raises `PdfExtractionError` on a non-`"B"` species letter (naming code + page), mirroring big-game `_species_group_for`'s raise-on-unknown. This matches the module's other structural-anomaly guards (unrecognized OTC heading, fused-row misalignment, `document_type`, count-band) which all fail hard before any write. Extraction is deterministic + re-runnable, so aborting is not permanent data loss — it forces a parser fix, the correct response. Keep `_parse_hunt_code` itself permissive (pure parser, used by the R16 embedded-search check); enforce at the emit site.
+
+**Review-cycling note:** a code-review bot (cubic) objected to *every* candidate behavior across successive runs — `raise` ("discards other rows"), `emit-at-LOW` ("leaks non-bear data into the artifact"), and `warn+skip` ("silently drops; prefer a hard failure"). These objections are mutually exclusive; no behavior satisfies all three. When review findings *cycle* (contradict prior rounds) rather than *narrow*, stop iterating and decide on convention + domain priority, then document the rationale (here: fail-hard, because for a regulatory artifact a hard failure is more detectable than missing/leaked rows, and it matches the module + sibling convention). Reference: S06.4 `_extract_bear_block_row` (`06dcce8`).
+
+Surfaced by S06.4 post-merge review on 2026-06-14.
