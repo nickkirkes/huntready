@@ -151,6 +151,23 @@ def _make_correction_op(
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Shared artifact loader — every artifact-asserting test class reads the same
+# committed merged black-bear-2026.json (the path the extractor writes).
+# ---------------------------------------------------------------------------
+
+
+def _load_merged_artifact() -> list[dict]:  # type: ignore[type-arg]
+    """Load the committed merged black-bear-2026.json artifact (skip if absent)."""
+    p = extract_black_bear._MERGED_OUTPUT_PATH
+    if not p.exists():
+        pytest.skip(
+            "black-bear-2026.json not generated — run extract_black_bear.py first"
+        )
+    with open(p) as f:
+        return json.load(f)  # type: ignore[no-any-return]
+
+
 class TestNoForeignStateAdapterImports:
     """AST-walk guard: extract_black_bear.py must not import from other states'
     adapters, and must not import from ingestion.lib.db.
@@ -1093,25 +1110,15 @@ class TestArtifactStructureInvariants:
     Loads the committed artifact directly (no live PDF required).
     """
 
-    @staticmethod
-    def _load() -> list[dict]:  # type: ignore[type-arg]
-        p = extract_black_bear._MERGED_OUTPUT_PATH
-        if not p.exists():
-            pytest.skip(
-                "black-bear-2026.json not generated — run extract_black_bear.py first"
-            )
-        with open(p) as f:
-            return json.load(f)  # type: ignore[no-any-return]
-
     def test_record_type_present_on_every_record(self) -> None:
         """Every record in the artifact carries a 'record_type' discriminator key."""
-        data = self._load()
+        data = _load_merged_artifact()
         missing = [i for i, r in enumerate(data) if "record_type" not in r]
         assert not missing, f"records missing 'record_type' at indices: {missing}"
 
     def test_record_type_values_are_expected(self) -> None:
         """Only the three expected record_type values appear."""
-        data = self._load()
+        data = _load_merged_artifact()
         types = {r["record_type"] for r in data}
         assert types <= {"section", "reporting_obligation", "statewide_rule"}, (
             f"Unexpected record_type values: {types - {'section', 'reporting_obligation', 'statewide_rule'}}"
@@ -1125,7 +1132,7 @@ class TestArtifactStructureInvariants:
         """
         from collections import Counter
 
-        data = self._load()
+        data = _load_merged_artifact()
         assert len(data) == 173, f"Expected 173 records; got {len(data)}"
         ct = Counter(r["record_type"] for r in data)
         assert ct["section"] == 170, f"Expected 170 section records; got {ct['section']}"
@@ -1140,7 +1147,7 @@ class TestArtifactStructureInvariants:
               two separate rows (previously only B-E-058-O1-M was kept)
           = 215 net
         """
-        data = self._load()
+        data = _load_merged_artifact()
         total = sum(len(r.get("rows", [])) for r in data if r["record_type"] == "section")
         assert total == 215, f"Expected 215 rows total; got {total}"
 
@@ -1154,7 +1161,7 @@ class TestArtifactStructureInvariants:
         """
         from collections import Counter
 
-        data = self._load()
+        data = _load_merged_artifact()
         dist = Counter(
             row["extraction_confidence"]
             for r in data
@@ -1174,7 +1181,7 @@ class TestArtifactStructureInvariants:
         """
         from collections import Counter
 
-        data = self._load()
+        data = _load_merged_artifact()
         dist = Counter(
             row["license_kind"]
             for r in data
@@ -1189,7 +1196,7 @@ class TestArtifactStructureInvariants:
 
     def test_all_section_rows_have_applied_correction(self) -> None:
         """Every section row carries the 'applied_correction' field (Pass-3 field)."""
-        data = self._load()
+        data = _load_merged_artifact()
         missing = [
             (r["gmu_code"], row.get("hunt_code", "?"))
             for r in data
@@ -1201,7 +1208,7 @@ class TestArtifactStructureInvariants:
 
     def test_no_applied_correction_true_rows_inert_case(self) -> None:
         """Inert correction: zero rows have applied_correction=True."""
-        data = self._load()
+        data = _load_merged_artifact()
         touched = [
             (r["gmu_code"], row.get("hunt_code", "?"))
             for r in data
@@ -1216,7 +1223,7 @@ class TestArtifactStructureInvariants:
 
     def test_all_section_rows_have_species_group_black_bear(self) -> None:
         """Every section carries species_group='black_bear' (not 'bear')."""
-        data = self._load()
+        data = _load_merged_artifact()
         bad = [
             r.get("gmu_code")
             for r in data
@@ -1226,7 +1233,7 @@ class TestArtifactStructureInvariants:
 
     def test_reporting_obligation_has_mandatory_inspection(self) -> None:
         """The reporting_obligation record has kind_hint='mandatory_inspection'."""
-        data = self._load()
+        data = _load_merged_artifact()
         obs = [r for r in data if r["record_type"] == "reporting_obligation"]
         assert len(obs) == 1
         assert obs[0]["kind_hint"] == "mandatory_inspection"
@@ -1234,7 +1241,7 @@ class TestArtifactStructureInvariants:
 
     def test_statewide_rule_hints_present(self) -> None:
         """The two statewide_rule records have the expected rule_hint values."""
-        data = self._load()
+        data = _load_merged_artifact()
         hints = {r["rule_hint"] for r in data if r["record_type"] == "statewide_rule"}
         assert hints == {"season_dates_summary", "list_abc_explanation"}, (
             f"Expected both statewide rule hints; got {hints}"
@@ -1242,7 +1249,7 @@ class TestArtifactStructureInvariants:
 
     def test_confidence_values_are_plain_strings(self) -> None:
         """extraction_confidence values are plain strings, not enum repr."""
-        data = self._load()
+        data = _load_merged_artifact()
         valid = {"high", "medium", "low"}
         bad: list[str] = []
         for r in data:
@@ -1269,16 +1276,6 @@ class TestBearOtcExtraction:
       TestBearOtcExtraction::test_rifle_otc_multi_window_consolidated
     """
 
-    @staticmethod
-    def _load() -> list[dict]:  # type: ignore[type-arg]
-        p = extract_black_bear._MERGED_OUTPUT_PATH
-        if not p.exists():
-            pytest.skip(
-                "black-bear-2026.json not generated — run extract_black_bear.py first"
-            )
-        with open(p) as f:
-            return json.load(f)  # type: ignore[no-any-return]
-
     def test_rifle_otc_multi_window_consolidated(self) -> None:
         """Rule R13: at least one OTC rifle row has multiple season_windows consolidated.
 
@@ -1286,7 +1283,7 @@ class TestBearOtcExtraction:
         them all onto the primary hunt-code row.  Any OTC rifle row with >1 window
         proves consolidation ran correctly.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         otc_rifle_rows = [
             row
             for r in data
@@ -1391,23 +1388,13 @@ class TestBearSectionAssembly:
       TestBearSectionAssembly::test_add_on_otc_note_captured
     """
 
-    @staticmethod
-    def _load() -> list[dict]:  # type: ignore[type-arg]
-        p = extract_black_bear._MERGED_OUTPUT_PATH
-        if not p.exists():
-            pytest.skip(
-                "black-bear-2026.json not generated — run extract_black_bear.py first"
-            )
-        with open(p) as f:
-            return json.load(f)  # type: ignore[no-any-return]
-
     def test_add_on_otc_note_captured(self) -> None:
         """Rule R14: at least one add_on_otc section carries a non-None 'notes' field.
 
         The Add-On OTC banner rows carry prerequisite text ("You must hold an
         archery deer or elk license…") stored in the section-level 'notes' field.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         addon_sections = [
             r for r in data
             if r.get("record_type") == "section" and r.get("license_kind") == "add_on_otc"
@@ -1511,16 +1498,6 @@ class TestBearEmbeddedHuntCode:
       TestBearEmbeddedHuntCode::test_prose_prefix_in_extras
     """
 
-    @staticmethod
-    def _load() -> list[dict]:  # type: ignore[type-arg]
-        p = extract_black_bear._MERGED_OUTPUT_PATH
-        if not p.exists():
-            pytest.skip(
-                "black-bear-2026.json not generated — run extract_black_bear.py first"
-            )
-        with open(p) as f:
-            return json.load(f)  # type: ignore[no-any-return]
-
     def test_plains_otc_code_recovered(self) -> None:
         """Rule R16: the Plains OTC section contains exactly one row with
         hunt_code='B-E-087-U6-R', gmu_code='087', list_value='C', confidence HIGH.
@@ -1530,7 +1507,7 @@ class TestBearEmbeddedHuntCode:
         recovers the embedded code.  Prior to this fix the row was dropped
         (collapsed to low-confidence empty) — a real license silently missing.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         plains_rows = [
             row
             for r in data
@@ -1561,7 +1538,7 @@ class TestBearEmbeddedHuntCode:
         is captured into the row's extras field so downstream S06.7 can surface it
         to the operator / license-tag extras field.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         plains_rows = [
             row
             for r in data
@@ -1584,7 +1561,7 @@ class TestBearEmbeddedHuntCode:
         - Plains OTC row recovered (Rule R16) → HIGH.
         - 3 empty add_on_otc noise rows dropped by garbage-row guard.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         low_rows = [
             (r.get("gmu_code"), row.get("hunt_code", "?"))
             for r in data
@@ -1603,7 +1580,7 @@ class TestBearEmbeddedHuntCode:
         The 3 page-76 banner/legend spill rows that previously produced empty
         add_on_otc rows are now dropped by the garbage-row guard before assembly.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         empty_code_rows = [
             (r.get("gmu_code"), r.get("license_kind"))
             for r in data
@@ -1825,21 +1802,11 @@ class TestFusedRowArtifactLock:
     Locked by: the committed black-bear-2026.json artifact.
     """
 
-    @staticmethod
-    def _load() -> list[dict]:  # type: ignore[type-arg]
-        p = extract_black_bear._MERGED_OUTPUT_PATH
-        if not p.exists():
-            pytest.skip(
-                "black-bear-2026.json not generated — run extract_black_bear.py first"
-            )
-        with open(p) as f:
-            return json.load(f)  # type: ignore[no-any-return]
-
     def test_b_e_058_o1_m_is_separate_well_formed_row(self) -> None:
         """Rule R17: B-E-058-O1-M is a separate row with unit='58', valid_gmus='58, 581',
         list_value='B', and HIGH confidence.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         rows = [
             row
             for r in data if r["record_type"] == "section"
@@ -1862,7 +1829,7 @@ class TestFusedRowArtifactLock:
         Previously this row was silently dropped by Rule R9's 'first line only'
         approach — the confirmed P1 defect.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         rows = [
             row
             for r in data if r["record_type"] == "section"
@@ -1884,7 +1851,7 @@ class TestFusedRowArtifactLock:
 
         Before the fix the fused row produced list_value='B\\nB' — malformed.
         """
-        data = self._load()
+        data = _load_merged_artifact()
         bad = [
             (r.get("gmu_code"), row.get("hunt_code"), row.get("list_value"))
             for r in data if r["record_type"] == "section"
@@ -1897,7 +1864,7 @@ class TestFusedRowArtifactLock:
 
     def test_no_row_has_newline_in_unit(self) -> None:
         """Rule R17: no artifact row has a newline in unit (e.g. '58\\n59')."""
-        data = self._load()
+        data = _load_merged_artifact()
         bad = [
             (r.get("gmu_code"), row.get("hunt_code"), row.get("unit"))
             for r in data if r["record_type"] == "section"
@@ -1951,22 +1918,8 @@ class TestValidGmusClean:
     behaviour without requiring the PDF to be present.
     """
 
-    _ARTIFACT_PATH = (
-        Path(__file__).resolve().parents[1]
-        / "states"
-        / "colorado"
-        / "extracted"
-        / "black-bear-2026.json"
-    )
-
-    def _load(self) -> list[dict]:  # type: ignore[type-arg]
-        if not self._ARTIFACT_PATH.exists():
-            pytest.skip("merged artifact not present — run extract_black_bear.py first")
-        with self._ARTIFACT_PATH.open() as f:
-            return json.load(f)
-
     def _all_rows(self) -> list[dict]:  # type: ignore[type-arg]
-        data = self._load()
+        data = _load_merged_artifact()
         return [
             row
             for rec in data
@@ -1975,7 +1928,7 @@ class TestValidGmusClean:
         ]
 
     def _sections(self) -> list[dict]:  # type: ignore[type-arg]
-        return [rec for rec in self._load() if rec.get("record_type") == "section"]
+        return [rec for rec in _load_merged_artifact() if rec.get("record_type") == "section"]
 
     # (a) No row's valid_gmus contains any alphabetic character.
     def test_no_valid_gmus_contains_alpha(self) -> None:
