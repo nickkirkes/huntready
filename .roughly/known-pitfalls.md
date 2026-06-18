@@ -396,6 +396,28 @@ Surfaced by S06.3 cubic review iteration 1 on 2026-06-10.
 
 Surfaced by S06.3 cubic review iteration 3 on 2026-06-10.
 
+### Multi-column PDF prose extraction — crop by full-column height, never a band crop
+
+**Symptom:** `lib/pdf.extract_text(page)` (full-page, no bbox) on a dense multi-column brochure page interleaves the columns line-by-line in reading order — unusable for per-column byte-faithful text. (Same root cause as the FWP three-column Legal Descriptions pitfall above.) A seemingly natural refinement — a *band* crop that cuts the page at a non-zero `top` to isolate one paragraph — silently character-scrambles the first extracted text line: two physical lines whose `top` values fall within pdfplumber's y-tolerance get merged and interleaved by x-coordinate, corrupting the opening sentence of the crop. A correct extraction that uses the cropped full-column text (then regex-anchors into it) avoids this entirely.
+
+**Cause:** pdfplumber's character-grouping is based on absolute y-coordinates. When the crop `top` clips a line mid-glyph, the partially-visible glyphs from that line and the next physical line fall within the same y-tolerance band and are sorted by x — interleaving two lines into one scrambled run. The three-column problem and the band-crop problem are both manifestations of the same y-sorting assumption.
+
+**Fix:** Crop by **column bbox spanning the full page height** (`top=0.0`, `bottom=page.height`) — tune only the x-gutter to isolate the column, then regex-anchor the target span within the clean single-column text stream. Never set a non-zero `top` to skip a header region on a multi-column page; let the regex handle the vertical anchor instead.
+
+**Verified gutters (CPW Big Game brochure p. 78, 3-column layout, 603pt-wide page):**
+
+- right column: `x0=392`, `x1=603` (full page height)
+- left column: `x0=0`, `x1=200` (full page height)
+
+**Fail-loud guards (both required per ADR-001):**
+
+1. Raise if the regex anchor is absent in the cropped text — indicates a layout change in a future brochure edition.
+2. Raise if the column crop returns empty `.strip()` text — indicates the x-gutter has drifted past the column boundary. Distinguish the two diagnostically (`"anchor absent"` vs `"column crop empty"`) so the operator inspects the right cause.
+
+**ADR-008 note:** the resulting span is byte-equivalent to `pdf.extract_text(page, bbox=…)` output — newlines and soft-hyphens are preserved. Never hand-edit the extracted text on anchor-not-found; that is an invented transcription.
+
+Surfaced by S06.5 real-PDF probe on 2026-06-17 (CPW Big Game brochure p. 78, `verbatim_rule` population for restricted-area no-hunt zones). Related: three-column layout pitfall (FWP Legal Descriptions, S03.5) and two-column page layout pitfall (Black Bear booklet p. 7, S03.4) above.
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
