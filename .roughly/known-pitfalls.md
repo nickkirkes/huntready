@@ -396,6 +396,28 @@ Surfaced by S06.3 cubic review iteration 1 on 2026-06-10.
 
 Surfaced by S06.3 cubic review iteration 3 on 2026-06-10.
 
+### Multi-column PDF prose extraction — crop by column; keep crop edges out of text lines
+
+**Symptom:** `lib/pdf.extract_text(page)` (full-page, no bbox) on a dense multi-column brochure page interleaves the columns line-by-line in reading order — unusable for per-column byte-faithful text. (Same root cause as the FWP three-column Legal Descriptions pitfall above.) Separately, a *band* crop whose horizontal edge (`top` or `bottom`) is placed **mid-line** — clipping through glyphs or landing within the y-tolerance band shared by two adjacent physical lines — silently character-scrambles that line: the two lines' glyphs get merged and re-sorted by x-coordinate, corrupting (e.g.) the opening sentence of the crop. The failure is the *edge placement*, not the presence of a non-zero `top` per se — a strip boundary that lands in inter-line whitespace is safe (see the FWP Legal Descriptions header/footer strips above: `top=25pt` works because the first content row sits at `top≈29`, while an over-aggressive `40pt` strip clipped the headings).
+
+**Cause:** pdfplumber's character-grouping is based on absolute y-coordinates. When a crop edge clips a line mid-glyph (or falls within the y-tolerance band of two close lines), the partially-visible glyphs from both lines are sorted by x — interleaving two lines into one scrambled run. The three-column problem and the mid-line-edge problem are both manifestations of the same y-sorting assumption.
+
+**Fix:** Crop by **column bbox** — tune the x-gutter to isolate the column. For the vertical bounds: prefer the full page height (`top=0.0`, `bottom=page.height`) when you do not need to strip a running header/footer, and let the regex anchor handle vertical position (the S06.5 `verbatim_rule` case). When you *do* need a header/footer strip (the S03.5 Legal Descriptions case), place the cut boundary in inter-line whitespace — probe `page.extract_words()` y-positions first and set the strip just above the first content row / just above the footer, never through a line. Either way, regex-anchor the target span within the resulting single-column text stream.
+
+**Verified gutters (CPW Big Game brochure p. 78, 3-column layout, 603pt-wide page):**
+
+- right column: `x0=392`, `x1=603` (full page height)
+- left column: `x0=0`, `x1=200` (full page height)
+
+**Fail-loud guards (both required per ADR-001):**
+
+1. Raise if the regex anchor is absent in the cropped text — indicates a layout change in a future brochure edition.
+2. Raise if the column crop returns empty `.strip()` text — indicates the x-gutter has drifted past the column boundary. Distinguish the two diagnostically (`"anchor absent"` vs `"column crop empty"`) so the operator inspects the right cause.
+
+**ADR-008 note:** the resulting span is byte-equivalent to `pdf.extract_text(page, bbox=…)` output — newlines and soft-hyphens are preserved. Never hand-edit the extracted text on anchor-not-found; that is an invented transcription.
+
+Surfaced by S06.5 real-PDF probe on 2026-06-17 (CPW Big Game brochure p. 78, `verbatim_rule` population for restricted-area no-hunt zones). Related: three-column layout pitfall (FWP Legal Descriptions, S03.5) and two-column page layout pitfall (Black Bear booklet p. 7, S03.4) above.
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column

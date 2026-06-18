@@ -8,7 +8,9 @@ import pytest
 from psycopg.types.json import Json
 
 from ingestion.lib.db import (
+    _UPDATE_GEOMETRY_VERBATIM_SQL,
     connect,
+    update_geometry_verbatim,
     upsert_geometries,
     upsert_geometry,
     upsert_jurisdiction_binding,
@@ -641,3 +643,56 @@ class TestUpsertJurisdictionBinding:
         # And the two metadata-only fields MUST be present.
         assert "verbatim_rule = EXCLUDED.verbatim_rule" in normalized
         assert "source = EXCLUDED.source" in normalized
+
+
+# ---------------------------------------------------------------------------
+# TestUpdateGeometryVerbatim
+# ---------------------------------------------------------------------------
+
+
+class TestUpdateGeometryVerbatim:
+    """Tests for db.update_geometry_verbatim."""
+
+    def test_executes_update_sql_with_text_and_id(self) -> None:
+        """Must execute _UPDATE_GEOMETRY_VERBATIM_SQL with params (text, geometry_id)."""
+        mock_conn, mock_cursor = _make_mock_conn()
+        mock_cursor.rowcount = 1
+
+        update_geometry_verbatim(mock_conn, "co-rocky-mountain-np-geom", "No hunting permitted.")
+
+        assert mock_cursor.execute.call_count == 1
+        sql: str = mock_cursor.execute.call_args[0][0]
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+
+        assert sql is _UPDATE_GEOMETRY_VERBATIM_SQL
+        assert "UPDATE geometry SET verbatim_rule" in sql
+        assert params == ("No hunting permitted.", "co-rocky-mountain-np-geom")
+
+    def test_fail_loud_when_rowcount_zero(self) -> None:
+        """Must raise RuntimeError containing the geometry_id when no row is matched."""
+        mock_conn, mock_cursor = _make_mock_conn()
+        mock_cursor.rowcount = 0
+
+        with pytest.raises(RuntimeError) as exc_info:
+            update_geometry_verbatim(mock_conn, "co-missing-geom", "Some rule text.")
+
+        assert "co-missing-geom" in str(exc_info.value)
+
+    def test_none_text_passes_through_as_null(self) -> None:
+        """text=None must be forwarded as SQL NULL — execute params must be (None, geometry_id)."""
+        mock_conn, mock_cursor = _make_mock_conn()
+        mock_cursor.rowcount = 1
+
+        update_geometry_verbatim(mock_conn, "co-rocky-mountain-np-geom", None)
+
+        params: tuple[object, ...] = mock_cursor.execute.call_args[0][1]
+        assert params == (None, "co-rocky-mountain-np-geom")
+
+    def test_does_not_commit(self) -> None:
+        """update_geometry_verbatim must NOT call conn.commit() — caller controls the transaction boundary."""
+        mock_conn, _mock_cursor = _make_mock_conn()
+        _mock_cursor.rowcount = 1
+
+        update_geometry_verbatim(mock_conn, "co-rocky-mountain-np-geom", "No hunting permitted.")
+
+        mock_conn.commit.assert_not_called()

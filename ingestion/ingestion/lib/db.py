@@ -104,6 +104,10 @@ _UPDATE_LEGAL_DESCRIPTION_SQL = """
 UPDATE geometry SET legal_description = %s WHERE id = %s
 """
 
+_UPDATE_GEOMETRY_VERBATIM_SQL = """
+UPDATE geometry SET verbatim_rule = %s WHERE id = %s
+"""
+
 _UPDATE_LICENSE_TAG_DRAW_SPEC_KEY_SQL = """
 UPDATE license_tag SET draw_spec_key = %s::jsonb WHERE id = %s
 """
@@ -392,6 +396,39 @@ def update_legal_description(
             )
     _logger.debug(
         "updated legal_description for geometry id=%s (%d chars)",
+        geometry_id,
+        len(text or ""),
+    )
+
+
+def update_geometry_verbatim(
+    conn: psycopg.Connection[tuple[object, ...]],
+    geometry_id: str,
+    text: str | None,
+) -> None:
+    """UPDATE ``geometry.verbatim_rule`` for a single row by ``id``.
+
+    Mirrors ``update_legal_description``: ``text=None`` writes SQL NULL;
+    empty-string guarding is the caller's responsibility (a caller wanting
+    NULL semantics passes None, not ""). Fails loud with a ``RuntimeError``
+    naming the unmatched id if the WHERE clause matches no row — this catches
+    loader bugs that emit a geometry_id absent from the DB. Does NOT commit;
+    the caller controls the transaction boundary.
+
+    Args:
+        conn: An open psycopg3 connection.
+        geometry_id: The PK of the geometry row to update.
+        text: The verbatim rule text to write, or None for SQL NULL.
+    """
+    params: tuple[object, ...] = (text, geometry_id)
+    with conn.cursor() as cur:
+        cur.execute(_UPDATE_GEOMETRY_VERBATIM_SQL, params)
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"update_geometry_verbatim: no geometry row with id={geometry_id!r}"
+            )
+    _logger.debug(
+        "updated verbatim_rule for geometry id=%s (%d chars)",
         geometry_id,
         len(text or ""),
     )
