@@ -1,0 +1,36 @@
+ingestion/tests/test_load_co_restricted_area_verbatim.py
+  s_3dc49d4717fdf7::t_1393ff31e4edbc 376,392
+  s_3dc49d4717fdf7::t_74e81e07fcd10c 357-362
+  s_3dc49d4717fdf7::t_97a6d73614b5f1 1-356,363-375,377-391,393-453
+ingestion/tests/test_db.py
+  s_3dc49d4717fdf7::t_a38d54d74df7d6 11,13
+  s_3dc49d4717fdf7::t_a03c82ec5f1305 646-698
+ingestion/ingestion/lib/db.py
+  s_3dc49d4717fdf7::t_03283c87f6dabc 107-110
+  s_3dc49d4717fdf7::t_2ade21e4549b91 404-436
+docs/planning/epics/E06-confidence-findings/S06.5.md
+  s_3dc49d4717fdf7::t_b41475595a6673 1-73
+ingestion/states/colorado/load_restricted_area_verbatim.py
+  s_3dc49d4717fdf7::t_9a65e0dfb5ea19 1-22,25-28,31-82,91-92,95-159,165-167,181
+  s_3dc49d4717fdf7::t_b9e61fa315c22e 160-164,168-180
+  s_3dc49d4717fdf7::t_d9a438636c1ab8 182-297
+  s_3dc49d4717fdf7::t_f26e60cff968d8 83-90,93-94
+  s_3dc49d4717fdf7::t_c93c3b5bd5026d 30
+  s_3dc49d4717fdf7::t_bdab8f696eb244 23-24,29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "193817d72373a780de83181ecb206bd4b98cc40f",
+  "prompts": {},
+  "sessions": {
+    "s_3dc49d4717fdf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "64139583-ec02-4a43-81b6-ace97317ebf8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
