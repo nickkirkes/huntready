@@ -1,0 +1,22 @@
+.roughly/known-pitfalls.md
+  s_3dc49d4717fdf7::t_9cad8702d84bc7 399-407,409-412,414-420
+  s_3dc49d4717fdf7::t_8016965ad11916 408,413
+.secrets.baseline
+  s_3dc49d4717fdf7::t_7e58411aa9286a 136,329
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "b776ca03563f12c2a97f5d4cc79e0ae83ef3fccd",
+  "prompts": {},
+  "sessions": {
+    "s_3dc49d4717fdf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "64139583-ec02-4a43-81b6-ace97317ebf8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
