@@ -1120,3 +1120,63 @@ class TestNotePageProvenance:
         # And the per-rule source citation carries the matching page (provenance).
         assert rules[0].source.page_reference == page10_ref
         assert rules[1].source.page_reference == page20_ref
+
+
+class TestGuardAndGroupingRobustness:
+    """Locks two P2 fail-loud fixes (S06.6 follow-up review):
+
+    1. `_assert_no_undeclared_statewide_anchors` runs before the builders, so it
+       must reject non-dict entries with a clear RuntimeError (not a low-context
+       AttributeError from a bare `.get()`).
+    2. gmu_code grouping canonicalizes (strip) so whitespace variants merge, and
+       fails loud if two distinct codes map to the same jurisdiction_code (which
+       would silently collapse on UPSERT).
+    """
+
+    def test_statewide_guard_non_dict_big_game_entry_raises_runtimeerror(self) -> None:
+        with pytest.raises(RuntimeError, match=r"big-game artifact\[0\] is not a dict"):
+            mod._assert_no_undeclared_statewide_anchors(["not-a-dict"], [])
+
+    def test_statewide_guard_non_dict_bear_entry_raises_runtimeerror(self) -> None:
+        with pytest.raises(RuntimeError, match=r"bear artifact\[0\] is not a dict"):
+            mod._assert_no_undeclared_statewide_anchors([], ["not-a-dict"])
+
+    def test_big_game_whitespace_gmu_variant_merges_to_one_record(self) -> None:
+        # " 020 " strips to "020" and groups with "020" -> ONE record (proves
+        # strip canonicalization; without it these would be two groups).
+        s1 = _make_bg_section(" 020 ", "elk", method_group="archery")
+        s2 = _make_bg_section("020", "elk", method_group="rifle")
+        records = mod._build_big_game_records(
+            [s1, s2], _make_citation(), logging.getLogger("test"),
+        )
+        assert len(records) == 1
+        assert records[0].jurisdiction_code == "CO-GMU-20"
+
+    def test_big_game_padding_variants_collide_raise(self) -> None:
+        # "020" and "20" both canonicalize to CO-GMU-20 for elk -> would silently
+        # collapse on UPSERT; the guard raises instead.
+        s1 = _make_bg_section("020", "elk")
+        s2 = _make_bg_section("20", "elk")
+        with pytest.raises(RuntimeError, match="collapse to one regulation_record"):
+            mod._build_big_game_records(
+                [s1, s2], _make_citation(), logging.getLogger("test"),
+            )
+
+    def test_big_game_same_canonical_different_species_does_not_collide(self) -> None:
+        # "020" elk and "20" mule_deer canonicalize to the same jurisdiction_code
+        # but DIFFERENT species -> distinct PKs -> no collision, two records.
+        s1 = _make_bg_section("020", "elk")
+        s2 = _make_bg_section("20", "mule_deer")
+        records = mod._build_big_game_records(
+            [s1, s2], _make_citation(), logging.getLogger("test"),
+        )
+        assert len(records) == 2
+        assert {r.species_group for r in records} == {"elk", "mule_deer"}
+
+    def test_bear_padding_variants_collide_raise(self) -> None:
+        b1 = _make_bear_section("082")
+        b2 = _make_bear_section("82")
+        with pytest.raises(RuntimeError, match="collapse to one regulation_record"):
+            mod._build_co_bear_records(
+                [b1, b2], _make_citation(), logging.getLogger("test"),
+            )

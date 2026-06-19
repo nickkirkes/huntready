@@ -333,7 +333,16 @@ def _assert_no_undeclared_statewide_anchors(
     Raises:
         ValueError: if an undeclared statewide candidate is found.
     """
-    for section in big_game_artifact:
+    for idx, section in enumerate(big_game_artifact):
+        # This guard runs before the builders, so it owns the first dict-shape
+        # check — a bare .get() on a non-dict entry would raise a low-context
+        # AttributeError. Mirror the builders' isinstance fail-loud here.
+        if not isinstance(section, dict):
+            raise RuntimeError(
+                f"big-game artifact[{idx}] is not a dict "
+                f"(got {type(section).__name__}); "
+                "re-run extract_big_game.py and inspect the artifact"
+            )
         raw_gmu = str(section.get("gmu_code", "")).strip().upper()
         if raw_gmu == "STATEWIDE":
             raise ValueError(
@@ -345,7 +354,13 @@ def _assert_no_undeclared_statewide_anchors(
                 "Flag-and-discuss before proceeding."
             )
 
-    for record in bear_artifact:
+    for idx, record in enumerate(bear_artifact):
+        if not isinstance(record, dict):
+            raise RuntimeError(
+                f"bear artifact[{idx}] is not a dict "
+                f"(got {type(record).__name__}); "
+                "re-run extract_black_bear.py and inspect the artifact"
+            )
         if record.get("record_type") != "statewide_rule":
             continue
         hint = record.get("rule_hint", "")
@@ -546,7 +561,11 @@ def _build_big_game_records(
                 "re-run extract_big_game.py and inspect the artifact"
             ) from exc
 
-        gmu_code = section.get("gmu_code", "")
+        # Strip surrounding whitespace so a code like " 020 " groups with "020"
+        # (the jurisdiction_code canonicalizes via int(), so the group key must
+        # canonicalize too — otherwise two variants form separate groups that
+        # collapse to one PK on UPSERT, silently losing a group's data).
+        gmu_code = str(section.get("gmu_code", "")).strip()
         if not gmu_code:
             logger.warning(
                 "skipping big-game section with blank gmu_code: "
@@ -563,17 +582,29 @@ def _build_big_game_records(
     if skipped:
         logger.warning("skipped %d big-game section(s) with blank gmu_code", skipped)
 
-    # Validate every group key is numeric before the sort — a non-numeric non-blank
-    # gmu_code would raise a bare ValueError inside the sort lambda with no context.
-    for gmu_code, _species in groups:
+    # Fail loud if two distinct (stripped) gmu_codes canonicalize to the same
+    # jurisdiction_code for the same species — they would collapse to one
+    # regulation_record on UPSERT, silently losing one group's data. This also
+    # validates each gmu_code is numeric (_co_gmu_jurisdiction_code int()-casts).
+    seen_jcode: dict[tuple[str, str], str] = {}
+    for gmu_code, species in groups:
         try:
-            int(gmu_code)
+            jcode = _co_gmu_jurisdiction_code(gmu_code)
         except ValueError:
             raise RuntimeError(
                 f"big-game builder: gmu_code={gmu_code!r} is non-numeric and non-blank; "
                 "expected a zero-padded integer string (e.g. '020'). "
                 "Investigate extract_big_game.py output."
             )
+        prior = seen_jcode.get((jcode, species))
+        if prior is not None and prior != gmu_code:
+            raise RuntimeError(
+                f"big-game builder: gmu_codes {prior!r} and {gmu_code!r} both map to "
+                f"jurisdiction_code {jcode!r} for species {species!r}; they would "
+                "collapse to one regulation_record on UPSERT, silently losing a "
+                "group's data. Normalize gmu_code in extract_big_game.py."
+            )
+        seen_jcode[(jcode, species)] = gmu_code
 
     records: list[RegulationRecord] = []
     for gmu_code, species_group in sorted(groups, key=lambda k: (int(k[0]), k[1])):
@@ -641,7 +672,10 @@ def _build_co_bear_records(
     groups: dict[str, list[dict]] = defaultdict(list)  # type: ignore[type-arg]
     blank_skipped = 0
     for section in sections:
-        gmu_code = section.get("gmu_code", "")
+        # Strip surrounding whitespace so " 082 " groups with "082" (the
+        # jurisdiction_code canonicalizes via int(), so the group key must too —
+        # see the collision guard below).
+        gmu_code = str(section.get("gmu_code", "")).strip()
         if not gmu_code:
             # Defensive — none expected in the CO bear artifact.
             logger.warning(
@@ -658,16 +692,28 @@ def _build_co_bear_records(
     if blank_skipped:
         logger.warning("skipped %d bear section(s) with blank gmu_code", blank_skipped)
 
-    # Validate every group key is numeric before the sort.
+    # Fail loud if two distinct (stripped) gmu_codes canonicalize to the same
+    # jurisdiction_code — they would collapse to one regulation_record on UPSERT,
+    # silently losing one group's data. Also validates each code is numeric.
+    seen_jcode: dict[str, str] = {}
     for gmu_code in groups:
         try:
-            int(gmu_code)
+            jcode = _co_gmu_jurisdiction_code(gmu_code)
         except ValueError:
             raise RuntimeError(
                 f"bear builder: gmu_code={gmu_code!r} is non-numeric and non-blank; "
                 "expected a zero-padded integer string (e.g. '082'). "
                 "Investigate extract_black_bear.py output."
             )
+        prior = seen_jcode.get(jcode)
+        if prior is not None and prior != gmu_code:
+            raise RuntimeError(
+                f"bear builder: gmu_codes {prior!r} and {gmu_code!r} both map to "
+                f"jurisdiction_code {jcode!r}; they would collapse to one "
+                "regulation_record on UPSERT, silently losing a group's data. "
+                "Normalize gmu_code in extract_black_bear.py."
+            )
+        seen_jcode[jcode] = gmu_code
 
     records: list[RegulationRecord] = []
     for gmu_code in sorted(groups, key=lambda k: int(k)):
