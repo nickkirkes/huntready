@@ -397,6 +397,111 @@ def _log_summary(
 
 
 # ---------------------------------------------------------------------------
+# Shared per-group collapse (big-game + bear)
+# ---------------------------------------------------------------------------
+
+
+def _collapse_sections_to_record(
+    *,
+    gmu_code: str,
+    species_group: str,
+    sections: list[dict],  # type: ignore[type-arg]
+    citation: SourceCitation,
+    builder_label: str,
+    extractor_script: str,
+) -> RegulationRecord:
+    """Collapse all sections of one ``(gmu, species)`` group into one record.
+
+    Shared by both builders. The artifact-specific parsing/grouping (array vs
+    flat-list-with-``record_type``; the group key) lives in the callers; this
+    helper owns the part that is byte-identical across both species paths:
+
+    * MIN confidence across all rows of all sections (``pdf.min_tier`` — NOT
+      bare ``min()`` on strings; lexicographic trap),
+    * representative-section page binding for the anchor row,
+    * per-NOTE page provenance (each NOTE keeps its OWN section's page),
+    * ``RegulationRecord`` construction.
+
+    Keeping this in one place means a future fix to the collapse / provenance
+    logic lands in both species paths at once (S06.6 P2 — divergence guard).
+
+    ``builder_label`` / ``extractor_script`` only shape the fail-loud messages
+    so an operator sees which artifact + extractor to inspect.
+    """
+    ctx = f"{builder_label}: gmu={gmu_code!r} species={species_group!r}"
+
+    # Guard: each section needs a 'rows' key and each row 'extraction_confidence'.
+    try:
+        tier_list = [
+            ConfidenceTier(row["extraction_confidence"])
+            for sec in sections
+            for row in sec["rows"]
+        ]
+    except KeyError as exc:
+        raise RuntimeError(
+            f"{ctx}: section is missing required key {exc.args[0]!r} "
+            f"(check 'rows' exists on each section and 'extraction_confidence' "
+            f"exists on each row); re-run {extractor_script}"
+        ) from exc
+
+    # MIN over all rows across all sections in the group — NOT bare min() on
+    # strings (lexicographic trap: min(["high", "low"]) returns "high").
+    try:
+        confidence = cast(Confidence, pdf.min_tier(tier_list))
+    except pdf.PdfExtractionError as exc:
+        raise RuntimeError(f"{ctx}: {exc}") from exc
+
+    # Representative section: smallest (page_num_1based, method_group) — deterministic.
+    try:
+        rep = min(
+            sections,
+            key=lambda s: (s["page_reference"]["page_num_1based"], s["method_group"]),
+        )
+        page_ref_str = pdf.page_reference_to_str(rep["page_reference"])
+    except KeyError as exc:
+        raise RuntimeError(
+            f"{ctx}: section missing required key {exc.args[0]!r} "
+            f"(expected 'page_reference' dict with 'page_num_1based' and "
+            f"'method_group'); re-run {extractor_script}"
+        ) from exc
+    section_citation = citation.model_copy(update={"page_reference": page_ref_str})
+
+    # Collect NOTE lines across all sections in deterministic order. Each NOTE is
+    # attributed to its OWN section's page (a group may span multiple pages), so
+    # per-NOTE provenance is preserved — the representative section_citation is
+    # only the anchor row's source. (CO V1 has zero NOTE lines; this path is kept
+    # correct for future safety.)
+    additional_rules: list[VerbatimRule] = []
+    for sec in sorted(
+        sections,
+        key=lambda s: (s["page_reference"]["page_num_1based"], s["method_group"]),
+    ):
+        try:
+            verbatim = sec["verbatim_text"]
+            sec_page_ref = pdf.page_reference_to_str(sec["page_reference"])
+        except KeyError as exc:
+            raise RuntimeError(
+                f"{ctx}: section missing required key {exc.args[0]!r}; "
+                f"re-run {extractor_script}"
+            ) from exc
+        sec_citation = citation.model_copy(update={"page_reference": sec_page_ref})
+        additional_rules.extend(
+            _extract_note_lines(verbatim, sec_citation, confidence)
+        )
+
+    return RegulationRecord(
+        state=_STATE,
+        jurisdiction_code=_co_gmu_jurisdiction_code(gmu_code),
+        species_group=species_group,
+        license_year=_LICENSE_YEAR,
+        schema_version=_SCHEMA_VERSION,
+        source=section_citation,
+        confidence=confidence,
+        additional_rules=additional_rules,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Big-game record builder (collapse by (gmu_code, species_group))
 # ---------------------------------------------------------------------------
 
@@ -472,84 +577,14 @@ def _build_big_game_records(
 
     records: list[RegulationRecord] = []
     for gmu_code, species_group in sorted(groups, key=lambda k: (int(k[0]), k[1])):
-        sections = groups[(gmu_code, species_group)]
-
-        # Guard: each section must have a 'rows' key and each row an
-        # 'extraction_confidence' key. Wrap with diagnostic RuntimeError so a
-        # missing key names the builder, section index, gmu_code, and species_group.
-        try:
-            tier_list = [
-                ConfidenceTier(row["extraction_confidence"])
-                for sec in sections
-                for row in sec["rows"]
-            ]
-        except KeyError as exc:
-            raise RuntimeError(
-                f"big-game builder: gmu={gmu_code!r} species={species_group!r}: "
-                f"section is missing required key {exc.args[0]!r} "
-                f"(check 'rows' exists on each section and 'extraction_confidence' "
-                f"exists on each row); re-run extract_big_game.py"
-            ) from exc
-
-        # MIN over all rows across all sections in the group — NOT bare min() on
-        # strings (lexicographic trap: min(["high", "low"]) returns "high").
-        try:
-            confidence = cast(Confidence, pdf.min_tier(tier_list))
-        except pdf.PdfExtractionError as exc:
-            raise RuntimeError(
-                f"big-game builder: gmu={gmu_code!r} species={species_group!r}: {exc}"
-            ) from exc
-
-        # Representative section: smallest (page_num_1based, method_group) — deterministic.
-        try:
-            rep = min(
-                sections,
-                key=lambda s: (s["page_reference"]["page_num_1based"], s["method_group"]),
-            )
-            page_ref_str = pdf.page_reference_to_str(rep["page_reference"])
-        except KeyError as exc:
-            raise RuntimeError(
-                f"big-game builder: gmu={gmu_code!r} species={species_group!r}: "
-                f"section missing required key {exc.args[0]!r} "
-                f"(expected 'page_reference' dict with 'page_num_1based' and 'method_group'); "
-                "re-run extract_big_game.py"
-            ) from exc
-        section_citation = citation.model_copy(update={"page_reference": page_ref_str})
-
-        # Collect NOTE lines across all sections in deterministic order. Each
-        # NOTE is attributed to its OWN section's page (a group may span multiple
-        # pages), so per-NOTE provenance is preserved — the representative
-        # `section_citation` is only the anchor row's source. (CO V1 has zero
-        # NOTE lines; this path is kept correct for future safety.)
-        additional_rules: list[VerbatimRule] = []
-        for sec in sorted(
-            sections,
-            key=lambda s: (s["page_reference"]["page_num_1based"], s["method_group"]),
-        ):
-            try:
-                verbatim = sec["verbatim_text"]
-                sec_page_ref = pdf.page_reference_to_str(sec["page_reference"])
-            except KeyError as exc:
-                raise RuntimeError(
-                    f"big-game builder: gmu={gmu_code!r} species={species_group!r}: "
-                    f"section missing required key {exc.args[0]!r}; "
-                    "re-run extract_big_game.py"
-                ) from exc
-            sec_citation = citation.model_copy(update={"page_reference": sec_page_ref})
-            additional_rules.extend(
-                _extract_note_lines(verbatim, sec_citation, confidence)
-            )
-
         records.append(
-            RegulationRecord(
-                state=_STATE,
-                jurisdiction_code=_co_gmu_jurisdiction_code(gmu_code),
+            _collapse_sections_to_record(
+                gmu_code=gmu_code,
                 species_group=species_group,
-                license_year=_LICENSE_YEAR,
-                schema_version=_SCHEMA_VERSION,
-                source=section_citation,
-                confidence=confidence,
-                additional_rules=additional_rules,
+                sections=groups[(gmu_code, species_group)],
+                citation=citation,
+                builder_label="big-game builder",
+                extractor_script="extract_big_game.py",
             )
         )
 
@@ -636,84 +671,16 @@ def _build_co_bear_records(
 
     records: list[RegulationRecord] = []
     for gmu_code in sorted(groups, key=lambda k: int(k)):
-        gmu_sections = groups[gmu_code]
-
-        # Guard: each section must have a 'rows' key and each row an
-        # 'extraction_confidence' key. Wrap with diagnostic RuntimeError.
-        try:
-            tier_list = [
-                ConfidenceTier(row["extraction_confidence"])
-                for sec in gmu_sections
-                for row in sec["rows"]
-            ]
-        except KeyError as exc:
-            raise RuntimeError(
-                f"bear builder: gmu={gmu_code!r}: "
-                f"section is missing required key {exc.args[0]!r} "
-                f"(check 'rows' exists on each section and 'extraction_confidence' "
-                f"exists on each row); re-run extract_black_bear.py"
-            ) from exc
-
-        # MIN over all rows across all sections in the group.
-        try:
-            confidence = cast(Confidence, pdf.min_tier(tier_list))
-        except pdf.PdfExtractionError as exc:
-            raise RuntimeError(
-                f"bear builder: gmu={gmu_code!r}: {exc}"
-            ) from exc
-
-        # Representative section: smallest (page_num_1based, method_group) — deterministic.
-        try:
-            rep = min(
-                gmu_sections,
-                key=lambda s: (s["page_reference"]["page_num_1based"], s["method_group"]),
-            )
-            page_ref_str = pdf.page_reference_to_str(rep["page_reference"])
-        except KeyError as exc:
-            raise RuntimeError(
-                f"bear builder: gmu={gmu_code!r}: "
-                f"section missing required key {exc.args[0]!r} "
-                f"(expected 'page_reference' dict with 'page_num_1based' and 'method_group'); "
-                "re-run extract_black_bear.py"
-            ) from exc
-        section_citation = citation.model_copy(update={"page_reference": page_ref_str})
-
-        # Collect NOTE lines across all sections in deterministic order. Each
-        # NOTE is attributed to its OWN section's page (a group may span multiple
-        # pages), so per-NOTE provenance is preserved — the representative
-        # `section_citation` is only the anchor row's source. (CO V1 has zero
-        # NOTE lines; this path is kept correct for future safety.)
-        additional_rules: list[VerbatimRule] = []
-        for sec in sorted(
-            gmu_sections,
-            key=lambda s: (s["page_reference"]["page_num_1based"], s["method_group"]),
-        ):
-            try:
-                verbatim = sec["verbatim_text"]
-                sec_page_ref = pdf.page_reference_to_str(sec["page_reference"])
-            except KeyError as exc:
-                raise RuntimeError(
-                    f"bear builder: gmu={gmu_code!r}: "
-                    f"section missing required key {exc.args[0]!r}; "
-                    "re-run extract_black_bear.py"
-                ) from exc
-            sec_citation = citation.model_copy(update={"page_reference": sec_page_ref})
-            additional_rules.extend(
-                _extract_note_lines(verbatim, sec_citation, confidence)
-            )
-
         records.append(
-            RegulationRecord(
-                state=_STATE,
-                jurisdiction_code=_co_gmu_jurisdiction_code(gmu_code),
+            _collapse_sections_to_record(
+                gmu_code=gmu_code,
                 # Artifact field is "black_bear"; DB value is "bear".
                 # See .roughly/known-pitfalls.md "Bear DB species_group is 'bear' not 'black_bear'".
                 species_group="bear",
-                license_year=_LICENSE_YEAR,
-                schema_version=_SCHEMA_VERSION,
-                source=section_citation,
-                confidence=confidence,
-                additional_rules=additional_rules,
+                sections=groups[gmu_code],
+                citation=citation,
+                builder_label="bear builder",
+                extractor_script="extract_black_bear.py",
             )
         )
 
