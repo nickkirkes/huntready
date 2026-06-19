@@ -1219,3 +1219,41 @@ A bear extractor parses bear-only pages (CPW PDF 72–77). A parsed-but-non-bear
 **Review-cycling note:** a code-review bot (cubic) objected to *every* candidate behavior across successive runs — `raise` ("discards other rows"), `emit-at-LOW` ("leaks non-bear data into the artifact"), and `warn+skip` ("silently drops; prefer a hard failure"). These objections are mutually exclusive; no behavior satisfies all three. When review findings *cycle* (contradict prior rounds) rather than *narrow*, stop iterating and decide on convention + domain priority, then document the rationale (here: fail-hard, because for a regulatory artifact a hard failure is more detectable than missing/leaked rows, and it matches the module + sibling convention). Reference: S06.4 `_extract_bear_block_row` (`06dcce8`).
 
 Surfaced by S06.4 post-merge review on 2026-06-14.
+
+### CO regulation_record builder collapses per-method-group sections into one anchor per (gmu, species) — section count ≠ record count
+
+The CO big-game artifact (`extracted/big-game-2026.json`) has one section per `(gmu_code, species_group, method_group)` — archery, muzzleloader, rifle, and season_choice are each a separate section. The CO bear artifact (`extracted/black-bear-2026.json`) similarly has one section per `(gmu_code, method_group)`. But `regulation_record` is the anchor entity keyed by `(state, jurisdiction_code, species_group, license_year)` — no `method_group` column. S06.6's `_build_big_game_records` and `_build_co_bear_records` therefore **collapse** all sections sharing a `(gmu_code, species_group)` tuple into ONE record; confidence is `pdf.min_tier` across all rows of all sections in the group; method/season/license detail decomposes onto S06.7's child entities.
+
+**Consequence:** section count (906 big-game sections + bear sections) ≠ record count (398 rows). S06.7+ link-table builders must group or key on the already-written `regulation_record` PKs the same way — do NOT assume one link row per section entry.
+
+This differs from MT, where DEA sections are already one-per-`(species, HD)` and no collapse is needed. Reference: `ingestion/states/colorado/load_regulation_records.py::_build_big_game_records` (collapse loop) + `_build_co_bear_records` (S06.6).
+
+Surfaced by S06.6 implementation on 2026-06-18.
+
+### CO big-game artifact pre-separates species — no `deer` fan-out needed or correct
+
+The CPW big-game extractor (`extract_big_game.py::_species_group_for`) emits `mule_deer`, `whitetail`, `elk`, and `pronghorn` directly; whitetail is split from mule_deer at extraction via Rule R11 (`_WHITETAIL_UNIT_RE`). There is **no** `"deer"` label in the CO big-game artifact. The CO loader therefore has **no** `_DEA_SPECIES_FANOUT` dict — contrast MT, where DEA `"deer"` fans out to `mule_deer` + `whitetail` at the link-table layer.
+
+Do NOT add a redundant fan-out for CO; it would double-count. Q16 (row-level mule_deer/whitetail separation) does NOT fire for CO — the separation is section-level in the extractor. S06.7+ link-table builders that assume a `deer` label need to be guarded: `assert "deer" not in artifact_species_values` or equivalent.
+
+Reference: `extract_big_game.py::_species_group_for` (the species map); `load_regulation_records.py::_build_big_game_records` (no fan-out dict) — compare with `montana/load_regulation_records.py::_DEA_SPECIES_FANOUT` (S03.6).
+
+Surfaced by S06.6 design decision on 2026-06-18.
+
+### CO bear artifact is a flat list with a `record_type` discriminator — do not port MT's dict-with-`sources`/`rows` shape
+
+`extracted/black-bear-2026.json` is a **flat JSON list** of records. Each entry is a dict tagged `record_type ∈ {"section", "statewide_rule", "reporting_obligation"}`. Bear sections carry `species_group="black_bear"` (mapped to DB value `"bear"` at write time — see existing pitfall above) and a per-record `source_id`. There are **no** top-level `sources`, `rows`, or `statewide_rules` keys.
+
+MT's `_build_bear_records` pattern (`bear_artifact.get("sources")` / `["rows"]` dict-lookup) would silently return `None` on the CO artifact and raise on the key-index. The correct CO pattern: iterate the flat list and filter `record_type == "section"`.
+
+**Critical guard requirement:** do NOT use a bare `r.get("record_type") == "section"` filter — it silently drops any entry with a missing or misspelled `record_type` (e.g. `"Section"` or `"sections"`), violating ADR-001. The correct pattern is the three-step validation in `_build_co_bear_records`:
+
+1. Raise if entry is not a `dict`.
+2. Raise if `"record_type"` key is absent (name the present keys in the diagnostic).
+3. Raise if `record_type` value is not in `_KNOWN_BEAR_RECORD_TYPES` (name the known types and call out the likely misspelling).
+
+Then keep only `record_type == "section"` entries. Mirror the diagnostic-wrap convention from `load_reporting_obligations.py:399-413` and the E05 audit-hygiene `feature["properties"]` guard fixes.
+
+Reference: `ingestion/states/colorado/load_regulation_records.py::_build_co_bear_records` + `_KNOWN_BEAR_RECORD_TYPES` (S06.6). Compare with `ingestion/states/montana/load_regulation_records.py::_build_bear_records` (the MT dict-shape that must NOT be ported to CO).
+
+Surfaced by S06.6 Stage-6 review on 2026-06-18 (the bare-filter silent-drop failure mode was caught and fixed before merge).
