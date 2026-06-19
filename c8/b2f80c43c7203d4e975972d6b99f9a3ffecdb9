@@ -1,0 +1,22 @@
+docs/runbooks/M2-operator-pass.md
+  s_b6b1c793a73350::t_7f496a684025ab 1-39,51-53,56,69,72,74-156,158-197,199-244,246-306,308-320,322-397,399-416,418-463,465-962
+  s_b6b1c793a73350::t_523bf4d2d3c038 417
+  s_b6b1c793a73350::t_cd0f9f6b677ac1 157,198,245,307,321,398,464
+  s_b6b1c793a73350::t_9c42aa97772eb5 40-50,54-55,57-68,70-71,73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "c8b2f80c43c7203d4e975972d6b99f9a3ffecdb9",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
