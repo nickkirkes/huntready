@@ -1,0 +1,21 @@
+ingestion/states/colorado/load_regulation_records.py
+  s_504764e0be9377::t_69a9a2e9011ebc 675-676,680-683
+  s_504764e0be9377::t_d2c0368a91fbd3 400-503
+  s_504764e0be9377::t_f4222b64e240d1 581-582,584-587
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.8",
+  "base_commit_sha": "6de1b3fcc8c8d6def5220eefd643f4fcd39ecbe5",
+  "prompts": {},
+  "sessions": {
+    "s_504764e0be9377": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9382425c-97b5-423e-b0df-1e0774347e31",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
