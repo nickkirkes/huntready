@@ -1,0 +1,31 @@
+docs/runbooks/M2-operator-pass.md
+  s_b6b1c793a73350::t_51a39c0b9629c7 50
+  s_b6b1c793a73350::t_d821354c5ea5ac 42
+  s_b6b1c793a73350::t_43d11420f408e8 57
+  s_b6b1c793a73350::t_747f58c659bdbe 55
+  s_b6b1c793a73350::t_342036b8cc8a08 398
+  s_b6b1c793a73350::t_fde19fb2b532c4 45
+  s_b6b1c793a73350::t_1b1f8167c720d5 33
+  s_b6b1c793a73350::t_9d049d1a17e326 386
+  s_b6b1c793a73350::t_b7d2b1de437e80 963
+  s_b6b1c793a73350::t_3827fb96725a18 637
+  s_b6b1c793a73350::t_d9330db5d38354 5,11-22
+  s_b6b1c793a73350::t_837505370ceea8 659-668
+  s_b6b1c793a73350::t_5f58c9abe2e55c 969
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "1f52932aa1878347acbf89dce64c3d7495b17cb1",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
