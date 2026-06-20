@@ -2,11 +2,24 @@
 
 **Purpose:** One coherent operator session that closes every accumulated Group B AC across **E05 (Colorado geometry ingestion)** and the DB-write half of **E06 (Colorado regulation text ingestion)**. Mirrors the `M1-uat.md` runbook pattern: numbered steps, inline verification SQL, single consolidated capture form at the end. PM later splits the captured outputs into per-story `docs/planning/epics/E06-confidence-findings/SXX.X.md` § "Group B verification record" entries via doc-only commits.
 
-**Audience:** Operator (human + production service-role DSN). Not for implementation agents — this session does not write code. It runs already-merged loaders against production and records the outputs.
+**Audience:** Operator (human + the M2-target environment's service-role DSN). Not for implementation agents — this session does not write code. It runs already-merged loaders against a live Supabase Postgres + PostGIS database and records the outputs.
 
 **Scope:** All outstanding Group B work as of 2026-06-19 — 8 loader/fixture steps + the existing E05 7-step spatial verification + 2 E06 verification gates.
 
 **Expected duration:** 60–90 minutes operator wall-clock, depending on PDF fetch latency. Most loaders complete in seconds; `load_regulation_records.py` may take ~15 s; `build_overlay_fixture.py` (local shapely + STRtree) ~5–10 s.
+
+## Pass mode: M2-build vs M2-release
+
+The runbook supports **two distinct passes**, both following identical structure / SQL / expected counts. Only the `DATABASE_URL` target changes between them.
+
+- **M2-build pass** (this one). Run against the **M2-build environment** — whichever live Supabase project M2 development is targeting (typically a dev project). Validates that the loaders + migration + fixture generators all work against a real schema + real PostGIS, and closes the accumulated dev Group B ACs. Runs whenever the accumulated Group B backlog is worth validating; sequenced before the next implementation story (S06.7 in this case) so that next-story implementation can plan against actual live state.
+- **M2-release pass** (eventual; run once at M2 close). Run against the **M2-release environment** (production) before the `m2` tag is pushed. Repeats the same runbook against the production project; the captured outputs feed the M2 → M3 handoff document at milestone close. Same SQL, same expected counts; the only delta is which `DATABASE_URL` is in scope.
+
+The MT-untouched assertion in Step 10 (PRD 002 SC #9) holds in both passes — the baseline is "MT row counts unchanged from M1 close **in whichever environment this pass is targeting**." For an M2-build pass that's the dev env's M1-close state; for the M2-release pass that's production's M1-close state.
+
+If this pass is the M2-release pass, the operator records that at the top of the capture form (an "Environment" field exists for this — see "Operator capture form" at the bottom). Otherwise, it's an M2-build pass.
+
+The PM then splits captured outputs into per-story `confidence-findings/SXX.X.md` § "Group B verification record" entries with the env tag preserved, so a future M2-release pass writes its own entry alongside the M2-build entry rather than overwriting it.
 
 ---
 
@@ -17,7 +30,7 @@
 - Repo cloned and on `main` at commit `a1fea67` or later (`git log -1 --format=%H` to verify; the runbook itself should be in the working tree).
 - `git status` clean (the loaders will produce committable fixture files; if status is not clean before the pass starts, capture what's outstanding before running).
 - Python virtualenv at `ingestion/.venv` activated; dependencies installed via `make ingest-deps` or equivalent.
-- `DATABASE_URL` env var set to the **production service-role DSN** (not the publishable key — service-role bypasses RLS, which is required for these UPSERTs).
+- `DATABASE_URL` env var set to the **M2-target environment's service-role DSN** (not the publishable key — service-role bypasses RLS, which is required for these UPSERTs). For an M2-build pass this is the dev project; for an M2-release pass this is the production project. The operator confirms which env before starting.
 - `SUPABASE_URL` + `SUPABASE_SECRET_KEY` env vars set (for `supabase` CLI calls).
 - `HUNTREADY_INGESTION_CONTACT` env var set per `CLAUDE.md` § "Environment variables" (gives CPW / USGS / Census a way to reach the operator if a fetch behaves unexpectedly).
 - `supabase` CLI installed and authenticated.
@@ -26,22 +39,22 @@
 ### Safety guards
 
 - **No `git push` from this session.** Every change in this pass is a fixture commit or a captured runbook output; the operator commits locally and the PM rolls them into doc-only commits afterward.
-- **The 3 MT no-hunt-zone bindings carried by `MT-STATEWIDE-bear` from M1 / S03.6.1 are already in production.** Expect to see them. Do not modify them.
+- **The 3 MT no-hunt-zone bindings carried by `MT-STATEWIDE-bear` from M1 / S03.6.1 are already in the target env (assuming M1 was built against the same env as this pass targets).** Expect to see them. Do not modify them.
 - **PRD 002 success criterion #9 (MT untouched).** At end-of-pass, the MT row counts in `geometry` + `jurisdiction_binding` + `regulation_record` etc. must be byte-identical to the M1 close baseline. A consolidated MT-untouched assertion lives in Step 10 below.
 - **Idempotency.** All write loaders here are UPSERT-by-id or composite-PK; a re-run produces the same DB state. If a step fails partway, you can re-run it cleanly. Exception: `build_overlay_fixture.py` and `spatial-test-points.json` are one-shot fixture generators — re-running just regenerates the file; commit the new one.
-- **If a step's count or shape doesn't match the expected verification value documented inline below, stop and surface to PM.** Do not proceed. Group B is checking that production agrees with dry-run; if it doesn't, something is genuinely off and S06.7 should not be dispatched until reconciled.
+- **If a step's count or shape doesn't match the expected verification value documented inline below, stop and surface to PM.** Do not proceed. Group B is checking that the live target env agrees with dry-run; if it doesn't, something is genuinely off and the next implementation story should not be dispatched until reconciled.
 - **The bear-binding `MT-STATEWIDE-bear-...-no_hunt_zone-...` ids reflect the S05.3.5 reclassification.** If you see `other_overlay` in their `role`, S05.3.5's migration did not actually run; that's a Step 1 failure mode.
 
 ### Pre-pass DB state
 
-Before starting Step 1, run this quick reconciliation against production:
+Before starting Step 1, run this quick reconciliation against the target env:
 
 ```sql
 -- Expected pre-pass M1-close baseline:
 --   350 MT geometry rows: 235 HDs (S02.2) + 55 portions (S02.3) + 57 restricted areas (S02.4) + 2 CWD zones (S02.5) + 1 MT-STATEWIDE-geom (S03.0)
---   0 CO geometry rows (nothing in production yet from M2)
+--   0 CO geometry rows (nothing in the target env yet from M2)
 --   437 MT regulation_record rows (S03.6 wrote 436 + S03.6.1 statewide bear anchor = 437)
---   0 CO regulation_record rows (nothing in production yet from M2)
+--   0 CO regulation_record rows (nothing in the target env yet from M2)
 --   ~788 jurisdiction_binding rows total (S03.10 T16 empirical for MT) — this INCLUDES the 1 statewide-bear binding from S03.6.1
 --     AND the 3 MT federal no-hunt-zone bindings (Glacier NP, Sun River, Yellowstone NP) which at this point still carry role='other_overlay'
 --     (S05.3.5's migration in Step 1 reclassifies those 3 → 'no_hunt_zone')
@@ -370,7 +383,7 @@ Verify the file exists; confirm each `kind` present in CO geometry has the expec
 
 ## Step 7 — E05 spatial verification (7 sections)
 
-Run the 7 verification sections from `docs/runbooks/E05-colorado-geometry-verification.md` against production with the now-populated CO geometry. Per the E05 runbook's convention, all `ST_*` calls are `extensions.`-prefixed; every query carries `AND state = 'US-CO'`; the WKT round-trip cast workaround applies to all geometry-only functions per the S05.7 post-PR-review fixes.
+Run the 7 verification sections from `docs/runbooks/E05-colorado-geometry-verification.md` against the target env with the now-populated CO geometry. Per the E05 runbook's convention, all `ST_*` calls are `extensions.`-prefixed; every query carries `AND state = 'US-CO'`; the WKT round-trip cast workaround applies to all geometry-only functions per the S05.7 post-PR-review fixes.
 
 Run **Section 1 → Section 7** in order. Capture each section's output verbatim. Each section's expected shape is documented inline in the E05 runbook; the operator confirms the actual outputs match.
 
@@ -382,7 +395,7 @@ Run **Section 1 → Section 7** in order. Capture each section's output verbatim
 4. Multi-part anchor `ST_NumGeometries` against the named multi-part GMU
 5. `EXPLAIN ANALYZE` showing the spatial index is used
 6. `ST_Envelope` bounds check against Colorado's known coord box (the CO-specific Section 5)
-7. Wipe + re-ingest dry-run (test that the FK-cascade wipe SQL is correct; do NOT actually wipe production)
+7. Wipe + re-ingest dry-run (test that the FK-cascade wipe SQL is correct; do NOT actually wipe the target env — this section is read-only verification of the wipe SQL's shape)
 
 If any section fails the documented expected shape, stop and surface to PM. **Closes S05.7 spatial UAT AC** + PRD 002 success criterion #4.
 
@@ -621,7 +634,7 @@ git status -s
 
 # (b) Confirm full test suite still green
 cd ingestion && .venv/bin/pytest tests/ -q
-# Expected: 1774 passed, 4 skipped (same as the pre-pass baseline; no regressions from production data)
+# Expected: 1774 passed, 4 skipped (same as the pre-pass baseline; no regressions from the live-write pass)
 
 # (c) Confirm ruff + mypy still clean
 .venv/bin/ruff check ingestion/ tests/
@@ -642,6 +655,16 @@ After commit, **stop**. The PM will:
 ## Operator capture form
 
 Fill this in as you go. Verbatim outputs are preferred over summaries — the PM will summarize on the way into per-story closure notes. **Do not edit prior step entries** if a later step changes your understanding; instead add a new "Re-verification" sub-entry under the affected step.
+
+### Pass metadata
+
+- **Pass mode:** `M2-build` / `M2-release` (select one)
+- **Target environment:** `_____________` (e.g., "dev Supabase project `huntready-dev`" or "production Supabase project `huntready`")
+- **`DATABASE_URL` host (no creds — just the hostname for audit):** `_____________`
+- **Date:** `_____________`
+- **Operator:** `_____________`
+
+If `Pass mode = M2-release`, also confirm: this is the pre-`m2`-tag verification pass and the captured outputs will feed the M2 → M3 handoff document.
 
 ### Pre-pass DB state (from Step 0 reconciliation)
 
@@ -937,13 +960,13 @@ Fill this in as you go. Verbatim outputs are preferred over summaries — the PM
 
 **Step 7 Section 5 `EXPLAIN ANALYZE` shows seq scan instead of GiST index.** Index missing or stale; investigate before proceeding.
 
-**Step 9 fails OQ7 count-band guard.** The build count is outside the ±30% band around the dry-run-verified 398. Stop. The artifact may have drifted (e.g., `big-game-2026.json` or `black-bear-2026.json` SHA changed without re-pinning), or the production geometry FK targets don't match the artifact's GMU codes. Surface to PM.
+**Step 9 fails OQ7 count-band guard.** The build count is outside the ±30% band around the dry-run-verified 398. Stop. The artifact may have drifted (e.g., `big-game-2026.json` or `black-bear-2026.json` SHA changed without re-pinning), or the target env's geometry FK targets don't match the artifact's GMU codes. Surface to PM.
 
 **Step 10 MT count changed from M1 close baseline.** Critical — PRD 002 SC #9 violation. Stop. Capture the delta. The pass may have inadvertently touched MT (e.g., a misconfigured loader, a bad migration). Do NOT proceed; do NOT commit fixtures; surface to PM for full reconciliation.
 
 **Step 10 confidence breakdown for `regulation_record` doesn't match Step 9 spec.** S06.6's loader may have read a stale artifact or a different artifact version. Re-check the SHA of `big-game-2026.json` against the S06.3.1 pinned value (`9312e259…bb2f`) and `black-bear-2026.json` against the S06.4 pinned value (`7b35c202…d5f6`).
 
-**Anything else.** Capture verbatim, surface to PM. Group B's job is to confirm production agrees with dry-run; any disagreement is investigation-worthy by definition.
+**Anything else.** Capture verbatim, surface to PM. Group B's job is to confirm the live target env agrees with dry-run; any disagreement is investigation-worthy by definition.
 
 ---
 
