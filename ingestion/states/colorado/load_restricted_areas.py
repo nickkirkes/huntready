@@ -101,7 +101,19 @@ _V1_WHERE = (
 _CURECANTI_UNIT_NM = "Curecanti National Recreation Area"
 _CURECANTI_GEOM_ID = "CO-restricted-curecanti-national-recreation-area-geom"
 
-_RA_OUT_FIELDS = ("Unit_Nm", "Des_Tp", "Mang_Name", "Pub_Access", "GIS_Acres", "Src_Date")
+# "OBJECTID" is required (S06.6.1): the republished PAD-US 4.1 service omits the
+# top-level GeoJSON `id` field unless OBJECTID is in the request outFields, and the
+# manifest-hash loop needs a resolvable OBJECTID per feature. Append-not-prepend so
+# the attribute order of the other fields is unchanged.
+_RA_OUT_FIELDS = (
+    "Unit_Nm",
+    "Des_Tp",
+    "Mang_Name",
+    "Pub_Access",
+    "GIS_Acres",
+    "Src_Date",
+    "OBJECTID",
+)
 
 # Exact band: V1 is a researcher-enumerated named set of 10 zones.
 # 9 → leak (Curecanti slipped through); 11 → new zone appeared without review.
@@ -371,13 +383,10 @@ def _fetch_and_build(
     # on-disk manifest is byte-compatible with the MT backfill tooling.
     per_feature_hashes_unsorted: list[str] = []
     for feature in kept:
-        oid = arcgis._read_objectid(feature, oid_field=metadata.object_id_field)
-        if oid is None:
-            raise ArcGISError(
-                f"PAD-US feature in layer {PADUS_LAYER_ID} ({PADUS_LAYER_SLUG}) "
-                f"has no resolvable OBJECTID for manifest hash "
-                f"(metadata.object_id_field={metadata.object_id_field!r})"
-            )
+        # Strict: refuses the top-level `id` fallback so a PAD-US republish that
+        # drops OBJECTID surfaces with the outFields-fix diagnostic (S06.6.1)
+        # rather than silently hashing on a masking identifier.
+        oid = arcgis._require_objectid(feature, oid_field=metadata.object_id_field)
         properties = feature.get("properties")
         if not isinstance(properties, dict):
             raise ArcGISError(
