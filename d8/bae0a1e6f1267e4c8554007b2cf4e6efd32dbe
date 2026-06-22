@@ -1,0 +1,24 @@
+docs/planning/epics/E06-confidence-findings/S06.6.1.md
+  s_e6a4227d40d5f6::t_fac5e10d3a5a39 72-73
+  s_e6a4227d40d5f6::t_4dff20400917df 109-121
+ingestion/tests/test_arcgis.py
+  s_e6a4227d40d5f6::t_00ee89bdf9a113 1873-1901
+ingestion/ingestion/lib/arcgis.py
+  s_e6a4227d40d5f6::t_737b736d6f8c3f 664-667,674-685,692-697,702-703
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "d8bae0a1e6f1267e4c8554007b2cf4e6efd32dbe",
+  "prompts": {},
+  "sessions": {
+    "s_e6a4227d40d5f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21d88338-baf7-4dd6-a4a0-22c50f3e4b53",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
