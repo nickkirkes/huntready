@@ -1,0 +1,526 @@
+{
+  "advancedEditingCapabilities": {
+    "supportedApplyEditsUploadIDFormats": "JSON,PBF",
+    "supportedSqlFormatsInCalculate": [
+      "standard"
+    ],
+    "supportsApplyEditsbyUploadID": true,
+    "supportsAsyncApplyEdits": true,
+    "supportsMaxTranslations": 10,
+    "supportsReturnEditResults": true,
+    "supportsTranslation": false
+  },
+  "advancedQueryAnalyticCapabilities": {
+    "supportsAsync": true,
+    "supportsLinearRegression": true,
+    "supportsPercentileAnalytic": true,
+    "supportsTrendlineRegression": true
+  },
+  "advancedQueryCapabilities": {
+    "fullTextSearchCapabilities": {
+      "supportsAccentSensitivity": true,
+      "supportsOperator": true,
+      "supportsSearchOperator": true,
+      "supportsStopWords": true
+    },
+    "supportedLodTypes": [
+      "geohash"
+    ],
+    "supportedOperationsWithCacheHint": [
+      "query",
+      "queryTopFilter",
+      "queryAnalytics",
+      "queryAttachments",
+      "queryRelated",
+      "queryBins",
+      "queryPivot"
+    ],
+    "supportedSpatialAggregationStatistics": [
+      "EnvelopeAggregate",
+      "CentroidAggregate",
+      "ConvexHullAggregate"
+    ],
+    "supportsAdvancedQueryRelated": true,
+    "supportsAggIds": true,
+    "supportsApproxPercentileStatistics": true,
+    "supportsCountDistinct": true,
+    "supportsCurrentUserQueries": true,
+    "supportsDefaultSR": true,
+    "supportsDisjointSpatialRel": true,
+    "supportsDistinct": true,
+    "supportsFullTextSearch": true,
+    "supportsHavingClause": true,
+    "supportsISODOW": true,
+    "supportsISOWeek": true,
+    "supportsLod": true,
+    "supportsMaxRecordCountFactor": true,
+    "supportsOrderBy": true,
+    "supportsOutDistance": true,
+    "supportsOutFieldSQLExpression": true,
+    "supportsPagination": true,
+    "supportsPaginationOnAggregatedQueries": true,
+    "supportsPercentileStatistics": true,
+    "supportsQueryAnalytic": true,
+    "supportsQueryBins": true,
+    "supportsQueryPivot": true,
+    "supportsQueryRelatedPagination": true,
+    "supportsQueryWithCacheHint": true,
+    "supportsQueryWithCollation": true,
+    "supportsQueryWithDatumTransformation": true,
+    "supportsQueryWithDistance": true,
+    "supportsQueryWithLodSR": false,
+    "supportsQueryWithResultType": true,
+    "supportsReturningGeometryCentroid": true,
+    "supportsReturningGeometryEnvelope": true,
+    "supportsReturningGeometryProperties": true,
+    "supportsReturningQueryExtent": true,
+    "supportsSpatialAggregationStatistics": true,
+    "supportsSqlExpression": true,
+    "supportsStatistics": true,
+    "supportsTimeRelation": true,
+    "supportsTopFeaturesQuery": true,
+    "supportsTranslations": false,
+    "supportsTrueCurve": true
+  },
+  "allowGeometryUpdates": true,
+  "allowTrueCurvesUpdates": true,
+  "cacheMaxAge": 30,
+  "capabilities": "Query,Sync",
+  "collation": {
+    "accentSensitive": true,
+    "caseSensitive": false,
+    "locale": "neutral"
+  },
+  "copyrightText": "Colorado Parks and Wildlife GIS Group",
+  "currentVersion": 12,
+  "dateFieldsTimeReference": {
+    "respectsDaylightSaving": false,
+    "timeZone": "UTC",
+    "timeZoneIANA": "Etc/UTC"
+  },
+  "defaultVisibility": false,
+  "description": "This information was derived from the 1:24,000 scale Digital Rastor Graphics (DRG's). Data were digitized on-screen using the Arc/Info module to create a Big Game Management Unit (GMU) polygon coverage. Where available, coincident lines were use from other available data. If these data were available but not at 1:24,000 scale or better, digitizing was done directly from the DRG, with the exception of Hydro Unit (HUC) boundaries, which were pulled from the Division's HUC coverages. Digitizing and attributing were done by the GIS Group of Colorado Parks and Wildlife. Label points have multiple attributes and linear features are attributed with the feature name that makes up that portion of the GMU boundary.",
+  "displayField": "COUNTY",
+  "drawingInfo": {
+    "labelingInfo": null,
+    "renderer": {
+      "symbol": {
+        "color": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "outline": {
+          "color": [
+            168,
+            0,
+            132,
+            255
+          ],
+          "style": "esriSLSSolid",
+          "type": "esriSLS",
+          "width": 2
+        },
+        "style": "esriSFSSolid",
+        "type": "esriSFS"
+      },
+      "type": "simple"
+    },
+    "scaleSymbols": true,
+    "transparency": 0
+  },
+  "editingInfo": {
+    "dataLastEditDate": 1775766057738,
+    "lastEditDate": 1775766211884,
+    "schemaLastEditDate": 1775766211884
+  },
+  "enableNullGeometry": false,
+  "extent": {
+    "spatialReference": {
+      "latestWkid": 3857,
+      "wkid": 102100
+    },
+    "xmax": -11339983.90544333,
+    "xmin": -12164947.664089132,
+    "ymax": 5022948.749477974,
+    "ymin": 4428505.477767917
+  },
+  "fields": [
+    {
+      "alias": "FID",
+      "defaultValue": null,
+      "domain": null,
+      "editable": false,
+      "name": "FID",
+      "nullable": false,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeOID"
+    },
+    {
+      "alias": "GMUID",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "name": "GMUID",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeInteger"
+    },
+    {
+      "alias": "COUNTY",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 50,
+      "name": "COUNTY",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "DEERDAU",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 5,
+      "name": "DEERDAU",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "ELKDAU",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 5,
+      "name": "ELKDAU",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "ANTDAU",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 5,
+      "name": "ANTDAU",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "MOOSEDAU",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 5,
+      "name": "MOOSEDAU",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "BEARDAU",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 5,
+      "name": "BEARDAU",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "LIONDAU",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 5,
+      "name": "LIONDAU",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "INPUT_DATE",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 8,
+      "name": "INPUT_DATE",
+      "nullable": true,
+      "precision": 1,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeDate"
+    },
+    {
+      "alias": "EDIT_DATE",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "length": 8,
+      "name": "EDIT_DATE",
+      "nullable": true,
+      "precision": 1,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeDate"
+    },
+    {
+      "alias": "AcresGISCa",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "name": "AcresGISCa",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "SqMilesGIS",
+      "defaultValue": null,
+      "domain": null,
+      "editable": true,
+      "name": "SqMilesGIS",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "Shape__Area",
+      "defaultValue": null,
+      "domain": null,
+      "editable": false,
+      "name": "Shape__Area",
+      "nullable": true,
+      "sqlType": "sqlTypeDouble",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "Shape__Length",
+      "defaultValue": null,
+      "domain": null,
+      "editable": false,
+      "name": "Shape__Length",
+      "nullable": true,
+      "sqlType": "sqlTypeDouble",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "GlobalID",
+      "defaultValue": "NEWID() WITH VALUES",
+      "domain": null,
+      "editable": false,
+      "length": 38,
+      "name": "GlobalID",
+      "nullable": false,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeGlobalID"
+    }
+  ],
+  "geometryProperties": {
+    "shapeAreaFieldName": "Shape__Area",
+    "shapeLengthFieldName": "Shape__Length",
+    "units": "esriMeters"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "globalIdField": "GlobalID",
+  "guidFormat": "",
+  "hasAttachments": false,
+  "hasContingentValuesDefinition": false,
+  "hasGeometryProperties": true,
+  "hasM": false,
+  "hasMetadata": true,
+  "hasStaticData": false,
+  "hasZ": false,
+  "htmlPopupType": "esriServerHTMLPopupTypeAsHTMLText",
+  "id": 6,
+  "indexes": [
+    {
+      "description": "",
+      "fields": "FID",
+      "indexType": "Attribute",
+      "isAscending": true,
+      "isUnique": true,
+      "name": "PK__CPWADMIN__C1BEA5A2AAB18268"
+    },
+    {
+      "description": "",
+      "fields": "Shape",
+      "indexType": "Spatial",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "user_16980.CPWADMINDATA_CPW_GMU_BOUNDARY__BIG_GAME_2_Shape_sidx"
+    },
+    {
+      "description": "",
+      "fields": "Shape__Area",
+      "indexType": "Attribute",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "Shape__Area_Index"
+    },
+    {
+      "description": "",
+      "fields": "Shape__Length",
+      "indexType": "Attribute",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "Shape__Length_Index"
+    },
+    {
+      "description": "",
+      "fields": "GlobalID",
+      "indexType": "Attribute",
+      "isAscending": false,
+      "isUnique": true,
+      "name": "GlobalID_Index"
+    }
+  ],
+  "infoInEstimates": [
+    "extent",
+    "count"
+  ],
+  "isDataVersioned": false,
+  "maxRecordCount": 2000,
+  "maxRecordCountFactor": 1,
+  "maxScale": 0,
+  "minScale": 0,
+  "name": "CPW GMU Boundary (Big Game)",
+  "objectIdField": "FID",
+  "onlyAllowTrueCurveUpdatesByTrueCurveClients": false,
+  "preferredTimeReference": null,
+  "queryBinsCapabilities": {
+    "supportedNormalizationTypes": [
+      "boxCox",
+      "field",
+      "inverse",
+      "log",
+      "naturalLog",
+      "percentOfTotal",
+      "squareRoot"
+    ],
+    "supportedStatisticTypes": [
+      "COUNT",
+      "SUM",
+      "AVG",
+      "VAR",
+      "STDDEV",
+      "MIN",
+      "MAX",
+      "PERCENTILE_CONT",
+      "PERCENTILE_DISC",
+      "APPROX_PERCENTILE_CONT",
+      "APPROX_PERCENTILE_DISC",
+      "CentroidAggregate",
+      "EnvelopeAggregate",
+      "ConvexHullAggregate"
+    ],
+    "supportsAsync": true,
+    "supportsAutoIntervalBin": true,
+    "supportsClassificationBin": true,
+    "supportsDateBin": true,
+    "supportsFirstDayOfWeek": true,
+    "supportsFixedBoundariesBin": true,
+    "supportsFixedIntervalBin": true,
+    "supportsNormalization": true,
+    "supportsReturnFullIntervalBin": true,
+    "supportsReturnStackValueRange": true,
+    "supportsSnapToData": true,
+    "supportsSplitBy": true,
+    "supportsStackBy": true
+  },
+  "relationships": [],
+  "serviceItemId": "168fccb0583f42f1afe57de6c9ce846d",
+  "spatialReference": {
+    "latestWkid": 3857,
+    "wkid": 102100
+  },
+  "standardMaxRecordCount": 2000,
+  "standardMaxRecordCountNoGeometry": 32000,
+  "supportedAppendFormats": "sqlite,geoPackage,shapefile,filegdb,featureCollection,geojson,csv,excel,jsonl,featureService,pbf",
+  "supportedAppendSourceFilterFormats": "sqlite,geoPackage,shapefile,filegdb,featureService",
+  "supportedContingentValuesFormats": "JSON, PBF",
+  "supportedConvertContentFormats": "LayerEditCollection,FeatureCollection",
+  "supportedConvertFileFormats": "JSON,PBF",
+  "supportedCurveTypes": [
+    "esriGeometryCircularArc"
+  ],
+  "supportedExportFormats": "csv,shapefile,sqlite,geoPackage,filegdb,featureCollection,geojson,kml,excel",
+  "supportedOperationsWithCollation": "query,addField,updateField",
+  "supportedQueryFormats": "JSON, geoJSON, PBF",
+  "supportedSpatialRelationships": [
+    "esriSpatialRelIntersects",
+    "esriSpatialRelContains",
+    "esriSpatialRelCrosses",
+    "esriSpatialRelEnvelopeIntersects",
+    "esriSpatialRelIndexIntersects",
+    "esriSpatialRelOverlaps",
+    "esriSpatialRelTouches",
+    "esriSpatialRelWithin",
+    "esriSpatialRelDisjoint",
+    "esriSpatialRelRelation"
+  ],
+  "supportedSyncDataOptions": 260,
+  "supportedTrueCurvePbfFeatureEncodings": [
+    "esriCompressedShapeBuffer",
+    "esriDefault"
+  ],
+  "supportsASyncCalculate": true,
+  "supportsAdvancedQueries": true,
+  "supportsAppend": true,
+  "supportsApplyEditsWithGlobalIds": true,
+  "supportsAttachmentsByUploadId": true,
+  "supportsAttachmentsResizing": true,
+  "supportsCalculate": true,
+  "supportsColumnStoreIndex": true,
+  "supportsContingentValues": true,
+  "supportsCoordinatesQuantization": true,
+  "supportsExceedsLimitStatistics": true,
+  "supportsFieldDescriptionProperty": true,
+  "supportsFieldGroups": true,
+  "supportsLayerOverrides": true,
+  "supportsMultiScaleGeometry": true,
+  "supportsQuantizationEditMode": true,
+  "supportsReturningQueryGeometry": true,
+  "supportsRollbackOnFailureParameter": true,
+  "supportsStatistics": true,
+  "supportsTilesAndBasicQueriesMode": true,
+  "supportsTruncate": false,
+  "supportsValidateSql": true,
+  "templates": [
+    {
+      "description": "",
+      "drawingTool": "esriFeatureEditToolPolygon",
+      "name": "CPW GMU Boundary (Big Game)",
+      "prototype": {
+        "attributes": {
+          "ANTDAU": null,
+          "AcresGISCa": null,
+          "BEARDAU": null,
+          "COUNTY": null,
+          "DEERDAU": null,
+          "EDIT_DATE": null,
+          "ELKDAU": null,
+          "GMUID": null,
+          "INPUT_DATE": null,
+          "LIONDAU": null,
+          "MOOSEDAU": null,
+          "SqMilesGIS": null
+        }
+      }
+    }
+  ],
+  "tileMaxRecordCount": 4000,
+  "trueCurveSupportMode": "OGC",
+  "type": "Feature Layer",
+  "typeIdField": "",
+  "types": [],
+  "uniqueIdField": {
+    "isSystemMaintained": true,
+    "name": "FID"
+  },
+  "useStandardizedQueries": true
+}
