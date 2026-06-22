@@ -1,0 +1,24 @@
+ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-metadata-20260622T204643Z.json
+  s_61fcfd2b4abd24::t_0e031c67f01d72 1-3302
+docs/runbooks/M2-operator-pass.md
+  s_61fcfd2b4abd24::t_93a57d4f67c684 849-861
+  s_61fcfd2b4abd24::t_fed6324a1cc027 1020-1022
+  s_61fcfd2b4abd24::t_9bea146912ba94 1075-1076
+  s_61fcfd2b4abd24::t_307e6f419b51b4 1063-1074,1077
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.10",
+  "base_commit_sha": "ae4c0e78fd672f14512ca8482d284ed8333e6605",
+  "prompts": {},
+  "sessions": {
+    "s_61fcfd2b4abd24": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8ffe8c9b-0cd1-45f2-9bcf-9d7988e3c582",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
