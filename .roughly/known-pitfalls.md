@@ -104,6 +104,16 @@ Lock it in with a test that feeds an envelope payload and asserts the raise carr
 
 Surfaced by S03.0 silent-failure-hunter review on 2026-05-04.
 
+### ArcGIS host republish can drop the top-level GeoJSON `id` field — include `"OBJECTID"` in every hardcoded `_*_OUT_FIELDS` tuple
+
+**Failure mode:** An ArcGIS host can republish a layer such that the top-level GeoJSON `id` field is omitted from feature responses unless `"OBJECTID"` is explicitly listed in the request's `outFields`. A loader whose hardcoded `_*_OUT_FIELDS` tuple lacks `"OBJECTID"` then has every feature's OID resolve to `None`, causing `_require_objectid` (or the manual `if oid is None: raise` guard) to fail loud in the manifest-hash loop — 0 rows written, clean halt with no data corruption. Observed: PAD-US 4.1 Federal Fee Managers Authoritative FeatureServer, M2 operator-pass Step 4, 2026-06-21.
+
+**Forensic signal of the same republish:** the response's native CRS shifts (PAD-US `4269 → 3857`), captured as a `WARNING` by `ingestion/ingestion/lib/arcgis._check_and_fix_projection`. A future operator seeing a CRS-shift warning alongside an OID-failure should suspect an upstream republish (not local code rot) and re-audit the layer's `outFields` before anything else.
+
+**Mitigation:** (1) Include `"OBJECTID"` in every hardcoded `_*_OUT_FIELDS` tuple in CO state adapters — locked by the `TestStateAdapterOutFieldsIncludeObjectid` AST-walk test in `ingestion/tests/test_load_co_restricted_areas.py`, which fails any future CO loader whose tuple omits the field. (2) On any OID-critical path (manifest-hash loops), use `arcgis._require_objectid` — which scans only `properties`/`attributes` and raises `ArcGISError` with an outFields-fix diagnostic — rather than `arcgis._read_objectid`, which keeps the `feature["id"]` fallback for error-message/dedup contexts where `None` is tolerated and would otherwise mask the gap. Loaders that delegate `outFields` to `fetch_features` via `metadata.out_fields` (e.g. `load_gmus.py`) are naturally safe: the server's full `fields[]` list includes OBJECTID.
+
+Surfaced by M2 operator-pass Step 4 failure on 2026-06-21; hardened in S06.6.1.
+
 ## Integration — Census TIGER
 
 ### US Census TIGER state-boundary shapefiles ship in EPSG:4269 (NAD83), not WGS84

@@ -930,3 +930,57 @@ class TestNoLibImports:
                 assert not _offending(module), (
                     f"load_restricted_areas.py imports a non-Colorado state adapter: from {module}"
                 )
+
+
+class TestStateAdapterOutFieldsIncludeObjectid:
+    """S06.6.1: every module-level ``_*_OUT_FIELDS`` tuple in the CO state-adapter
+    dir must include ``"OBJECTID"``.
+
+    The PAD-US 4.1 republish (2026-06) omits the top-level GeoJSON ``id`` unless
+    OBJECTID is in the request outFields, so a loader that hardcodes an outFields
+    tuple without OBJECTID writes 0 rows (fail-loud in the manifest-hash loop). A
+    future CO loader that adds such a tuple without OBJECTID fails this test at
+    PR-time. AST-walks every ``.py`` in the dir so the guard is not pinned to the
+    single tuple that exists today.
+    """
+
+    def _co_adapter_dir(self) -> Path:
+        spec = importlib.util.find_spec("states.colorado.load_restricted_areas")
+        assert spec is not None and spec.origin is not None
+        return Path(spec.origin).parent
+
+    def _collect_out_fields_tuples(self) -> dict[str, list[str]]:
+        # Scope: direct module-level tuple/list literal assignments only
+        # (mirrors the TestNoLibImports AST-walk convention). A constant built
+        # by concatenation (e.g. `_BASE + ("OBJECTID",)`) or an inline outFields
+        # string at the call site is out of this guard's reach.
+        collected: dict[str, list[str]] = {}
+        for path in sorted(self._co_adapter_dir().glob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Assign):
+                    continue
+                for target in node.targets:
+                    if not (isinstance(target, ast.Name) and target.id.endswith("_OUT_FIELDS")):
+                        continue
+                    if not isinstance(node.value, (ast.Tuple, ast.List)):
+                        continue
+                    string_elts = [
+                        elt.value
+                        for elt in node.value.elts
+                        if isinstance(elt, ast.Constant) and isinstance(elt.value, str)
+                    ]
+                    collected[f"{path.name}:{target.id}"] = string_elts
+        return collected
+
+    def test_every_out_fields_tuple_includes_objectid(self) -> None:
+        collected = self._collect_out_fields_tuples()
+        # Fail loud rather than pass vacuously if the glob/AST-walk finds nothing
+        # (and pin that at least _RA_OUT_FIELDS is discovered).
+        assert collected, (
+            "no _*_OUT_FIELDS tuples found in the CO state-adapter dir — the "
+            "guard cannot function; expected at least _RA_OUT_FIELDS in "
+            "load_restricted_areas.py"
+        )
+        for key, elts in collected.items():
+            assert "OBJECTID" in elts, f"{key} is missing 'OBJECTID' (S06.6.1)"
