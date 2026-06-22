@@ -1,11 +1,11 @@
 # E06: Colorado Regulation Text Ingestion
 
-**Status:** In Progress — 7 of 13 stories closed (S06.0 / S06.1 / S06.3 / S06.4 / S06.3.1 / S06.5 / S06.6; S06.2 omitted by design at S06.3 Stage-1 discovery); S06.7 next active
+**Status:** In Progress — 7 of 14 stories closed (S06.0 / S06.1 / S06.3 / S06.4 / S06.3.1 / S06.5 / S06.6; S06.2 omitted by design at S06.3 Stage-1 discovery); **S06.6.1 carved out 2026-06-21 next active** (operator-pass-discovered PAD-US OBJECTID hardening; blocks M2-build operator pass resume + S06.7 dispatch); S06.7 follows once S06.6.1 merges + pass completes
 **Milestone:** M2 — Colorado Ingestion
 **Dependencies:** E04 (M1 carry-forward + CO schema prep), E05 (CO geometry ingestion — all 9 stories closed + audited 2026-06-06; epic at [`completed/E05-colorado-geometry-ingestion.md`](completed/E05-colorado-geometry-ingestion.md))
 **Validated:** 2026-06-08 (E06 validation triad: Source Faithfulness + Draw-Mechanics & Confidence + Schema Stress-Test & Drift-Guard; verdicts LAND-WITH-MINOR-EDITS + LAND-WITH-EDITS + LAND-WITH-MINOR-EDITS; **all 11 MUST-FIX findings applied at draft time** — broken ADR-020 link sweep [5 occurrences]; S06.0 Last-Modified/Content-Length header capture + cover-page confirmation + multi-source option (a)/(c) consequence chains + conditional 6th `db.update_geometry_verbatim` decision + schema-gap enum-extension precision; S06.1 `pending: true` drift-marker semantics; S06.3/S06.4/S06.5 ADR-008 paraphrase-prohibition + no-`layout=True` AST guard + docstring grep-parity discipline; S06.4/S06.6/S06.9 `SourceCitation.document_type` silent-widening guard per ADR-019 §"Decision" item 5; S06.6 `_JURISDICTION_BINDING_ID_FORMAT` 3-test lock + statewide-anchor 3rd-candidate flag tighten + ADR-017 FINALIZE lock; S06.7 `drift_guard.assert_id_matches` every-build-function-site language + pure id-derivation function AC + Q16/Q17/closure-temporal-anchors pre-code flag protocols; S06.8 `successor_hunt_code_key` composite-key form + 20%/25% coupling rule + `application_deadline` location lock + `purchase_only_code` per-species string + `inactive_forfeit_years=null` + module-level `Final` constants for `_HYBRID_*` parameters + `draw_spec` composite-PK exclusion AC + Q17 per-GMU caps flag; S06.9 `assert_dispatch_dict_drift_free` module-top timing + pure `_derive_reporting_obligation_id` callable; S06.10 `drift_guard` NOT imported AC + AST guard + `%s`-bound distance lock + 4-builder portion code-path preservation. Plus the most load-bearing SHOULD-FIX items.)
 **Completed:** —
-**Estimated Stories:** 13 (S06.0 through S06.11, plus S06.3.1 carved out 2026-06-16 post-S06.4-closure to address Known Issues #10 + #11 per the S03.6.1 / S05.3.5 mid-epic carve-out precedent; carve-outs added at sequencing slots if surfaced mid-epic)
+**Estimated Stories:** 14 (S06.0 through S06.11, plus S06.3.1 carved out 2026-06-16 post-S06.4-closure to address Known Issues #10 + #11, plus **S06.6.1 carved out 2026-06-21** post-S06.6-closure to address the M2-build operator-pass Step 4 PAD-US OBJECTID drift — both per the S03.6.1 / S05.3.5 mid-epic carve-out precedent; carve-outs added at sequencing slots if surfaced mid-epic)
 **UAT Gating:** S06.3 / S06.4 (extraction faithfulness), S06.8 (draw_spec faithfulness against CPW publication), S06.11 (M2 milestone UAT). Most other stories are `UAT: no` — verification-gated against SQL counts deferred to S06.11. S06.5, S06.9 may flip to `UAT: yes` mid-epic if extraction surfaces faithfulness ambiguities.
 
 ---
@@ -565,6 +565,84 @@ First E06 DB-write story. Mirrors M1's S03.6 pattern with CO species fan-out (ar
 - [ ] FK validity: every `regulation_record.jurisdiction_code` resolves to a `geometry.id` via the append-`-geom` convention (e.g., `CO-GMU-1` → `CO-GMU-1-geom`); requires CO GMU geometry to exist (E05 Group B precondition) — *operator-pending*
 
 Group B verification captured in `docs/planning/epics/E06-confidence-findings/S06.6.md` § "Group B verification record"; PM ticks Group B boxes in a follow-up doc-only commit once operator results land.
+
+---
+
+### S06.6.1: PAD-US OBJECTID outFields hardening (operator-pass-discovered carve-out post-S06.6 closure)
+
+**Status:** Not Started — carved out 2026-06-21 post-S06.6 closure (mirrors S03.6.1 / S05.3.5 / S06.3.1 mid-epic carve-out precedent).
+
+**Carved out 2026-06-21** during the M2-build operator pass (against the dev Supabase project on branch `test/m2-operator-pass` @ `1f52932`). Step 4 (`ingestion/states/colorado/load_restricted_areas.py` against PAD-US 4.1) failed loud — every feature resolved to `OBJECTID=None` → 0 rows written. Root cause: PAD-US was republished between S05.4 close (2026-06-04) and the operator pass (forensic signal: response CRS shifted `4269 → 3857`, captured by `lib/arcgis._check_and_fix_projection`); the republished service now omits the top-level GeoJSON `id` field unless `OBJECTID` is in the request's `outFields`. The loader's `_RA_OUT_FIELDS` doesn't include `"OBJECTID"`; `lib/arcgis._read_objectid` silently falls back to `feature["id"]` (now empty) → returns `None` → downstream fail-loud. Bug lives in S05.4 territory (E05) but discovered during E06's operator pass, gates S06.7 dispatch, and follows the mid-epic-carve-out convention rather than reopening closed E05. Operator's verbatim root-cause diagnosis is recorded in `docs/runbooks/M2-operator-pass.md` capture form "Step 4 failure" section.
+
+**As a** developer hardening the CO state-adapter ArcGIS fetch surface against upstream republishes
+**I want** every CO `_*_OUT_FIELDS` tuple to explicitly include `"OBJECTID"` and `lib/arcgis._read_objectid` to fail loud (not silently fall back to `feature["id"]`) when both OID sites are absent
+**So that** future ArcGIS-host republishes surface at the right layer with the right diagnostic, the M2 operator pass resumes from Step 4 against `load_restricted_areas.py`, and S06.7 dispatch unblocks
+
+**UAT: no** (verification-gated against ACs + the operator-pass resume; the resume IS the live verification)
+
+**Context:**
+
+S05.4 closed clean 2026-06-04 with `_RA_OUT_FIELDS = ("Unit_Nm", "Des_Tp", "Mang_Name", "Pub_Access", "GIS_Acres", "Src_Date")`. The PAD-US 4.1 service was republished in the 17-day gap before the operator pass. The republish coupled two upstream changes: (a) native CRS shifted `4269 → 3857` (already handled by `lib/arcgis._check_and_fix_projection` with a warning); (b) GeoJSON top-level `id` field is now omitted unless `OBJECTID` is in `outFields`. Change (b) is the silent-failure trigger. The lib's `feature["id"]` fallback in `_read_objectid` was the masking mechanism that let change (b) bite. Fix-side: (i) immediate workaround — add `"OBJECTID"` to `_RA_OUT_FIELDS`; (ii) lib discipline — `_read_objectid` fails loud with a diagnostic when both sites are absent, removing the silent fallback; (iii) audit other CO `_*_OUT_FIELDS` tuples for the same vulnerability; (iv) lock the convention with an AST-walk regression test.
+
+**Sequencing:** lands **before S06.7** so that the M2 operator pass can resume from Step 4 → 10 against `main`. S06.7 dispatch unblocks once the pass resumes (live S06.6 verification informs S06.7 planning against actual env state).
+
+**Tasks:**
+
+- **T1**: Add `"OBJECTID"` to `_RA_OUT_FIELDS` in `ingestion/states/colorado/load_restricted_areas.py` (append-not-prepend).
+- **T2**: Audit `_GMU_OUT_FIELDS` in `load_gmus.py` + any other CO `_*_OUT_FIELDS` tuples (`grep -rn '_OUT_FIELDS' ingestion/states/colorado/`); add `"OBJECTID"` if absent. Operator-pass Step 3 succeeded today so `_GMU_OUT_FIELDS` likely already includes it — confirm in closure note. **Do NOT audit MT** (out of scope; dev-env Steps 0 + 1 confirmed MT loaders are working).
+- **T3**: Tighten `lib/arcgis._read_objectid` (or its raising caller) to raise `ArcGISError` immediately when both `properties.OBJECTID` and top-level `id` are absent. Diagnostic message must contain (a) the failure mode, (b) the typical root cause (republish + `outFields` discipline), (c) forensic context: feature's top-level keys + first ~10 property keys. **Behavior change**: removes the silent `feature["id"]` fallback.
+- **T4**: New `TestReadObjectidFailsLoud` class in `ingestion/tests/test_arcgis.py` with three tests: (a) `properties.OBJECTID=42` → returns `42`; (b) top-level `id` only, no `properties.OBJECTID` → raises (locks the behavior change); (c) neither present → raises with diagnostic containing literal `"OBJECTID"` + `"outFields"`.
+- **T5**: New `TestStateAdapterOutFieldsIncludeObjectid` AST-walk test (mirrors `TestNoColoradoLeakIntoSharedLib` pattern) — walks every `_*_OUT_FIELDS` module-level tuple in `ingestion/states/colorado/load_restricted_areas.py` + `load_gmus.py` (+ any others discovered in T2); asserts `"OBJECTID"` membership in each. Future loader without OBJECTID fails this at PR-time.
+- **T6**: Regenerate S05.4 features fixture + manifest via `ingestion/.venv/bin/python ingestion/states/colorado/load_restricted_areas.py --dry-run` from repo root; commit fresh fixture + manifest. **SHA change is expected** (new outFields → new fetch hash; not a determinism regression). Update the pinned-SHA constant in `ingestion/tests/test_load_co_restricted_areas.py` to the new value. Document old SHA → new SHA in closure note (matches S06.3 / S06.4 / S06.3.1 SHA-lineage discipline).
+- **T7**: New pitfall under `.roughly/known-pitfalls.md` § "Integration — ArcGIS" naming both the failure mode AND the CRS-republish forensic signal. Doc-writer dispatched in Stage 8 lands the final wording; implementer surfaces the candidate in the closure note (per project convention).
+
+**Deliverables:**
+
+- Modified `ingestion/states/colorado/load_restricted_areas.py` (`_RA_OUT_FIELDS` includes `"OBJECTID"`).
+- Modified `ingestion/states/colorado/load_gmus.py` if `_GMU_OUT_FIELDS` missing `"OBJECTID"` (confirmed in closure note either way).
+- Modified `ingestion/ingestion/lib/arcgis.py` — `_read_objectid` (or caller) fails loud with diagnostic.
+- New `TestReadObjectidFailsLoud` class in `test_arcgis.py` (3 tests).
+- New `TestStateAdapterOutFieldsIncludeObjectid` AST-walk regression test.
+- Regenerated PAD-US features fixture + manifest with new pinned SHA.
+- Updated pinned-SHA constant in `test_load_co_restricted_areas.py`.
+- New pitfall candidate surfaced in closure note; doc-writer lands final wording in `.roughly/known-pitfalls.md` § "Integration — ArcGIS".
+- `docs/planning/epics/E06-confidence-findings/S06.6.1.md` closure memo with old SHA → new SHA lineage + audit findings + Phase-equivalent decisions log (deletes at `m2` tag per ADR-017 §6).
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md) (fail-loud-over-silent-fallback), [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md) (state-adapter isolation — the `lib/arcgis` edit is state-agnostic-clean; `TestNoColoradoLeakIntoSharedLib` + `TestNoStateAdapterImports` stay green).
+
+**Depends on:** S06.6 closure (✓ 2026-06-19); M2 operator pass Step 4 failure forensics captured in `docs/runbooks/M2-operator-pass.md` (✓ 2026-06-21).
+
+**Unblocks:** M2 operator pass resume from Step 4 → 10 (live verification of S05.0 + S05.2 + S05.3.5 + S05.4 + S05.5 + S05.7 + S06.5 + S06.6 Group B writes against dev); S06.7 dispatch.
+
+**Acceptance Criteria:**
+
+**Group A — at-merge:**
+
+- [ ] `_RA_OUT_FIELDS` in `ingestion/states/colorado/load_restricted_areas.py` contains `"OBJECTID"`.
+- [ ] `_GMU_OUT_FIELDS` in `ingestion/states/colorado/load_gmus.py` contains `"OBJECTID"` (whether pre-existing or newly added — confirm in closure note).
+- [ ] Any other CO state-adapter `_*_OUT_FIELDS` tuples discovered in T2 contain `"OBJECTID"`.
+- [ ] `lib/arcgis._read_objectid` (or its raising caller) raises `ArcGISError` with a diagnostic message containing the literal strings `"OBJECTID"` + `"outFields"` when both `properties.OBJECTID` and top-level `id` are absent.
+- [ ] New `TestReadObjectidFailsLoud` class in `test_arcgis.py` covers all three sub-cases: properties-OBJECTID returns int; top-level-id-only raises (locks the behavior change from the old silent fallback); neither-present raises with diagnostic.
+- [ ] New `TestStateAdapterOutFieldsIncludeObjectid` AST-walk test asserts `"OBJECTID"` membership in every `_*_OUT_FIELDS` tuple in the CO state-adapter dir; a future loader omitting OBJECTID fails this test.
+- [ ] `ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-features-*.geojson` regenerated + committed (new SHA, expected — not a determinism regression).
+- [ ] `ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-manifest-*.json` regenerated + committed (new SHA, expected).
+- [ ] Pinned-SHA constant in `test_load_co_restricted_areas.py` updated to the new fixture SHA; old SHA → new SHA lineage documented in `docs/planning/epics/E06-confidence-findings/S06.6.1.md`.
+- [ ] New pitfall candidate surfaced in closure note; doc-writer dispatched in Stage 8 lands the final wording in `.roughly/known-pitfalls.md` § "Integration — ArcGIS" — names both the failure mode AND the CRS-republish forensic signal.
+- [ ] `git diff --stat ingestion/states/montana/` empty at merge (PRD 002 SC #9 — MT untouched).
+- [ ] `git diff --stat supabase/migrations/` empty (no schema changes).
+- [ ] `git diff --stat ingestion/ingestion/lib/db.py` empty (no DB-write semantics change).
+- [ ] `git diff --stat mcp-server/ web/` empty (TS-stack untouched).
+- [ ] No new ADRs.
+- [ ] ruff + mypy clean across edited files (`lib/arcgis.py` + edited CO loaders + test files).
+- [ ] `cubic review --json` returns `{"issues": []}` on uncommitted changes (per session hook; iterate until clean).
+- [ ] detect-secrets passes (likely 1 routine `.secrets.baseline` line-number refresh on the pitfall commit — acceptable per convention).
+- [ ] Test baseline shifts approximately **1774 → ~1779 + 4 skipped** (+3 from `TestReadObjectidFailsLoud` + 1 from `TestStateAdapterOutFieldsIncludeObjectid` + ~1 SHA-pin-update test; net pytest count grows by ~5; no regressions on the M2-build floor of 1774).
+- [ ] `TestNoColoradoLeakIntoSharedLib` + `TestNoStateAdapterImports` both green (ADR-005 state-agnostic-clean preserved despite the `lib/arcgis` edit).
+
+**Group B — operator-pending (closes via the M2 operator-pass resume from Step 4):**
+
+- [ ] Operator resumes the M2 operator pass from Step 4 against the dev Supabase project; `load_restricted_areas.py` writes **10 CO geometry rows** (the V1 federal no-hunt zones: 4 NPs + 5 NMs + AFA, Curecanti dropped per 36 CFR §2.2); all fail-loud guards hold; the live-fetch SHA matches the new pinned value.
+- [ ] M2 operator pass Steps 5 / 7 / 8 (overlay fixture / spatial verification / S06.5 verbatim_rule) unblock and complete clean. *(PM ticks Group B in a follow-up doc-only commit once the operator pass completes Step 10.)*
 
 ---
 
