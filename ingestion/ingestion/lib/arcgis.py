@@ -609,6 +609,11 @@ def _read_objectid(
     feature returns the same fallback, all features collapse to one survivor,
     and the count cross-check raises a confusing mismatch instead of a clear
     bug indication).
+
+    OID-critical paths (manifest-hash, or anywhere a missing OBJECTID must be
+    fatal) MUST call `_require_objectid` instead. This best-effort variant
+    keeps the `feature["id"]` fallback, which can silently mask an upstream
+    ArcGIS republish that drops OBJECTID from the response — see S06.6.1.
     """
     common_keys = ("OBJECTID", "objectid", "FID")
     candidates: tuple[str, ...]
@@ -628,6 +633,55 @@ def _read_objectid(
     if isinstance(fid, (int, str)):
         return fid
     return None
+
+
+def _require_objectid(
+    feature: dict[str, Any],
+    *,
+    oid_field: str | None = None,
+) -> int | str:
+    """Strict OBJECTID extractor for OID-critical paths (manifest-hash, or any
+    path where a missing OBJECTID must be fatal — NOT the dedup loop, which keeps
+    using `_read_objectid` and tolerates a None key).
+
+    Unlike `_read_objectid`, this scans only the real OID sites — `properties`
+    and `attributes` — and does NOT fall back to the top-level `feature["id"]`.
+    A missing OBJECTID raises `ArcGISError` with a diagnostic naming the failure
+    mode, the typical root cause (an upstream ArcGIS republish that omits the
+    top-level GeoJSON `id` unless `OBJECTID` is in the request `outFields` — the
+    fix is to add `"OBJECTID"` to the loader's `_*_OUT_FIELDS`), and forensic
+    context (the feature's top-level keys + first attribute keys). This is the
+    S06.6.1 hardening: refusing the `feature["id"]` fallback is what surfaces a
+    republish at the right layer instead of silently masking it.
+    """
+    common_keys = ("OBJECTID", "objectid", "FID")
+    candidates: tuple[str, ...]
+    if oid_field is not None and oid_field not in common_keys:
+        candidates = (oid_field, *common_keys)
+    else:
+        candidates = common_keys
+
+    for key in ("properties", "attributes"):
+        attrs = feature.get(key)
+        if isinstance(attrs, dict):
+            for oid_key in candidates:
+                if oid_key in attrs:
+                    val = attrs[oid_key]
+                    return val if isinstance(val, (int, str)) else str(val)
+
+    # No resolvable OBJECTID. Surface the upstream-republish failure mode loudly.
+    attrs_for_context = feature.get("properties")
+    if not isinstance(attrs_for_context, dict):
+        attrs_for_context = feature.get("attributes")
+    attr_keys = sorted(attrs_for_context)[:10] if isinstance(attrs_for_context, dict) else "<none>"
+    msg = (
+        "no resolvable OBJECTID in feature properties/attributes "
+        f"(searched {candidates!r}); the upstream ArcGIS service likely "
+        "republished and now omits the top-level GeoJSON id unless OBJECTID is "
+        "in the request outFields — add \"OBJECTID\" to the loader's _*_OUT_FIELDS. "
+        f"Feature top-level keys={sorted(feature.keys())}; attribute keys={attr_keys}"
+    )
+    raise ArcGISError(msg)
 
 
 def fetch_features(
@@ -741,6 +795,14 @@ def fetch_features(
             # Pass metadata.object_id_field so dedup uses the layer's actual
             # OID column (FID, OBJECTID_1, etc.) rather than collapsing every
             # feature to the same fallback identifier.
+            #
+            # Best-effort `_read_objectid` (not the strict `_require_objectid`)
+            # is correct here: dedup tolerates a None key. If a republished
+            # service drops OBJECTID entirely, every feature resolves to None,
+            # all collapse to one survivor, and the returnCountOnly cross-check
+            # below raises a (loud, if cryptic) mismatch — and the manifest-hash
+            # loop's `_require_objectid` raises the actionable outFields
+            # diagnostic regardless. Neither path is silent.
             oid = _read_objectid(feature, oid_field=metadata.object_id_field)
             if oid in seen_oids:
                 duplicate_oids.append(oid)
@@ -810,23 +872,16 @@ def fetch_features(
     _write_features_fixture(fixture_dir, layer_slug, layer_id, timestamp, checked)
 
     # Manifest computation.
-    # Use _read_objectid (the same resilient extractor the dedup loop above
-    # uses) so a feature with the OID under "attributes" or via the FID
-    # fallback still hashes cleanly. A direct subscript would raise bare
-    # KeyError mid-stream after the features fixture has already been written
-    # — leaving an inconsistent fixture/manifest pair and a confusing
-    # traceback. Surface "no resolvable OID" as a controlled ArcGISError so
-    # callers (live loaders + backfill) can categorize and report it.
+    # Use _require_objectid (the strict extractor): the OBJECTID must resolve
+    # from properties/attributes for the per-feature hash, and unlike
+    # _read_objectid it refuses the top-level `id` fallback so an upstream
+    # republish that drops OBJECTID surfaces here as a controlled ArcGISError
+    # (with the outFields-fix diagnostic) instead of silently hashing on a
+    # masking identifier. A direct subscript would instead raise a bare
+    # KeyError mid-stream after the features fixture has already been written.
     per_feature_hashes_unsorted: list[str] = []
     for feature in checked:
-        oid = _read_objectid(feature, oid_field=metadata.object_id_field)
-        if oid is None:
-            msg = (
-                f"feature in layer {layer_id} ({layer_slug}) has no resolvable "
-                f"OBJECTID for manifest hash "
-                f"(metadata.object_id_field={metadata.object_id_field!r})"
-            )
-            raise ArcGISError(msg)
+        oid = _require_objectid(feature, oid_field=metadata.object_id_field)
         properties = feature.get("properties")
         if not isinstance(properties, dict):
             msg = (

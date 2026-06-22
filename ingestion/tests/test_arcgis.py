@@ -18,6 +18,7 @@ from ingestion.lib.arcgis import (
     _check_and_fix_projection,
     _read_objectid,
     _request_with_retry,
+    _require_objectid,
     build_source_citation,
     compute_feature_hash,
     fetch_features,
@@ -1835,3 +1836,37 @@ class TestNoColoradoLeakIntoSharedLib:
                     f"(ADR-005; companion to E02 audit's MT_FWP_HOST removal "
                     f"discipline at commit 0093e88)."
                 )
+
+
+class TestReadObjectidFailsLoud:
+    """S06.6.1: the strict `_require_objectid` extractor refuses the top-level
+    `feature["id"]` fallback so an upstream ArcGIS republish that drops OBJECTID
+    surfaces as a fail-loud ArcGISError instead of silently masking the gap.
+    """
+
+    def test_properties_objectid_returns_int(self) -> None:
+        feature = {"type": "Feature", "properties": {"OBJECTID": 42, "Unit_Nm": "x"}}
+        assert _require_objectid(feature) == 42
+
+    def test_oid_field_resolves_non_default_column(self) -> None:
+        # Layers with a non-default OID column (FID, OBJECTID_1, ...) resolve via
+        # the passed oid_field, mirroring the dedup convention.
+        feature = {"type": "Feature", "properties": {"OBJECTID_1": 7, "Unit_Nm": "x"}}
+        assert _require_objectid(feature, oid_field="OBJECTID_1") == 7
+
+    def test_top_level_id_only_raises(self) -> None:
+        # Locks the S06.6.1 behavior change: the old `_read_objectid` fallback
+        # would have returned 7 here; `_require_objectid` ignores `feature["id"]`
+        # and raises, forcing OBJECTID into the request outFields.
+        feature = {"type": "Feature", "id": 7, "properties": {"Unit_Nm": "x"}}
+        assert _read_objectid(feature) == 7  # old best-effort behavior, for contrast
+        with pytest.raises(ArcGISError):
+            _require_objectid(feature)
+
+    def test_neither_present_raises_with_diagnostic(self) -> None:
+        feature = {"type": "Feature", "properties": {"Unit_Nm": "x"}}
+        with pytest.raises(ArcGISError) as exc_info:
+            _require_objectid(feature)
+        message = str(exc_info.value)
+        assert "OBJECTID" in message
+        assert "outFields" in message
