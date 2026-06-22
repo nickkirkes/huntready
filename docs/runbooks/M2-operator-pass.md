@@ -846,6 +846,19 @@ Pre-check (`supabase migration list --db-url`): only `20260603000000` pending (R
 
 - (e) `verbatim_rule` null count: `____` (expected 10 at this step; Step 8 populates)
 
+#### Re-verification 2026-06-22 (after S06.6.1 OBJECTID fix merged)
+
+**STATUS: FAILED AGAIN — second, distinct upstream-republish blocker. 0 rows written.** The S06.6.1 OBJECTID hardening fix IS present (`_RA_OUT_FIELDS` now includes `"OBJECTID"`, line 115) and WORKED — the fetch got past the OID stage (error now reports `OBJECTID=3374`). But a new fail-loud raise fired in `lib/arcgis.geojson_to_multipolygon_wkt`:
+
+```
+WARNING all 11 features passed WGS84 range check, but layer's declared native CRS is EPSG:3857...
+INFO dropped Curecanti National Recreation Area; 11 -> 10 features
+... File ".../load_restricted_areas.py", line 399, in _fetch_and_build -> arcgis.geojson_to_multipolygon_wkt (lib line 374)
+ingestion.lib.arcgis.ArcGISError: GeometryCollection from feature OBJECTID=3374 attributes={...'Unit_Nm': 'Rocky Mountain National Park'...} — polygonal parts do not preserve area (parsed=0.11396975862923518, recovered=0.11389277145080494); refusing to silently lose data. Treat as data-quality issue.
+```
+
+Root cause: republished PAD-US RMNP (OBJECTID 3374) geometry has invalid topology; `make_valid` yields a GeometryCollection whose polygonal parts lose ~0.068% area (Δ 0.0000770 of 0.11397 sq-deg), above the lib's exact-area-preservation tolerance → fail-loud raise (ADR-001). Pre-DB-write; 0 rows. This is a SHARED lib guard (`lib/arcgis.py`, used by MT too). Fix is PM/implementation (loosen tolerance / special-case / re-source RMNP) — out of operator-pass authority. Pattern: two sequential PAD-US 4.1 republish incompatibilities (OBJECTID + RMNP topology) — PM may want a fuller S05.4 review vs the republished layer. Stray failed-run fixtures: `...PADUS-0-metadata-20260622T204643Z.json` (untracked) + gitignored `*-features-*.geojson`. See Anomalies A6.
+
 ### Step 5 — S05.5 overlay fixture
 
 - Builder stdout:
@@ -1004,8 +1017,9 @@ Pre-check (`supabase migration list --db-url`): only `20260603000000` pending (R
 (Use this section for anything you noticed that doesn't match the runbook's documented expected shapes. Even small deltas. PM will reconcile.)
 
 ```
-PASS STATUS: HALTED at Step 4 (2026-06-20). Operator decision: halt pass, fix loader (PM/impl), resume Step 4->10 after merge.
-Steps 0,1,2,3 PASSED. Step 4 FAILED (loader bug). Steps 5,6,7,8,9,10 NOT RUN.
+PASS STATUS: HALTED at Step 4. Run 1 (2026-06-20): Step 4 FAILED on OBJECTID (A4) -> halt -> S06.6.1 fix merged.
+Run 2 (2026-06-22, after S06.6.1): OBJECTID fix worked, Step 4 FAILED AGAIN on a 2nd upstream issue (RMNP GeometryCollection area-loss, A6) -> halted again.
+Steps 0,1,2,3 PASSED. Step 4 FAILED (2 sequential upstream-republish blockers). Steps 5,6,7,8,9,10 NOT RUN.
 Environment: M2-build pass, dev Supabase project eklivzoomtdluedzlyai (was paused at first contact; operator restored). env from repo-root .env.local; query tool = `supabase db query` (psql not installed).
 
 A1 — DEV BASELINE DRIFT (accepted by operator, PM follow-up): dev M1-close reg_record MT = 435, not the runbook's
@@ -1045,6 +1059,21 @@ A5 — FAILED-RUN LEFTOVER (no commit-safety risk; verified): the failed Step 4 
   Step-3 fixtures (CPWAdminData-6-manifest/metadata + multipart-gmus.json) — nothing stray is committable. (Minor
   unexplained note for PM: a `...PADUS-0-metadata-...010242Z.json` briefly appeared as untracked immediately after the
   failure but is no longer on disk; no action ran to delete it. Not commit-relevant; flagged for transparency.)
+
+A6 — STEP 4 SECOND BLOCKER (2026-06-22; PM/impl fix required): after S06.6.1's OBJECTID fix merged, Step 4 got past
+  the OID stage but raised in shared lib `lib/arcgis.geojson_to_multipolygon_wkt`:
+  `ArcGISError: GeometryCollection from feature OBJECTID=3374 (Rocky Mountain National Park) — polygonal parts do not
+  preserve area (parsed=0.11396975862923518, recovered=0.11389277145080494); refusing to silently lose data.`
+  Root cause: republished PAD-US RMNP geometry has invalid topology; make_valid yields a GeometryCollection whose
+  polygonal parts lose ~0.068% area, above the lib's exact-area-preservation tolerance -> fail-loud (ADR-001). Pre-write;
+  0 rows. The guard is in SHARED lib/arcgis.py (lines ~360-380; MT loaders use it too) — fix needs care re ADR-005 and
+  MT regression. Options for PM/impl: (a) loosen the area-preservation tolerance to an explicit small epsilon with a
+  documented rationale; (b) special-case / audit RMNP source topology; (c) re-source RMNP geometry. NOTE: this is the
+  SECOND sequential PAD-US 4.1 republish incompatibility (A4 OBJECTID was first) — PM should consider a fuller review of
+  S05.4's restricted-areas loader vs the republished layer rather than fixing one symptom at a time. Stray failed-run
+  fixtures: `...PADUS-0-metadata-20260622T204643Z.json` (untracked) + gitignored `*-features-*.geojson`; not committable.
+  OPERATOR DECISION (2026-06-22): option (a) — HALT, fuller PAD-US review (validate ALL 10 zones convert, not just RMNP,
+  since the loop raised on the first feature and the other 9 are unvalidated), resume Step 4 -> 10 after the fix merges.
 
 UNCOMMITTED VALID FIXTURES FROM SUCCESSFUL STEPS (Steps 2/3 produced no fixtures for Step 2; Step 3 produced):
   CPWAdminData-6-manifest-20260622T010050Z.json, CPWAdminData-6-metadata-20260622T010050Z.json, multipart-gmus.json
