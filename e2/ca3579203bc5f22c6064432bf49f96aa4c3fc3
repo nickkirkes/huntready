@@ -1,0 +1,20 @@
+.roughly/plans/S06.6.1-padus-objectid-hardening-plan.md
+  s_e6a4227d40d5f6::t_18baed6f0ab68f 3-205
+  s_e6a4227d40d5f6::t_9b7903b3a84185 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "e2ca3579203bc5f22c6064432bf49f96aa4c3fc3",
+  "prompts": {},
+  "sessions": {
+    "s_e6a4227d40d5f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "21d88338-baf7-4dd6-a4a0-22c50f3e4b53",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
