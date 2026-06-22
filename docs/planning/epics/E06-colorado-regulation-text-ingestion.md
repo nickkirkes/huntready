@@ -1,11 +1,11 @@
 # E06: Colorado Regulation Text Ingestion
 
-**Status:** In Progress — 8 of 14 stories closed (S06.0 / S06.1 / S06.3 / S06.4 / S06.3.1 / S06.5 / S06.6 / S06.6.1; S06.2 omitted by design at S06.3 Stage-1 discovery); **S06.6.1 closed at-merge 2026-06-22** via PR #72 / `0506831` (state-agnostic ArcGIS-fetch hardening via new strict `_require_objectid` helper + `_RA_OUT_FIELDS` workaround + AST-walk convention lock; 3 spec deviations reviewer-confirmed and AC-annotated — `_GMU_OUT_FIELDS` doesn't exist as a hardcoded tuple, fixture regen deferred to operator-pass-resume, no pinned-SHA constant exists; test baseline 1774 → 1783 + 4 skipped); **S06.7 next active** (dispatch unblocks once the M2-build operator pass resumes from Step 4 → 10 against dev and the live-write Group B captures roll up)
+**Status:** In Progress — 8 of 15 stories closed (S06.0 / S06.1 / S06.3 / S06.4 / S06.3.1 / S06.5 / S06.6 / S06.6.1; S06.2 omitted by design at S06.3 Stage-1 discovery); **S06.6.2 carved out 2026-06-22 next active** (operator-pass-discovered PAD-US 4.1 GeometryCollection area-preservation drift; **second consecutive carve-out** for the same upstream republish — S06.6.1 fixed OBJECTID/outFields, S06.6.2 addresses GeometryCollection area-loss in `lib/arcgis.geojson_to_multipolygon_wkt` + closes deferred S06.6.1 fixture/manifest commits + validates all 10 V1 zones in one pass); S06.7 follows once S06.6.2 merges + the M2-build operator pass completes Steps 4 → 10
 **Milestone:** M2 — Colorado Ingestion
 **Dependencies:** E04 (M1 carry-forward + CO schema prep), E05 (CO geometry ingestion — all 9 stories closed + audited 2026-06-06; epic at [`completed/E05-colorado-geometry-ingestion.md`](completed/E05-colorado-geometry-ingestion.md))
 **Validated:** 2026-06-08 (E06 validation triad: Source Faithfulness + Draw-Mechanics & Confidence + Schema Stress-Test & Drift-Guard; verdicts LAND-WITH-MINOR-EDITS + LAND-WITH-EDITS + LAND-WITH-MINOR-EDITS; **all 11 MUST-FIX findings applied at draft time** — broken ADR-020 link sweep [5 occurrences]; S06.0 Last-Modified/Content-Length header capture + cover-page confirmation + multi-source option (a)/(c) consequence chains + conditional 6th `db.update_geometry_verbatim` decision + schema-gap enum-extension precision; S06.1 `pending: true` drift-marker semantics; S06.3/S06.4/S06.5 ADR-008 paraphrase-prohibition + no-`layout=True` AST guard + docstring grep-parity discipline; S06.4/S06.6/S06.9 `SourceCitation.document_type` silent-widening guard per ADR-019 §"Decision" item 5; S06.6 `_JURISDICTION_BINDING_ID_FORMAT` 3-test lock + statewide-anchor 3rd-candidate flag tighten + ADR-017 FINALIZE lock; S06.7 `drift_guard.assert_id_matches` every-build-function-site language + pure id-derivation function AC + Q16/Q17/closure-temporal-anchors pre-code flag protocols; S06.8 `successor_hunt_code_key` composite-key form + 20%/25% coupling rule + `application_deadline` location lock + `purchase_only_code` per-species string + `inactive_forfeit_years=null` + module-level `Final` constants for `_HYBRID_*` parameters + `draw_spec` composite-PK exclusion AC + Q17 per-GMU caps flag; S06.9 `assert_dispatch_dict_drift_free` module-top timing + pure `_derive_reporting_obligation_id` callable; S06.10 `drift_guard` NOT imported AC + AST guard + `%s`-bound distance lock + 4-builder portion code-path preservation. Plus the most load-bearing SHOULD-FIX items.)
 **Completed:** —
-**Estimated Stories:** 14 (S06.0 through S06.11, plus S06.3.1 carved out 2026-06-16 post-S06.4-closure to address Known Issues #10 + #11, plus **S06.6.1 carved out 2026-06-21** post-S06.6-closure to address the M2-build operator-pass Step 4 PAD-US OBJECTID drift — both per the S03.6.1 / S05.3.5 mid-epic carve-out precedent; carve-outs added at sequencing slots if surfaced mid-epic)
+**Estimated Stories:** 15 (S06.0 through S06.11, plus S06.3.1 carved out 2026-06-16 post-S06.4-closure to address Known Issues #10 + #11, plus **S06.6.1 carved out 2026-06-21** post-S06.6-closure to address the M2-build operator-pass Step 4 PAD-US OBJECTID drift, plus **S06.6.2 carved out 2026-06-22** post-S06.6.1-closure to address the second-consecutive PAD-US drift surfaced during the operator-pass resume (GeometryCollection area-preservation in `lib/arcgis`) — all per the S03.6.1 / S05.3.5 mid-epic carve-out precedent; carve-outs added at sequencing slots if surfaced mid-epic)
 **UAT Gating:** S06.3 / S06.4 (extraction faithfulness), S06.8 (draw_spec faithfulness against CPW publication), S06.11 (M2 milestone UAT). Most other stories are `UAT: no` — verification-gated against SQL counts deferred to S06.11. S06.5, S06.9 may flip to `UAT: yes` mid-epic if extraction surfaces faithfulness ambiguities.
 
 ---
@@ -643,6 +643,134 @@ S05.4 closed clean 2026-06-04 with `_RA_OUT_FIELDS = ("Unit_Nm", "Des_Tp", "Mang
 
 - [ ] Operator resumes the M2 operator pass from Step 4 against the dev Supabase project; `load_restricted_areas.py` writes **10 CO geometry rows** (the V1 federal no-hunt zones: 4 NPs + 5 NMs + AFA, Curecanti dropped per 36 CFR §2.2); all fail-loud guards hold; the live-fetch SHA matches the regenerated committed fixture (Deferred AC #627/#628 + N/A AC #629 fold here on resume).
 - [ ] M2 operator pass Steps 5 / 7 / 8 (overlay fixture / spatial verification / S06.5 verbatim_rule) unblock and complete clean. *(PM ticks Group B in a follow-up doc-only commit once the operator pass completes Step 10.)*
+
+---
+
+### S06.6.2: PAD-US GeometryCollection area-preservation handling for 10 V1 no-hunt zones (second operator-pass-discovered carve-out)
+
+**Status:** Not Started — carved out 2026-06-22 post-S06.6.1 closure during the M2-build operator-pass resume (mirrors S03.6.1 / S05.3.5 / S06.3.1 / S06.6.1 mid-epic carve-out precedent; **second consecutive carve-out triggered by PAD-US 4.1 drift after the same upstream republish**).
+
+**Carved out 2026-06-22** during the M2-build operator-pass second resume attempt. After S06.6.1's PR #72 / `0506831` cleared the OBJECTID/outFields raise, the operator resumed Step 4 against dev — and immediately hit a second, distinct PAD-US 4.1 republish drift. Specifically: the first feature in the fetch loop (Rocky Mountain National Park) passed `_require_objectid` but raised inside `lib/arcgis.geojson_to_multipolygon_wkt` (`arcgis.py:349-374`) — the existing fail-loud GeometryCollection area-preservation guard fired with `"polygonal parts do not preserve area"`. The raise is **correct per the existing discipline** (`math.isclose(recovered.area, parsed.area, rel_tol=1e-6, abs_tol=1e-12)` — meaningful area loss is a data-quality issue, not benign cleanup). The discipline did its job. The question is whether the new RMNP shape returned by republished PAD-US 4.1 carries genuinely-lossy topology (in which case ingest is questionable until upstream cleans up) or whether the area-loss is a sub-percent artifact of stricter `make_valid()` behavior on the new tessellation (in which case the epsilon may warrant per-feature documented relaxation). **Critically: only RMNP was reached before the raise; the other 9 zones are unvalidated against the republished layer.** This story validates ALL 10 V1 federal no-hunt zones (4 NPs + 5 NMs + AFA — Curecanti dropped per 36 CFR §2.2) in one pass to avoid a third resume-time blocker.
+
+**As a** developer hardening CO restricted-area ingestion against PAD-US 4.1 republish drift in geometry topology
+**I want** all 10 V1 federal no-hunt zones live-fetched + characterized for area-preservation behavior, the `lib/arcgis.geojson_to_multipolygon_wkt` GeometryCollection branch updated per the investigation outcome (epsilon-loosen with documented threshold, re-source affected zones, or pre-process geometry differently), and the deferred S06.6.1 fixture + manifest committed
+**So that** the M2-build operator pass resumes from Step 4 → 10 cleanly without further upstream-drift surprises, the existing fail-loud discipline is preserved, and MT loaders aren't regressed by the lib edit
+
+**UAT: no** (verification-gated against ACs + the operator-pass resume Step 4 → 10; the resume IS the live verification across all 10 zones)
+
+**Context:**
+
+S06.6.1's PR #72 fixed the OID-extraction silent-fallback failure mode. The operator's second resume attempt now surfaces a different failure mode in the same upstream feed: **post-republish RMNP geometry, when canonicalized via `shapely.make_valid()`, returns a `GeometryCollection` whose polygonal-component area diverges from the parsed input area by more than `rel_tol=1e-6`**. The lib's strict area-preservation check (`arcgis.py:352-374`) raises on this — by design — because the docstring's intent is: *"lossy cases (partial overlaps, slivers carrying real area) still raise; the WARNING captures benign cleanup (e.g., make_valid leaving an isolated LineString edge)."*
+
+The story does NOT presume the fix. **Investigation precedes implementation** (S06.3.1 Phase A/B/C precedent). The investigation outcome dictates the lib edit; the spec doesn't lock in epsilon-loosening, re-sourcing, or pre-processing-refactor a priori — those are Phase B branches.
+
+**Two-drift pattern note for the M2 PM ledger** (carry-forward; not in this story's scope to resolve): two distinct PAD-US 4.1 republish drift hits in 18 calendar days (2026-06-04 close → 2026-06-21 OID drift → 2026-06-22 GeometryCollection drift). The strategic question — pin a PAD-US snapshot fixture + cache forever vs continue patching live-fetch drift vs re-source — surfaces as a **separate M2-release / M3 candidate** for the user to consider at their convenience. This story is purely tactical: get all 10 zones converting cleanly so the operator pass completes.
+
+**Sequencing:** lands **before S06.7** so the M2-build operator pass can resume from Step 4 → 10 against `main`. S06.7 dispatch unblocks once the pass resumes (live S06.6 Group B verification informs S06.7 planning).
+
+**Phases:**
+
+**Phase A — Investigate (10-zone live characterization):**
+
+The implementation agent live-fetches all 10 V1 PAD-US no-hunt zones from the republished Federal Fee Managers Authoritative FeatureServer and characterizes geometry behavior for each:
+
+For each of the 10 zones (4 NPs: Rocky Mountain, Mesa Verde, Great Sand Dunes, Black Canyon of the Gunnison; 5 NMs: Dinosaur, Colorado NM, Florissant Fossil Beds, Hovenweep, Yucca House; 1 DOD: AFA), capture:
+
+1. Raw GeoJSON geometry type (Polygon / MultiPolygon / other).
+2. `shapely.shape(geom_dict)` parsed type + area.
+3. `shapely.make_valid()` output type (Polygon / MultiPolygon / GeometryCollection).
+4. If GeometryCollection: unioned polygonal-parts area + `(recovered.area - parsed.area) / parsed.area` relative discrepancy + count + types of non-polygonal artifacts.
+5. Whether the current `geojson_to_multipolygon_wkt` path raises or passes.
+
+Record findings in `docs/planning/epics/E06-confidence-findings/S06.6.2.md` § "Phase A characterization" as a 10-row table.
+
+**Phase B — Decide (outcome locks in Phase C scope):**
+
+Based on Phase A findings, lock one of three outcomes (or document hybrid):
+
+- **Outcome (a) Documented epsilon relaxation** — if all affected zones have relative area-loss below a defensible threshold (e.g., `1e-4` = 0.01% relative tolerance), loosen the epsilon in `lib/arcgis.geojson_to_multipolygon_wkt` with an inline comment explaining the threshold + the PAD-US republish trigger + the per-zone max-observed area-loss (lock in a regression test). Preserves fail-loud for anything worse than the threshold.
+- **Outcome (b) Re-source affected zones** — if any zone has relative area-loss > 0.1% (a real data-quality concern), re-source those specific zones from a more authoritative layer (e.g., NPS Boundary Service, USFWS Cadastral, or a direct download cached as a fixture). This is heavier (multi-source provenance touches PRD 002 L176 ADR-candidate; ADR may be required). PM surfaces the trigger to the human for ADR decision before Phase C ships if outcome (b) fires.
+- **Outcome (c) Pre-process differently** — if a smarter geometry-normalization path (e.g., `buffer(0)` before `make_valid`, `simplify(0)` to coalesce duplicate rings, or alternative shapely call sequence) preserves area for affected zones without epsilon relaxation, refactor the lib's geometry path. Requires lib + test changes.
+
+The PM expectation is **outcome (a)** with a documented small epsilon relaxation IF the area-loss is genuinely sub-percent. **Outcome (b)** fires only if a zone is genuinely lossy (>0.1%). **Outcome (c)** is the cleanest if a no-cost geometry pre-process exists.
+
+**Phase C — Implement (state-agnostic-clean lib edit + tests):**
+
+Apply Phase B outcome to `ingestion/ingestion/lib/arcgis.geojson_to_multipolygon_wkt`. State-agnostic-clean preserved per ADR-005 + ADR-022; `TestNoColoradoLeakIntoSharedLib` + `TestNoStateAdapterImports` must stay green. **MT-regression-guard**: the existing MT-side committed fixtures (e.g., `ingestion/states/montana/fixtures/*-features-*.geojson`) provide a regression surface — they currently pass the strict path; any lib edit must NOT change MT behavior. New unit tests lock the chosen outcome (epsilon value, pre-process step, or re-source manifest).
+
+**Phase D — Commit deferred S06.6.1 fixture + manifest:**
+
+During Phase A's live fetch, the implementation agent captures the full 10-zone features fixture + manifest. Commit those alongside the lib fix; this closes S06.6.1's deferred AC #627/#628 (the operator-pass-resume artifact moves from "deferred" to "shipped" inline with S06.6.2). SHA + provenance lineage documented in the S06.6.2 closure memo.
+
+**Phase E — Pre-merge 10-zone validation:**
+
+Before merge, the implementation agent runs the integration test (locally, mocked from the captured Phase A fixture) to confirm **all 10 zones convert cleanly** through the updated lib path. The live operator-pass-resume Step 4 is the final live verification (operator-pending Group B AC). If Phase B chose outcome (b) and one or more zones are re-sourced, the integration test covers the new source path too.
+
+**Tasks:**
+
+- **T1**: Phase A — live-fetch all 10 V1 PAD-US no-hunt zones; characterize geometry behavior per the 5 data points above; record in `docs/planning/epics/E06-confidence-findings/S06.6.2.md` § "Phase A characterization" as a 10-row table.
+- **T2**: Phase B — based on T1 findings, lock outcome (a) / (b) / (c) (or document hybrid) in the closure memo § "Phase B decision". If outcome (b), pause + surface to PM (flag-and-discuss) before continuing.
+- **T3**: Phase C — apply T2 outcome to `ingestion/ingestion/lib/arcgis.geojson_to_multipolygon_wkt`. State-agnostic-clean preserved. If outcome (a), update the `math.isclose(...)` epsilon with an inline comment naming the threshold + PAD-US republish trigger + per-zone area-loss table. If outcome (c), refactor geometry pre-process step with comment.
+- **T4**: New unit tests for the T3 lib change (lock the outcome — epsilon value or pre-process step). MT-regression-guard: existing tests in `test_arcgis.py` (`TestGeojsonToMultipolygonWkt`) stay green; new tests cover the post-republish RMNP shape.
+- **T5**: New integration test (mocked from Phase A captures) that runs all 10 zones through the updated `geojson_to_multipolygon_wkt` path; asserts all 10 convert cleanly (no raise) + asserts the expected MultiPolygon WKT shape for each.
+- **T6**: Phase D — commit fresh PAD-US features fixture + manifest captured during T1 live-fetch. SHA lineage documented in closure memo. Closes deferred S06.6.1 AC #627/#628.
+- **T7**: New pitfall candidate under `.roughly/known-pitfalls.md` § "Integration — ArcGIS" naming the second-drift pattern (PAD-US 4.1 republish on 2026-06-22 changed both OID-emission AND geometry topology; lib's strict area-preservation discipline correctly surfaces lossy topology — the fix is to characterize the loss + document the threshold, not to loosen discipline broadly). Doc-writer dispatched in Stage 8 lands final wording.
+- **T8**: Closure memo at `docs/planning/epics/E06-confidence-findings/S06.6.2.md` with Phase A characterization table + Phase B decision + outcome rationale + per-zone area-loss numbers (if outcome (a)) + SHA lineage (Phase D) + deferred S06.6.1 AC closure note (deletes at `m2` tag per ADR-017 §6).
+
+**Deliverables:**
+
+- Modified `ingestion/ingestion/lib/arcgis.py` (`geojson_to_multipolygon_wkt` GeometryCollection branch updated per Phase B outcome; inline rationale comment with PAD-US republish trigger + per-zone area-loss data).
+- New tests in `ingestion/tests/test_arcgis.py` locking the outcome + the 10-zone integration test.
+- Committed `ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-features-*.geojson` + `Federal_Fee_Managers_Authoritative_PADUS-0-manifest-*.json` (closes deferred S06.6.1 AC #627/#628; new SHA pinned if applicable).
+- New pitfall under `.roughly/known-pitfalls.md` § "Integration — ArcGIS" (doc-writer-polished wording).
+- Closure memo `docs/planning/epics/E06-confidence-findings/S06.6.2.md`.
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md) (fail-loud-over-silent-fallback; the area-preservation guard is the canonical enforcement; this story preserves the discipline with documented thresholds, not erosion). [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md) (state-adapter isolation — the `lib/arcgis` edit is state-agnostic-clean; `TestNoColoradoLeakIntoSharedLib` + `TestNoStateAdapterImports` stay green; MT-regression-guard via existing MT committed fixtures). **Conditional ADR**: if Phase B outcome (b) fires (re-source one or more zones from a non-PAD-US authoritative layer), a new ADR is required addressing multi-source provenance for the 10 federal no-hunt zones (currently a deferred PRD 002 L176 ADR-candidate; D5 = (b) split-provenance from S06.0 covers single-source-per-row; a per-zone source split needs schema decision). PM surfaces this flag-and-discuss before Phase C ships if outcome (b) fires.
+
+**Depends on:** S06.6.1 closure (✓ 2026-06-22 — PR #72 / `0506831`); M2 operator pass second-resume Step 4 failure forensics captured in `docs/runbooks/M2-operator-pass.md` capture form (✓ 2026-06-22).
+
+**Unblocks:** M2 operator pass second resume from Step 4 → 10 (live verification of S05.0 + S05.2 + S05.3.5 + S05.4 + S05.5 + S05.7 + S06.5 + S06.6 + S06.6.1 + S06.6.2 Group B writes against dev); S06.7 dispatch.
+
+**Acceptance Criteria:**
+
+**Group A — at-merge:**
+
+- [ ] Phase A 10-zone characterization table committed in `docs/planning/epics/E06-confidence-findings/S06.6.2.md`; every V1 zone (4 NPs + 5 NMs + 1 DOD = 10) covered with the 5 data points (raw geom type / parsed type / make_valid output type / area-loss / current-path raises-or-passes).
+- [ ] Phase B decision locked in closure memo — outcome (a) / (b) / (c) / hybrid documented with rationale + per-zone numbers. If outcome (b), PM flag-and-discuss event recorded in the memo.
+- [ ] `ingestion/ingestion/lib/arcgis.geojson_to_multipolygon_wkt` edited per Phase B outcome; inline comment names the PAD-US republish trigger + per-zone area-loss summary + threshold rationale.
+- [ ] New unit tests in `test_arcgis.py` lock the Phase B outcome (epsilon value if outcome (a), pre-process step if outcome (c), re-source path if outcome (b)).
+- [ ] New 10-zone integration test in `test_arcgis.py` (or `test_load_co_restricted_areas.py`) confirms all 10 V1 PAD-US no-hunt zones convert cleanly through the updated `geojson_to_multipolygon_wkt` path (no raise on any of the 10).
+- [ ] Existing `TestGeojsonToMultipolygonWkt` tests stay green (MT-regression-guard via committed MT fixtures — verify MT loaders' behavior unchanged).
+- [ ] `ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-features-*.geojson` committed (closes deferred S06.6.1 AC #627).
+- [ ] `ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-manifest-*.json` committed (closes deferred S06.6.1 AC #628).
+- [ ] New pitfall under `.roughly/known-pitfalls.md` § "Integration — ArcGIS" — names the second-drift pattern + the discipline-preservation rationale; doc-writer dispatched in Stage 8 lands final wording.
+- [ ] `git diff --stat ingestion/states/montana/` empty at merge (PRD 002 SC #9 — MT untouched).
+- [ ] `git diff --stat supabase/migrations/` empty (no schema changes unless outcome (b) requires ADR — in which case the migration ships in a sibling PR ahead of this one with three-place sync).
+- [ ] `git diff --stat ingestion/ingestion/lib/db.py` empty (no DB-write semantics change).
+- [ ] `git diff --stat mcp-server/ web/` empty (TS-stack untouched).
+- [ ] No new ADRs (unless outcome (b) fires; in which case the ADR is drafted by the human or via an explicit ADR-drafting session, NOT by the implementation agent autonomously).
+- [ ] ruff + mypy clean across edited files.
+- [ ] `cubic review --json` returns `{"issues": []}` on uncommitted changes (per session hook; iterate until clean).
+- [ ] detect-secrets passes.
+- [ ] Test baseline shifts additively (expect +5 to +15 depending on outcome — 10-zone integration test alone is ~10 cases + unit tests for the lib change + the deferred-S06.6.1-AC SHA-pin test if applicable; no regressions on the 1783 + 4 skipped floor from S06.6.1).
+- [ ] `TestNoColoradoLeakIntoSharedLib` + `TestNoStateAdapterImports` green (ADR-005 state-agnostic-clean preserved despite the `lib/arcgis` edit).
+- [ ] Closure memo at `docs/planning/epics/E06-confidence-findings/S06.6.2.md` complete (Phase A table + Phase B decision + Phase C summary + Phase D fixture lineage + Phase E pre-merge validation summary).
+
+**Group B — operator-pending (closes via the M2-build operator-pass second resume from Step 4):**
+
+- [ ] Operator resumes the M2-build operator pass from Step 4 against the dev Supabase project; `load_restricted_areas.py` writes **10 CO geometry rows** (the V1 federal no-hunt zones: 4 NPs + 5 NMs + AFA, Curecanti dropped per 36 CFR §2.2); all fail-loud guards hold; live-fetch SHA matches the committed fixture from Phase D.
+- [ ] M2-build operator pass Steps 5 / 7 / 8 (overlay fixture / spatial verification / S06.5 verbatim_rule) unblock and complete clean. *(PM ticks Group B in a follow-up doc-only commit once the operator pass completes Step 10.)*
+
+**Notes for the implementation agent:**
+
+- **Read `docs/runbooks/M2-operator-pass.md` capture form "Step 4 failure (second)" section** for the operator's verbatim diagnosis. The forensic-signal detail (CRS `4269 → 3857` confirmed; new failure mode is GeometryCollection area-preservation, not OID-extraction) is worth preserving in the closure memo.
+- **Live network access required** for Phase A (live-fetch all 10 from the republished PAD-US 4.1 FeatureServer). If the agent doesn't have network access, surface to PM immediately — the spec is unworkable without it.
+- **Stage-4 plan review must explicitly endorse the Phase B outcome** before Phase C implementation. The decision is load-bearing for the lib's fail-loud discipline.
+- **Stage-6 review triad should pay particular attention to**: (a) whether the chosen epsilon (outcome a) is documented with per-zone evidence and not over-loose; (b) whether MT committed fixtures still pass the updated path (MT-regression-guard); (c) whether the inline rationale comment captures enough forensic context for a future PAD-US drift to be diagnosed faster.
+- **The branch this story merges to is `main`**. The operator-pass branch `test/m2-operator-pass` will merge `main` forward after merge to pick up the fix.
+- **Branch naming convention:** `feat/S06.6.2-padus-geometrycollection-handling` off `main`.
+- **PM does NOT autonomously draft an ADR even if outcome (b) fires** — the implementation agent surfaces the trigger via the closure memo's "PM flag-and-discuss event" entry; the PM then surfaces it to the human for ADR decision before Phase C ships.
+- **The strategic question** "PAD-US 4.1 source stability — pin vs re-source vs continue patching" is **out of scope for this story** but worth flagging in the closure memo as a separate M2-release / M3 candidate the PM tracks.
 
 ---
 
