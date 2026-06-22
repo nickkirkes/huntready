@@ -658,100 +658,175 @@ Fill this in as you go. Verbatim outputs are preferred over summaries — the PM
 
 ### Pass metadata
 
-- **Pass mode:** `M2-build` / `M2-release` (select one)
-- **Target environment:** `_____________` (e.g., "dev Supabase project `huntready-dev`" or "production Supabase project `huntready`")
-- **`DATABASE_URL` host (no creds — just the hostname for audit):** `_____________`
-- **Date:** `_____________`
-- **Operator:** `_____________`
+- **Pass mode:** `M2-build`
+- **Target environment:** dev Supabase project `eklivzoomtdluedzlyai`
+- **`DATABASE_URL` host (no creds — just the hostname for audit):** `db.eklivzoomtdluedzlyai.supabase.co:5432`
+- **Date:** `2026-06-20`
+- **Operator:** `Nick Kirkes`
 
 If `Pass mode = M2-release`, also confirm: this is the pre-`m2`-tag verification pass and the captured outputs will feed the M2 → M3 handoff document.
 
 ### Pre-pass DB state (from Step 0 reconciliation)
 
+Tool: `supabase db query --db-url "$DATABASE_URL" --agent=no` (psql not installed; `--agent=no` → table output). Env sourced from repo-root `.env.local` (gitignored). Project was paused at first contact; operator restored it before reconciliation.
+
+Count reconciliation:
+
 ```
-[paste the geometry/regulation_record/binding count query output here]
+┌───────────────┬──────┐
+│    table_     │ rows │
+├───────────────┼──────┤
+│ geometry MT   │ 350  │
+│ geometry CO   │ 0    │
+│ reg_record MT │ 435  │   <-- expected 437; -2 (see drift note)
+│ reg_record CO │ 0    │
+│ binding MT    │ 788  │
+│ binding CO    │ 0    │
+│ binding (all) │ 788  │
+└───────────────┴──────┘
 ```
+
+3 MT federal no-hunt-zone bindings (pre-Step-1): 48 binding rows across the 3 geometries (Glacier / Sun River / Yellowstone), **every role = `other_overlay`** as expected pre-migration. Both statewide anchors present (`MT-STATEWIDE-antelope`, `MT-STATEWIDE-bear`).
+
+**Baseline drift (operator decision: ACCEPT 435, proceed — 2026-06-20):** dev's M1-close `reg_record MT` is **435**, not the runbook's production-anchored **437**. The −2 is isolated entirely to **pronghorn** (dev 29 = 28 HD + 1 statewide; M1-close expected 31 = 30 HD + 1 statewide). Bear = 36 confirms the S03.6.1 `MT-STATEWIDE-bear` anchor is present; elk/mule_deer/whitetail all match. Nothing was written to reach this state — it is pre-existing dev/prod baseline drift. This pass writes only CO data (Steps 2–9 do not touch MT reg_record), so the gap does not affect the pass. **Step 10's MT-untouched assertion is therefore evaluated as "reg_record MT UNCHANGED at 435" for this M2-build pass**, per the Pass-mode section's "baseline is whichever env this pass targets." See Anomalies for the PM follow-up flag.
+
+MT reg_record by species (dev): bear 36 / elk 112 / mule_deer 129 / pronghorn 29 / whitetail 129 = 435.
 
 ### Step 1 — S05.3.5 migration
 
-- `supabase db push` output:
+Pre-check (`supabase migration list --db-url`): only `20260603000000` pending (Remote blank); all prior migrations incl. S04.1 `20260530132727` already synced on dev. No surprise migrations.
+
+- `supabase db push` output (ran with `--yes` for non-interactive after the read-only pre-check):
 
   ```
-  [paste verbatim]
+  Connecting to remote database...
+  Skipping migration .gitkeep... (file name must match pattern "<timestamp>_name.sql")
+  Do you want to push these migrations to the remote database?
+   • 20260603000000_jurisdiction_binding_no_hunt_zone_role.sql
+   [Y/n] y
+  Applying migration 20260603000000_jurisdiction_binding_no_hunt_zone_role.sql...
+  Finished supabase db push.
   ```
+
+  Exactly one migration applied; no others. ✅
 
 - (a) CHECK constraint shape:
 
   ```
-  [paste verbatim]
+  CHECK ((role = ANY (ARRAY['primary_unit'::text, 'portion'::text, 'restricted_area'::text, 'cwd_management_zone'::text, 'bear_management_unit'::text, 'block_management_area'::text, 'other_overlay'::text, 'no_hunt_zone'::text])))
   ```
+
+  8 values incl. `no_hunt_zone`. ✅
 
 - (b) `SELECT DISTINCT role`:
 
   ```
-  [paste verbatim]
+  cwd_management_zone
+  no_hunt_zone
+  portion
+  primary_unit
+  restricted_area
   ```
 
-- (c) The 3 MT rows reclassified:
+  All ⊆ the 8 permitted values; no `other_overlay` remaining. ✅
+
+- (c) The 3 MT zones' bindings reclassified (grouped by role + count):
 
   ```
-  [paste verbatim]
+  ┌──────────────┬──────┐
+  │     role     │ rows │
+  ├──────────────┼──────┤
+  │ no_hunt_zone │ 50   │
+  └──────────────┴──────┘
   ```
+
+  **All 50 fan-out binding rows across the 3 zones now `no_hunt_zone`; 0 `other_overlay`.** ✅ NOTE: runbook's inline comment says "Expected: 3 rows" — that conflates 3 *zones* with binding *rows*. Actual is 50 fan-out rows (8 bear + 42 deer-elk-lion), matching S05.3.5's "UPDATE keys on geometry_id to catch all fan-out rows per zone." Pre-pass these same 50 were all `other_overlay`; total count unchanged → pure role flip. Runbook wording flagged for PM (see Anomalies).
 
 - (d) `jurisdiction_binding` row count:
 
   ```
-  [paste verbatim]
+  788
   ```
+
+  Unchanged from pre-pass (DDL + UPDATE only; no INSERT/DELETE). ✅
 
 ### Step 2 — S05.0 statewide
 
 - Loader stdout:
 
   ```
-  [paste verbatim]
+  fetching Colorado state boundary from https://www2.census.gov/geo/tiger/TIGER2024/STATE/tl_2024_us_state.zip
+  verifying SHA-256 against pinned value
+  SHA-256 verified: ad00cbe66c7177091b668cee202e93d4a1ddcee271c28d1c9f9874af59c04b92
+  parsing TIGER ZIP to MultiPolygon WKT
+  wrote CO-STATEWIDE-geom (sha256=ad00cbe66c7177091b668cee202e93d4a1ddcee271c28d1c9f9874af59c04b92)
   ```
 
-- (a) Statewide row count: `_____` (expected 1)
-- (b) `area_km2` value: `_______` km² (expected 267,138–272,535); `valid`: `____`
+  SHA-256 matches the ADR-001 pinned value. ✅
+
+- (a) Statewide row count: `1` (expected 1) ✅
+- (b) `area_km2` value: `269605` km² (expected 267,138–272,535) ✅; `valid`: `true` ✅
+  - NOTE: runbook (b) SQL uses `geom::geometry`, which Supabase rejects (`SQLSTATE 42846 cannot cast geography to geometry`). Re-ran with the project-standard WKT round-trip (`ST_IsValid(ST_GeomFromText(ST_AsText(geom), 4326))`) per the S05.7 fix. Same `geom::geometry` idiom recurs in Steps 3(c)/4(d)/7 and is being substituted consistently for the rest of the pass. Runbook-SQL bug flagged for PM (see Anomalies).
 - (c) `source` fields:
 
   ```
-  [paste verbatim]
+  id=CO-STATEWIDE-geom  source_id=co-census-tiger-state-2024  doc_type=gis_layer  pub_date=2026-01-01
   ```
+
+  ✅
 
 ### Step 3 — S05.2 GMUs
 
-- Loader stdout:
+- Loader stdout (tail; preceding lines are per-GMU `EDIT_DATE`/`INPUT_DATE` AC #235 log-only provenance):
 
   ```
-  [paste verbatim]
+  ... (per-GMU provenance INFO lines, AC #235 log-only — not persisted) ...
+  multi-part GMUs: 1
+  multi-part GMU 20: 2 parts
+  ingestion.lib.db INFO upserted 186 geometry rows
+  __main__ INFO upserted 186 GMU geometries
   ```
 
-- (a) CO GMU row count: `____` (expected 167–205)
-- (b) FeatureServer source count (curl): `____`
-- (c) `valid_count` / `invalid_count`: `____` / `____` (expect `invalid_count=0`)
+- (a) CO GMU row count: `186` (expected 167–205) ✅
+- (b) FeatureServer source count (curl `returnCountOnly`): `186` — matches (a) ✅
+- (c) `valid_total` / `invalid_count`: `186` / `0` (expect `invalid_count=0`) ✅ — validity via WKT round-trip workaround (runbook's `geom::geometry` rejected; same as Step 2)
 - (d) Spot-check `CO-GMU-1-geom` / `CO-GMU-201-geom` / `CO-GMU-44-geom`:
 
   ```
-  [paste verbatim]
+  CO-GMU-1-geom    co-cpw-arcgis-CPWAdminData-6-2026
+  CO-GMU-201-geom  co-cpw-arcgis-CPWAdminData-6-2026
+  CO-GMU-44-geom   co-cpw-arcgis-CPWAdminData-6-2026
   ```
 
-- Manifest filename(s) committed:
+  ids match `CO-GMU-{int}-geom`; source_id correct. ✅
+
+- Manifest filename(s) committed (untracked/new):
 
   ```
-  [paste from git status]
+  ?? ingestion/states/colorado/fixtures/CPWAdminData-6-manifest-20260622T010050Z.json
+  ?? ingestion/states/colorado/fixtures/CPWAdminData-6-metadata-20260622T010050Z.json
+  ?? ingestion/states/colorado/fixtures/multipart-gmus.json
   ```
 
 ### Step 4 — S05.4 restricted areas
 
-- Loader stdout:
+**STATUS: FAILED 2026-06-20 — BLOCKED on a loader fix (PM/implementation). 0 rows written.** See Anomalies for the PM hand-off. A re-verification sub-entry will be added here once the loader is fixed and Step 4 is re-run.
+
+- Loader stdout (failed):
 
   ```
-  [paste verbatim]
+  WARNING all 11 features passed WGS84 range check, but layer's declared native CRS is EPSG:3857... (story spec accepts this).
+  INFO dropped Curecanti National Recreation Area (NPS NRAs permit hunting per 36 CFR §2.2); 11 -> 10 features
+  Traceback (most recent call last):
+    File ".../load_restricted_areas.py", line 510, in main -> _fetch_and_build (line 376)
+  ingestion.lib.arcgis.ArcGISError: PAD-US feature in layer 0 (Federal_Fee_Managers_Authoritative_PADUS) has no resolvable OBJECTID for manifest hash (metadata.object_id_field='OBJECTID')
   ```
 
-- (a) Restricted-area row count: `____` (expected 10)
+- **Root cause (confirmed via read-only diagnostics):** upstream PAD-US has been republished (CRS now EPSG:3857; was 4269 at S05.4). The republished GeoJSON output **no longer emits the top-level `id` (OBJECTID)** when the OID field isn't in `outFields`. The loader's `_RA_OUT_FIELDS = ("Unit_Nm","Des_Tp","Mang_Name","Pub_Access","GIS_Acres","Src_Date")` omits `OBJECTID`, so it relied on `_read_objectid`'s now-empty `feature["id"]` fallback → every feature resolves to `None` OID → fail-loud raise in `_fetch_and_build` (line 376), **before** any DB write. Upstream itself is healthy: `returnCountOnly=11`, `objectIdFieldName=OBJECTID`, 11 OIDs present; `outFields=*` returns both top-level `id` and `properties.OBJECTID`.
+- **Fix scope (PM/implementation — NOT done in this pass):** add `"OBJECTID"` to `_RA_OUT_FIELDS` (or make `lib/arcgis` always request the layer OID field); regenerate features fixture + manifest; re-run tests; review. Then re-run Step 4 here.
+- **State:** 0 CO `restricted_area` rows written (verified). Stray untracked metadata fixture `Federal_Fee_Managers_Authoritative_PADUS-0-metadata-20260622T010242Z.json` from the failed run — must NOT be committed; pending cleanup.
+
+- (a) Restricted-area row count: `0` (FAILED — expected 10; loader raised pre-write)
 - (b) 10 ids (alphabetical):
 
   ```
@@ -929,7 +1004,52 @@ If `Pass mode = M2-release`, also confirm: this is the pre-`m2`-tag verification
 (Use this section for anything you noticed that doesn't match the runbook's documented expected shapes. Even small deltas. PM will reconcile.)
 
 ```
-[free-form notes here]
+PASS STATUS: HALTED at Step 4 (2026-06-20). Operator decision: halt pass, fix loader (PM/impl), resume Step 4->10 after merge.
+Steps 0,1,2,3 PASSED. Step 4 FAILED (loader bug). Steps 5,6,7,8,9,10 NOT RUN.
+Environment: M2-build pass, dev Supabase project eklivzoomtdluedzlyai (was paused at first contact; operator restored). env from repo-root .env.local; query tool = `supabase db query` (psql not installed).
+
+A1 — DEV BASELINE DRIFT (accepted by operator, PM follow-up): dev M1-close reg_record MT = 435, not the runbook's
+  production-anchored 437. Drift is isolated to pronghorn (dev 29 = 28 HD + 1 statewide; expected 31 = 30 HD + 1
+  statewide); 2 pronghorn HD records absent. bear=36 (S03.6.1 anchor present), elk/mule_deer/whitetail all match.
+  Both statewide anchors present. Nothing was written to cause this. Operator accepted 435 as dev's baseline; Step 10
+  MT-untouched assertion (when run) must be evaluated as "reg_record MT UNCHANGED at 435", NOT 437. PM: confirm
+  whether the 2 missing pronghorn HD rows are an expected dev/prod build difference or warrant a backfill.
+
+A2 — RUNBOOK SQL/TEXT BUGS (PM: fix runbook):
+  (i) Step 1 verification (c) comment says "Expected: 3 rows" — actually the migration UPDATE keys on geometry_id and
+      flips ALL fan-out binding rows per zone (50 on dev: 8 bear + 42 deer-elk-lion), per S05.3.5 design. The "3"
+      conflates 3 zones with binding rows. Substance was correct (50 -> no_hunt_zone, total 788 unchanged).
+  (ii) Steps 2(b), 3(c), 4(d), and 7 use the `geom::geometry` cast on a geography column, which Supabase rejects
+      (SQLSTATE 42846). Project-standard fix is the WKT round-trip ST_*(ST_GeomFromText(ST_AsText(geom),4326)) per the
+      S05.7 fixes; applied consistently this pass. Runbook verification SQL should be updated to use the round-trip.
+  (iii) NUMERIC columns render as a decimal-struct artifact (e.g. `{269605 0 2 false none}`) under `supabase db query
+      --agent=no`; cast area to ::bigint for clean output (area_km2 was 269605, valid).
+
+A4 — STEP 4 BLOCKER (headline; PM/impl fix required): load_restricted_areas.py raised
+  `ArcGISError: ... has no resolvable OBJECTID for manifest hash (metadata.object_id_field='OBJECTID')`.
+  Root cause CONFIRMED via read-only diagnostics: PAD-US Federal_Fee_Managers_Authoritative layer 0 was republished
+  (native CRS now EPSG:3857; was 4269 at S05.4). The republished GeoJSON output no longer emits the top-level `id`
+  (OBJECTID) unless the OID field is in outFields. The loader's `_RA_OUT_FIELDS` (Unit_Nm, Des_Tp, Mang_Name,
+  Pub_Access, GIS_Acres, Src_Date) omits OBJECTID, so it relied on `_read_objectid`'s now-empty `feature["id"]`
+  fallback -> every feature -> None OID -> fail-loud raise BEFORE any DB write (0 rows written, fail-loud clean).
+  Upstream is healthy: returnCountOnly=11, objectIdFieldName=OBJECTID, 11 OIDs present; outFields=* returns both
+  top-level id and properties.OBJECTID. FIX SCOPE (not done here — outside operator-pass authority): add "OBJECTID"
+  to `_RA_OUT_FIELDS` (or have lib/arcgis always request the layer OID field); regenerate features fixture + manifest;
+  re-run tests; review; merge. Then re-run Step 4. NOTE: the fix will add OBJECTID to the features-fixture properties
+  and change the manifest content vs S05.4's committed fixtures — expected.
+
+A5 — FAILED-RUN LEFTOVER (no commit-safety risk; verified): the failed Step 4 run left exactly one file on disk,
+  `ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-features-20260622T010242Z.geojson`
+  (1.4 MB), which is GITIGNORED (fixtures/.gitignore:14 `*-features-*.geojson`) and will NOT be committed; it will be
+  overwritten on the Step 4 re-run after the loader fix. `git status -s` under fixtures/ shows ONLY the 3 valid
+  Step-3 fixtures (CPWAdminData-6-manifest/metadata + multipart-gmus.json) — nothing stray is committable. (Minor
+  unexplained note for PM: a `...PADUS-0-metadata-...010242Z.json` briefly appeared as untracked immediately after the
+  failure but is no longer on disk; no action ran to delete it. Not commit-relevant; flagged for transparency.)
+
+UNCOMMITTED VALID FIXTURES FROM SUCCESSFUL STEPS (Steps 2/3 produced no fixtures for Step 2; Step 3 produced):
+  CPWAdminData-6-manifest-20260622T010050Z.json, CPWAdminData-6-metadata-20260622T010050Z.json, multipart-gmus.json
+  These are valid but NOT committed (pass incomplete; fixture commit happens only after Step 10 per runbook).
+  On resume, Step 3 fixtures may be regenerated; commit the full set together at end of the completed pass.
 ```
 
 ### Operator sign-off
