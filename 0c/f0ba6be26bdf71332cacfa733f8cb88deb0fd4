@@ -1,0 +1,26 @@
+docs/runbooks/M2-operator-pass.md
+  s_61fcfd2b4abd24::t_4c77f4039bbff6 1007-1040,1048-1052
+  s_61fcfd2b4abd24::t_ddd61e1b297eb5 671-674,676-686,689-693
+  s_61fcfd2b4abd24::t_27f0c68e80e276 697-699,702-708,711-712,716,719-720,724-728,731-733,736-740,743-744,748,751
+  s_61fcfd2b4abd24::t_85b79c6b5795cb 1041-1047
+  s_61fcfd2b4abd24::t_0dda40a634b441 758-762,765-769,773,776
+  s_61fcfd2b4abd24::t_04c30e4f010b51 813-815,818-822,825-829
+  s_61fcfd2b4abd24::t_ff97911b145e58 661-665
+  s_61fcfd2b4abd24::t_57580d7a297d0c 780,783-787,790-792,796-798,801-803,806-808
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "0cf0ba6be26bdf71332cacfa733f8cb88deb0fd4",
+  "prompts": {},
+  "sessions": {
+    "s_61fcfd2b4abd24": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8ffe8c9b-0cd1-45f2-9bcf-9d7988e3c582",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
