@@ -1870,3 +1870,32 @@ class TestReadObjectidFailsLoud:
         message = str(exc_info.value)
         assert "OBJECTID" in message
         assert "outFields" in message
+
+    def test_null_objectid_value_raises(self) -> None:
+        # Strict: a present-but-null OBJECTID is NOT coerced to the string
+        # "None" (which would collapse every such feature to one OID in the
+        # manifest hash) — it raises, and the diagnostic flags the null value.
+        feature = {"type": "Feature", "properties": {"OBJECTID": None}}
+        with pytest.raises(ArcGISError) as exc_info:
+            _require_objectid(feature)
+        message = str(exc_info.value)
+        assert "null/non-scalar" in message
+        assert "OBJECTID" in message
+
+    def test_non_scalar_objectid_value_raises(self) -> None:
+        feature = {"type": "Feature", "properties": {"OBJECTID": [1, 2]}}
+        with pytest.raises(ArcGISError):
+            _require_objectid(feature)
+
+    def test_float_objectid_value_raises(self) -> None:
+        # A float OID (e.g. 42.0) is itself a type-drift signal — str(42.0) would
+        # be "42.0", inconsistent with the int 42 representation. Reject it.
+        feature = {"type": "Feature", "properties": {"OBJECTID": 42.0}}
+        with pytest.raises(ArcGISError):
+            _require_objectid(feature)
+
+    def test_null_objectid_falls_through_to_sibling_oid(self) -> None:
+        # A null OBJECTID does not abort the scan: a usable sibling candidate
+        # (here FID) still resolves rather than failing the whole feature.
+        feature = {"type": "Feature", "properties": {"OBJECTID": None, "FID": 99}}
+        assert _require_objectid(feature) == 99

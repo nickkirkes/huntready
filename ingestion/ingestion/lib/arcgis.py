@@ -661,24 +661,46 @@ def _require_objectid(
     else:
         candidates = common_keys
 
+    # Track the first present-but-unusable OID value (null / non-scalar) so the
+    # diagnostic can distinguish a type-change republish from a dropped field.
+    unusable: tuple[str, str] | None = None
+
     for key in ("properties", "attributes"):
         attrs = feature.get(key)
         if isinstance(attrs, dict):
             for oid_key in candidates:
                 if oid_key in attrs:
                     val = attrs[oid_key]
-                    return val if isinstance(val, (int, str)) else str(val)
+                    # Strict: accept ONLY a scalar int/str OID. Do NOT coerce a
+                    # null / non-scalar value with str(): that would turn
+                    # OBJECTID=None into the literal "None", silently collapsing
+                    # every such feature to one OID in the manifest hash — the
+                    # exact data-integrity risk this helper exists to prevent.
+                    # A present-but-unusable value is not fatal on its own — a
+                    # sibling candidate (e.g. FID) may still resolve — so record
+                    # it and keep scanning; fail loud below if nothing resolves.
+                    if isinstance(val, (int, str)):
+                        return val
+                    if unusable is None:
+                        unusable = (f"{key}.{oid_key}", f"{type(val).__name__}={val!r}")
 
     # No resolvable OBJECTID. Surface the upstream-republish failure mode loudly.
     attrs_for_context = feature.get("properties")
     if not isinstance(attrs_for_context, dict):
         attrs_for_context = feature.get("attributes")
     attr_keys = sorted(attrs_for_context)[:10] if isinstance(attrs_for_context, dict) else "<none>"
+    unusable_detail = (
+        f" A candidate OID key was present but held a null/non-scalar value "
+        f"({unusable[0]} -> {unusable[1]}); refusing to coerce it to a string."
+        if unusable is not None
+        else ""
+    )
     msg = (
         "no resolvable OBJECTID in feature properties/attributes "
         f"(searched {candidates!r}); the upstream ArcGIS service likely "
         "republished and now omits the top-level GeoJSON id unless OBJECTID is "
-        "in the request outFields — add \"OBJECTID\" to the loader's _*_OUT_FIELDS. "
+        "in the request outFields — add \"OBJECTID\" to the loader's _*_OUT_FIELDS."
+        f"{unusable_detail} "
         f"Feature top-level keys={sorted(feature.keys())}; attribute keys={attr_keys}"
     )
     raise ArcGISError(msg)
