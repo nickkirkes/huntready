@@ -1,0 +1,3302 @@
+{
+  "advancedEditingCapabilities": {
+    "supportedApplyEditsUploadIDFormats": "JSON,PBF",
+    "supportedSqlFormatsInCalculate": [
+      "standard"
+    ],
+    "supportsApplyEditsbyUploadID": true,
+    "supportsAsyncApplyEdits": true,
+    "supportsMaxTranslations": 10,
+    "supportsReturnEditResults": true,
+    "supportsTranslation": false
+  },
+  "advancedQueryAnalyticCapabilities": {
+    "supportsAsync": true,
+    "supportsLinearRegression": true,
+    "supportsPercentileAnalytic": true,
+    "supportsTrendlineRegression": true
+  },
+  "advancedQueryCapabilities": {
+    "fullTextSearchCapabilities": {
+      "supportsAccentSensitivity": true,
+      "supportsOperator": true,
+      "supportsSearchOperator": true,
+      "supportsStopWords": true
+    },
+    "supportedLodTypes": [
+      "geohash"
+    ],
+    "supportedOperationsWithCacheHint": [
+      "query",
+      "queryTopFilter",
+      "queryAnalytics",
+      "queryAttachments",
+      "queryRelated",
+      "queryBins",
+      "queryPivot"
+    ],
+    "supportedSpatialAggregationStatistics": [
+      "EnvelopeAggregate",
+      "CentroidAggregate",
+      "ConvexHullAggregate"
+    ],
+    "supportsAdvancedQueryRelated": true,
+    "supportsAggIds": true,
+    "supportsApproxPercentileStatistics": true,
+    "supportsCountDistinct": true,
+    "supportsCurrentUserQueries": true,
+    "supportsDefaultSR": true,
+    "supportsDisjointSpatialRel": true,
+    "supportsDistinct": true,
+    "supportsFullTextSearch": true,
+    "supportsHavingClause": true,
+    "supportsISODOW": true,
+    "supportsISOWeek": true,
+    "supportsLod": true,
+    "supportsMaxRecordCountFactor": true,
+    "supportsOrderBy": true,
+    "supportsOutDistance": true,
+    "supportsOutFieldSQLExpression": true,
+    "supportsPagination": true,
+    "supportsPaginationOnAggregatedQueries": true,
+    "supportsPercentileStatistics": true,
+    "supportsQueryAnalytic": true,
+    "supportsQueryBins": true,
+    "supportsQueryPivot": true,
+    "supportsQueryRelatedPagination": true,
+    "supportsQueryWithCacheHint": true,
+    "supportsQueryWithCollation": true,
+    "supportsQueryWithDatumTransformation": true,
+    "supportsQueryWithDistance": true,
+    "supportsQueryWithLodSR": false,
+    "supportsQueryWithResultType": true,
+    "supportsReturningGeometryCentroid": true,
+    "supportsReturningGeometryEnvelope": true,
+    "supportsReturningGeometryProperties": true,
+    "supportsReturningQueryExtent": true,
+    "supportsSpatialAggregationStatistics": true,
+    "supportsSqlExpression": true,
+    "supportsStatistics": true,
+    "supportsTimeRelation": true,
+    "supportsTopFeaturesQuery": true,
+    "supportsTranslations": false,
+    "supportsTrueCurve": true
+  },
+  "allowGeometryUpdates": true,
+  "allowTrueCurvesUpdates": true,
+  "cacheMaxAge": 30,
+  "capabilities": "Query",
+  "collation": {
+    "accentSensitive": true,
+    "caseSensitive": false,
+    "locale": "neutral"
+  },
+  "copyrightText": "U.S. Geological Survey (USGS) Gap Analysis Project (GAP), 2025, Protected Areas Database of the United States (PAD-US) 4.1: U.S. Geological Survey data release, https://doi.org/10.5066/P96WBCHS",
+  "currentVersion": 12,
+  "dateFieldsTimeReference": {
+    "respectsDaylightSaving": false,
+    "timeZone": "UTC",
+    "timeZoneIANA": "Etc/UTC"
+  },
+  "defaultVisibility": true,
+  "description": "The USGS Protected Areas Database of the United States (PAD-US) is the nation's inventory of protected areas, including public land and voluntarily provided private protected areas, identified as an A-16 National Geospatial Data Asset in the Cadastre Theme ( https://ngda-cadastre-geoplatform.hub.arcgis.com/ ). The PAD-US is an ongoing project with several published versions of a spatial database including areas dedicated to the preservation of biological diversity, and other natural (including extraction), recreational, or cultural uses, managed for these purposes through legal or other effective means.\n\nThe database was originally designed to support biodiversity assessments; however, its scope expanded in recent years to include all open space public and nonprofit lands and waters. Most are public lands owned in fee (the owner of the property has full and irrevocable ownership of the land); however, permanent and long-term easements, leases, agreements, Congressional (e.g. 'Wilderness Area'), Executive (e.g. 'National Monument'), and administrative designations (e.g., 'Area of Critical Environmental Concern') documented in agency management plans are also included. The PAD-US strives to be a complete inventory of U.S. public land and other protected areas, compiling “best available” data provided by managing agencies and organizations. PAD-US provides a full inventory geodatabase, spatial analysis, statistics, data downloads, web services, poster maps, and data submissions included in efforts to track global progress toward biodiversity protection.\n\nPAD-US integrates spatial data to ensure public lands and other protected areas from all jurisdictions are represented. PAD-US version 4.1 includes new and updated data from the following data providers. All other data were transferred from previous versions of PAD-US.\n\nFederal updates - USGS remains committed to updating federal fee owned lands data and major designation changes in regular PAD-US updates, where authoritative data provided directly by managing agencies are available or alternative data sources are recommended. Revisions associated with the federal estate in this version include updates to the Federal estate (fee ownership parcels, easement interest, management designations, and proclamation boundaries), with authoritative data from two agencies, the Department of Defense (DOD) and the U.S. Forest Service (USFS). Additionally, unit names were updated to reflect recent name changes to Fort Benning, Fort Bragg, and Jocelyn Nungaray National Wildlife Refuge. The federal theme in PAD-US is developed in close collaboration with the Federal Geographic Data Committee (FGDC) Federal Lands Working Group (FLWG, https://ngda-gov-units-geoplatform.hub.arcgis.com/pages/federal-lands-workgroup/ ). This includes improved the representation of boundaries and attributes for the National Park Service, U.S. Forest Service, Bureau of Land Management, and U.S. Fish and Wildlife Service lands, in collaboration with agency data-stewards, in response to feedback from the PAD-US Team and stakeholders.\n\nState Updates - USGS is committed to building capacity in the state data steward network and the PAD-US Team to increase the frequency of state land and NGO partner updates, as resources allow. State Lands Workgroup (SLWG, https://ngda-gov-units-geoplatform.hub.arcgis.com/pages/state-lands-workgroup ) is focused on improving protected land inventories in PAD-US, increase update efficiency, and facilitate local review.  This version includes updates and additions from the following two states: Texas (state, local, and nonprofit fee) and Arizona (state, local, and nonprofit fee). All state and NGO easement submissions are provided to NCED.  For more information regarding the PAD-US dataset please visit, https://www.usgs.gov/programs/gap-analysis-project/science/protected-areas.\n\nFor more information regarding the PAD-US dataset please visit, https://www.usgs.gov/programs/gap-analysis-project/science/protected-areas . For more information about data aggregation please review the PAD-US Data Manual available at https://www.usgs.gov/programs/gap-analysis-project/pad-us-data-manual .\n\nA version history of PAD-US updates is summarized below (See https://www.usgs.gov/programs/gap-analysis-project/pad-us-data-history/ for more information):\n\n1) First posted - April 2009 (Version 1.0 - available from the PAD-US: Team pad-us@usgs.gov).\n2) Revised - May 2010 (Version 1.1 - available from the PAD-US: Team pad-us@usgs.gov).\n3) Revised - April 2011 (Version 1.2 - available from the PAD-US: Team pad-us@usgs.gov).\n4) Revised - November 2012 (Version 1.3) https://doi.org/10.5066/F79Z92XD\n5) Revised - May 2016 (Version 1.4) https://doi.org/10.5066/F7G73BSZ\n6) Revised - September 2018 (Version 2.0) https://doi.org/10.5066/P955KPLE\n7) Revised - September 2020 (Version 2.1) https://doi.org/10.5066/P92QM3NT\n8) Revised - January 2022 (Version 3.0) https://doi.org/10.5066/P9Q9LQ4B\n9) Revised - April 2024 (Version 4.0) https://doi.org/10.5066/P96WBCHS\n10) Revised - March 2025 (Version 4.1) https://doi.org/10.5066/P96WBCHS\n\nComparing protected area trends between PAD-US versions is not recommended without consultation with USGS as many changes reflect improvements to agency and organization GIS systems, or conservation and recreation measure classification, rather than actual changes in protected area acquisition on the ground.",
+  "displayField": "Own_Name",
+  "drawingInfo": {
+    "labelingInfo": null,
+    "renderer": {
+      "authoringInfo": {
+        "colorRamp": {
+          "colorRamps": [
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                202,
+                81,
+                207,
+                255
+              ],
+              "toColor": [
+                202,
+                81,
+                207,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                95,
+                189,
+                87,
+                255
+              ],
+              "toColor": [
+                95,
+                189,
+                87,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                240,
+                141,
+                84,
+                255
+              ],
+              "toColor": [
+                240,
+                141,
+                84,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                90,
+                176,
+                230,
+                255
+              ],
+              "toColor": [
+                90,
+                176,
+                230,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                47,
+                54,
+                128,
+                255
+              ],
+              "toColor": [
+                47,
+                54,
+                128,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                128,
+                47,
+                75,
+                255
+              ],
+              "toColor": [
+                128,
+                47,
+                75,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                237,
+                224,
+                83,
+                255
+              ],
+              "toColor": [
+                237,
+                224,
+                83,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                79,
+                128,
+                95,
+                255
+              ],
+              "toColor": [
+                79,
+                128,
+                95,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                99,
+                230,
+                210,
+                255
+              ],
+              "toColor": [
+                99,
+                230,
+                210,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                97,
+                97,
+                242,
+                255
+              ],
+              "toColor": [
+                97,
+                97,
+                242,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                235,
+                155,
+                168,
+                255
+              ],
+              "toColor": [
+                235,
+                155,
+                168,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                227,
+                212,
+                152,
+                255
+              ],
+              "toColor": [
+                227,
+                212,
+                152,
+                255
+              ],
+              "type": "algorithmic"
+            },
+            {
+              "algorithm": "esriCIELabAlgorithm",
+              "fromColor": [
+                250,
+                90,
+                117,
+                255
+              ],
+              "toColor": [
+                250,
+                90,
+                117,
+                255
+              ],
+              "type": "algorithmic"
+            }
+          ],
+          "type": "multipart"
+        },
+        "visualVariables": [
+          {
+            "maxSliderValue": 50,
+            "minSliderValue": 0,
+            "type": "transparencyInfo"
+          }
+        ]
+      },
+      "field1": "WebServiceMangName",
+      "fieldDelimiter": ",",
+      "type": "uniqueValue",
+      "uniqueValueGroups": [
+        {
+          "classes": [
+            {
+              "description": "Department of Defense (DOD)",
+              "label": "Department of Defense (DOD)",
+              "symbol": {
+                "color": [
+                  128,
+                  62,
+                  57,
+                  255
+                ],
+                "outline": {
+                  "color": [
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  "style": "esriSLSNull",
+                  "type": "esriSLS",
+                  "width": 0
+                },
+                "style": "esriSFSSolid",
+                "type": "esriSFS"
+              },
+              "values": [
+                [
+                  "DOD"
+                ]
+              ]
+            },
+            {
+              "description": "American Indian Areas (Census Bureau)",
+              "label": "American Indian Areas (Census Bureau)",
+              "symbol": {
+                "color": [
+                  212,
+                  201,
+                  181,
+                  255
+                ],
+                "outline": {
+                  "color": [
+                    168,
+                    150,
+                    135,
+                    0
+                  ],
+                  "style": "esriSLSSolid",
+                  "type": "esriSLS",
+                  "width": 0.4
+                },
+                "style": "esriSFSSolid",
+                "type": "esriSFS"
+              },
+              "values": [
+                [
+                  "TRIB"
+                ]
+              ]
+            },
+            {
+              "description": "Bureau of Land Management (BLM)",
+              "label": "Bureau of Land Management (BLM)",
+              "symbol": {
+                "color": [
+                  242,
+                  220,
+                  145,
+                  255
+                ],
+                "outline": {
+                  "color": [
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  "style": "esriSLSNull",
+                  "type": "esriSLS",
+                  "width": 0
+                },
+                "style": "esriSFSSolid",
+                "type": "esriSFS"
+              },
+              "values": [
+                [
+                  "BLM"
+                ]
+              ]
+            },
+            {
+              "description": "National Park Service (NPS)",
+              "label": "National Park Service (NPS)",
+              "symbol": {
+                "color": [
+                  112,
+                  161,
+                  112,
+                  255
+                ],
+                "outline": {
+                  "color": [
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  "style": "esriSLSNull",
+                  "type": "esriSLS",
+                  "width": 0
+                },
+                "style": "esriSFSSolid",
+                "type": "esriSFS"
+              },
+              "values": [
+                [
+                  "NPS"
+                ]
+              ]
+            },
+            {
+              "description": "Forest Service (USFS)",
+              "label": "Forest Service (USFS)",
+              "symbol": {
+                "color": [
+                  137,
+                  189,
+                  42,
+                  255
+                ],
+                "outline": {
+                  "color": [
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  "style": "esriSLSNull",
+                  "type": "esriSLS",
+                  "width": 0
+                },
+                "style": "esriSFSSolid",
+                "type": "esriSFS"
+              },
+              "values": [
+                [
+                  "USFS"
+                ]
+              ]
+            },
+            {
+              "description": "Army Corps of Engineers (USACE)",
+              "label": "Army Corps of Engineers (USACE)",
+              "symbol": {
+                "color": [
+                  99,
+                  221,
+                  255,
+                  255
+                ],
+                "outline": {
+                  "color": [
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  "style": "esriSLSNull",
+                  "type": "esriSLS",
+                  "width": 0
+                },
+                "style": "esriSFSSolid",
+                "type": "esriSFS"
+              },
+              "values": [
+                [
+                  "USACE"
+                ]
+              ]
+            },
+            {
+              "description": "Bureau of Reclamation (USBR)",
+              "label": "Bureau of Reclamation (USBR)",
+              "symbol": {
+                "color": [
+                  0,
+                  92,
+                  230,
+                  255
+                ],
+                "outline": {
+                  "color": [
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  "style": "esriSLSNull",
+                  "type": "esriSLS",
+                  "width": 0
+                },
+                "style": "esriSFSSolid",
+                "type": "esriSFS"
+              },
+              "values": [
+                [
+                  "USBR"
+                ]
+              ]
+            },
+            {
+              "description": "U.S. Fish and Wildlife Service (FWS)",
+              "label": "U.S. Fish and Wildlife Service (FWS)",
+              "symbol": {
+                "color": [
+                  173,
+                  87,
+                  100,
+                  255
+                ],
+                "outline": {
+                  "color": [
+                    0,
+                    0,
+                    0,
+                    0
+                  ],
+                  "style": "esriSLSNull",
+                  "type": "esriSLS",
+                  "width": 0
+                },
+                "style": "esriSFSSolid",
+                "type": "esriSFS"
+              },
+              "values": [
+                [
+                  "FWS"
+                ]
+              ]
+            }
+          ],
+          "heading": "Manager Name"
+        }
+      ],
+      "uniqueValueInfos": [
+        {
+          "label": "Department of Defense (DOD)",
+          "symbol": {
+            "color": [
+              128,
+              62,
+              57,
+              255
+            ],
+            "outline": {
+              "color": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "style": "esriSLSNull",
+              "type": "esriSLS",
+              "width": 0
+            },
+            "style": "esriSFSSolid",
+            "type": "esriSFS"
+          },
+          "value": "DOD"
+        },
+        {
+          "label": "American Indian Areas (Census Bureau)",
+          "symbol": {
+            "color": [
+              212,
+              201,
+              181,
+              255
+            ],
+            "outline": {
+              "color": [
+                168,
+                150,
+                135,
+                0
+              ],
+              "style": "esriSLSSolid",
+              "type": "esriSLS",
+              "width": 0.4
+            },
+            "style": "esriSFSSolid",
+            "type": "esriSFS"
+          },
+          "value": "TRIB"
+        },
+        {
+          "label": "Bureau of Land Management (BLM)",
+          "symbol": {
+            "color": [
+              242,
+              220,
+              145,
+              255
+            ],
+            "outline": {
+              "color": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "style": "esriSLSNull",
+              "type": "esriSLS",
+              "width": 0
+            },
+            "style": "esriSFSSolid",
+            "type": "esriSFS"
+          },
+          "value": "BLM"
+        },
+        {
+          "label": "National Park Service (NPS)",
+          "symbol": {
+            "color": [
+              112,
+              161,
+              112,
+              255
+            ],
+            "outline": {
+              "color": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "style": "esriSLSNull",
+              "type": "esriSLS",
+              "width": 0
+            },
+            "style": "esriSFSSolid",
+            "type": "esriSFS"
+          },
+          "value": "NPS"
+        },
+        {
+          "label": "Forest Service (USFS)",
+          "symbol": {
+            "color": [
+              137,
+              189,
+              42,
+              255
+            ],
+            "outline": {
+              "color": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "style": "esriSLSNull",
+              "type": "esriSLS",
+              "width": 0
+            },
+            "style": "esriSFSSolid",
+            "type": "esriSFS"
+          },
+          "value": "USFS"
+        },
+        {
+          "label": "Army Corps of Engineers (USACE)",
+          "symbol": {
+            "color": [
+              99,
+              221,
+              255,
+              255
+            ],
+            "outline": {
+              "color": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "style": "esriSLSNull",
+              "type": "esriSLS",
+              "width": 0
+            },
+            "style": "esriSFSSolid",
+            "type": "esriSFS"
+          },
+          "value": "USACE"
+        },
+        {
+          "label": "Bureau of Reclamation (USBR)",
+          "symbol": {
+            "color": [
+              0,
+              92,
+              230,
+              255
+            ],
+            "outline": {
+              "color": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "style": "esriSLSNull",
+              "type": "esriSLS",
+              "width": 0
+            },
+            "style": "esriSFSSolid",
+            "type": "esriSFS"
+          },
+          "value": "USBR"
+        },
+        {
+          "label": "U.S. Fish and Wildlife Service (FWS)",
+          "symbol": {
+            "color": [
+              173,
+              87,
+              100,
+              255
+            ],
+            "outline": {
+              "color": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "style": "esriSLSNull",
+              "type": "esriSLS",
+              "width": 0
+            },
+            "style": "esriSFSSolid",
+            "type": "esriSFS"
+          },
+          "value": "FWS"
+        }
+      ],
+      "visualVariables": [
+        {
+          "field": "TranspPct",
+          "legendOptions": {
+            "showLegend": false,
+            "title": "TranspPct"
+          },
+          "stops": [
+            {
+              "transparency": 0,
+              "value": 0
+            },
+            {
+              "transparency": 50,
+              "value": 50
+            }
+          ],
+          "type": "transparencyInfo"
+        }
+      ]
+    },
+    "scaleSymbols": true,
+    "transparency": 0
+  },
+  "editingInfo": {
+    "dataLastEditDate": 1776734186529,
+    "lastEditDate": 1776881187078,
+    "schemaLastEditDate": 1776881187078
+  },
+  "enableNullGeometry": false,
+  "extent": {
+    "spatialReference": {
+      "latestWkid": 3857,
+      "wkid": 102100
+    },
+    "xmax": 20037507.067199998,
+    "xmin": -20037507.0672,
+    "ymax": 11521044.629,
+    "ymin": -1638513.3343999982
+  },
+  "fields": [
+    {
+      "alias": "OBJECTID",
+      "defaultValue": null,
+      "domain": null,
+      "editable": false,
+      "name": "OBJECTID",
+      "nullable": false,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeOID"
+    },
+    {
+      "alias": "Feature Class",
+      "defaultValue": null,
+      "description": "{\"value\":\"Identifies the original PAD-US feature class ('Fee', 'Easement', 'Designation', etc.) a record occurres in before combination. Included to assist users seeking data in the 'Fee' feature class as data gaps exist and 'Category' may be 'Other' or 'Unknown'. Use this field to extract select data as needed from the fully Combined inventory (e.g. Fee_Easement).\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "Fee",
+            "name": "Fee"
+          },
+          {
+            "code": "Easement",
+            "name": "Easement"
+          },
+          {
+            "code": "Other",
+            "name": "Other"
+          },
+          {
+            "code": "Unknown",
+            "name": "Unknown"
+          },
+          {
+            "code": "Designation",
+            "name": "Designation"
+          },
+          {
+            "code": "Marine",
+            "name": "Marine Area"
+          },
+          {
+            "code": "Proclamation",
+            "name": "Approved, Proclamation or Extent Boundary"
+          }
+        ],
+        "description": "General category for the protection mechanism",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "Category",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 12,
+      "name": "FeatClass",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Category of protection mechanism",
+      "defaultValue": null,
+      "description": "{\"value\":\"'Category' the protection mechanism. 'Fee' ownership. 'Easement' agreement of protection. 'Other' leases, agreements, or deed restrictions. 'Designation' boundaries not represented in title documents that overlap fee parcels. 'Marine' includes lands managed by BOEM and MPA's inventoried by NOAA. 'Proclamation' the outer boundaries of areas used for planning purposes. See PAD-US Data Manual, Table 3, or 'Category' geodatabase lookup table for full domain codes and descriptions.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "Fee",
+            "name": "Fee"
+          },
+          {
+            "code": "Easement",
+            "name": "Easement"
+          },
+          {
+            "code": "Other",
+            "name": "Other"
+          },
+          {
+            "code": "Unknown",
+            "name": "Unknown"
+          },
+          {
+            "code": "Designation",
+            "name": "Designation"
+          },
+          {
+            "code": "Marine",
+            "name": "Marine Area"
+          },
+          {
+            "code": "Proclamation",
+            "name": "Approved, Proclamation or Extent Boundary"
+          }
+        ],
+        "description": "General category for the protection mechanism",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "Category",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 50,
+      "name": "Category",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Owner Type",
+      "defaultValue": null,
+      "description": "{\"value\":\"General land owner description standardized for the U.S. This field is assigned via crosswalk from 'Owner Name'. See PAD-US Data Manual, Table 6, for the “Agency Name to Agency Type Crosswalk”, PAD-US Data Manual Table 4 or 'Agency Type' geodatabase lookup table for full domain codes and descriptions. Use the 'Manager Type' field for general depiction of Federal lands.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "FED",
+            "name": "Federal"
+          },
+          {
+            "code": "TRIB",
+            "name": "American Indian Lands"
+          },
+          {
+            "code": "STAT",
+            "name": "State"
+          },
+          {
+            "code": "DIST",
+            "name": "Regional Agency Special District"
+          },
+          {
+            "code": "LOC",
+            "name": "Local Government"
+          },
+          {
+            "code": "NGO",
+            "name": "Non-Governmental Organization"
+          },
+          {
+            "code": "PVT",
+            "name": "Private"
+          },
+          {
+            "code": "JNT",
+            "name": "Joint"
+          },
+          {
+            "code": "UNK",
+            "name": "Unknown"
+          },
+          {
+            "code": "TERR",
+            "name": "Territorial"
+          },
+          {
+            "code": "DESG",
+            "name": "Designation"
+          }
+        ],
+        "description": "General Land Owner or Manager Description",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "Agency Type",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 50,
+      "name": "Own_Type",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Owner Name",
+      "defaultValue": null,
+      "description": "{\"value\":\"Land owner or holding agency standardized for the U.S. See Agency Name domain codes and descriptions in the PAD-US Data Manual (Table 5) or 'Agency Name' geodatabase lookup table. 'Designation' is applied to areas that overlap fee ownership or when ownership information is not avaliable. 'Owner Name' also contains unknown values where parcel level ownership data are not yet available from authoritative data sources. Use the 'Manager Name' field for the best depiction of Federal lands by agency.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "TVA",
+            "name": "Tennessee Valley Authority"
+          },
+          {
+            "code": "BLM",
+            "name": "Bureau of Land Management"
+          },
+          {
+            "code": "BOEM",
+            "name": "Bureau of Ocean Energy Management"
+          },
+          {
+            "code": "USBR",
+            "name": "Bureau of Reclamation"
+          },
+          {
+            "code": "FWS",
+            "name": "U.S. Fish and Wildlife Service"
+          },
+          {
+            "code": "USFS",
+            "name": "Forest Service"
+          },
+          {
+            "code": "DOD",
+            "name": "Department of Defense"
+          },
+          {
+            "code": "USACE",
+            "name": "Army Corps of Engineers"
+          },
+          {
+            "code": "DOE",
+            "name": "Department of Energy"
+          },
+          {
+            "code": "NPS",
+            "name": "National Park Service"
+          },
+          {
+            "code": "NRCS",
+            "name": "Natural Resources Conservation Service"
+          },
+          {
+            "code": "ARS",
+            "name": "Agricultural Research Service"
+          },
+          {
+            "code": "BIA",
+            "name": "Bureau of Indian Affairs"
+          },
+          {
+            "code": "NOAA",
+            "name": "National Oceanic and Atmospheric Administration"
+          },
+          {
+            "code": "BPA",
+            "name": "Bonneville Power Administration"
+          },
+          {
+            "code": "OTHF",
+            "name": "Other or Unknown Federal Land"
+          },
+          {
+            "code": "TRIB",
+            "name": "American Indian Lands"
+          },
+          {
+            "code": "SPR",
+            "name": "State Park and Recreation"
+          },
+          {
+            "code": "SDC",
+            "name": "State Department of Conservation"
+          },
+          {
+            "code": "SLB",
+            "name": "State Land Board"
+          },
+          {
+            "code": "SFW",
+            "name": "State Fish and Wildlife"
+          },
+          {
+            "code": "SDNR",
+            "name": "State Department of Natural Resources"
+          },
+          {
+            "code": "SDOL",
+            "name": "State Department of Land"
+          },
+          {
+            "code": "OTHS",
+            "name": "Other or Unknown State Land"
+          },
+          {
+            "code": "REG",
+            "name": "Regional Agency Land"
+          },
+          {
+            "code": "RWD",
+            "name": "Regional Water Districts"
+          },
+          {
+            "code": "CITY",
+            "name": "City Land"
+          },
+          {
+            "code": "CNTY",
+            "name": "County Land"
+          },
+          {
+            "code": "UNKL",
+            "name": "Other or Unknown Local Government"
+          },
+          {
+            "code": "NGO",
+            "name": "Non-Governmental Organization"
+          },
+          {
+            "code": "PVT",
+            "name": "Private"
+          },
+          {
+            "code": "JNT",
+            "name": "Joint"
+          },
+          {
+            "code": "OTHR",
+            "name": "Other"
+          },
+          {
+            "code": "UNK",
+            "name": "Unknown"
+          },
+          {
+            "code": "VI",
+            "name": "U.S. Virgin Islands Government"
+          },
+          {
+            "code": "AS",
+            "name": "American Samoa Government"
+          },
+          {
+            "code": "GU",
+            "name": "Guam Government"
+          },
+          {
+            "code": "MP",
+            "name": "Mariana Islands Government"
+          },
+          {
+            "code": "PR",
+            "name": "Puerto Rico Government"
+          },
+          {
+            "code": "FM",
+            "name": "Federated States of Micronesia Government"
+          },
+          {
+            "code": "MH",
+            "name": "Marshall Islands Government"
+          },
+          {
+            "code": "PW",
+            "name": "Palau Government"
+          },
+          {
+            "code": "UM",
+            "name": "U.S. Minor Outlying Islands Government"
+          },
+          {
+            "code": "DESG",
+            "name": "Designation"
+          }
+        ],
+        "description": "Primary agency or entity that owns or manages the parcel",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "Agency Name",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 70,
+      "name": "Own_Name",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Local Owner",
+      "defaultValue": null,
+      "description": "{\"value\":\"Land owner name as provided by data source, complements the standardized 'Owner Name' field (e.g. 'State Fish and Wildlife' is a standard 'Owner Name', while 'Washington Department of Fish and Wildlife' reflects source data in the 'Local Owner' field). A crosswalk assigns 'Owner Name' from 'Local Owner' (See Process Step 4, Local Agency to Agency Name Crosswalk attached in this data release). Standardization of 'Local Owner' is done in cooperation with data-stewards to enhance database utility.\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 250,
+      "name": "Loc_Own",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Manager Type",
+      "defaultValue": null,
+      "description": "{\"value\":\"General land manager description standardized for the U.S. This field is assigned by a crosswalk from 'Manager Name'. See PAD-US Data Manual, Table 6, for “Agency Name to Agency Type Crosswalk” or 'Agency Type' geodatabase lookup table for full domain descriptions. Use the 'Manager Type' field for the most complete general depiction of Federal lands as ownership related data gaps (i.e. 'Owner Type' = 'Unknown') occur in the Federal theme.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "FED",
+            "name": "Federal"
+          },
+          {
+            "code": "TRIB",
+            "name": "American Indian Lands"
+          },
+          {
+            "code": "STAT",
+            "name": "State"
+          },
+          {
+            "code": "DIST",
+            "name": "Regional Agency Special District"
+          },
+          {
+            "code": "LOC",
+            "name": "Local Government"
+          },
+          {
+            "code": "NGO",
+            "name": "Non-Governmental Organization"
+          },
+          {
+            "code": "PVT",
+            "name": "Private"
+          },
+          {
+            "code": "JNT",
+            "name": "Joint"
+          },
+          {
+            "code": "UNK",
+            "name": "Unknown"
+          },
+          {
+            "code": "TERR",
+            "name": "Territorial"
+          },
+          {
+            "code": "DESG",
+            "name": "Designation"
+          }
+        ],
+        "description": "General Land Owner or Manager Description",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "Agency Type",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 50,
+      "name": "Mang_Type",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Manager Name",
+      "defaultValue": null,
+      "description": "{\"value\":\"Land manager or administrative agency standardized for the U.S. See Agency Name domain codes and descriptions in the PAD-US Data Manual (Table 5) or 'Agency Name' geodatabase lookup table. A python script assigns 'Manager Name' from 'Local Manager'. Use 'Manager Name' for the best depiction of Federal lands by agency as the 'Owner Name' field includes data gaps (i.e. 'Owner Name' = 'Unknown'), where parcel level ownership data are not yet available from authoritative data sources.\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "TVA",
+            "name": "Tennessee Valley Authority"
+          },
+          {
+            "code": "BLM",
+            "name": "Bureau of Land Management"
+          },
+          {
+            "code": "BOEM",
+            "name": "Bureau of Ocean Energy Management"
+          },
+          {
+            "code": "USBR",
+            "name": "Bureau of Reclamation"
+          },
+          {
+            "code": "FWS",
+            "name": "U.S. Fish and Wildlife Service"
+          },
+          {
+            "code": "USFS",
+            "name": "Forest Service"
+          },
+          {
+            "code": "DOD",
+            "name": "Department of Defense"
+          },
+          {
+            "code": "USACE",
+            "name": "Army Corps of Engineers"
+          },
+          {
+            "code": "DOE",
+            "name": "Department of Energy"
+          },
+          {
+            "code": "NPS",
+            "name": "National Park Service"
+          },
+          {
+            "code": "NRCS",
+            "name": "Natural Resources Conservation Service"
+          },
+          {
+            "code": "ARS",
+            "name": "Agricultural Research Service"
+          },
+          {
+            "code": "BIA",
+            "name": "Bureau of Indian Affairs"
+          },
+          {
+            "code": "NOAA",
+            "name": "National Oceanic and Atmospheric Administration"
+          },
+          {
+            "code": "BPA",
+            "name": "Bonneville Power Administration"
+          },
+          {
+            "code": "OTHF",
+            "name": "Other or Unknown Federal Land"
+          },
+          {
+            "code": "TRIB",
+            "name": "American Indian Lands"
+          },
+          {
+            "code": "SPR",
+            "name": "State Park and Recreation"
+          },
+          {
+            "code": "SDC",
+            "name": "State Department of Conservation"
+          },
+          {
+            "code": "SLB",
+            "name": "State Land Board"
+          },
+          {
+            "code": "SFW",
+            "name": "State Fish and Wildlife"
+          },
+          {
+            "code": "SDNR",
+            "name": "State Department of Natural Resources"
+          },
+          {
+            "code": "SDOL",
+            "name": "State Department of Land"
+          },
+          {
+            "code": "OTHS",
+            "name": "Other or Unknown State Land"
+          },
+          {
+            "code": "REG",
+            "name": "Regional Agency Land"
+          },
+          {
+            "code": "RWD",
+            "name": "Regional Water Districts"
+          },
+          {
+            "code": "CITY",
+            "name": "City Land"
+          },
+          {
+            "code": "CNTY",
+            "name": "County Land"
+          },
+          {
+            "code": "UNKL",
+            "name": "Other or Unknown Local Government"
+          },
+          {
+            "code": "NGO",
+            "name": "Non-Governmental Organization"
+          },
+          {
+            "code": "PVT",
+            "name": "Private"
+          },
+          {
+            "code": "JNT",
+            "name": "Joint"
+          },
+          {
+            "code": "OTHR",
+            "name": "Other"
+          },
+          {
+            "code": "UNK",
+            "name": "Unknown"
+          },
+          {
+            "code": "VI",
+            "name": "U.S. Virgin Islands Government"
+          },
+          {
+            "code": "AS",
+            "name": "American Samoa Government"
+          },
+          {
+            "code": "GU",
+            "name": "Guam Government"
+          },
+          {
+            "code": "MP",
+            "name": "Mariana Islands Government"
+          },
+          {
+            "code": "PR",
+            "name": "Puerto Rico Government"
+          },
+          {
+            "code": "FM",
+            "name": "Federated States of Micronesia Government"
+          },
+          {
+            "code": "MH",
+            "name": "Marshall Islands Government"
+          },
+          {
+            "code": "PW",
+            "name": "Palau Government"
+          },
+          {
+            "code": "UM",
+            "name": "U.S. Minor Outlying Islands Government"
+          },
+          {
+            "code": "DESG",
+            "name": "Designation"
+          }
+        ],
+        "description": "Primary agency or entity that owns or manages the parcel",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "Agency Name",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 70,
+      "name": "Mang_Name",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Local Manager",
+      "defaultValue": null,
+      "description": "{\"value\":\"The name of the land manager as provided by the data source, to complement the standardized 'Manager Name' field (e.g. 'City Land' is a standard 'Manager Name' while 'Agoura Hills, City of' is an example of a 'Local Manager').\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 250,
+      "name": "Loc_Mang",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Designation Type ",
+      "defaultValue": null,
+      "description": "{\"value\":\"Land management description or 'Designation Type', standardized for the U.S.. See the PAD-US Data Manual, Table 9, for a crosswalk of 'Designation Type' from 'Local Designation Type'. See the 'Designation_Type' geodatabase lookup table and PAD-US Data Manual Table 8 for domain codes and descriptions. Supports PAD-US queries and the categorical assignment of other attributes in the absence of source information (See the PAD-US Standards Manual 'GAP Status Code Assignment' reference document).\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "NP",
+            "name": "National Park"
+          },
+          {
+            "code": "NM",
+            "name": "National Monument"
+          },
+          {
+            "code": "NCA",
+            "name": "Conservation Area"
+          },
+          {
+            "code": "NF",
+            "name": "National Forest"
+          },
+          {
+            "code": "NG",
+            "name": "National Grassland"
+          },
+          {
+            "code": "PUB",
+            "name": "National Public Lands"
+          },
+          {
+            "code": "NT",
+            "name": "National Scenic or Historic Trail"
+          },
+          {
+            "code": "NWR",
+            "name": "National Wildlife Refuge"
+          },
+          {
+            "code": "WA",
+            "name": "Wilderness Area"
+          },
+          {
+            "code": "WSR",
+            "name": "Wild and Scenic River"
+          },
+          {
+            "code": "WSA",
+            "name": "Wilderness Study Area"
+          },
+          {
+            "code": "MPA",
+            "name": "Marine Protected Area"
+          },
+          {
+            "code": "NRA",
+            "name": "National Recreation Area"
+          },
+          {
+            "code": "NSBV",
+            "name": "National Scenic, Botanical or Volcanic Area"
+          },
+          {
+            "code": "NLS",
+            "name": "National Lakeshore or Seashore"
+          },
+          {
+            "code": "IRA",
+            "name": "Inventoried Roadless Area"
+          },
+          {
+            "code": "ACEC",
+            "name": "Area of Critical Environmental Concern"
+          },
+          {
+            "code": "RNA",
+            "name": "Research Natural Area"
+          },
+          {
+            "code": "REC",
+            "name": "Recreation Management Area"
+          },
+          {
+            "code": "RMA",
+            "name": "Resource Management Area"
+          },
+          {
+            "code": "WPA",
+            "name": "Watershed Protection Area"
+          },
+          {
+            "code": "REA",
+            "name": "Research or Educational Area"
+          },
+          {
+            "code": "HCA",
+            "name": "Historic or Cultural Area"
+          },
+          {
+            "code": "MIT",
+            "name": "Mitigation Land or Bank"
+          },
+          {
+            "code": "MIL",
+            "name": "Military Land"
+          },
+          {
+            "code": "ACC",
+            "name": "Access Area"
+          },
+          {
+            "code": "SDA",
+            "name": "Special Designation Area"
+          },
+          {
+            "code": "PROC",
+            "name": "Approved or Proclamation Boundary"
+          },
+          {
+            "code": "FOTH",
+            "name": "Federal Other or Unknown"
+          },
+          {
+            "code": "ND",
+            "name": "Not Designated"
+          },
+          {
+            "code": "TRIBL",
+            "name": "Native American Land Area"
+          },
+          {
+            "code": "SP",
+            "name": "State Park"
+          },
+          {
+            "code": "SW",
+            "name": "State Wilderness"
+          },
+          {
+            "code": "SCA",
+            "name": "State Conservation Area"
+          },
+          {
+            "code": "SREC",
+            "name": "State Recreation Area"
+          },
+          {
+            "code": "SHCA",
+            "name": "State Historic or Cultural Area"
+          },
+          {
+            "code": "SRMA",
+            "name": "State Resource Management Area"
+          },
+          {
+            "code": "SOTH",
+            "name": "State Other or Unknown"
+          },
+          {
+            "code": "LP",
+            "name": "Local Park"
+          },
+          {
+            "code": "LCA",
+            "name": "Local Conservation Area"
+          },
+          {
+            "code": "LREC",
+            "name": "Local Recreation Area"
+          },
+          {
+            "code": "LHCA",
+            "name": "Local Historic or Cultural Area"
+          },
+          {
+            "code": "LRMA",
+            "name": "Local Resource Management Area"
+          },
+          {
+            "code": "LOTH",
+            "name": "Local Other or Unknown"
+          },
+          {
+            "code": "PCON",
+            "name": "Private Conservation"
+          },
+          {
+            "code": "PPRK",
+            "name": "Private Park"
+          },
+          {
+            "code": "PREC",
+            "name": "Private Recreation or Education"
+          },
+          {
+            "code": "PHCA",
+            "name": "Private Historic or Cultural \n"
+          },
+          {
+            "code": "PAGR",
+            "name": "Private Agricultural"
+          },
+          {
+            "code": "PRAN",
+            "name": "Private Ranch"
+          },
+          {
+            "code": "PFOR",
+            "name": "Private Forest Stewardship"
+          },
+          {
+            "code": "POTH",
+            "name": "Private Other or Unknown"
+          },
+          {
+            "code": "CONE",
+            "name": "Conservation Easement"
+          },
+          {
+            "code": "RECE",
+            "name": "Recreation or Education Easement"
+          },
+          {
+            "code": "HCAE",
+            "name": "Historic or Cultural Easement"
+          },
+          {
+            "code": "AGRE",
+            "name": "Agricultural Easement"
+          },
+          {
+            "code": "RANE",
+            "name": "Ranch Easement"
+          },
+          {
+            "code": "FORE",
+            "name": "Forest Stewardship Easement"
+          },
+          {
+            "code": "OTHE",
+            "name": "Other Easement"
+          },
+          {
+            "code": "UNKE",
+            "name": "Unknown Easement"
+          },
+          {
+            "code": "UNK",
+            "name": "Unknown"
+          },
+          {
+            "code": "OCS",
+            "name": "Outer Continental Shelf Area"
+          },
+          {
+            "code": "FACY",
+            "name": "Facility"
+          }
+        ],
+        "description": "Primary land management description or designation, standardized nationally",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "Designation Type",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 75,
+      "name": "Des_Tp",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Local Designation ",
+      "defaultValue": null,
+      "description": "{\"value\":\"Land management description or designation as provided by the data source. Is not standardized but complements the standardized PAD-US 'Designation Type' field. Null values indicates that source file information was not available and categorical assignments to 'Designation Type' apply. See the PAD-US Data Manual, Table 9, for a crosswalk of 'Designation Type' from source data where 'Local Designation Type' may include various, related designations referenced in source data.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 250,
+      "name": "Loc_Ds",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Unit Name ",
+      "defaultValue": null,
+      "description": "{\"value\":\"The name of the overall protected area following the PAD-US Standard (i.e. full name including the designation type in Proper Case without acronyms, unit identifiers, special characters, space or return errors), complementing 'Local Name'. As Null values are not permitted in this field, categorical assignments are made from the 'Manager Name' field and an auto-incremented number for each record when not provided in source file.\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 250,
+      "name": "Unit_Nm",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Local Name",
+      "defaultValue": null,
+      "description": "{\"value\":\"The name of the protected area as provided by the data source; the 'Local Name' field is not standardized. This field may or may not include designations, different formats, spelling errors, unit or area identifiers unique to parcels; however, it links directly to source data files and may provide additional information not available in the 'Unit Name' field.\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 250,
+      "name": "Loc_Nm",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "State Name",
+      "defaultValue": null,
+      "description": "{\"value\":\"Location name of State or territory by United States Postal Service abbreviation. U.S. Census Bureau States and Equivalent data serve as the common standard to apply 'State Name' and to integrate State jurisdictional boundaries into the PAD-US. See domain codes and descriptions (e.g. Table 16) in PAD-US Data Manual or the 'State_Name' geodatabase lookup table for details.\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "AL",
+            "name": "Alabama"
+          },
+          {
+            "code": "AK",
+            "name": "Alaska"
+          },
+          {
+            "code": "AZ",
+            "name": "Arizona"
+          },
+          {
+            "code": "AR",
+            "name": "Arkansas"
+          },
+          {
+            "code": "CA",
+            "name": "California"
+          },
+          {
+            "code": "CO",
+            "name": "Colorado"
+          },
+          {
+            "code": "CT",
+            "name": "Connecticut"
+          },
+          {
+            "code": "DE",
+            "name": "Delaware"
+          },
+          {
+            "code": "DC",
+            "name": "District of Columbia"
+          },
+          {
+            "code": "FL",
+            "name": "Florida"
+          },
+          {
+            "code": "GA",
+            "name": "Georgia"
+          },
+          {
+            "code": "HI",
+            "name": "Hawaii"
+          },
+          {
+            "code": "ID",
+            "name": "Idaho"
+          },
+          {
+            "code": "IL",
+            "name": "Illinois"
+          },
+          {
+            "code": "IN",
+            "name": "Indiana"
+          },
+          {
+            "code": "IA",
+            "name": "Iowa"
+          },
+          {
+            "code": "KS",
+            "name": "Kansas"
+          },
+          {
+            "code": "KY",
+            "name": "Kentucky"
+          },
+          {
+            "code": "LA",
+            "name": "Louisiana"
+          },
+          {
+            "code": "ME",
+            "name": "Maine"
+          },
+          {
+            "code": "MD",
+            "name": "Maryland"
+          },
+          {
+            "code": "MA",
+            "name": "Massachusetts"
+          },
+          {
+            "code": "MI",
+            "name": "Michigan"
+          },
+          {
+            "code": "MN",
+            "name": "Minnesota"
+          },
+          {
+            "code": "MS",
+            "name": "Mississippi"
+          },
+          {
+            "code": "MO",
+            "name": "Missouri"
+          },
+          {
+            "code": "MT",
+            "name": "Montana"
+          },
+          {
+            "code": "NE",
+            "name": "Nebraska"
+          },
+          {
+            "code": "NV",
+            "name": "Nevada"
+          },
+          {
+            "code": "NH",
+            "name": "New Hampshire"
+          },
+          {
+            "code": "NJ",
+            "name": "New Jersey"
+          },
+          {
+            "code": "NM",
+            "name": "New Mexico"
+          },
+          {
+            "code": "NY",
+            "name": "New York"
+          },
+          {
+            "code": "NC",
+            "name": "North Carolina"
+          },
+          {
+            "code": "ND",
+            "name": "North Dakota"
+          },
+          {
+            "code": "OH",
+            "name": "Ohio"
+          },
+          {
+            "code": "OK",
+            "name": "Oklahoma"
+          },
+          {
+            "code": "OR",
+            "name": "Oregon"
+          },
+          {
+            "code": "PA",
+            "name": "Pennsylvania"
+          },
+          {
+            "code": "RI",
+            "name": "Rhode Island"
+          },
+          {
+            "code": "SC",
+            "name": "South Carolina"
+          },
+          {
+            "code": "SD",
+            "name": "South Dakota"
+          },
+          {
+            "code": "TN",
+            "name": "Tennessee"
+          },
+          {
+            "code": "TX",
+            "name": "Texas"
+          },
+          {
+            "code": "UT",
+            "name": "Utah"
+          },
+          {
+            "code": "VT",
+            "name": "Vermont"
+          },
+          {
+            "code": "VA",
+            "name": "Virginia"
+          },
+          {
+            "code": "WA",
+            "name": "Washington"
+          },
+          {
+            "code": "WV",
+            "name": "West Virginia"
+          },
+          {
+            "code": "WI",
+            "name": "Wisconsin"
+          },
+          {
+            "code": "WY",
+            "name": "Wyoming"
+          },
+          {
+            "code": "AS",
+            "name": "American Samoa"
+          },
+          {
+            "code": "FM",
+            "name": "Federated States of Micronesia"
+          },
+          {
+            "code": "MP",
+            "name": "Mariana Islands"
+          },
+          {
+            "code": "GU",
+            "name": "Guam"
+          },
+          {
+            "code": "MH",
+            "name": "Marshall Islands"
+          },
+          {
+            "code": "PW",
+            "name": "Palau"
+          },
+          {
+            "code": "PR",
+            "name": "Puerto Rico"
+          },
+          {
+            "code": "UM",
+            "name": "U.S. Minor Outlying Islands"
+          },
+          {
+            "code": "VI",
+            "name": "United States Virgin Islands"
+          },
+          {
+            "code": "UNKF",
+            "name": "Unknown Federal"
+          }
+        ],
+        "description": "State abbreviation and name of state spelled out",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "State Name",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 50,
+      "name": "State_Nm",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Aggregator Source",
+      "defaultValue": null,
+      "description": "{\"value\":\"Aggregator Source' describes the Organization credited with data aggregation, version of PAD-US when the update occurred, PAD-US feature class name, reference to original source data file, and State USPS abbreviation for non-national datasets. Organization acronyms are used when data submissions are in the PAD-US format. USGS is identified as the aggregator when data translation is required.\",\"fieldValueType\":\"description\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 150,
+      "name": "Agg_Src",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "GIS Source",
+      "defaultValue": null,
+      "description": "{\"value\":\"The source of spatial data the aggregator obtained (e.g. WYGF_whmas08.shp) for each record. File names match original source data provided by managing agencies to increase update efficiency and data transparency. This field is in a state of transition to fully meet standards as the original 'GIS Source' is not always provided in aggregated datasets.\",\"fieldValueType\":\"description\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 200,
+      "name": "GIS_Src",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "GIS Source Date ",
+      "defaultValue": null,
+      "description": "{\"value\":\"This represents the date (yyyy/mm/dd) GIS data was published or accessed (in the case of infrequently updated files) by the data aggregator. If month or day is unknown, the date is yyyy/00/00. The date an aggregated dataset was delivered to USGS may also be assigned to address data gaps when the original 'GIS Source Date' is not available.\",\"fieldValueType\":\"dateAndTime\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 15,
+      "name": "Src_Date",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "GIS Acres",
+      "defaultValue": null,
+      "description": "{\"value\":\"Acres calculated for each polygon converted from the Shape_Area field using field calculator \\\"!shape.area@acres!\\\" rounded to the nearest whole number.\",\"fieldValueType\":\"measurement\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "name": "GIS_Acres",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeInteger"
+    },
+    {
+      "alias": "Source Protected Area ID",
+      "defaultValue": null,
+      "description": "{\"value\":\"The 'Source Protected Area Identifier' (Source PAID) includes the persistent identifier (e.g. numbers, letters, or combinations of each) associated with each protected area, when available in source data. The intention is to maintain a reliable connection to join authoritative source data to previous PAD-US versions and support links to other data. This field is not fully attributed and significant work remains to ensure persistent identifiers are provided and maintained by data-stewards.\",\"fieldValueType\":\"uniqueIdentifier\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 100,
+      "name": "Source_PAID",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "WDPA Site Code",
+      "defaultValue": null,
+      "description": "{\"value\":\"GAP Status Code' 1 or 2 areas in PAD-US meet the definition of protection by the IUCN and are submitted to the 'World Database for Protected Areas (WDPA) as a PAD-US Derivative product. USGS maintains these codes, assigned to protected areas by 'Unit Name' and 'Designation Type'. Other areas don't have a 'WDPA Code'. This field is incomplete and not yet fully reviewed by the PAD-US Team. The WDPA is available via Protected Planet (https://www.protectedplanet.net/country/USA).\",\"fieldValueType\":\"uniqueIdentifier\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "name": "WDPA_Cd",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeInteger"
+    },
+    {
+      "alias": "Public Access",
+      "defaultValue": null,
+      "description": "{\"value\":\"Level of 'Public Access' permitted, described as: 'Open' requires no special requirements for public access (may include regular hours of availability); 'Restricted' requires a special permit from the owner for access, a registration permit on public land or has highly variable times when open to use; 'Closed' occurs where no public access is allowed. 'Unknown' is assigned where information is not currently available.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "OA",
+            "name": "Open Access"
+          },
+          {
+            "code": "RA",
+            "name": "Restricted Access"
+          },
+          {
+            "code": "XA",
+            "name": "Closed"
+          },
+          {
+            "code": "UK",
+            "name": "Unknown"
+          }
+        ],
+        "description": "Public Access",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "Public Access",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 20,
+      "name": "Pub_Access",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Public Access Source",
+      "defaultValue": null,
+      "description": "{\"value\":\"Describes the organization(s) or method used to apply 'Public Access' to the polygon; as follows: 'GAP - Default' is assigned when GAP's categorical assignment of status has been applied. 'GAP - Other Organization' (e.g. 'GAP - NPS') applies when the measure is assigned in partnership with GAP. 'Other Organization' applies when Public Access is assigned by another organization according to their methods (e.g. NOAA). See the PAD-US Standards Manual for more information.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 150,
+      "name": "Access_Src",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Public Access Date",
+      "defaultValue": null,
+      "description": "{\"value\":\"The most current Year (yyyy) the 'Public Access' classification was assigned to the polygon. See the PAD-US Standards Manual for more information.\",\"fieldValueType\":\"dateAndTime\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 4,
+      "name": "Access_Dt",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "GAP Status Code",
+      "defaultValue": null,
+      "description": "{\"value\":\"‘GAP Status Code 1’ – Biodiversity Protection – Natural Disturbance Permitted. ‘GAP Status Code 2’ - Biodiversity Protection – Natural Disturbance Suppressed. ‘GAP Status Code 3’ – Multiple Use – Extraction Permitted. ‘GAP Status Code 4’ – No Known Protection. See the PAD-US Standards Manual GAP Status Code Assignment reference document for a summary of assumptions, criteria, and methods or the geodatabase 'GAP_Status' lookup table for short descriptions.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "1",
+            "name": "1 - managed for biodiversity - disturbance events proceed or are mimicked"
+          },
+          {
+            "code": "2",
+            "name": "2 - managed for biodiversity - disturbance events suppressed"
+          },
+          {
+            "code": "3",
+            "name": "3 - managed for multiple uses - subject to extractive (e.g. mining or logging) or OHV use"
+          },
+          {
+            "code": "4",
+            "name": "4 - no known mandate for biodiversity protection"
+          }
+        ],
+        "description": "Measure of long-term biodiversity protection",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "GAP Status Code",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 95,
+      "name": "GAP_Sts",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "GAP Status Code Source",
+      "defaultValue": null,
+      "description": "{\"value\":\"Describes method to apply 'GAP Status Code' using the following methods: 'GAP - Default' when categorical assignment is applied. 'GAP' for application of standard methods. 'GAP - Other Organization' when applied in partnership with GAP. 'Other Organization' another organization applied GAP Status according to their methods (e.g. The Nature Conservancy). See GAP Status Code Assignment reference document for more information: https://www.usgs.gov/programs/gap-analysis-project/pad-us-data-manual.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 150,
+      "name": "GAPCdSrc",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "GAP Status Code Date",
+      "defaultValue": null,
+      "description": "{\"value\":\"The most current Year (yyyy) the 'GAP Status Code' was assigned to the polygon.\",\"fieldValueType\":\"dateAndTime\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 4,
+      "name": "GAPCdDt",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "IUCN Category",
+      "defaultValue": null,
+      "description": "{\"value\":\"IUCN Categories assigned to GAP Code 1 and 2 areas only. IUCN Ia: Strict Nature Reserve. IUCN Ib: Wilderness Areas. IUCN II: National Park. IUCN III: Natural Monument or Feature. IUCN IV: Habitat and (or) species management. IUCN V: Protected landscape and (or) seascape. IUCN VI: Protected area with sustainable use. 'Other Conservation Areas' (GAP Code 3) not recognized by IUCN. See PAD-US Data Manual, Table 12, for crosswalk from Designation Type, GAP Status Code, and size to IUCN Category.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": {
+        "codedValues": [
+          {
+            "code": "Ia",
+            "name": "Ia: Strict nature reserves"
+          },
+          {
+            "code": "Ib",
+            "name": "Ib: Wilderness areas"
+          },
+          {
+            "code": "II",
+            "name": "II: National park"
+          },
+          {
+            "code": "III",
+            "name": "III: Natural monument or feature"
+          },
+          {
+            "code": "IV",
+            "name": "IV: Habitat / species management"
+          },
+          {
+            "code": "V",
+            "name": "V: Protected landscape / seascape"
+          },
+          {
+            "code": "VI",
+            "name": "VI: Protected area with sustainable use of natural resources"
+          },
+          {
+            "code": "Other Conservation Area",
+            "name": "Other Conservation Area"
+          },
+          {
+            "code": "Unassigned",
+            "name": "Unassigned"
+          },
+          {
+            "code": "N/R",
+            "name": "Not Reported"
+          }
+        ],
+        "description": "IUCN management categories",
+        "mergePolicy": "esriMPTDefaultValue",
+        "name": "IUCN Category",
+        "splitPolicy": "esriSPTDefaultValue",
+        "type": "codedValue"
+      },
+      "editable": true,
+      "isViewOverride": true,
+      "length": 70,
+      "name": "IUCN_Cat",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "IUCN Category Source",
+      "defaultValue": null,
+      "description": "{\"value\":\"Describes the organization(s) that applied 'IUCN Category' and the methods used as follows: 'GAP - Default' assigned when GAP's categorical assignment of status was applied. 'GAP - Other Organization' (e.g. 'GAP - NPS') applies when the measure is assigned in partnership with GAP, including review. 'Other Organization' applies when the IUCN Category is assigned by another organization according to their methods (e.g. NOAA). See the PAD-US Standards Manual for more information.\",\"fieldValueType\":\"typeOrCategory\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 150,
+      "name": "IUCNCtSrc",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "IUCN Category Date ",
+      "defaultValue": null,
+      "description": "{\"value\":\"The most current Year (yyyy) the 'IUCN Category' was assigned to the polygon.\",\"fieldValueType\":\"dateAndTime\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 4,
+      "name": "IUCNCtDt",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Date of Establishment",
+      "defaultValue": null,
+      "description": "{\"value\":\"The Year (yyyy) the protected area was designated, decreed or otherwise established. The date is assigned to each unit by name and the current designation type represented in the PAD-US, without event status tracking (e.g. Yellowstone National Park: 1872, Frank Church-River of No Return Wilderness Area: 1980). This field is not fully attributed and data gaps are difficult to address.\",\"fieldValueType\":\"dateAndTime\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 4,
+      "name": "Date_Est",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Comments and additional information",
+      "defaultValue": null,
+      "description": "{\"value\":\"Comments from either the original data source, aggregator, or the PAD-US Team.\",\"fieldValueType\":\"description\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 255,
+      "name": "Comments",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Easement Holder",
+      "defaultValue": null,
+      "description": "{\"value\":\"Easement Holder' is the name of the organization managing or holding the easement standardized by NCED to Proper Case with all acronyms spelled out (e.g., The Nature Conservancy [TNC]). This is a core attribute in the National Conservation Easement Database (NCED) provided by the easement holder or data provider that was transferred to the PAD-US Easement feature class.\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 100,
+      "name": "EsmtHldr",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Easement Holder Type",
+      "defaultValue": null,
+      "description": "{\"value\":\"Easement Holder Type' is the general description (e.g., 'Federal', 'Tribal', 'State', 'Private') of the easement holder, following the PAD-US 'Agency Type' domain codes and descriptions. This is a core attribute in the National Conservation Easement Database (NCED) that was transferred to the PAD-US Easement feature class.\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 50,
+      "name": "EHoldTyp",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Web Service Manager Name",
+      "defaultValue": null,
+      "description": "{\"value\":\"Simplified PAD-US Manager Name used for visual display purposes.\",\"fieldValueType\":\"nameOrTitle\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "length": 150,
+      "name": "WebServiceMangName",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeString"
+    },
+    {
+      "alias": "Transparency Percentage",
+      "defaultValue": null,
+      "description": "{\"value\":\"Used to set transparency value for display symbology.\",\"fieldValueType\":\"percentageOrRatio\"}",
+      "domain": null,
+      "editable": true,
+      "isViewOverride": true,
+      "name": "TranspPct",
+      "nullable": true,
+      "sqlType": "sqlTypeOther",
+      "type": "esriFieldTypeSmallInteger"
+    },
+    {
+      "alias": "Shape__Area",
+      "defaultValue": null,
+      "domain": null,
+      "editable": false,
+      "name": "Shape__Area",
+      "nullable": true,
+      "sqlType": "sqlTypeDouble",
+      "type": "esriFieldTypeDouble"
+    },
+    {
+      "alias": "Shape__Length",
+      "defaultValue": null,
+      "domain": null,
+      "editable": false,
+      "name": "Shape__Length",
+      "nullable": true,
+      "sqlType": "sqlTypeDouble",
+      "type": "esriFieldTypeDouble"
+    }
+  ],
+  "geometryProperties": {
+    "shapeAreaFieldName": "Shape__Area",
+    "shapeLengthFieldName": "Shape__Length",
+    "units": "esriMeters"
+  },
+  "geometryType": "esriGeometryPolygon",
+  "globalIdField": "",
+  "guidFormat": "",
+  "hasAttachments": false,
+  "hasContingentValuesDefinition": false,
+  "hasGeometryProperties": true,
+  "hasM": false,
+  "hasMetadata": true,
+  "hasStaticData": false,
+  "hasZ": false,
+  "htmlPopupType": "esriServerHTMLPopupTypeAsHTMLText",
+  "id": 0,
+  "indexes": [
+    {
+      "description": "",
+      "fields": "OBJECTID",
+      "indexType": "Attribute",
+      "isAscending": true,
+      "isUnique": true,
+      "name": "PK__FEDERALF__F4B70D854410F89E"
+    },
+    {
+      "description": "",
+      "fields": "Shape",
+      "indexType": "Spatial",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "user_3341.FEDERALFEEMANGAUTH_A_PADUS4_1FEDERALFEEMANGAUTH_Shape_sidx"
+    },
+    {
+      "description": "",
+      "fields": "Shape__Area",
+      "indexType": "Attribute",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "Shape__Area_Index"
+    },
+    {
+      "description": "",
+      "fields": "Shape__Length",
+      "indexType": "Attribute",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "Shape__Length_Index"
+    },
+    {
+      "description": "Mang_Name_Index",
+      "fields": "Mang_Name",
+      "indexType": "Attribute",
+      "isAscending": true,
+      "isUnique": false,
+      "name": "Mang_Name_Index"
+    }
+  ],
+  "infoInEstimates": [
+    "extent",
+    "count"
+  ],
+  "isDataVersioned": false,
+  "isUpdatableView": true,
+  "isView": true,
+  "maxRecordCount": 1000,
+  "maxRecordCountFactor": 1,
+  "maxScale": 0,
+  "minScale": 0,
+  "name": "PADUS4_1FederalFeeMangAuth",
+  "objectIdField": "OBJECTID",
+  "onlyAllowTrueCurveUpdatesByTrueCurveClients": true,
+  "preferredTimeReference": null,
+  "queryBinsCapabilities": {
+    "supportedNormalizationTypes": [
+      "boxCox",
+      "field",
+      "inverse",
+      "log",
+      "naturalLog",
+      "percentOfTotal",
+      "squareRoot"
+    ],
+    "supportedStatisticTypes": [
+      "COUNT",
+      "SUM",
+      "AVG",
+      "VAR",
+      "STDDEV",
+      "MIN",
+      "MAX",
+      "PERCENTILE_CONT",
+      "PERCENTILE_DISC",
+      "APPROX_PERCENTILE_CONT",
+      "APPROX_PERCENTILE_DISC",
+      "CentroidAggregate",
+      "EnvelopeAggregate",
+      "ConvexHullAggregate"
+    ],
+    "supportsAsync": true,
+    "supportsAutoIntervalBin": true,
+    "supportsClassificationBin": true,
+    "supportsDateBin": true,
+    "supportsFirstDayOfWeek": true,
+    "supportsFixedBoundariesBin": true,
+    "supportsFixedIntervalBin": true,
+    "supportsNormalization": true,
+    "supportsReturnFullIntervalBin": true,
+    "supportsReturnStackValueRange": true,
+    "supportsSnapToData": true,
+    "supportsSplitBy": true,
+    "supportsStackBy": true
+  },
+  "relationships": [],
+  "serviceItemId": "995e04a677374976931c502c2b095402",
+  "sourceSchemaChangesAllowed": true,
+  "spatialReference": {
+    "latestWkid": 3857,
+    "wkid": 102100
+  },
+  "standardMaxRecordCount": 2000,
+  "standardMaxRecordCountNoGeometry": 32000,
+  "supportedAppendFormats": "sqlite,geoPackage,shapefile,filegdb,featureCollection,geojson,csv,excel,jsonl,featureService,pbf",
+  "supportedAppendSourceFilterFormats": "sqlite,geoPackage,shapefile,filegdb,featureService",
+  "supportedContingentValuesFormats": "JSON, PBF",
+  "supportedConvertContentFormats": "LayerEditCollection,FeatureCollection",
+  "supportedConvertFileFormats": "JSON,PBF",
+  "supportedCurveTypes": [
+    "esriGeometryCircularArc"
+  ],
+  "supportedExportFormats": "csv,shapefile,sqlite,geoPackage,filegdb,featureCollection,geojson,kml,excel",
+  "supportedOperationsWithCollation": "query,addField,updateField",
+  "supportedQueryFormats": "JSON, geoJSON, PBF",
+  "supportedSpatialRelationships": [
+    "esriSpatialRelIntersects",
+    "esriSpatialRelContains",
+    "esriSpatialRelCrosses",
+    "esriSpatialRelEnvelopeIntersects",
+    "esriSpatialRelIndexIntersects",
+    "esriSpatialRelOverlaps",
+    "esriSpatialRelTouches",
+    "esriSpatialRelWithin",
+    "esriSpatialRelDisjoint",
+    "esriSpatialRelRelation"
+  ],
+  "supportedSyncDataOptions": 260,
+  "supportedTrueCurvePbfFeatureEncodings": [
+    "esriCompressedShapeBuffer",
+    "esriDefault"
+  ],
+  "supportsASyncCalculate": true,
+  "supportsAdvancedQueries": true,
+  "supportsAppend": true,
+  "supportsApplyEditsWithGlobalIds": false,
+  "supportsAttachmentsByUploadId": true,
+  "supportsAttachmentsResizing": true,
+  "supportsCalculate": true,
+  "supportsColumnStoreIndex": true,
+  "supportsContingentValues": true,
+  "supportsCoordinatesQuantization": true,
+  "supportsExceedsLimitStatistics": true,
+  "supportsFieldDescriptionProperty": true,
+  "supportsFieldGroups": true,
+  "supportsLayerOverrides": true,
+  "supportsMultiScaleGeometry": true,
+  "supportsQuantizationEditMode": true,
+  "supportsReturningQueryGeometry": true,
+  "supportsRollbackOnFailureParameter": true,
+  "supportsStatistics": true,
+  "supportsTilesAndBasicQueriesMode": true,
+  "supportsTruncate": false,
+  "supportsValidateSql": true,
+  "templates": [],
+  "tileMaxRecordCount": 4000,
+  "trueCurveSupportMode": "OGC",
+  "type": "Feature Layer",
+  "typeIdField": "WebServiceMangName",
+  "types": [
+    {
+      "domains": {
+        "Category": {
+          "type": "inherited"
+        },
+        "Des_Tp": {
+          "type": "inherited"
+        },
+        "FeatClass": {
+          "type": "inherited"
+        },
+        "GAP_Sts": {
+          "type": "inherited"
+        },
+        "IUCN_Cat": {
+          "type": "inherited"
+        },
+        "Mang_Name": {
+          "type": "inherited"
+        },
+        "Mang_Type": {
+          "type": "inherited"
+        },
+        "Own_Name": {
+          "type": "inherited"
+        },
+        "Own_Type": {
+          "type": "inherited"
+        },
+        "Pub_Access": {
+          "type": "inherited"
+        },
+        "State_Nm": {
+          "type": "inherited"
+        }
+      },
+      "id": "DOD",
+      "name": "Department of Defense (DOD)",
+      "templates": [
+        {
+          "description": "",
+          "drawingTool": "esriFeatureEditToolPolygon",
+          "name": "DOD",
+          "prototype": {
+            "attributes": {
+              "Access_Dt": null,
+              "Access_Src": null,
+              "Agg_Src": null,
+              "Category": null,
+              "Comments": null,
+              "Date_Est": null,
+              "Des_Tp": null,
+              "EHoldTyp": null,
+              "EsmtHldr": null,
+              "FeatClass": null,
+              "GAPCdDt": null,
+              "GAPCdSrc": null,
+              "GAP_Sts": null,
+              "GIS_Acres": null,
+              "GIS_Src": null,
+              "IUCNCtDt": null,
+              "IUCNCtSrc": null,
+              "IUCN_Cat": null,
+              "Loc_Ds": null,
+              "Loc_Mang": null,
+              "Loc_Nm": null,
+              "Loc_Own": null,
+              "Mang_Name": null,
+              "Mang_Type": null,
+              "Own_Name": null,
+              "Own_Type": null,
+              "Pub_Access": null,
+              "Source_PAID": null,
+              "Src_Date": null,
+              "State_Nm": null,
+              "TranspPct": null,
+              "Unit_Nm": null,
+              "WDPA_Cd": null,
+              "WebServiceMangName": "DOD"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "domains": {
+        "Category": {
+          "type": "inherited"
+        },
+        "Des_Tp": {
+          "type": "inherited"
+        },
+        "FeatClass": {
+          "type": "inherited"
+        },
+        "GAP_Sts": {
+          "type": "inherited"
+        },
+        "IUCN_Cat": {
+          "type": "inherited"
+        },
+        "Mang_Name": {
+          "type": "inherited"
+        },
+        "Mang_Type": {
+          "type": "inherited"
+        },
+        "Own_Name": {
+          "type": "inherited"
+        },
+        "Own_Type": {
+          "type": "inherited"
+        },
+        "Pub_Access": {
+          "type": "inherited"
+        },
+        "State_Nm": {
+          "type": "inherited"
+        }
+      },
+      "id": "TRIB",
+      "name": "American Indian Areas (Census Bureau)",
+      "templates": [
+        {
+          "description": "",
+          "drawingTool": "esriFeatureEditToolPolygon",
+          "name": "TRIB",
+          "prototype": {
+            "attributes": {
+              "Access_Dt": null,
+              "Access_Src": null,
+              "Agg_Src": null,
+              "Category": null,
+              "Comments": null,
+              "Date_Est": null,
+              "Des_Tp": null,
+              "EHoldTyp": null,
+              "EsmtHldr": null,
+              "FeatClass": null,
+              "GAPCdDt": null,
+              "GAPCdSrc": null,
+              "GAP_Sts": null,
+              "GIS_Acres": null,
+              "GIS_Src": null,
+              "IUCNCtDt": null,
+              "IUCNCtSrc": null,
+              "IUCN_Cat": null,
+              "Loc_Ds": null,
+              "Loc_Mang": null,
+              "Loc_Nm": null,
+              "Loc_Own": null,
+              "Mang_Name": null,
+              "Mang_Type": null,
+              "Own_Name": null,
+              "Own_Type": null,
+              "Pub_Access": null,
+              "Source_PAID": null,
+              "Src_Date": null,
+              "State_Nm": null,
+              "TranspPct": null,
+              "Unit_Nm": null,
+              "WDPA_Cd": null,
+              "WebServiceMangName": "TRIB"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "domains": {
+        "Category": {
+          "type": "inherited"
+        },
+        "Des_Tp": {
+          "type": "inherited"
+        },
+        "FeatClass": {
+          "type": "inherited"
+        },
+        "GAP_Sts": {
+          "type": "inherited"
+        },
+        "IUCN_Cat": {
+          "type": "inherited"
+        },
+        "Mang_Name": {
+          "type": "inherited"
+        },
+        "Mang_Type": {
+          "type": "inherited"
+        },
+        "Own_Name": {
+          "type": "inherited"
+        },
+        "Own_Type": {
+          "type": "inherited"
+        },
+        "Pub_Access": {
+          "type": "inherited"
+        },
+        "State_Nm": {
+          "type": "inherited"
+        }
+      },
+      "id": "BLM",
+      "name": "Bureau of Land Management (BLM)",
+      "templates": [
+        {
+          "description": "",
+          "drawingTool": "esriFeatureEditToolPolygon",
+          "name": "BLM",
+          "prototype": {
+            "attributes": {
+              "Access_Dt": null,
+              "Access_Src": null,
+              "Agg_Src": null,
+              "Category": null,
+              "Comments": null,
+              "Date_Est": null,
+              "Des_Tp": null,
+              "EHoldTyp": null,
+              "EsmtHldr": null,
+              "FeatClass": null,
+              "GAPCdDt": null,
+              "GAPCdSrc": null,
+              "GAP_Sts": null,
+              "GIS_Acres": null,
+              "GIS_Src": null,
+              "IUCNCtDt": null,
+              "IUCNCtSrc": null,
+              "IUCN_Cat": null,
+              "Loc_Ds": null,
+              "Loc_Mang": null,
+              "Loc_Nm": null,
+              "Loc_Own": null,
+              "Mang_Name": null,
+              "Mang_Type": null,
+              "Own_Name": null,
+              "Own_Type": null,
+              "Pub_Access": null,
+              "Source_PAID": null,
+              "Src_Date": null,
+              "State_Nm": null,
+              "TranspPct": null,
+              "Unit_Nm": null,
+              "WDPA_Cd": null,
+              "WebServiceMangName": "BLM"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "domains": {
+        "Category": {
+          "type": "inherited"
+        },
+        "Des_Tp": {
+          "type": "inherited"
+        },
+        "FeatClass": {
+          "type": "inherited"
+        },
+        "GAP_Sts": {
+          "type": "inherited"
+        },
+        "IUCN_Cat": {
+          "type": "inherited"
+        },
+        "Mang_Name": {
+          "type": "inherited"
+        },
+        "Mang_Type": {
+          "type": "inherited"
+        },
+        "Own_Name": {
+          "type": "inherited"
+        },
+        "Own_Type": {
+          "type": "inherited"
+        },
+        "Pub_Access": {
+          "type": "inherited"
+        },
+        "State_Nm": {
+          "type": "inherited"
+        }
+      },
+      "id": "NPS",
+      "name": "National Park Service (NPS)",
+      "templates": [
+        {
+          "description": "",
+          "drawingTool": "esriFeatureEditToolPolygon",
+          "name": "NPS",
+          "prototype": {
+            "attributes": {
+              "Access_Dt": null,
+              "Access_Src": null,
+              "Agg_Src": null,
+              "Category": null,
+              "Comments": null,
+              "Date_Est": null,
+              "Des_Tp": null,
+              "EHoldTyp": null,
+              "EsmtHldr": null,
+              "FeatClass": null,
+              "GAPCdDt": null,
+              "GAPCdSrc": null,
+              "GAP_Sts": null,
+              "GIS_Acres": null,
+              "GIS_Src": null,
+              "IUCNCtDt": null,
+              "IUCNCtSrc": null,
+              "IUCN_Cat": null,
+              "Loc_Ds": null,
+              "Loc_Mang": null,
+              "Loc_Nm": null,
+              "Loc_Own": null,
+              "Mang_Name": null,
+              "Mang_Type": null,
+              "Own_Name": null,
+              "Own_Type": null,
+              "Pub_Access": null,
+              "Source_PAID": null,
+              "Src_Date": null,
+              "State_Nm": null,
+              "TranspPct": null,
+              "Unit_Nm": null,
+              "WDPA_Cd": null,
+              "WebServiceMangName": "NPS"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "domains": {
+        "Category": {
+          "type": "inherited"
+        },
+        "Des_Tp": {
+          "type": "inherited"
+        },
+        "FeatClass": {
+          "type": "inherited"
+        },
+        "GAP_Sts": {
+          "type": "inherited"
+        },
+        "IUCN_Cat": {
+          "type": "inherited"
+        },
+        "Mang_Name": {
+          "type": "inherited"
+        },
+        "Mang_Type": {
+          "type": "inherited"
+        },
+        "Own_Name": {
+          "type": "inherited"
+        },
+        "Own_Type": {
+          "type": "inherited"
+        },
+        "Pub_Access": {
+          "type": "inherited"
+        },
+        "State_Nm": {
+          "type": "inherited"
+        }
+      },
+      "id": "USFS",
+      "name": "Forest Service (USFS)",
+      "templates": [
+        {
+          "description": "",
+          "drawingTool": "esriFeatureEditToolPolygon",
+          "name": "USFS",
+          "prototype": {
+            "attributes": {
+              "Access_Dt": null,
+              "Access_Src": null,
+              "Agg_Src": null,
+              "Category": null,
+              "Comments": null,
+              "Date_Est": null,
+              "Des_Tp": null,
+              "EHoldTyp": null,
+              "EsmtHldr": null,
+              "FeatClass": null,
+              "GAPCdDt": null,
+              "GAPCdSrc": null,
+              "GAP_Sts": null,
+              "GIS_Acres": null,
+              "GIS_Src": null,
+              "IUCNCtDt": null,
+              "IUCNCtSrc": null,
+              "IUCN_Cat": null,
+              "Loc_Ds": null,
+              "Loc_Mang": null,
+              "Loc_Nm": null,
+              "Loc_Own": null,
+              "Mang_Name": null,
+              "Mang_Type": null,
+              "Own_Name": null,
+              "Own_Type": null,
+              "Pub_Access": null,
+              "Source_PAID": null,
+              "Src_Date": null,
+              "State_Nm": null,
+              "TranspPct": null,
+              "Unit_Nm": null,
+              "WDPA_Cd": null,
+              "WebServiceMangName": "USFS"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "domains": {
+        "Category": {
+          "type": "inherited"
+        },
+        "Des_Tp": {
+          "type": "inherited"
+        },
+        "FeatClass": {
+          "type": "inherited"
+        },
+        "GAP_Sts": {
+          "type": "inherited"
+        },
+        "IUCN_Cat": {
+          "type": "inherited"
+        },
+        "Mang_Name": {
+          "type": "inherited"
+        },
+        "Mang_Type": {
+          "type": "inherited"
+        },
+        "Own_Name": {
+          "type": "inherited"
+        },
+        "Own_Type": {
+          "type": "inherited"
+        },
+        "Pub_Access": {
+          "type": "inherited"
+        },
+        "State_Nm": {
+          "type": "inherited"
+        }
+      },
+      "id": "USACE",
+      "name": "Army Corps of Engineers (USACE)",
+      "templates": [
+        {
+          "description": "",
+          "drawingTool": "esriFeatureEditToolPolygon",
+          "name": "USACE",
+          "prototype": {
+            "attributes": {
+              "Access_Dt": null,
+              "Access_Src": null,
+              "Agg_Src": null,
+              "Category": null,
+              "Comments": null,
+              "Date_Est": null,
+              "Des_Tp": null,
+              "EHoldTyp": null,
+              "EsmtHldr": null,
+              "FeatClass": null,
+              "GAPCdDt": null,
+              "GAPCdSrc": null,
+              "GAP_Sts": null,
+              "GIS_Acres": null,
+              "GIS_Src": null,
+              "IUCNCtDt": null,
+              "IUCNCtSrc": null,
+              "IUCN_Cat": null,
+              "Loc_Ds": null,
+              "Loc_Mang": null,
+              "Loc_Nm": null,
+              "Loc_Own": null,
+              "Mang_Name": null,
+              "Mang_Type": null,
+              "Own_Name": null,
+              "Own_Type": null,
+              "Pub_Access": null,
+              "Source_PAID": null,
+              "Src_Date": null,
+              "State_Nm": null,
+              "TranspPct": null,
+              "Unit_Nm": null,
+              "WDPA_Cd": null,
+              "WebServiceMangName": "USACE"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "domains": {
+        "Category": {
+          "type": "inherited"
+        },
+        "Des_Tp": {
+          "type": "inherited"
+        },
+        "FeatClass": {
+          "type": "inherited"
+        },
+        "GAP_Sts": {
+          "type": "inherited"
+        },
+        "IUCN_Cat": {
+          "type": "inherited"
+        },
+        "Mang_Name": {
+          "type": "inherited"
+        },
+        "Mang_Type": {
+          "type": "inherited"
+        },
+        "Own_Name": {
+          "type": "inherited"
+        },
+        "Own_Type": {
+          "type": "inherited"
+        },
+        "Pub_Access": {
+          "type": "inherited"
+        },
+        "State_Nm": {
+          "type": "inherited"
+        }
+      },
+      "id": "USBR",
+      "name": "Bureau of Reclamation (USBR)",
+      "templates": [
+        {
+          "description": "",
+          "drawingTool": "esriFeatureEditToolPolygon",
+          "name": "USBR",
+          "prototype": {
+            "attributes": {
+              "Access_Dt": null,
+              "Access_Src": null,
+              "Agg_Src": null,
+              "Category": null,
+              "Comments": null,
+              "Date_Est": null,
+              "Des_Tp": null,
+              "EHoldTyp": null,
+              "EsmtHldr": null,
+              "FeatClass": null,
+              "GAPCdDt": null,
+              "GAPCdSrc": null,
+              "GAP_Sts": null,
+              "GIS_Acres": null,
+              "GIS_Src": null,
+              "IUCNCtDt": null,
+              "IUCNCtSrc": null,
+              "IUCN_Cat": null,
+              "Loc_Ds": null,
+              "Loc_Mang": null,
+              "Loc_Nm": null,
+              "Loc_Own": null,
+              "Mang_Name": null,
+              "Mang_Type": null,
+              "Own_Name": null,
+              "Own_Type": null,
+              "Pub_Access": null,
+              "Source_PAID": null,
+              "Src_Date": null,
+              "State_Nm": null,
+              "TranspPct": null,
+              "Unit_Nm": null,
+              "WDPA_Cd": null,
+              "WebServiceMangName": "USBR"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "domains": {
+        "Category": {
+          "type": "inherited"
+        },
+        "Des_Tp": {
+          "type": "inherited"
+        },
+        "FeatClass": {
+          "type": "inherited"
+        },
+        "GAP_Sts": {
+          "type": "inherited"
+        },
+        "IUCN_Cat": {
+          "type": "inherited"
+        },
+        "Mang_Name": {
+          "type": "inherited"
+        },
+        "Mang_Type": {
+          "type": "inherited"
+        },
+        "Own_Name": {
+          "type": "inherited"
+        },
+        "Own_Type": {
+          "type": "inherited"
+        },
+        "Pub_Access": {
+          "type": "inherited"
+        },
+        "State_Nm": {
+          "type": "inherited"
+        }
+      },
+      "id": "FWS",
+      "name": "U.S. Fish and Wildlife Service (FWS)",
+      "templates": [
+        {
+          "description": "",
+          "drawingTool": "esriFeatureEditToolPolygon",
+          "name": "FWS",
+          "prototype": {
+            "attributes": {
+              "Access_Dt": null,
+              "Access_Src": null,
+              "Agg_Src": null,
+              "Category": null,
+              "Comments": null,
+              "Date_Est": null,
+              "Des_Tp": null,
+              "EHoldTyp": null,
+              "EsmtHldr": null,
+              "FeatClass": null,
+              "GAPCdDt": null,
+              "GAPCdSrc": null,
+              "GAP_Sts": null,
+              "GIS_Acres": null,
+              "GIS_Src": null,
+              "IUCNCtDt": null,
+              "IUCNCtSrc": null,
+              "IUCN_Cat": null,
+              "Loc_Ds": null,
+              "Loc_Mang": null,
+              "Loc_Nm": null,
+              "Loc_Own": null,
+              "Mang_Name": null,
+              "Mang_Type": null,
+              "Own_Name": null,
+              "Own_Type": null,
+              "Pub_Access": null,
+              "Source_PAID": null,
+              "Src_Date": null,
+              "State_Nm": null,
+              "TranspPct": null,
+              "Unit_Nm": null,
+              "WDPA_Cd": null,
+              "WebServiceMangName": "FWS"
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "uniqueIdField": {
+    "isSystemMaintained": true,
+    "name": "OBJECTID"
+  },
+  "useStandardizedQueries": true,
+  "viewSourceHasAttachments": false
+}

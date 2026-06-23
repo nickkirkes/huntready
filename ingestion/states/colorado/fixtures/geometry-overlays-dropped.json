@@ -1,0 +1,37 @@
+[
+  {
+    "child_geometry_id": "CO-restricted-dinosaur-national-monument-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.00031,
+    "parent_geometry_id": "CO-GMU-11-geom",
+    "parent_kind": "gmu"
+  },
+  {
+    "child_geometry_id": "CO-restricted-rocky-mountain-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 3.3e-05,
+    "parent_geometry_id": "CO-GMU-171-geom",
+    "parent_kind": "gmu"
+  },
+  {
+    "child_geometry_id": "CO-restricted-rocky-mountain-national-park-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 3.8e-05,
+    "parent_geometry_id": "CO-GMU-19-geom",
+    "parent_kind": "gmu"
+  },
+  {
+    "child_geometry_id": "CO-restricted-dinosaur-national-monument-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.002463,
+    "parent_geometry_id": "CO-GMU-201-geom",
+    "parent_kind": "gmu"
+  },
+  {
+    "child_geometry_id": "CO-restricted-united-states-air-force-academy-geom",
+    "child_kind": "restricted_area",
+    "overlap_pct": 0.001567,
+    "parent_geometry_id": "CO-GMU-511-geom",
+    "parent_kind": "gmu"
+  }
+]

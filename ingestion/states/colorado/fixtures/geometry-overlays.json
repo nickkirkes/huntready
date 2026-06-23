@@ -1,0 +1,1610 @@
+[
+  {
+    "child_geometry_id": "CO-GMU-1-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-1-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-dinosaur-national-monument-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-1-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-10-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-10-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-dinosaur-national-monument-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-10-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-100-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-100-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-101-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-101-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-102-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-102-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-103-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-103-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-104-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-104-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-105-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-105-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-106-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-106-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-107-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-107-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-109-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-109-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-11-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-11-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-110-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-110-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-united-states-air-force-academy-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-110-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-111-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-111-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-112-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-112-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-113-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-113-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-114-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-114-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-115-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-115-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-116-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-116-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-117-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-117-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-118-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-118-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-119-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-119-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-12-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-12-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-120-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-120-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-121-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-121-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-122-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-122-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-123-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-123-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-124-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-124-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-125-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-125-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-126-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-126-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-127-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-127-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-128-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-128-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-129-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-129-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-13-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-13-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-130-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-130-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-131-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-131-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-132-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-132-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-133-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-133-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-134-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-134-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-135-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-135-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-136-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-136-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-137-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-137-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-138-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-138-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-139-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-139-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-14-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-14-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-140-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-140-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-141-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-141-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-142-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-142-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-143-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-143-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-144-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-144-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-145-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-145-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-146-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-146-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-147-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-147-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-15-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-15-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-16-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-16-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-161-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-161-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-17-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-17-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-171-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-171-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-18-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-18-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-rocky-mountain-national-park-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-18-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-181-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-181-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-19-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-19-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-191-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-191-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-2-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-2-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-dinosaur-national-monument-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-2-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-20-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-20-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-rocky-mountain-national-park-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-20-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-201-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-201-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-21-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-21-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-211-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-211-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-214-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-214-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-22-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-22-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-23-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-23-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-231-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-231-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-24-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-24-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-25-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-25-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-26-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-26-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-27-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-27-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-28-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-28-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-29-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-29-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-3-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-3-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-30-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-30-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-301-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-301-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-31-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-31-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-32-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-32-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-33-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-33-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-34-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-34-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-35-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-35-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-36-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-36-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-361-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-361-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-37-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-37-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-371-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-371-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-38-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-38-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-39-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-39-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-391-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-391-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-4-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-4-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-40-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-40-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-colorado-national-monument-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-40-geom",
+    "parent_kind": "gmu",
+    "relationship": "covers",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-41-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-41-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-411-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-411-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-42-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-42-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-421-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-421-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-43-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-43-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-431-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-431-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-44-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-44-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-441-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-441-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-444-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-444-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-45-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-45-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-46-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-46-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-461-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-461-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-47-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-47-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-471-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-471-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-48-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-48-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-481-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-481-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-49-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-49-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-5-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-5-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-50-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-50-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-500-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-500-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-501-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-501-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-51-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-51-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-511-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-511-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-512-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-512-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-united-states-air-force-academy-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-512-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-52-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-52-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-521-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-521-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-53-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-53-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-54-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-54-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-55-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-55-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-551-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-551-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-56-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-56-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-561-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-561-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-57-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-57-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-58-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-58-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-581-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-581-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-florissant-fossil-beds-national-monument-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-581-geom",
+    "parent_kind": "gmu",
+    "relationship": "covers",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-59-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-59-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-591-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-591-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-6-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-6-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-60-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-60-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-61-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-61-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-62-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-62-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-63-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-63-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-black-canyon-of-the-gunnison-national-park-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-63-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-64-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-64-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-black-canyon-of-the-gunnison-national-park-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-64-geom",
+    "parent_kind": "gmu",
+    "relationship": "intersects",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-65-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-65-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-66-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-66-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-67-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-67-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-68-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-68-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-681-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-681-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-682-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-682-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-69-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-69-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-691-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-691-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-7-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-7-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-70-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-70-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-71-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-71-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-711-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-711-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-72-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-72-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-hovenweep-national-monument-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-72-geom",
+    "parent_kind": "gmu",
+    "relationship": "covers",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-restricted-yucca-house-national-monument-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-72-geom",
+    "parent_kind": "gmu",
+    "relationship": "covers",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-73-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-73-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-mesa-verde-national-park-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-73-geom",
+    "parent_kind": "gmu",
+    "relationship": "covers",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-74-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-74-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-741-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-741-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-75-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-75-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-751-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-751-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-76-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-76-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-77-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-77-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-771-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-771-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-78-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-78-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-79-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-79-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-791-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-791-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-8-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-8-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-80-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-80-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-81-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-81-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-82-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-82-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-restricted-great-sand-dunes-national-park-geom",
+    "child_kind": "restricted_area",
+    "parent_geometry_id": "CO-GMU-82-geom",
+    "parent_kind": "gmu",
+    "relationship": "covers",
+    "role_for_e03": "restricted_area"
+  },
+  {
+    "child_geometry_id": "CO-GMU-83-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-83-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-84-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-84-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-85-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-85-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-851-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-851-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-86-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-86-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-861-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-861-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-87-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-87-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-88-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-88-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-89-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-89-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-9-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-9-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-90-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-90-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-91-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-91-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-92-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-92-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-93-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-93-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-94-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-94-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-95-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-95-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-951-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-951-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-96-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-96-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-97-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-97-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-98-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-98-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  },
+  {
+    "child_geometry_id": "CO-GMU-99-geom",
+    "child_kind": "gmu",
+    "parent_geometry_id": "CO-GMU-99-geom",
+    "parent_kind": "gmu",
+    "relationship": "self",
+    "role_for_e03": "primary_unit"
+  }
+]

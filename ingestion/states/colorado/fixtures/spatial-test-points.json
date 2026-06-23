@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "points": [
+    {
+      "name": "GMU 20 representative point",
+      "lat": 40.319462349999995,
+      "lng": -105.33913545510845,
+      "expected_kind": "gmu",
+      "expected_id_pattern": "CO-GMU-20-geom",
+      "expected_role_for_e03": null,
+      "notes": "GMU 20 representative point \u2014 MULTI-PART anchor (2 parts; AC #703)"
+    },
+    {
+      "name": "CO-GMU-1-geom",
+      "lat": 40.67797109999999,
+      "lng": -108.97623016169456,
+      "expected_kind": "gmu",
+      "expected_id_pattern": "CO-GMU-1-geom",
+      "expected_role_for_e03": null,
+      "notes": "GMU 1 representative point"
+    },
+    {
+      "name": "CO-GMU-201-geom",
+      "lat": 40.8549833,
+      "lng": -108.89100935565673,
+      "expected_kind": "gmu",
+      "expected_id_pattern": "CO-GMU-201-geom",
+      "expected_role_for_e03": null,
+      "notes": "GMU 201 representative point"
+    },
+    {
+      "name": "Rocky Mountain NP representative point",
+      "lat": 40.3559239,
+      "lng": -105.71770794358036,
+      "expected_kind": "restricted_area",
+      "expected_id_pattern": "CO-restricted-rocky-mountain-national-park-geom",
+      "expected_role_for_e03": null,
+      "notes": "Rocky Mountain NP representative point \u2014 expected-orphan RA (intersects GMUs, not contained)"
+    },
+    {
+      "name": "Mesa Verde NP representative point",
+      "lat": 37.253799799999996,
+      "lng": -108.45560204100167,
+      "expected_kind": "restricted_area",
+      "expected_id_pattern": "CO-restricted-mesa-verde-national-park-geom",
+      "expected_role_for_e03": null,
+      "notes": "Mesa Verde NP representative point \u2014 expected-orphan RA"
+    },
+    {
+      "name": "CO-STATEWIDE-geom",
+      "lat": 38.9953605,
+      "lng": -105.5494597957013,
+      "expected_kind": "state",
+      "expected_id_pattern": "CO-STATEWIDE-geom",
+      "expected_role_for_e03": null,
+      "notes": "Colorado statewide representative interior point"
+    },
+    {
+      "name": "Wyoming negative control",
+      "lat": 41.5,
+      "lng": -104.0,
+      "expected_kind": null,
+      "expected_id_pattern": null,
+      "expected_role_for_e03": null,
+      "notes": "deliberate human-authored out-of-CO point (just over the WY line); ST_Covers with AND state='US-CO' must return zero rows"
+    }
+  ]
+}
