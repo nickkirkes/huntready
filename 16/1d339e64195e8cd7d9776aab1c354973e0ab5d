@@ -1,0 +1,37 @@
+.secrets.baseline
+  s_d9ed08aafefb53::t_51431dd7337f5f 148-165,347
+ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-manifest-20260623T000955Z.json
+  s_d9ed08aafefb53::t_d16192fa7c29b6 1-266
+ingestion/ingestion/lib/arcgis.py
+  s_d9ed08aafefb53::t_c0080e5e9d971b 354-374,379
+  s_d9ed08aafefb53::t_a8c366e0b45a04 326-330
+  s_d9ed08aafefb53::t_26bc0e14ae487a 317-318
+  s_d9ed08aafefb53::t_6e8347147cf815 385-386
+ingestion/tests/test_arcgis.py
+  s_d9ed08aafefb53::t_5d7b265894fdbc 138-197
+  s_d9ed08aafefb53::t_7d257e4947ce6d 267-286,288-299,312-313
+  s_d9ed08aafefb53::t_77cd9d442e636d 198-214,219-224,233-242
+  s_d9ed08aafefb53::t_b2383bfd5ccff8 287,300-311
+  s_d9ed08aafefb53::t_e3f4da55227316 215-218,225-232
+ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-metadata-20260623T000955Z.json
+  s_d9ed08aafefb53::t_d16192fa7c29b6 1-3302
+docs/planning/epics/E06-confidence-findings/S06.6.2.md
+  s_d9ed08aafefb53::t_0d9cd2f4f38281 1-157,169-174
+  s_d9ed08aafefb53::t_5a495296b7c16a 158-168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.10",
+  "base_commit_sha": "161d339e64195e8cd7d9776aab1c354973e0ab5d",
+  "prompts": {},
+  "sessions": {
+    "s_d9ed08aafefb53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f7ba02-13a8-4720-91e6-e966c3946020",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
