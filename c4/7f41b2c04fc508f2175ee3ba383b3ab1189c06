@@ -1,0 +1,19 @@
+docs/planning/epics/E06-confidence-findings/S06.6.2.md
+  s_d9ed08aafefb53::t_f99e95c7270838 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.10",
+  "base_commit_sha": "c47f41b2c04fc508f2175ee3ba383b3ab1189c06",
+  "prompts": {},
+  "sessions": {
+    "s_d9ed08aafefb53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f7ba02-13a8-4720-91e6-e966c3946020",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
