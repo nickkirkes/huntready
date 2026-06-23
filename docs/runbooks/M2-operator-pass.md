@@ -34,7 +34,7 @@ The PM then splits captured outputs into per-story `confidence-findings/SXX.X.md
 - `SUPABASE_URL` + `SUPABASE_SECRET_KEY` env vars set (for `supabase` CLI calls).
 - `HUNTREADY_INGESTION_CONTACT` env var set per `CLAUDE.md` § "Environment variables" (gives CPW / USGS / Census a way to reach the operator if a fetch behaves unexpectedly).
 - `supabase` CLI installed and authenticated.
-- Test baseline before starting: `cd ingestion && .venv/bin/pytest tests/ -q` reports `1774 passed, 4 skipped` (the post-S06.6 floor). If this does not pass cleanly, **stop and surface to PM** — something has drifted.
+- Test baseline before starting: `cd ingestion && .venv/bin/pytest tests/ -q` reports `1787 passed, 4 skipped` (the post-S06.6.2 floor as of 2026-06-23; was `1774` before S06.6.1 + S06.6.2 — those mid-pass carve-outs added 13 tests). The exact count grows as later E06 stories merge, so treat this as a *no-regression* gate against the count at pass start, not a hard literal. If the suite does not pass cleanly, **stop and surface to PM** — something has drifted.
 
 ### Safety guards
 
@@ -634,7 +634,7 @@ git status -s
 
 # (b) Confirm full test suite still green
 cd ingestion && .venv/bin/pytest tests/ -q
-# Expected: 1774 passed, 4 skipped (same as the pre-pass baseline; no regressions from the live-write pass)
+# Expected: same count as the pre-pass baseline — 1787 passed, 4 skipped as of 2026-06-23 (post-S06.6.2; was 1774 pre-S06.6.1/.2). Gate is "unchanged from pass start, no regressions", not a hard literal.
 
 # (c) Confirm ruff + mypy still clean
 .venv/bin/ruff check ingestion/ tests/
@@ -1065,7 +1065,7 @@ Brochure PDF present on disk (`co-cpw-big-game-2026-brochure-2026-03-04.pdf`, 96
 
   (Step-3 CPWAdminData manifests + multipart-gmus.json already committed at `917cc8f`. Five `*-features-*.geojson` on disk are gitignored, not committable.)
 
-- `pytest` result: `1787 passed, 4 skipped` — **+13 above the runbook's stated 1774 floor; the extra 13 are S06.6.1 + S06.6.2 tests merged from main (deliberate additions, not a regression).**
+- `pytest` result: `1787 passed, 4 skipped` — **+13 above the original 1774 floor (Prerequisites + Post-pass now updated to 1787); the extra 13 are S06.6.1 + S06.6.2 tests merged from main (deliberate additions, not a regression).**
 - `ruff` + `mypy`: `PASS` (ruff: all checks passed; mypy: no issues in 8 source files)
 - Local fixture commit: **`ef84b12`** (option A — 3 genuinely-new fixtures: `geometry-overlays.json`, `geometry-overlays-dropped.json`, `spatial-test-points.json`). PAD-US `193725Z` manifest/metadata **left uncommitted/untracked** (duplicate of S06.6.2's committed `000955Z` set; committing would need a `.secrets.baseline` update for false-positive SHA-256 content hashes — left for PM reconciliation). Doc capture committed separately (see below). No `git push`.
 
@@ -1146,9 +1146,11 @@ A7 — POST-PASS COMMIT DECISIONS (operator/PM, 2026-06-23):
       Outcome: 193725Z left untracked on disk; the committed `000955Z` set stands as the PAD-US Group B fixture
       (covers AC #627/#628). PM may, in a follow-up, either delete the untracked 193725Z files or — if 193725Z is
       preferred as canonical — update `.secrets.baseline` and swap. No merged files were touched by this pass.
-  (ii) PYTEST BASELINE SHIFT: suite is now 1787 passed + 4 skipped, up from the runbook's stated 1774 floor. The +13
-      are S06.6.1 + S06.6.2 test additions merged from main — deliberate, not a regression. Future passes should
-      treat 1787 as the post-S06.6.2 floor.
+  (ii) PYTEST BASELINE SHIFT (RESOLVED in-doc 2026-06-23): suite is now 1787 passed + 4 skipped, up from the original
+      1774 floor. The +13 are S06.6.1 + S06.6.2 test additions merged from main — deliberate, not a regression. The
+      Prerequisites + Post-pass instructional baselines have been updated 1774 → 1787 (with a no-regression-gate note)
+      so future operators don't read 1787 as a false failure. Treat 1787 as the post-S06.6.2 floor; it grows as later
+      E06 stories merge.
 
 UNCOMMITTED VALID FIXTURES committed this pass (the 5 untracked under git status): the 193725Z PADUS manifest+metadata
   (Step 4), geometry-overlays.json + geometry-overlays-dropped.json (Step 5), spatial-test-points.json (Step 6).
