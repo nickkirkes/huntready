@@ -1,0 +1,46 @@
+CLAUDE.md
+  s_b6b1c793a73350::t_442f2401197127 11
+docs/planning/README.md
+  s_b6b1c793a73350::t_c421494437f693 15
+  s_b6b1c793a73350::t_d4243cc3bfe43d 4
+  s_b6b1c793a73350::t_70b3325f049ee0 3
+  s_b6b1c793a73350::t_e88f216bf15ffc 84
+docs/runbooks/M2-operator-pass.md
+  s_b6b1c793a73350::t_4f7d934fba3acf 151-155
+  s_b6b1c793a73350::t_67f5695f08282a 238-240
+  s_b6b1c793a73350::t_d2eb1d1c3fb86f 192-195
+  s_b6b1c793a73350::t_f9ef95571f8c24 304-308
+docs/planning/epics/completed/E05-colorado-geometry-ingestion.md
+  s_b6b1c793a73350::t_27fa6fc8a8c893 247-250
+  s_b6b1c793a73350::t_51e8bddf0d018a 459-463
+  s_b6b1c793a73350::t_804d281a8e3a23 706-712
+  s_b6b1c793a73350::t_c89a365de75b90 735-736
+  s_b6b1c793a73350::t_e5adebc153a580 121-122
+  s_b6b1c793a73350::t_5bc7f4341ca7ab 568-573
+  s_b6b1c793a73350::t_254ccc50acf1b0 730
+  s_b6b1c793a73350::t_958116a5e8a906 393-397
+  s_b6b1c793a73350::t_2899aaf686872b 4
+docs/planning/epics/E06-colorado-regulation-text-ingestion.md
+  s_b6b1c793a73350::t_e55f034864d940 762-763
+  s_b6b1c793a73350::t_2de34d34028d77 493-495
+  s_b6b1c793a73350::t_3e2f7b76666d26 644-645
+  s_b6b1c793a73350::t_209aef0c9d7309 990,992,994
+  s_b6b1c793a73350::t_c17ce0f91d43a2 562-565
+  s_b6b1c793a73350::t_d8599913d7af94 1039-1040
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "81ef3537cba673d6fe8d80f5eba3698ab2393b12",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
