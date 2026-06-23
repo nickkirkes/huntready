@@ -1,0 +1,21 @@
+docs/planning/epics/E06-colorado-regulation-text-ingestion.md
+  s_d9ed08aafefb53::t_19155ed4d2e87a 651
+  s_d9ed08aafefb53::t_93840b3334fdd4 738-758
+  s_d9ed08aafefb53::t_74ffef91c5b746 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.10",
+  "base_commit_sha": "968d86a226d3565242b0cfcba142ac6214578924",
+  "prompts": {},
+  "sessions": {
+    "s_d9ed08aafefb53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f7ba02-13a8-4720-91e6-e966c3946020",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
