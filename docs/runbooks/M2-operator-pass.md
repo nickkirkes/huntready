@@ -148,7 +148,11 @@ WHERE geometry_id IN (
 )
 ORDER BY id;
 
--- Expected: 3 rows; every role = 'no_hunt_zone' (no 'other_overlay' remaining)
+-- Expected: ~50 rows (all fan-out binding rows across the 3 geometry IDs); every role = 'no_hunt_zone'
+-- (no 'other_overlay' remaining). The S05.3.5 migration UPDATE keys on `geometry_id` (not on
+-- binding `id`), so all binding rows per zone reclassify in one shot. M2-build operator pass
+-- 2026-06-23 captured 50 rows on dev (8 bear + 42 deer-elk-lion); M2-release pass should hit the
+-- same shape on prod.
 
 -- (d) Row count unchanged pre/post migration (DDL + 3-row UPDATE; no INSERT/DELETE)
 SELECT COUNT(*) FROM jurisdiction_binding;
@@ -185,7 +189,10 @@ WHERE state = 'US-CO' AND kind = 'state';
 SELECT
   id,
   ROUND((extensions.ST_Area(geom::geography) / 1e6)::numeric, 0) AS area_km2,
-  extensions.ST_IsValid(geom::geometry) AS valid
+  -- Supabase rejects `geom::geometry` on a geography column (SQLSTATE 42846);
+  -- use the WKT round-trip per the S05.7 / E05 verification runbook + the
+  -- `.roughly/known-pitfalls.md` "Supabase rejects geography-to-geometry cast" entry.
+  extensions.ST_IsValid(extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326)) AS valid
 FROM geometry
 WHERE id = 'CO-STATEWIDE-geom';
 -- Expected: id='CO-STATEWIDE-geom'; area_km2 ∈ [267,138; 272,535] (±1% of 269,837); valid=true
@@ -228,7 +235,9 @@ WHERE state = 'US-CO' AND kind = 'gmu';
 -- Expected: matches the row count from (a)
 
 -- (c) ST_IsValid round-trip on every row
-SELECT COUNT(*) AS valid_count, COUNT(*) FILTER (WHERE NOT extensions.ST_IsValid(geom::geometry)) AS invalid_count
+-- Supabase rejects `geom::geometry` on a geography column; WKT round-trip per S05.7.
+SELECT COUNT(*) AS valid_count,
+       COUNT(*) FILTER (WHERE NOT extensions.ST_IsValid(extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326))) AS invalid_count
 FROM geometry
 WHERE state = 'US-CO' AND kind = 'gmu';
 -- Expected: valid_count = total from (a); invalid_count = 0
@@ -292,7 +301,11 @@ ORDER BY id;
 -- (The implementer can pull the exact WHERE clause from load_restricted_areas.py; expected raw count = 11; written = 10)
 
 -- (d) ST_IsValid + GIS_Acres ±10% sanity
-SELECT id, ROUND((extensions.ST_Area(geom::geography) * 0.000247105)::numeric, 0) AS computed_acres, extensions.ST_IsValid(geom::geometry) AS valid
+-- Supabase rejects `geom::geometry` on a geography column; WKT round-trip per S05.7.
+-- `extensions.ST_Area(geom::geography)` is fine — the `::geography` no-op cast on an
+-- already-geography column is harmless. Only `::geometry` is rejected.
+SELECT id, ROUND((extensions.ST_Area(geom::geography) * 0.000247105)::numeric, 0) AS computed_acres,
+       extensions.ST_IsValid(extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326)) AS valid
 FROM geometry
 WHERE state = 'US-CO' AND kind = 'restricted_area'
 ORDER BY id;
