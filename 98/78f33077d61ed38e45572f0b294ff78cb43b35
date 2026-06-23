@@ -1,0 +1,20 @@
+.roughly/plans/S06.6.2-padus-geometrycollection-area-preservation-plan.md
+  s_d9ed08aafefb53::t_a7c380a91cefa4 1-2
+  s_d9ed08aafefb53::t_3ad786c49c2f0b 3-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.10",
+  "base_commit_sha": "9878f33077d61ed38e45572f0b294ff78cb43b35",
+  "prompts": {},
+  "sessions": {
+    "s_d9ed08aafefb53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f7ba02-13a8-4720-91e6-e966c3946020",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
