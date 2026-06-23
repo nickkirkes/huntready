@@ -135,6 +135,111 @@ class TestGeojsonToMultipolygonWkt:
         with pytest.raises(ArcGISError, match=r"OBJECTID=12.*do not preserve area"):
             geojson_to_multipolygon_wkt(feature)
 
+    def test_geometry_collection_recovers_when_area_loss_within_1e3_tolerance(
+        self, caplog
+    ) -> None:
+        # Synthetic stand-in for the PAD-US 4.1 RMNP ring-self-intersection case
+        # (real recovered/parsed gap was 0.0676%). Two 1x1 squares (parsed.area
+        # = 2.0) overlapping in a 1.0 x 0.001 strip (overlap = 0.001 deg^2):
+        # recovered.area = 1.999, relative discrepancy = -0.001 / 2.0 = -5e-4
+        # (-0.05%) — inside the new rel_tol=1e-3 band, above the old 1e-6 — so it
+        # recovers with a WARNING rather than raising.
+        feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 6062, "DISTRICT": "RMNP-LIKE"},
+            "geometry": {
+                "type": "GeometryCollection",
+                "geometries": [
+                    {
+                        "type": "Polygon",
+                        "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]],
+                    },
+                    {
+                        "type": "Polygon",
+                        "coordinates": [[[0.999, 0.0], [1.999, 0.0], [1.999, 1.0], [0.999, 1.0], [0.999, 0.0]]],
+                    },
+                ],
+            },
+        }
+        with caplog.at_level("WARNING", logger="ingestion.lib.arcgis"):
+            wkt = geojson_to_multipolygon_wkt(feature)
+        assert wkt.startswith("MULTIPOLYGON")
+        assert any(
+            "OBJECTID=6062" in r.getMessage() and "non-polygonal artifacts" in r.getMessage()
+            for r in caplog.records
+        )
+
+    def test_geometry_collection_raises_when_area_loss_exceeds_1e3_tolerance(self) -> None:
+        # Just over the new threshold: two 1x1 squares (parsed.area = 2.0)
+        # overlapping in a 1.0 x 0.004 strip (overlap = 0.004 deg^2): recovered
+        # discrepancy = -0.004 / 2.0 = -2e-3 (-0.2%), above rel_tol=1e-3 — still
+        # raises. Locks the upper side of the boundary so the relaxation can't
+        # silently widen.
+        feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 6063, "DISTRICT": "LOSSY"},
+            "geometry": {
+                "type": "GeometryCollection",
+                "geometries": [
+                    {
+                        "type": "Polygon",
+                        "coordinates": [[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]]],
+                    },
+                    {
+                        "type": "Polygon",
+                        "coordinates": [[[0.996, 0.0], [1.996, 0.0], [1.996, 1.0], [0.996, 1.0], [0.996, 0.0]]],
+                    },
+                ],
+            },
+        }
+        with pytest.raises(ArcGISError, match=r"OBJECTID=6063.*do not preserve area"):
+            geojson_to_multipolygon_wkt(feature)
+
+    def test_self_intersection_recovers_through_make_valid_geometrycollection(
+        self, caplog
+    ) -> None:
+        # Faithful synthetic of the real RMNP mechanism: a self-intersecting
+        # Polygon *input* (not a GeometryCollection input) that make_valid repairs
+        # into GeometryCollection([Polygon, LineString]) with a sub-0.1% area
+        # artifact. This exercises the full real path the gitignored RMNP fixture
+        # exercises — make_valid emitting the GC + the dangling LineString — so the
+        # relaxed threshold is locked in CI even though the live PAD-US payload is
+        # not committed. The spur produces a relative area gap of ~1.5e-4 (0.015%):
+        # inside rel_tol=1e-3, above the old 1e-6 (so this would have RAISED before
+        # the relaxation). Mirrors RMNP's "1 non-polygonal artifact" LineString.
+        feature = {
+            "type": "Feature",
+            "properties": {"OBJECTID": 4040, "Unit_Nm": "SELF-INTERSECT-LIKE"},
+            "geometry": {
+                "type": "Polygon",
+                # A unit square plus a thin near-degenerate spur on the left edge
+                # (out to x=-0.3 at y=0.5 and back to y=0.5005). The spur crosses
+                # itself, so the ring is self-intersecting / invalid — make_valid
+                # repairs it into GeometryCollection([Polygon, LineString]).
+                "coordinates": [
+                    [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.5],
+                     [-0.3, 0.5], [-0.3, 0.5], [0.0, 0.5005], [0.0, 0.0]]
+                ],
+            },
+        }
+        # Lock the premise: the input must genuinely be an invalid (self-
+        # intersecting) polygon, so this test exercises the make_valid ->
+        # GeometryCollection recovery branch (not a trivial valid Polygon).
+        # If a future GEOS makes this valid, fail loud here rather than passing
+        # vacuously.
+        from shapely.geometry import shape
+
+        assert not shape(feature["geometry"]).is_valid
+        with caplog.at_level("WARNING", logger="ingestion.lib.arcgis"):
+            wkt = geojson_to_multipolygon_wkt(feature)
+        assert wkt.startswith("MULTIPOLYGON")
+        assert any(
+            "OBJECTID=4040" in r.getMessage()
+            and "recovered Polygon parts from" in r.getMessage()
+            and "1 non-polygonal artifacts" in r.getMessage()
+            for r in caplog.records
+        )
+
     def test_empty_polygon_raises_with_objectid(self) -> None:
         feature = {
             "type": "Feature",
@@ -157,6 +262,53 @@ class TestGeojsonToMultipolygonWkt:
         }
         with pytest.raises(ArcGISError, match=r"OBJECTID=42"):
             geojson_to_multipolygon_wkt(feature)
+
+
+class TestPadusTenZoneIntegration:
+    """Phase E pre-merge validation for S06.6.2.
+
+    Confirms all 10 V1 CO federal no-hunt zones (4 NPs + 5 NMs + AFA; Curecanti
+    already dropped by the loader's fetch path) convert cleanly through the
+    post-fix ``geojson_to_multipolygon_wkt`` path — in particular Rocky Mountain
+    NP, whose republished PAD-US 4.1 geometry triggered the GeometryCollection
+    area-preservation raise before the epsilon relaxation.
+
+    The features payload is gitignored (``*-features-*.geojson``, per the
+    uniform-with-MT discipline in ``states/colorado/fixtures/.gitignore``), so
+    this test reads the locally-captured fixture when present (operator capture
+    or the Phase D live fetch) and SKIPS otherwise — mirroring S06.5's
+    skip-if-absent live-PDF lock. The live operator-pass-resume Step 4 is the
+    final Group-B verification across all 10 zones.
+    """
+
+    _FIXTURE_DIR = Path(__file__).resolve().parents[1] / "states" / "colorado" / "fixtures"
+    _GLOB = "Federal_Fee_Managers_Authoritative_PADUS-0-features-*.geojson"
+
+    def test_all_ten_zones_convert_cleanly(self, caplog) -> None:
+        matches = sorted(self._FIXTURE_DIR.glob(self._GLOB))
+        if not matches:
+            pytest.skip(
+                "PAD-US features fixture absent (gitignored; operator-capture / "
+                "Phase D dependency) — covered live by the M2 operator-pass Step 4 "
+                "resume."
+            )
+        fixture = matches[-1]  # newest by UTC timestamp in filename
+        data = json.loads(fixture.read_text())
+        features = data["features"]
+        # Curecanti is dropped pre-fixture by the loader; the committed set is 10.
+        assert len(features) == 10, f"expected 10 V1 zones, got {len(features)}"
+        with caplog.at_level("WARNING", logger="ingestion.lib.arcgis"):
+            for feature in features:
+                wkt = geojson_to_multipolygon_wkt(feature)
+                assert wkt.startswith("MULTIPOLYGON")
+        # The whole point of S06.6.2 is the relaxed GC-recovery branch. At least
+        # one zone (RMNP) must actually exercise it against the real republished
+        # data — otherwise a future PAD-US republish that drops the ring
+        # self-intersection would let this test pass without testing the fix.
+        assert any(
+            "recovered Polygon parts from" in r.getMessage()
+            for r in caplog.records
+        ), "expected at least one GeometryCollection-recovery WARNING (RMNP)"
 
 
 class TestCheckAndFixProjection:
