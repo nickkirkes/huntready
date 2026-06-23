@@ -1,0 +1,23 @@
+ingestion/states/colorado/fixtures/geometry-overlays-dropped.json
+  s_61fcfd2b4abd24::t_f631f7718c4e94 1-37
+ingestion/states/colorado/fixtures/geometry-overlays.json
+  s_61fcfd2b4abd24::t_f631f7718c4e94 1-1610
+ingestion/states/colorado/fixtures/spatial-test-points.json
+  s_61fcfd2b4abd24::t_89b5a58100c215 1-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "ef84b12a188ec9181aa24815123825432065bcc5",
+  "prompts": {},
+  "sessions": {
+    "s_61fcfd2b4abd24": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8ffe8c9b-0cd1-45f2-9bcf-9d7988e3c582",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
