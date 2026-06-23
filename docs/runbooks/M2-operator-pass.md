@@ -859,158 +859,215 @@ ingestion.lib.arcgis.ArcGISError: GeometryCollection from feature OBJECTID=3374 
 
 Root cause: republished PAD-US RMNP (OBJECTID 3374) geometry has invalid topology; `make_valid` yields a GeometryCollection whose polygonal parts lose ~0.068% area (Δ 0.0000770 of 0.11397 sq-deg), above the lib's exact-area-preservation tolerance → fail-loud raise (ADR-001). Pre-DB-write; 0 rows. This is a SHARED lib guard (`lib/arcgis.py`, used by MT too). Fix is PM/implementation (loosen tolerance / special-case / re-source RMNP) — out of operator-pass authority. Pattern: two sequential PAD-US 4.1 republish incompatibilities (OBJECTID + RMNP topology) — PM may want a fuller S05.4 review vs the republished layer. Stray failed-run fixtures: `...PADUS-0-metadata-20260622T204643Z.json` (untracked) + gitignored `*-features-*.geojson`. See Anomalies A6.
 
-### Step 5 — S05.5 overlay fixture
+#### Re-verification 2026-06-23 (after S06.6.2 GeometryCollection-area fix merged) — **PASS**
+
+S06.6.2 (`82e34df`, lib/arcgis.py +38/−35 + tests) loosened the GeometryCollection area-preservation guard to `rel_tol=1e-3` (0.1%); RMNP's 0.068% self-intersection-cleanup artifact now **warns and proceeds** instead of raising. Loader logged `upserted 10 restricted-area geometries`. All Step 4 verification now passes:
+
+- (a) restricted_area count: **10** ✅
+- (b) 10 ids alphabetical — exact expected list (Black Canyon, Colorado NM, Dinosaur, Florissant Fossil Beds, Great Sand Dunes, Hovenweep, Mesa Verde, Rocky Mountain, United States Air Force Academy, Yucca House); **NO curecanti** ✅
+- (c) FeatureServer returnCountOnly: **11** (pre-Curecanti-drop) ✅
+- (d) ST_IsValid (WKT round-trip) + computed acres — all 10 `valid=true`; computed acres match PAD-US `GIS_Acres` essentially exactly (Mesa Verde 53444 vs 53445 = 0.002% delta; RMNP 265475 exact despite the 0.068% GeometryCollection cleanup; all others exact). No >10% deltas. ✅
+- (e) verbatim_rule NULL count: **10** (all pending Step 8) ✅
+- RMNP warning (informational, expected): `geojson_to_multipolygon_wkt: recovered Polygon parts from GeometryCollection for feature OBJECTID=3374 ... polygonal area preserved within rel_tol=1e-3 (0.1%) — self-intersection cleanup artifact. Source has invalid topology worth auditing.`
+
+Live-run fixtures (untracked, this pass): `Federal_Fee_Managers_Authoritative_PADUS-0-manifest-20260623T193725Z.json` + `...metadata-20260623T193725Z.json`. NOTE for PM: S06.6.2 already committed a PADUS manifest/metadata set at `20260623T000955Z`; this Step-4 run produced a second set at `193725Z` (same upstream data, different fetch timestamp). PM picks the canonical one at post-pass commit (the live Group-B-run 193725Z set per AC #627/#628; the S06.6.2 validation set may be redundant). **Closes S05.4 Group B ACs.**
+
+### Step 5 — S05.5 overlay fixture — **PASS (2026-06-23)**
 
 - Builder stdout:
 
   ```
-  [paste verbatim]
+  INFO loaded 197 CO geometries
+  INFO kept 186 GMU self, 0 GMU→cwd_zone (dropped 0), 15 GMU→restricted_area (dropped 5)
+  INFO wrote 201 overlay rows to .../fixtures/geometry-overlays.json
+  INFO wrote 5 dropped-pair audit rows to .../fixtures/geometry-overlays-dropped.json
   ```
 
-- (a) `geometry-overlays.json` exists: `Y/N`; line count `____`
-- (b) Reproducibility SHA match across two runs: `Y/N`
-- (c) Overlay row count (from quick shape check): `____`
-- (d) Threshold recalibration note: `____` (e.g. "borderline drops within MT proportions; carry MT thresholds forward")
+- (a) `geometry-overlays.json` exists: `Y` (1610 lines); `geometry-overlays-dropped.json` 37 lines ✅
+- (b) Reproducibility SHA match across two runs: `Y` — both runs `180346611f44bf542e8bbc82085a9dfbd04f2560978017e4286572b0ae4f5b55` ✅
+- (c) Overlay row count: `201` = 186 (gmu→gmu self, role primary_unit) + 15 (gmu→restricted_area, relationship=intersects, role_for_e03=restricted_area). 0 cwd_zone (S05.3 gap). ✅
+- (d) Threshold recalibration note: 5 dropped pairs, all `overlap_pct` well below the 0.01 drop band (values 0.00031 / 3.3e-05 / 3.8e-05 / 0.002463 / 0.001567 — max 0.0025). Within MT proportions; **carry MT thresholds forward, no recalibration** per ADR-016 §4. ✅
+- Coverage invariant: builder did NOT fail loud → every restricted_area is intersect-recorded or on the `EXPECTED_CO_RA_ORPHAN_IDS` allowlist. The 15 RA rows are `intersects` (RAs straddle GMU boundaries, none contained ≥0.99) — **confirms the S05.4 discovery-doc "adjacent to, not contained by GMUs" expectation** (no contradiction). **Closes S05.5 Group B ACs** (modulo PM visual spot-check on the captured fixtures).
 
-### Step 6 — S05.7 spatial-test-points
+### Step 6 — S05.7 spatial-test-points — **PASS (2026-06-23)**
 
-- Generator output: `spatial-test-points.json` created at `_____________`
-- Test point counts per kind:
-
-  ```
-  [paste]
-  ```
-
-### Step 7 — E05 spatial verification (7 sections)
-
-- Section 1 (cross-state filter): `PASS/FAIL` + outputs:
+- Generator: ran the S05.7 § "Generator query" (`ST_PointOnSurface` over live CO geometry) + per-kind selection, written to `ingestion/states/colorado/fixtures/spatial-test-points.json` (schema version 1). Multi-part anchor = GMU 20 (from `multipart-gmus.json`).
+- Test point counts per kind (7 total):
 
   ```
-  [paste]
+  gmu:             3  (CO-GMU-20-geom [MULTI-PART anchor, AC #703], CO-GMU-1-geom, CO-GMU-201-geom)
+  restricted_area: 2  (Rocky Mountain NP, Mesa Verde NP — expected-orphan RAs)
+  state:           1  (CO-STATEWIDE-geom)
+  cwd_zone:        0  (S05.3 gap — omitted)
+  portion:         0  (CO has none — omitted)
+  negative ctrl:   1  (Wyoming, lat 41.5 lng -104.0 — only human-authored point)
   ```
 
-- Section 2 (ST_Covers): `PASS/FAIL` + outputs:
+  All DB-derived points are real `ST_PointOnSurface` coords (no invented points, AC #2); the WY negative control is the documented sole human-authored coordinate. `expected_role_for_e03` is `null` for all (E05 writes no bindings). **Closes S05.7 fixture-generation AC.**
+
+### Step 7 — E05 spatial verification (7 sections) — **ALL PASS (2026-06-23)**
+
+All `ST_*` `extensions.`-prefixed; geometry-only functions use the WKT round-trip; every query carries `AND state='US-CO'`.
+
+- Section 1 (cross-state filter): **PASS** — `SELECT DISTINCT state ... WHERE state='US-CO'` → single row `US-CO`.
+
+- Section 2 (ST_Covers over the 7 fixture points): **PASS** — each point's `expected_id_pattern` appears among the covering rows; WY negative control returns zero rows. The statewide polygon correctly covers all CO interior points (so each interior point also returns `CO-STATEWIDE-geom`); RA points also return their overlapping GMU (documented "both rows correct" case).
 
   ```
-  [paste]
+  1 GMU20      -> CO-GMU-20-geom, CO-STATEWIDE-geom
+  2 GMU1       -> CO-GMU-1-geom, CO-STATEWIDE-geom
+  3 GMU201     -> CO-GMU-201-geom, CO-STATEWIDE-geom
+  4 RMNP       -> CO-GMU-20-geom, CO-restricted-rocky-mountain-national-park-geom, CO-STATEWIDE-geom
+  5 MesaVerde  -> CO-GMU-73-geom, CO-restricted-mesa-verde-national-park-geom, CO-STATEWIDE-geom
+  6 Statewide  -> CO-GMU-581-geom, CO-STATEWIDE-geom
+  7 WY-negctrl -> (zero rows)
   ```
 
-- Section 3 (ST_IsValid): `PASS/FAIL` + outputs:
+- Section 3 (ST_IsValid round-trip on every CO geometry): **PASS** — zero invalid rows (WKT round-trip; PRD 002 SC#6).
 
-  ```
-  [paste]
-  ```
+- Section 4 (multi-part anchor ST_NumGeometries): **PASS** — `CO-GMU-20-geom` → `parts=2` (>1).
 
-- Section 4 (multi-part anchor ST_NumGeometries): `PASS/FAIL` + outputs:
+- Section 5 (EXPLAIN): **PASS** — `Index Scan using geometry_geom_gix` (GiST index IS used; not a seq scan). Index Cond on `geom &&` geography; predicate is index-eligible. (Note: M2 troubleshooting flags "seq scan → stop", but per the authoritative E05 runbook §4 a cost-driven seq scan on ~197 rows is also acceptable; moot here — index used.)
 
-  ```
-  [paste]
-  ```
+- Section 6 (ST_Envelope bounds): **PASS** — `POLYGON((-109.0603841 36.9924155, -109.0603841 41.0034594, -102.041522 41.0034594, -102.041522 36.9924155, -109.0603841 36.9924155))`. lng [-109.0603841, -102.041522], lat [36.9924155, 41.0034594] = Colorado's actual surveyed borders (CO is not a perfect rectangle); within ~0.004° of the runbook's rounded nominal `[-109.06,-102.04]×[36.99,41.00]`. Not a wrong-state/projection error (those deviate by whole degrees).
 
-- Section 5 (EXPLAIN ANALYZE): `PASS/FAIL` + outputs:
+- Section 7 (wipe + re-ingest dry-run — **read-only, NOT executed**): **PASS** —
+  - §7a `jurisdiction_binding` columns: `geometry_id` + `regulation_record_state`, **no `state` column** → wipe correctly scopes by `geometry_id` (S05.7 fix).
+  - §7b `co_bindings_to_delete=0` (binding DELETE is a no-op today), `co_geom_to_delete=197`.
+  - §7c `EXPLAIN` (plan-only, no execution) on both DELETEs parses + plans cleanly in FK-cascade order (jurisdiction_binding by geometry_id-IN-subquery, then geometry by state). **No DELETE/snapshot/re-ingest was actually run** per the M2 runbook's read-only directive for this section.
+  - §7d cross-state regression `pytest tests/test_co_binding_reference.py -k co_pollution_guard` → **1 passed**.
 
-  ```
-  [paste]
-  ```
+**Closes S05.7 spatial UAT AC + PRD 002 success criterion #4.**
 
-- Section 6 (ST_Envelope bounds): `PASS/FAIL` + outputs:
+### Step 8 — S06.5 restricted-area verbatim — **PASS (2026-06-23)**
 
-  ```
-  [paste]
-  ```
-
-- Section 7 (wipe + re-ingest dry-run): `PASS/FAIL` + outputs:
-
-  ```
-  [paste]
-  ```
-
-### Step 8 — S06.5 restricted-area verbatim
+Brochure PDF present on disk (`co-cpw-big-game-2026-brochure-2026-03-04.pdf`, 96,660,296 bytes — matches S06.0/D4 pinned Content-Length); loader opened it locally (no fetch).
 
 - Loader stdout:
 
   ```
-  [paste verbatim]
+  INFO S06.5 verbatim map built: 9 NPS rows + 1 AFA row; NPS=130 chars, AFA=397 chars
+  INFO updated verbatim_rule on 10 restricted-area geometries
   ```
 
-- (a) Populated count: `____` (expected 10)
-- (b) PAD-US source count: `____` (expected 10)
+- (a) Populated count: `10` (expected 10) ✅
+- (b) PAD-US source count: `10` (expected 10 — split-provenance D5=(b); source unchanged to CPW) ✅
 - (c) Unique strings (NPS / AFA breakdown):
 
   ```
-  [paste verbatim]
+  AFA | 1
+  NPS | 1
   ```
+
+  (9 NPS rows share one closure sentence; AFA distinct) ✅
 
 - (d) Rocky Mountain NP `verbatim_rule`:
 
   ```
-  [paste verbatim]
+  National parks and monuments managed by the National Park Service are closed to hunting. Check park websites for more information.
   ```
 
-- (e) AFA `verbatim_rule`:
+  Matches the documented expected NPS sentence. ✅
+
+- (e) AFA `verbatim_rule` (verbatim PDF span; soft-hyphen line breaks preserved per ADR-008):
 
   ```
-  [paste verbatim]
+  AFA hunters must pay an AFA access fee and receive a mandatory safety orientation. All rifle deer hunting is escorted, and is allowed only on the days, areas and by method of take authorized by the AFA. Archery white-tailed deer hunting is allowed by limited permit only from Dec. 1-31, self-escorted in specific assigned areas. Call 719-333-3308 or visit usafa.isportsman.net for more details.
   ```
 
-### Step 9 — S06.6 regulation_records
+  Describes HOW to hunt at AFA (regulated-access), NOT a closure — confirms Known Issue #12 (AFA is a huntable zone; S06.10 must bind it `other_overlay`, not `no_hunt_zone`). ✅
+
+**Closes S06.5 AC #482 + AC #483; AC #486 (PM faithfulness spot-check on ≥3 zones vs brochure) deferred to PM.**
+
+### Step 9 — S06.6 regulation_records — **PASS (2026-06-23)**
 
 - Loader stdout:
 
   ```
-  [paste verbatim]
+  INFO statewide-anchor guard passed: evaluated 2 bear statewide_rule hint(s) (all in known-informational allowlist) → 0 CO-STATEWIDE-bear anchors written
+  WARNING skipping big-game section with blank gmu_code: species=elk method=archery page=52 (heading-absorption residual; GMU is covered by other sections)
+  WARNING skipped 1 big-game section(s) with blank gmu_code
+  INFO built 398 regulation_record rows
+  INFO wrote 398 regulation_record rows (state=US-CO license_year=2026)
   ```
 
-- (a) `regulation_record` count: `____` (expected 398)
+  Exactly 1 expected WARNING (GMU-020 elk-archery blank-GMU heading-absorption residual; covered by other sections). ✅
+
+- (a) `regulation_record` count: `398` (expected 398) ✅
 - (b) Per-species counts:
 
   ```
-  bear:      ____ (expected 46)
-  elk:       ____ (expected 115)
-  mule_deer: ____ (expected 141)
-  pronghorn: ____ (expected 77)
-  whitetail: ____ (expected 19)
+  bear:      46  (expected 46)  ✅
+  elk:       115 (expected 115) ✅
+  mule_deer: 141 (expected 141) ✅
+  pronghorn: 77  (expected 77)  ✅
+  whitetail: 19  (expected 19)  ✅
   ```
 
-- (c) SQL-shape sums: `annual_reg=____`; `low_rows=____`; `statewide_rows=____` (expected `398/0/0`)
-- (d) Per-GMU jurisdiction_code match: `____` (expected 398)
-- (e) Dangling FK refs: `____` (expected 0)
-- (f) Confidence × species breakdown:
+- (c) SQL-shape sums: `annual_reg=398`; `low_rows=0`; `statewide_rows=0` (expected `398/0/0`) ✅
+- (d) Per-GMU jurisdiction_code match: `398` (expected 398; all match `^CO-GMU-\d+$`) ✅
+- (e) Dangling FK refs: `0` (expected 0; every jurisdiction_code resolves to a CO geometry via append-`-geom`) ✅
+- (f) Confidence × species breakdown (matches S06.6 closure record exactly):
 
   ```
-  [paste verbatim — compare against expected per Step 9 SQL block]
+  bear      high 46
+  elk       high 38   medium 77
+  mule_deer high 55   medium 86
+  pronghorn high 25   medium 52
+  whitetail high 2    medium 17
   ```
 
-### Step 10 — End-to-end + MT-untouched
+**Closes S06.6 Group B ACs.**
+
+### Step 10 — End-to-end + MT-untouched — **PASS (2026-06-23)**
 
 - (a) CO geometry composition:
 
   ```
-  [paste verbatim — expect gmu ~186, restricted_area 10, state 1, no cwd_zone]
+  gmu             | 186
+  restricted_area | 10
+  state           | 1
   ```
 
-- (b) CO regulation_record total: `____` (expected 398)
-- (c) `mt_bindings` / `co_bindings`: `____` / `0`
-- (d) MT geometry composition:
+  (no cwd_zone — S05.3 gap) ✅
+
+- (b) CO regulation_record total: `398` (expected 398) ✅
+- (c) `mt_bindings` / `co_bindings`: `788` / `0` ✅
+- (d) MT geometry composition (UNCHANGED from M1 close):
 
   ```
-  [paste — expect 2 cwd_zone + 235 HD + 55 portion + 57 restricted_area + 1 state = 350]
+  cwd_zone         | 2
+  hunting_district | 235
+  portion          | 55
+  restricted_area  | 57
+  state            | 1
   ```
 
-- (e) MT regulation_record count: `____` (expected 437)
-- (f) The 3 MT no-hunt-zone bindings still `role='no_hunt_zone'`: `Y/N`
+  Total 350 ✅
+
+- (e) MT regulation_record count: `435` — **UNCHANGED from the accepted dev M1-close baseline (A1)**. NOTE: runbook's literal expected is 437 (production-anchored); dev's baseline is 435 (the −2 pronghorn drift accepted by the operator 2026-06-20). The pass wrote zero MT rows, so 435→435 is the correct MT-untouched result for this M2-build env. ✅
+- (f) The 3 MT no-hunt-zone bindings still `role='no_hunt_zone'`: `Y` — 50 rows, all `no_hunt_zone` (unchanged since Step 1; nothing reverted) ✅
+
+**MT-untouched assertion holds (geometry 350, reg_record 435, bindings 788, 50 no_hunt_zone). Closes the MT-untouched precondition / PRD 002 SC#9 for the M2-build (dev) environment.**
 
 ### Post-pass
 
-- `git status -s` (expect only the new fixture files, no modifications):
+- `git status -s` (only new fixtures + this capture-form doc; no code modifications):
 
   ```
-  [paste verbatim]
+   M docs/runbooks/M2-operator-pass.md
+  ?? ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-manifest-20260623T193725Z.json
+  ?? ingestion/states/colorado/fixtures/Federal_Fee_Managers_Authoritative_PADUS-0-metadata-20260623T193725Z.json
+  ?? ingestion/states/colorado/fixtures/geometry-overlays-dropped.json
+  ?? ingestion/states/colorado/fixtures/geometry-overlays.json
+  ?? ingestion/states/colorado/fixtures/spatial-test-points.json
   ```
 
-- `pytest` result: `____ passed, ____ skipped` (expected `1774 passed, 4 skipped`)
-- `ruff` + `mypy`: `PASS / FAIL`
-- Local fixture commit SHA: `_____________`
+  (Step-3 CPWAdminData manifests + multipart-gmus.json already committed at `917cc8f`. Five `*-features-*.geojson` on disk are gitignored, not committable.)
+
+- `pytest` result: `1787 passed, 4 skipped` — **+13 above the runbook's stated 1774 floor; the extra 13 are S06.6.1 + S06.6.2 tests merged from main (deliberate additions, not a regression).**
+- `ruff` + `mypy`: `PASS` (ruff: all checks passed; mypy: no issues in 8 source files)
+- Local fixture commit: **`ef84b12`** (option A — 3 genuinely-new fixtures: `geometry-overlays.json`, `geometry-overlays-dropped.json`, `spatial-test-points.json`). PAD-US `193725Z` manifest/metadata **left uncommitted/untracked** (duplicate of S06.6.2's committed `000955Z` set; committing would need a `.secrets.baseline` update for false-positive SHA-256 content hashes — left for PM reconciliation). Doc capture committed separately (see below). No `git push`.
 
 ### Anomalies / surprises
 
@@ -1018,8 +1075,9 @@ Root cause: republished PAD-US RMNP (OBJECTID 3374) geometry has invalid topolog
 
 ```
 PASS STATUS: HALTED at Step 4. Run 1 (2026-06-20): Step 4 FAILED on OBJECTID (A4) -> halt -> S06.6.1 fix merged.
-Run 2 (2026-06-22, after S06.6.1): OBJECTID fix worked, Step 4 FAILED AGAIN on a 2nd upstream issue (RMNP GeometryCollection area-loss, A6) -> halted again.
-Steps 0,1,2,3 PASSED. Step 4 FAILED (2 sequential upstream-republish blockers). Steps 5,6,7,8,9,10 NOT RUN.
+Run 2 (2026-06-22, after S06.6.1): OBJECTID fix worked, Step 4 FAILED AGAIN on a 2nd upstream issue (RMNP GeometryCollection area-loss, A6) -> halted again -> S06.6.2 fix merged.
+Run 3 (2026-06-23, after S06.6.2): Step 4 PASSED — 10 restricted_area rows written; see Step 4 "Re-verification 2026-06-23" sub-entry.
+PASS COMPLETE 2026-06-23: ALL 10 STEPS PASS (Steps 5-10 ran cleanly after the Step-4 unblock). Post-pass pytest 1787+4 skipped, ruff+mypy clean. Fixtures committed `ef84b12` (option A — 3 new fixtures; PAD-US 193725Z left untracked per A7-i). Doc capture committed separately. No git push.
 Environment: M2-build pass, dev Supabase project eklivzoomtdluedzlyai (was paused at first contact; operator restored). env from repo-root .env.local; query tool = `supabase db query` (psql not installed).
 
 A1 — DEV BASELINE DRIFT (accepted by operator, PM follow-up): dev M1-close reg_record MT = 435, not the runbook's
@@ -1075,10 +1133,26 @@ A6 — STEP 4 SECOND BLOCKER (2026-06-22; PM/impl fix required): after S06.6.1's
   OPERATOR DECISION (2026-06-22): option (a) — HALT, fuller PAD-US review (validate ALL 10 zones convert, not just RMNP,
   since the loop raised on the first feature and the other 9 are unvalidated), resume Step 4 -> 10 after the fix merges.
 
-UNCOMMITTED VALID FIXTURES FROM SUCCESSFUL STEPS (Steps 2/3 produced no fixtures for Step 2; Step 3 produced):
-  CPWAdminData-6-manifest-20260622T010050Z.json, CPWAdminData-6-metadata-20260622T010050Z.json, multipart-gmus.json
-  These are valid but NOT committed (pass incomplete; fixture commit happens only after Step 10 per runbook).
-  On resume, Step 3 fixtures may be regenerated; commit the full set together at end of the completed pass.
+A7 — POST-PASS COMMIT DECISIONS (operator/PM, 2026-06-23):
+  (i) DUPLICATE PADUS FIXTURES: S06.6.2 already committed a PAD-US manifest+metadata set at `20260623T000955Z`
+      (from its validation live-fetch). This pass's Step-4 live run produced a second set at `20260623T193725Z`
+      (same upstream data, different fetch timestamp; per-feature hashes identical, only the fetch timestamp differs).
+      `git add fixtures/` would stage the 193725Z set alongside the tracked 000955Z set → two near-duplicate sets.
+      RESOLVED (operator, 2026-06-23, option A): the 193725Z PAD-US manifest/metadata were NOT committed — they are
+      a true duplicate of S06.6.2's already-committed 000955Z set, AND committing them tripped the detect-secrets
+      pre-commit hook on false-positive SHA-256 content hashes (manifest:262, metadata:2559) that are not in
+      `.secrets.baseline` (S06.6.2 baselined only the 000955Z filenames; baseline entries are filename+line keyed).
+      `.secrets.baseline` is outside this operator pass's edit authority and `--no-verify` bypass was declined.
+      Outcome: 193725Z left untracked on disk; the committed `000955Z` set stands as the PAD-US Group B fixture
+      (covers AC #627/#628). PM may, in a follow-up, either delete the untracked 193725Z files or — if 193725Z is
+      preferred as canonical — update `.secrets.baseline` and swap. No merged files were touched by this pass.
+  (ii) PYTEST BASELINE SHIFT: suite is now 1787 passed + 4 skipped, up from the runbook's stated 1774 floor. The +13
+      are S06.6.1 + S06.6.2 test additions merged from main — deliberate, not a regression. Future passes should
+      treat 1787 as the post-S06.6.2 floor.
+
+UNCOMMITTED VALID FIXTURES committed this pass (the 5 untracked under git status): the 193725Z PADUS manifest+metadata
+  (Step 4), geometry-overlays.json + geometry-overlays-dropped.json (Step 5), spatial-test-points.json (Step 6).
+  Step-3 CPWAdminData manifests + multipart-gmus.json already committed at 917cc8f (operator, during the resume prep).
 ```
 
 ### Operator sign-off
