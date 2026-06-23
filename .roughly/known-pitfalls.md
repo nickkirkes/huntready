@@ -68,11 +68,13 @@ Surfaced by S02.2 live load on 2026-04-30.
 
 ### `shapely.make_valid` may produce `GeometryCollection [Polygon, LineString]`
 
-Real-world ArcGIS Polygon layers (observed: MT FWP antelope HD 556, OBJECTID 385) carry self-intersecting source polygons. `shapely.make_valid` repairs them by emitting a `GeometryCollection` containing one `Polygon` (the real geometry) and a `LineString` (the zero-area edge that pokes out at the self-intersection vertex). `geojson_to_multipolygon_wkt` recovers the polygonal part when its area equals the input's area within `math.isclose(rel_tol=1e-6, abs_tol=1e-12)` and emits a WARNING with OBJECTID + attributes; lossy cases (overlapping polygons in a GC where `unary_union.area < sum_of_areas`) still raise.
+Real-world ArcGIS Polygon layers (observed: MT FWP antelope HD 556, OBJECTID 385; USGS PAD-US 4.1 Rocky Mountain NP after 2026-06-22 republish) carry self-intersecting source polygons. `shapely.make_valid` repairs them by emitting a `GeometryCollection` containing one `MultiPolygon` (the real geometry) and a `LineString` (the zero-area artifact at the self-intersection vertex). `geojson_to_multipolygon_wkt` recovers the polygonal part when its area is within `math.isclose(rel_tol=1e-3, abs_tol=1e-12)` of the input's area (0.1% band) and emits a WARNING with OBJECTID + attributes. Genuine lossy cases — e.g. overlapping polygons where the unioned area gaps by ~12.5% — still raise at ~125× the threshold.
 
-Raising on every GC would block valid loads. Silently filtering would lose data when the GC carries real polygonal area beyond the unioned coverage. The area-preservation rule preserves ADR-008's "fail loud" discipline for genuinely lossy cases while letting topological-artifact cases through with audit trail. Test coverage in `tests/test_arcgis.py::TestGeojsonToMultipolygonWkt` locks both branches in; do not weaken `abs_tol` to `0.0` (rejects valid tiny polygons due to float noise).
+The `1e-3` tolerance was set after Phase A characterization of all 10 V1 PAD-US zones: RMNP's ring-self-intersection cleanup artifact produced a `−0.0676%` discrepancy (the double-counted self-intersecting region removed by repair); recovered area matched the published `GIS_Acres` to 0.04%. Threshold `1e-3` clears that with margin while remaining orders of magnitude below the area loss seen in genuinely lossy cases. Before relaxing any tolerance further, run Phase A characterization: live-fetch all affected zones, measure `abs((recovered.area - parsed.area) / parsed.area)` per zone, and cross-check against published acreage. The relaxation is evidence-backed, not reflexive.
 
-Surfaced by S02.2 live load on 2026-04-30.
+Raising on every GC would block valid loads. Silently filtering would lose data when the GC carries real polygonal area. The area-preservation rule preserves ADR-001's fail-loud discipline for genuinely lossy cases while letting topological-artifact cleanup through with audit trail. Test coverage in `tests/test_arcgis.py::TestGeojsonToMultipolygonWkt` locks both branches; do not weaken `abs_tol` to `0.0` (rejects valid tiny polygons due to float noise).
+
+Surfaced by S02.2 live load on 2026-04-30; tolerance updated S06.6.2 (2026-06-22 PAD-US republish).
 
 ### `arcgis.fetch_features` cannot apply a server-side WHERE filter — compose private primitives for filtered single-page fetches
 
@@ -113,6 +115,16 @@ Surfaced by S03.0 silent-failure-hunter review on 2026-05-04.
 **Mitigation:** (1) Include `"OBJECTID"` in every hardcoded `_*_OUT_FIELDS` tuple in CO state adapters — locked by the `TestStateAdapterOutFieldsIncludeObjectid` AST-walk test in `ingestion/tests/test_load_co_restricted_areas.py`, which fails any future CO loader whose tuple omits the field. (2) On any OID-critical path (manifest-hash loops), use `arcgis._require_objectid` — which scans only `properties`/`attributes` and raises `ArcGISError` with an outFields-fix diagnostic — rather than `arcgis._read_objectid`, which keeps the `feature["id"]` fallback for error-message/dedup contexts where `None` is tolerated and would otherwise mask the gap. Loaders that delegate `outFields` to `fetch_features` via `metadata.out_fields` (e.g. `load_gmus.py`) are naturally safe: the server's full `fields[]` list includes OBJECTID.
 
 Surfaced by M2 operator-pass Step 4 failure on 2026-06-21; hardened in S06.6.1.
+
+### A single upstream republish can change multiple independent things — diagnose failure modes separately, and treat a CRS-shift WARNING as a full re-audit signal
+
+**Pattern:** USGS PAD-US 4.1 (Federal Fee Managers Authoritative FeatureServer) was republished and introduced TWO distinct breakages within 18 calendar days: (1) 2026-06-21 — top-level GeoJSON `id` dropped unless `"OBJECTID"` in `outFields`, causing every OID to resolve `None` (fixed in S06.6.1); (2) 2026-06-22 — ring self-intersection in Rocky Mountain NP's boundary, causing `shapely.make_valid` to return `GeometryCollection([MultiPolygon, LineString])` with a 0.0676% area discrepancy that exceeded the then-strict `rel_tol=1e-6` guard (fixed in S06.6.2). Each failure mode raised loudly; neither caused silent data corruption. The operator pass halted twice, one story per fix.
+
+**Forensic signal for both republishes:** the response's native CRS shifted `EPSG:4269 → 3857`, captured as a `WARNING` by `lib/arcgis._check_and_fix_projection`. A CRS-shift warning on a previously-stable layer means the upstream republished — **re-validate all failure surfaces, not just the one you hit first.** OID presence, geometry topology, field names, and count can all change in the same republish. Catching the second drift required a second operator-pass resume.
+
+**The right response to a fail-loud guard firing on upstream drift:** characterize the actual discrepancy before changing tolerances. For S06.6.2 this meant Phase A — live-fetch all 10 V1 zones, measure `abs((recovered.area - parsed.area) / parsed.area)` per zone, cross-check against published `GIS_Acres`. Only RMNP triggered the GC branch (−0.0676%, a benign cleanup artifact; the other 9 passed unchanged). Evidence-backed relaxation to `rel_tol=1e-3` (0.1%) clears RMNP with margin while remaining ~125× below the area loss in genuinely lossy cases. Widening the epsilon reflexively — without Phase A — risks silently accepting real data loss.
+
+Surfaced by M2 operator-pass second resume on 2026-06-22; hardened in S06.6.2.
 
 ## Integration — Census TIGER
 
