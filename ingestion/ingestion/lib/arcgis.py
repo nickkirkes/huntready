@@ -314,7 +314,8 @@ def geojson_to_multipolygon_wkt(feature: dict[str, Any]) -> str:
       3. Type-prune:
          - Polygon -> MultiPolygon([poly]); MultiPolygon -> pass through.
          - GeometryCollection -> if the polygonal parts preserve the input area
-           (unary_union(poly_parts).area ≈ parsed.area within float epsilon),
+           (unary_union(poly_parts).area ≈ parsed.area within rel_tol=1e-3;
+           see the inline comment on the area check for the threshold rationale),
            unify them and emit a WARNING; otherwise raise. A GeometryCollection
            with 1 Polygon + ancillary LineStrings/Points (zero area) is a
            topological artifact of self-intersection repair, not data loss.
@@ -322,10 +323,11 @@ def geojson_to_multipolygon_wkt(feature: dict[str, Any]) -> str:
       4. Reject empty / zero-area geometries (raise).
 
     Per ADR-008, partial extractions that lose meaning are flagged loudly. The
-    GeometryCollection recovery rule preserves that discipline: lossy cases
-    (partial overlaps, slivers carrying real area) still raise; the WARNING
-    surfaces the source's invalid topology for operator audit even when
-    recovery succeeds.
+    GeometryCollection recovery rule preserves that discipline: genuinely lossy
+    cases (partial overlaps or slivers carrying real area, > 0.1% relative gap)
+    still raise; small benign gaps (<= rel_tol=1e-3, e.g. self-intersection
+    cleanup — see the inline comment) emit a WARNING and write the recovered
+    geometry, surfacing the source's invalid topology for operator audit.
     """
     import math
     from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
@@ -349,17 +351,39 @@ def geojson_to_multipolygon_wkt(feature: dict[str, Any]) -> str:
     elif isinstance(valid, GeometryCollection):
         polygonal = [g for g in valid.geoms if isinstance(g, (Polygon, MultiPolygon))]
         recovered = unary_union(polygonal) if polygonal else None
+        # Area-preservation tolerance for the GeometryCollection-recovery branch.
+        #
+        # Trigger: a source FeatureServer republish (observed 2026-06-22 against
+        # USGS PAD-US 4.1 Federal Fee Managers Authoritative; forensic signal was
+        # a response CRS shift 4269 -> 3857) shipped a polygon with a ring
+        # self-intersection. make_valid() repairs such a ring into a
+        # GeometryCollection([MultiPolygon, <tiny LineString>]). In that case
+        # `parsed.area` is *inflated* — the self-intersection double-counts the
+        # crossed-over region — while `recovered.area` (the polygonal union) is
+        # the correct, faithful area. So the "discrepancy" here is the cleanup
+        # artifact being removed, not data loss: for the largest observed case
+        # the recovered area matched the source's published acreage to within
+        # 0.04%, and the relative `recovered/parsed` gap was 0.0676%.
+        #
+        # Threshold: rel_tol=1e-3 (0.1%). It clears that documented benign case
+        # with margin while still failing loud on genuine loss — overlapping
+        # polygons in a GeometryCollection drop real coverage and produce gaps
+        # orders of magnitude larger (the regression test exercises ~12.5%,
+        # which still raises here by ~125x). This is a documented, evidence-
+        # backed relaxation, not a broad erosion of the fail-loud guard
+        # (ADR-001): anything worse than 0.1% still raises below.
         if (
             recovered is not None
             and not recovered.is_empty
             and isinstance(recovered, (Polygon, MultiPolygon))
-            and math.isclose(recovered.area, parsed.area, rel_tol=1e-6, abs_tol=1e-12)
+            and math.isclose(recovered.area, parsed.area, rel_tol=1e-3, abs_tol=1e-12)
         ):
             _logger.warning(
                 "geojson_to_multipolygon_wkt: recovered Polygon parts from "
                 "GeometryCollection for feature OBJECTID=%s attributes=%s — "
                 "make_valid produced %d non-polygonal artifacts; polygonal area "
-                "preserved exactly. Source has invalid topology worth auditing.",
+                "preserved within rel_tol=1e-3 (0.1%%) — self-intersection cleanup "
+                "artifact. Source has invalid topology worth auditing.",
                 oid, attrs, len(valid.geoms) - len(polygonal),
             )
             valid = MultiPolygon([recovered]) if isinstance(recovered, Polygon) else recovered
