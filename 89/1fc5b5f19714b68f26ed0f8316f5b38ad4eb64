@@ -1,0 +1,24 @@
+docs/planning/epics/E06-confidence-findings/S06.7.md
+  s_1e5445f40bcf6f::t_e4a76c651c1623 1-79
+docs/planning/epics/E06-colorado-regulation-text-ingestion.md
+  s_1e5445f40bcf6f::t_1a17772cb22830 1206
+  s_1e5445f40bcf6f::t_997e466ab80d80 780-782
+  s_1e5445f40bcf6f::t_7fa6b4524df7c7 3
+  s_1e5445f40bcf6f::t_d118de388ebfdb 834-844
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "891fc5b5f19714b68f26ed0f8316f5b38ad4eb64",
+  "prompts": {},
+  "sessions": {
+    "s_1e5445f40bcf6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "638a46ce-736c-4271-b385-9d99a5f1e82c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
