@@ -5,6 +5,8 @@
 **Decider:** Nick Kirkes
 **Tags:** ingestion, scope
 
+> Status note: Refined for edge-runtime serving access by [ADR-024](ADR-024-edge-runtime-postgres-access.md) (M3, 2026-06-24) — the serving stack reads from Postgres via the Cloudflare Workers edge runtime (Hyperdrive / Supabase serverless driver, read-only-enforced) rather than a long-running Node process. ADR-003's upstream/offline ingestion principle is unchanged.
+
 ---
 
 ## Context

@@ -82,6 +82,8 @@ Most ADRs carry one or two tags. If an ADR needs three or more, it may be doing 
 | 020 | Derive-and-Assert for id text-PK Slug Drift        | Accepted  | ingestion, storage  |
 | 021 | Jurisdiction-Binding no_hunt_zone Role Enum        | Accepted  | schema, ingestion   |
 | 022 | Single-Module Per-State PDF Extractors             | Accepted  | ingestion           |
+| 023 | Remote Authenticated MCP Server Posture            | Proposed  | mcp, deployment     |
+| 024 | Edge-Runtime Postgres Access for the Serving Stack | Proposed  | storage, mcp        |
 
 ADRs not yet drafted show `—` in the Status column. Once drafted and committed, Status becomes `Accepted` (or `Proposed` if written ahead of implementation).
 

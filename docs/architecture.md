@@ -82,7 +82,7 @@ An MCP server built on the Anthropic TypeScript SDK. Exposes a small, well-scope
 The V1 tool set:
 
 - `get_regulations(lat, lng, species, date)` — the headline tool. Given a point, a species, and a date, returns the applicable regulation sections with source citations, license requirements, tag requirements, methods of take, and season windows.
-- `check_land_status(lat, lng)` — returns the land management authority, public/private status, and access constraints for a point. Backed by PAD-US and BLM PLAD.
+- `check_land_status(lat, lng)` — returns the land management authority, public/private status, and access constraints for a point. Backed by PAD-US and BLM PLAD. **(M3/V1 note:** in V1 this resolves against the loaded `geometry`/`jurisdiction_binding` overlays — the PAD-US-derived restricted-area / no-hunt-zone rows from E05 — distinguishing a true closure (`no_hunt_zone`) from a regulated-but-huntable `other_overlay`; the fuller PAD-US + BLM PLAD public/private framing is the eventual contract. See the M3 serving-posture addendum below, ADR-023, and PRD 003.)**
 - `list_seasons(state, species, year)` — returns season windows for a given state/species/year combination.
 - `get_tag_requirements(state, species, year, residency)` — returns the tag type(s), draw vs. general status, application deadlines, and direct links to the state agency's purchase flow.
 - `get_agency_contacts(lat, lng)` — returns the regional game warden contact, regulation questions hotline, and regional office for the district containing the point.
@@ -533,6 +533,18 @@ interface Warning {
 ```
 
 The response is returned as `structuredContent` on the MCP tool response. A parallel `content[0].text` field carries a minimal markdown rendering (overview text assembled from the structured sections, plus a coverage summary) for agentic clients that do not parse `structuredContent` — the minimal rendering is a thin derivative for backward compatibility, not a source of truth.
+
+## Serving deployment posture (M3 addendum)
+
+*Added 2026-06-24 during M3 planning; see [ADR-023](adrs/ADR-023-remote-mcp-server-posture.md), [ADR-024](adrs/ADR-024-edge-runtime-postgres-access.md), and [PRD 003](planning/prds/003-M3-canonical-interface.md). This addendum supersedes the earlier implicit framing of M3 as a local stdio server with a REST shim.*
+
+The MCP server (ADR-002) is deployed as a **remote, spec-conformant Streamable HTTP server on Cloudflare Workers** (stateless `createMcpHandler`; no Durable Objects, since the V1 tools are stateless reads). A stdio entrypoint is retained for local development via the `mcp-remote` proxy. The deployed endpoint is gated by a minimal **static bearer-token / API-key auth seam** (OAuth-2.1-ready via `@cloudflare/workers-oauth-provider`); on public data its purpose is access metering, not authorization. The full GTM-determined auth model is deferred (open-questions Q22).
+
+The server reads Postgres from the Workers edge runtime via Hyperdrive or the Supabase serverless driver (ADR-024), over a **read-only-enforced** connection (a dedicated SELECT-only role, not the write-capable service-role key). PostGIS `ST_*` runs server-side and is unaffected by the edge connection mechanism.
+
+**No BFF (Q5 resolved):** because Shape C composes the full regulatory stack in a single `get_regulations` SQL pass, the web companion (M4) calls the MCP server directly and composites client-side; there is no backend-for-frontend. The browser-to-Worker call makes CORS/preflight a server-side (M3) concern.
+
+Each tool returns `structuredContent` validated against a declared `outputSchema` as the source of truth, sets the read-only MCP annotations (`readOnlyHint`, `idempotentHint`), and carries `content[0].text` markdown only as a derivative.
 
 ## State coverage in V1
 
