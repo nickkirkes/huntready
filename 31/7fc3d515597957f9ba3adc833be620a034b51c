@@ -1,0 +1,23 @@
+docs/open-questions.md
+  s_b6b1c793a73350::t_2accb4909252ee 447,451-479
+  s_b6b1c793a73350::t_c5683ece0a246e 487
+  s_b6b1c793a73350::t_70bdfa2cc52e8c 503
+docs/planning/epics/E06-colorado-regulation-text-ingestion.md
+  s_b6b1c793a73350::t_be30f8e666230d 1166
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "317fc3d515597957f9ba3adc833be620a034b51c",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
