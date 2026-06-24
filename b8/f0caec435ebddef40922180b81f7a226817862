@@ -1,0 +1,25 @@
+.roughly/plans/co-seasons-and-licenses-plan.md
+  s_1e5445f40bcf6f::t_0298fb3de6f7aa 53-56
+  s_1e5445f40bcf6f::t_f878f316404c54 169-171
+  s_1e5445f40bcf6f::t_464572c20b9361 116-117
+  s_1e5445f40bcf6f::t_6f9055ab03fc26 104-105
+  s_1e5445f40bcf6f::t_749b7cf1bc7427 94-95
+  s_1e5445f40bcf6f::t_db4fa291fd2041 154-155
+  s_1e5445f40bcf6f::t_ad5ccfaa6fdc51 1-2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "b8f0caec435ebddef40922180b81f7a226817862",
+  "prompts": {},
+  "sessions": {
+    "s_1e5445f40bcf6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "638a46ce-736c-4271-b385-9d99a5f1e82c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
