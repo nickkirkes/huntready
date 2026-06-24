@@ -512,10 +512,7 @@ def _parse_co_window(
 # ---------------------------------------------------------------------------
 
 
-def _co_big_game_license_kind(
-    list_value: str | None,
-    season_code: str | None,  # noqa: ARG001  (reserved for future per-season disambiguation)
-) -> str:
+def _co_big_game_license_kind(list_value: str | None) -> str:
     """Map a CPW big-game artifact ``list_value`` to a ``LicenseTag.kind`` Literal.
 
     CPW encodes the draw tier of a hunt opportunity in the ``list_value`` field
@@ -539,12 +536,13 @@ def _co_big_game_license_kind(
     for kind classification (unlike MT's DEA where ``apply_by`` was the OTC
     discriminator).  CO's OTC tiers are entirely encoded in ``list_value``.
 
+    Classification is driven entirely by ``list_value``; ``season_code`` plays no
+    role (the ``None`` case is resolved by ``list_value`` alone), so it is not a
+    parameter — a kind decision never depends on the season code.
+
     Args:
         list_value: The artifact ``list_value`` field (``"A"``, ``"B"``, ``"C"``,
             or ``None`` — the full domain observed in the 2026 artifact).
-        season_code: The artifact ``season_code`` (e.g. ``"O1"``, ``"W4"``).
-            Accepted but currently unused; reserved for future per-season
-            disambiguation if CPW introduces a season-code-driven exception.
 
     Returns:
         A ``LicenseTag.kind`` Literal value.
@@ -568,8 +566,8 @@ def _co_big_game_license_kind(
         # Mapped to limited_draw based on W4 contextual evidence.
         return "limited_draw"
     raise ValueError(
-        f"_co_big_game_license_kind: unrecognized list_value={list_value!r} "
-        f"(season_code={season_code!r}); known values: 'A', 'B', 'C', None"
+        f"_co_big_game_license_kind: unrecognized list_value={list_value!r}; "
+        "known values: 'A', 'B', 'C', None"
     )
 
 
@@ -1076,7 +1074,7 @@ def _build_big_game_license_tags(
                 license_code=hunt_code,
                 name=name,
                 kind=_co_big_game_license_kind(  # type: ignore[arg-type]
-                    row.get("list_value"), row.get("season_code")
+                    row.get("list_value")
                 ),
                 species=species_group,
                 weapon_types=weapon_types,

@@ -271,23 +271,23 @@ class TestBigGameLicenseKind:
     """Covers all list_value branches and ValueError on unknown input."""
 
     def test_list_a_is_limited_draw(self) -> None:
-        assert mod._co_big_game_license_kind("A", "O1") == "limited_draw"
+        assert mod._co_big_game_license_kind("A") == "limited_draw"
 
     def test_list_b_is_over_the_counter(self) -> None:
-        assert mod._co_big_game_license_kind("B", "O1") == "over_the_counter"
+        assert mod._co_big_game_license_kind("B") == "over_the_counter"
 
     def test_list_c_is_limited_draw(self) -> None:
         """Season Choice (C) is still draw-required → limited_draw."""
-        assert mod._co_big_game_license_kind("C", "O1") == "limited_draw"
+        assert mod._co_big_game_license_kind("C") == "limited_draw"
 
     def test_none_is_limited_draw(self) -> None:
         """The single None row (elk GMU 214 W4) maps to limited_draw."""
-        assert mod._co_big_game_license_kind(None, "W4") == "limited_draw"
+        assert mod._co_big_game_license_kind(None) == "limited_draw"
 
     def test_unrecognized_raises_value_error(self) -> None:
         """An unrecognized list_value raises ValueError with the bad value in the message."""
         with pytest.raises(ValueError, match="unrecognized list_value"):
-            mod._co_big_game_license_kind("Z", "O1")
+            mod._co_big_game_license_kind("Z")
 
 
 # ---------------------------------------------------------------------------
