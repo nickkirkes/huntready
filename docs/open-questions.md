@@ -474,6 +474,56 @@ S06.7 (season_definition / license_tag ingestion) is drafted. The choice should 
 
 ---
 
+## Q21: Should the geometry loaders pin-enforce the committed PAD-US manifest at fetch time (mirroring the PDF loaders' `expected_sha256` two-gates model)?
+
+**Status:** Open (re-evaluation triggered at prod env setup begin, post-E06 close)
+**Surfaced by:** M2-build operator pass 2026-06-23 (two PAD-US 4.1 republish drifts in 18 calendar days: 2026-06-04 base → 2026-06-21 OID drift fixed by S06.6.1 → 2026-06-22 GeometryCollection drift fixed by S06.6.2)
+**Touches:** `ingestion/ingestion/lib/arcgis.py` (`fetch_features` + `_require_objectid`), `ingestion/states/colorado/load_restricted_areas.py` (PAD-US Group B manifest+metadata fixture), `ingestion/states/colorado/load_gmus.py` (CPW FeatureServer; same pattern would extend), state-adapter fixture-commit convention (manifest+metadata committed; features-*.geojson gitignored)
+
+### Context
+
+PAD-US 4.1 (USGS Federal Fee Managers Authoritative FeatureServer) is the canonical source for the 10 V1 CO federal no-hunt zones. During the M2-build operator pass it republished **twice in 18 calendar days**, each republish breaking previously-merged + audited loader code:
+
+- **2026-06-21**: top-level GeoJSON `id` field stopped being emitted unless `OBJECTID` is in the request's `outFields`. Fixed via S06.6.1 (PR #72) — added `"OBJECTID"` to `_RA_OUT_FIELDS` + introduced strict `_require_objectid` helper in `lib/arcgis.py`. Forensic signal: CRS shifted `4269 → 3857`, captured by `lib/arcgis._check_and_fix_projection`.
+- **2026-06-22**: RMNP's republished geometry carries a ring self-intersection that `make_valid()` repairs into a `GeometryCollection`, losing 0.0676% polygonal area. Fixed via S06.6.2 (PR #73) — relaxed `geojson_to_multipolygon_wkt` area-preservation epsilon `rel_tol=1e-6 → 1e-3` with documented rationale.
+
+The lib's fail-loud discipline + the mid-pass-carve-out pattern is **the project's current working solution** for upstream drift. The two carve-outs shipped clean and the operator pass completed.
+
+### Why this is open vs decided
+
+Dev-only-ever, mid-pass-carve-out is acceptable (slow but works). The next operator pass against the same dev env can re-use the S06.6.2 `000955Z` fixture as the pinned snapshot — no further drift bites unless we re-fetch from live.
+
+Once prod env stands up, dev and prod could ingest **different PAD-US snapshots** if fetched on different days mid-republish — that's a real production correctness bug, not theoretical. The current architecture has the *detection* infrastructure (committed manifest = drift-detection reference) but lacks the *enforcement* policy (loader doesn't refuse to write when live SHA ≠ committed SHA).
+
+### Options
+
+- **(a) Pin-enforce at fetch time (mirrors PDF loaders' two-gates model).** Extend the geometry loaders' fetch path to take an `expected_sha256` (or equivalent layer_hash) param; refuse to write if live re-fetch SHA differs from committed manifest; require a tracked PR with re-pinned manifest to consume a new upstream snapshot. ~1 week of implementation. Mirrors S06.1's `pdf_fetch.fetch_pdf` `expected_sha256` param model. **Recommended IF prod env is coming.**
+- **(b) Continue with the mid-pass-carve-out pattern.** Zero code; unbounded ongoing time cost per republish. Only acceptable for dev-only-ever.
+- **(c) Re-source from a "more stable" layer.** **No clean alternative exists** — PAD-US 4.1 is the canonical federal-lands aggregator; NPS Boundary Service is partial (no AFA, no USFWS); USFWS Cadastral wrong domain (no NPS/NMs); per-park endpoints are ~9 separate sources to track. Tradeoffs without a clear winner.
+
+### What moves this to a decision
+
+**Trigger condition for re-evaluation:** prod env setup begins (the user confirmed 2026-06-23 that prod is coming post-E06 close), OR M3 planning starts via `/plan-next-milestone`, whichever is first. At that evaluation point:
+
+- If we've hit a 3rd drift in the meantime → ship (a)
+- If dev/prod parity matters (multi-environment ingest) → ship (a)
+- Otherwise → defer to M3 with documented rationale
+
+Decision owner: human (user) + PM jointly at the trigger event.
+
+### Estimated effort if (a) commits
+
+~1 week implementation: extend `lib/arcgis.fetch_features` (and any sibling geometry fetch helpers) to take an `expected_layer_hash` / `expected_sha256` param mirroring `pdf_fetch.fetch_pdf`'s shape; thread the committed manifest's `layer_hash` through the loader call sites (`load_restricted_areas.py`, `load_gmus.py`, others as discovered); add a drift-marker workflow ("operator deletes marker after acknowledging the drift; until then, downstream re-fetches refuse to proceed") mirroring the existing `*-pending-reextraction.flag` PDF pattern; new unit tests for the gate + the drift-marker recovery path; new pitfall under `.roughly/known-pitfalls.md` § "Integration — ArcGIS" formalizing the two-gates model for geometry fetches.
+
+### Cross-references
+
+- S06.6.1 closure: `docs/planning/epics/E06-colorado-regulation-text-ingestion.md` § "S06.6.1: PAD-US OBJECTID outFields hardening"
+- S06.6.2 closure: `docs/planning/epics/E06-colorado-regulation-text-ingestion.md` § "S06.6.2: PAD-US GeometryCollection area-preservation handling"
+- M2-build operator pass closure narrative: `docs/planning/README.md` "Last Updated" entry 2026-06-23
+- Working analog (PDF side): S06.1's `pdf_fetch.fetch_pdf` `expected_sha256` param (the project precedent for the two-gates model)
+
+---
+
 ## Parking lot
 
 ### P1. Observability and error tracking
