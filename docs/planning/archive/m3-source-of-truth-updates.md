@@ -2,7 +2,7 @@
 
 **Created:** 2026-06-24
 **Completed:** 2026-06-24
-**Disposition:** ARCHIVED — all updates landed and committed on branch `feat/S06.8.0-draw-mechanics-extraction` (per user direction; the unrelated in-flight E06 epic edit on that branch was deliberately left out of the commit). Retained for historical context per the documentation-as-handoff discipline (ADR-009).
+**Disposition:** ARCHIVED — all updates landed and committed on branch `docs/m3-planning` (branched off `feat/S06.8.0-draw-mechanics-extraction`), per user direction; the unrelated in-flight E06/S06.8 work on that feature branch was deliberately left out of the commit. (An earlier draft of this line said the commit was on `feat/S06.8.0-draw-mechanics-extraction` directly — that reflected the original plan before the user pivoted to a dedicated `docs/m3-planning` branch; corrected here for accurate provenance.) Retained for historical context per the documentation-as-handoff discipline (ADR-009).
 **Purpose:** Tracked the source-of-truth document changes PRD 003 (`docs/planning/prds/003-M3-canonical-interface.md`) implied, so they landed coherently and with human authorization. Authorized by the user on 2026-06-24 during the M3 planning session (the remote-MCP-on-Cloudflare posture sign-off and its downstream reconciliations).
 
 ---
@@ -46,5 +46,5 @@
 - [x] All new/changed internal links resolve (ADR-023/024 filenames verified present; relative paths checked).
 - [x] ADR index, CLAUDE.md ADR list, and architecture.md mutually consistent on ADR-023/024.
 - [x] open-questions.md no longer lists Q5/Q6/Q21 as open (RESOLVED in place); Q22 present.
-- [x] Committed on `feat/S06.8.0-draw-mechanics-extraction` (M3 files only; unrelated E06 epic edit left uncommitted).
+- [x] Committed on `docs/m3-planning` (branched off `feat/S06.8.0-draw-mechanics-extraction`); M3 files only; unrelated in-flight E06/S06.8 work left uncommitted.
 - [x] Archived to `docs/planning/archive/`.

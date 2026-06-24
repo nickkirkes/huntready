@@ -119,6 +119,8 @@ For bear specifically: the per-BMU prose decomposes into `season_definition.verb
 
 ## Blocking M4
 
+> **Both questions in this section were RESOLVED 2026-06-24** (via PRD 003 / ADR-023). They are retained in place — each with a resolution note above its original framing — for handoff context, mirroring the in-place resolution of Q11 under "Blocking M1." The "Blocking M4" label is now historical: nothing in this section still blocks M4.
+
 ### Q5. Does the web companion need its own lightweight BFF, or is the MCP HTTP shim enough?
 
 **Status (2026-06-24 via PRD 003 / M3 planning): RESOLVED — no BFF in V1.** With Postgres as the storage layer and Shape C composing the full regulatory stack in a single `get_regulations` SQL pass, the M4 web app calls the MCP server's Streamable HTTP transport directly and composites client-side (Q5 option 1). Consequence surfaced during resolution: the no-BFF decision makes CORS/preflight an M3 *server* concern (browser → Worker direct), folded into M3 scope. Resolution home: [ADR-023](adrs/ADR-023-remote-mcp-server-posture.md) + the architecture.md no-BFF addendum.
@@ -520,7 +522,7 @@ Decision owner: human (user) + PM jointly at the trigger event.
 
 ### Context
 
-M3 ships a deliberately minimal auth gate: a static bearer-token / API-key checkpoint whose purpose on public data is access metering / abuse-control, not authorization (the data has no per-user resource owner). PRD 003 architects this behind a single auth seam so a full OAuth 2.1 flow can drop in later. What the *production* auth model should be — once HuntReady is a live public/commercial service — is determined by go-to-market strategy and is explicitly out of M3 scope.
+M3 ships a deliberately minimal auth gate, **split by client type** because the no-BFF browser-direct path (Q5) cannot hold a secret — a bearer/API key shipped to the browser is exposed in client-side code and provides no control. So in V1 the browser/public read path carries no secret and is abuse-controlled at the **edge** (Cloudflare WAF + rate-limiting, optionally Turnstile), while a static bearer-token / API-key checkpoint gates programmatic / non-browser clients that can hold a secret. Its purpose on public data is access metering / abuse-control, not authorization (the data has no per-user resource owner). PRD 003 architects this behind a single auth seam so a full OAuth 2.1 flow can drop in later. What the *production* auth model should be — once HuntReady is a live public/commercial service — is determined by go-to-market strategy and is explicitly out of M3 scope.
 
 ### What needs to be decided (at the trigger)
 
