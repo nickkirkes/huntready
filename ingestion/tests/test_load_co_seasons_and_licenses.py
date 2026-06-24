@@ -1905,3 +1905,94 @@ class TestFixReview6Behaviors:
         }
         with pytest.raises(ValueError, match="out of range"):
             mod._co_window_weapon_type(row, 5)  # window_index=5 > len=2
+
+
+class TestInterleavedNullWindowIndexAlignment:
+    """Lock the window_index-preservation contract between the season_definition
+    entity builder and the shared link-row iterator.
+
+    A reviewer raised the concern that ``_build_big_game_season_definitions``
+    enumerates the RAW ``season_windows`` list (skipping null windows via
+    ``continue`` but keeping the original ``window_index``), while the shared
+    ``_iter_co_entity_rows`` iterator filters null windows into
+    ``valid_window_indices`` — and that these could disagree when a null window
+    is interleaved BEFORE a real one (``[null, real, real]``), producing
+    mismatched season ids or wrong weapon types in the link tables.
+
+    They cannot. Both sides take ``idx`` from ``enumerate(season_windows)``; the
+    iterator's list comprehension filters tuples but never renumbers them, so a
+    surviving window keeps its ORIGINAL index on both paths. This test makes that
+    invariant explicit so it is not re-litigated:
+
+    - ``valid_window_indices`` preserves original positions (``[1, 2]``, not ``[0, 1]``);
+    - every ``LicenseSeason.season_definition_id`` resolves to a season the entity
+      builder actually emitted (cross-builder id agreement);
+    - the surviving windows carry the correct per-index weapon types.
+
+    The interleaved-null shape does not occur in CO V1 data (0 such rows), but the
+    parallel-array contract (``season_windows[i]`` ↔ ``weapon_types[i]``) means it
+    is the right adversarial case to pin.
+    """
+
+    @staticmethod
+    def _interleaved_null_section() -> dict:  # type: ignore[type-arg]
+        # Season Choice (X) row whose FIRST window (index 0 = archery) is null,
+        # with real muzzleloader (index 1) and any_legal_weapon (index 2) windows.
+        row: dict = {  # type: ignore[type-arg]
+            "hunt_code": "D-F-091-P5-X",
+            "season_code": "P5",
+            "gmu_code": "091",
+            "list_value": "C",
+            "method_letter": "X",
+            "season_windows": [
+                {"start_date": None, "end_date": None, "raw_text": "New"},  # idx 0 (archery) — null
+                {"start_date": "Oct. 10", "end_date": "Oct. 18", "raw_text": "Oct. 10-18"},  # idx 1
+                {"start_date": "Oct. 24", "end_date": "Nov. 3", "raw_text": "Oct. 24-Nov. 3"},  # idx 2
+            ],
+            "weapon_types": ["archery", "muzzleloader", "any_legal_weapon"],
+            "residency_scope": "both",
+            "quota": None,
+            "quota_range": None,
+            "extras": "Interleaved-null index-alignment regression.",
+            "page_reference": {"page_num_1based": 44, "bbox": None,
+                               "pdf_filename": "x.pdf",
+                               "extracted_at": "2026-06-09T00:00:00+00:00"},
+        }
+        return _make_section(gmu_code="091", species_group="mule_deer",
+                             method_group="season_choice", rows=[row])
+
+    def test_valid_window_indices_preserve_original_positions(self) -> None:
+        section = self._interleaved_null_section()
+        ctxs = mod._iter_co_entity_rows([section], [])
+        ctx = next(c for c in ctxs if c.hunt_code == "D-F-091-P5-X")
+        # Null window at index 0 is excluded; surviving windows keep ORIGINAL idx.
+        assert ctx.valid_window_indices == [1, 2], (
+            "iterator must preserve original window indices, not renumber to [0, 1]"
+        )
+
+    def test_entity_and_link_builders_agree_on_season_ids(self) -> None:
+        section = self._interleaved_null_section()
+        cit = _make_citation()
+        sds = mod._build_big_game_season_definitions([section], cit)
+        entity_ids = {sd.id for sd in sds}
+        # Entity builder skips the null index-0 window → emits -w1- and -w2-.
+        assert entity_ids == {
+            "CO-GMU-91-mule_deer-D-F-091-P5-X-w1-2026",
+            "CO-GMU-91-mule_deer-D-F-091-P5-X-w2-2026",
+        }
+        # Every link's season_definition_id must resolve to a real entity id.
+        links = mod._build_license_seasons([section], [])
+        link_sd_ids = {ls.season_definition_id for ls in links}
+        assert link_sd_ids == entity_ids, (
+            "link builder referenced season ids the entity builder never emitted — "
+            "window_index drifted between the two paths"
+        )
+
+    def test_surviving_windows_carry_correct_weapon_types(self) -> None:
+        section = self._interleaved_null_section()
+        cit = _make_citation()
+        sds = mod._build_big_game_season_definitions([section], cit)
+        by_id = {sd.id: sd for sd in sds}
+        # weapon_types[1]=muzzleloader, weapon_types[2]=any_legal_weapon — by ORIGINAL index.
+        assert by_id["CO-GMU-91-mule_deer-D-F-091-P5-X-w1-2026"].weapon_type == "muzzleloader"
+        assert by_id["CO-GMU-91-mule_deer-D-F-091-P5-X-w2-2026"].weapon_type == "any_legal_weapon"
