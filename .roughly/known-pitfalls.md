@@ -1186,6 +1186,24 @@ Surfaced by S05.5 Stage-6 review on 2026-06-04.
 
 Surfaced by S06.3 review on 2026-06-10.
 
+### Import `assert_id_matches` by bare name — the AST drift-guard test matches `ast.Name`, not `ast.Attribute`
+
+**Symptom:** A `TestDriftGuardCallSites` AST regression test is expected to confirm that every per-row entity-construction site in a module calls `assert_id_matches`. The test passes without error, but a construction site that uses `drift_guard.assert_id_matches(...)` is silently not matched — the test effectively passes vacuously for that site.
+
+**Cause:** The AST guard walks `ast.Call` nodes and checks whether the `func` is an `ast.Name` with `id == "assert_id_matches"`. A dotted attribute call `drift_guard.assert_id_matches(...)` produces an `ast.Attribute` node, not an `ast.Name` node. The guard's predicate does not match it, so the guard reports "all sites instrumented" while that site is actually unguarded.
+
+**Fix:** Always import the function by bare name and call it bare:
+
+```python
+from ingestion.lib.drift_guard import assert_id_matches
+# ...
+assert_id_matches(entity.id, expected_id, helper_name="...", context="...")
+```
+
+Never import the module and call via attribute (`drift_guard.assert_id_matches(...)`). The bare-name import convention is the only form the `TestDriftGuardCallSites` AST guard can verify. Reference: ADR-020 (`docs/adrs/ADR-020-id-text-pk-slug-derivation.md`); `ingestion/states/colorado/load_seasons_and_licenses.py` drift-guard call sites (S06.7).
+
+Surfaced by S06.7 Stage-6 review on 2026-06-23.
+
 ### CPW per-species column layouts differ — probe each species' table shape against the live PDF, don't inherit from a sibling extractor
 
 CPW Black Bear hunt-code tables use a 4-column layout (`Unit | Valid GMUs | Hunt Code | List`) or a 5-column variant adding `Dates` — with **no Sex column**. The sibling CPW Big Game (deer/elk/pronghorn) tables are 5- or 6-column **with** a Sex column. Applying the big-game column-index mapping to bear tables mis-maps every row: what big-game reads as `sex` is bear's `hunt_code`; what big-game reads as `hunt_code` is bear's `list`. The failure is silent — no `KeyError`, just wrong field assignments.
@@ -1279,3 +1297,43 @@ Then keep only `record_type == "section"` entries. Mirror the diagnostic-wrap co
 Reference: `ingestion/states/colorado/load_regulation_records.py::_build_co_bear_records` + `_KNOWN_BEAR_RECORD_TYPES` (S06.6). Compare with `ingestion/states/montana/load_regulation_records.py::_build_bear_records` (the MT dict-shape that must NOT be ported to CO).
 
 Surfaced by S06.6 Stage-6 review on 2026-06-18 (the bare-filter silent-drop failure mode was caught and fixed before merge).
+
+### CO `season_windows` is a list, not MT's season-key-keyed dict — derive the key from `method_group`/positional index
+
+**Symptom:** A CO link-table loader ported from Montana does `for k, v in row["season_windows"].items()` and crashes with `AttributeError: 'list' object has no attribute 'items'`.
+
+**Cause:** MT's DEA extraction artifact emits `season_windows` as a `dict[season_key -> {window, weapon_type_override}]` where the season key (`"archery_only"`, `"general"`, `"late"`, …) is embedded in the structure. CO's big-game and bear extraction artifacts emit `season_windows` as a `list[{start_date, end_date, raw_text}]` — abbreviated dotted-month fragments with NO embedded season key. The positional index and the row's `method_group` / `method_letter` are the only handles for deriving the equivalent key.
+
+**Fix:** In any CO link-table adapter that iterates season windows, iterate by index (`for i, win in enumerate(row["season_windows"])`). Derive the season-key equivalent from `row["method_group"]` (e.g., `"archery_only"`, `"muzzleloader_only"`, `"rifle"`, `"season_choice"`) and the index position within that method group, NOT from a key lookup on the window dict. Add a guard that raises if `season_windows` is not a `list` so MT-dict accidental usage surfaces immediately rather than returning an iterator of characters. Reference: `ingestion/states/colorado/load_seasons_and_licenses.py` season-window iteration (S06.7).
+
+Surfaced by S06.7 implementation on 2026-06-23.
+
+### Lossy dedup on id-text PKs must be made visible — warn on id-collisions where the content differs
+
+**Symptom:** A first-occurrence-wins dedup (`if entity_id not in seen: seen.add(entity_id); emit(entity)`) silently drops a genuinely-different entity that collides on the same derived id. Real CO case: `E-F-085-P5-R` appears on two brochure pages with different `start_date` values (Oct 14 vs Oct 15); the second row was discarded without trace.
+
+**Cause:** First-occurrence-wins is correct for exact duplicates (same id, same content — UPSERT is idempotent). It is wrong when two logically-distinct extraction rows happen to produce the same id because the id-derivation omits a distinguishing field. Silent discard masks a real data gap.
+
+**Fix:** On a collision, compare the distinguishing fields (`start_date`/`end_date`/`weapon_type` for `season_definition`; `kind`/`quota`/`quota_range`/`weapon_types` for `license_tag`). If the fields differ, emit a `WARNING` naming the id, both values, and any page/section references. Stay silent only on identical-content collisions (genuine duplicates). The WARNING is the operator's signal that the id-derivation may need an additional discriminating field in a future extractor revision. Silent dedup of DIFFERING content is data loss masquerading as dedup — it is a faithfulness violation under ADR-008. Reference: `ingestion/states/colorado/load_seasons_and_licenses.py` collision-check pattern (S06.7).
+
+Surfaced by S06.7 Stage-6 review on 2026-06-23.
+
+### Merged-cell extractor gaps produce zero-window rows — load faithfully and warn, do NOT silently add cross-row inheritance
+
+**Symptom:** ~477 CO female (`-F-`) rifle `license_tag` rows are written with zero linked `season_definition` rows because pdfplumber merged the female rows' season-date cells into the adjacent male row's cell during extraction — the artifact faithfully carries `season_windows: []` for those rows. A loader that silently skips zero-window rows (or silently inherits the same-GMU male row's window) writes a structurally incomplete artifact without any operator signal.
+
+**Cause:** The extraction artifact is a faithful transcript of what pdfplumber returned; the per-row gap is not a loader bug. However, the decision of whether female tags should inherit the male-row season windows is a cross-row data-modeling call — it requires understanding the CPW regulatory intent (shared season vs. separate seasons). That decision belongs in a future extractor carve-out or a flag-and-discuss cycle, not in a loader that silently adds cross-row state to keep the count tidy.
+
+**Fix:** The loader must (a) faithfully write what the artifact contains — a `license_tag` row with no linked `season_definition` rows is valid and correct given the artifact; (b) emit a `WARNING` for every row that produces zero output entities (naming species, GMU, method, and hunt code) so the gap is visible in run logs and can be quantified in the story's closure note. Do NOT silently add cross-row season-window inheritance in the loader — that is a state-specific modeling decision that bypasses review. Reference: `ingestion/states/colorado/load_seasons_and_licenses.py` zero-window WARNING pattern (S06.7).
+
+Surfaced by S06.7 Stage-6 review on 2026-06-23.
+
+### An id-derivation function parameter not encoded in the id string is a footgun — keep parameters == encoded fields
+
+**Symptom:** A pure id-derivation function accepts a parameter that it does not embed in the returned id string. The ADR-020 drift-guard re-derivation re-derives the SAME id regardless of that parameter's value — so every `assert_id_matches` call passes while the docstring implies the parameter is load-bearing, and a future caller can pass a wrong value with no failure. Real CO case: `_co_season_definition_id` originally accepted an unused `season_code` parameter; removing it was required before the drift guard could be meaningful.
+
+**Cause:** Parameters accumulate during iterative development; a field may have been intended for the id but was omitted from the format string "temporarily" and then forgotten.
+
+**Fix:** Keep id-derivation function parameters in exact correspondence with the fields the id format string actually encodes — no more, no fewer. If a parameter is present but not in the format string, either add it to the format string (if it should be part of the id) or delete it from the function signature. A docstring that lists a parameter not embedded in the id is a lie that prevents the drift guard from working. Reference: `ingestion/states/colorado/load_seasons_and_licenses.py::_co_season_definition_id` (S06.7 — `season_code` removed). Extends the "name the source-of-truth before copying numbers" discipline to function signatures.
+
+Surfaced by S06.7 Stage-4 plan review on 2026-06-23.

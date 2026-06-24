@@ -444,9 +444,39 @@ Drift between slug-derivation logic and the structured fields under the same `id
 
 ## Q20: How are CPW "Season Choice" licenses modeled as `season_definition` / `license_tag` in S06.7?
 
-**Status:** Open (S06.7 decision; extraction side handled in S06.3)
+**Status:** **RESOLVED 2026-06-23 via user decision at S06.7 entry-time flag-and-discuss → Per-window fan-out (Option 1)**
 **Surfaced by:** S06.3 (2026-06-12, CPW Big Game extraction)
 **Touches:** `season_definition`, `license_tag`, ADR-010 (decomposed entities), ADR-012 (draw mechanics)
+
+### Resolution (2026-06-23, user decision at S06.7 entry-time flag-and-discuss)
+
+**Decision: Option 1 — Per-window fan-out.** One `X` hunt code → **3 `season_definition` rows** (one per choosable method: archery / muzzleloader / rifle), each carrying its own `weapon_type` + its own date window verbatim from the brochure. **One `license_tag`** per X hunt code carrying `weapon_types=["archery", "muzzleloader", "any_legal_weapon"]` (the union). **`license_season` links the tag to all 3 seasons** — clients render "this license is valid in any of these 3 hunting windows; pick one."
+
+**Rationale:**
+
+- **ADR-008 (verbatim/faithfulness)**: the brochure publishes 3 distinct windows (e.g., GMU 091 D-F-091-P5-X: archery Oct 1-23, muzzleloader Oct 10-18, rifle Oct 24-Nov 3); per-window fan-out preserves each sub-period verbatim. Option 2 (single multi-weapon span Oct 1-Nov 3 with `weapon_type=None`) would mis-answer hunter queries like "when can I hunt with archery in GMU 091 with this license?" — the system would return Oct 1-Nov 3 instead of the correct Oct 1-23, a regulatory error.
+- **ADR-001 (authority preserved, not replaced)**: collapsing the published windows into one span (Option 2) would amount to silently inventing a regulation; skipping the rows entirely (Option 3) would hide real licensed seasons from hunters querying GMUs covered by X licenses.
+- **Mirrors the existing M1 pattern** for non-X multi-method licenses (a license eligible in multiple seasons is linked to all of them via `license_season`; the "use it in any of these" semantic is established).
+- **ADR-013 (server returns structure; client composes presentation)**: the server returns 3 linked season_definitions + the license_tag's `weapon_types` union; clients render however they want (web map shows 3 windows; plugin says "pick one").
+
+**"Choose-one" semantic — handled cleanly without schema changes.** `license_tag.weapon_types` represents the **set of legal methods** the license can be used with; `license_season` linking to multiple season_definitions means "valid in any." The "one license = one harvest" constraint is a license-issuance-layer rule (true for X AND non-X multi-method licenses); no schema-level "choose-one" flag is required.
+
+**F-sex 0-window edge case (skip-with-warning, NOT fail-loud).** A few F-sex X rows carry 0 extracted windows. Discipline: still create the `license_tag` (preserves the license type in our data so hunter queries don't get coverage gaps); 0 `license_season` links; **WARNING logged with hunt_code + GMU + sex + list_value context** so PM can grep + spot-check against the brochure post-build to determine if (i) extraction defect (fix extractor) or (ii) real data shape (CPW doesn't run all 3 seasons for those rows). Not fail-loud because the edge is known-rare and the WARNING is the right escalation mechanism. Mirrors the S06.6 GMU 020 elk archery blank-section warning precedent.
+
+**Options explicitly rejected (with rationale):**
+
+- **Option 2 (single multi-weapon span with `weapon_type=None`).** Violates ADR-008 — collapses 3 distinct windows to 1 span, misrepresenting the regulation; would give the wrong answer to weapon-type-scoped hunter queries.
+- **Option 3 (skip X rows for V1).** Violates ADR-001 + ADR-013 — drops real regulatory data extracted by S06.3; creates a coverage gap masked as "no data" for the 6 X sections; `regulation_record.additional_rules` is a misc-text fallback, not a substitute for structured season/license entities.
+
+**Affected (immediate):** 6 `season_choice` sections in `big-game-2026.json` (D-F-091-P5-X-style mule_deer X codes; method_letter="X" / list_value="C"). S06.7 implementation expects ~18 new `season_definition` rows + ~6 new `license_tag` rows + ~18 new `license_season` links (modulo F-sex 0-window skips). Q20 RESOLUTION baked into S06.7 closure note + the affected ACs.
+
+**Q20 → S06.7 closure note** records the decision for future-PM audit; this entry in `open-questions.md` retires once S06.7 ships and the resolution is recorded in the closed-story closure note (per the existing Q-resolved retirement pattern in this file).
+
+---
+
+**Original question (kept below for audit trail until Q20 retires post-S06.7 close):**
+
+**Status (historical, pre-decision):** Open (S06.7 decision; extraction side handled in S06.3)
 
 ### Context
 
@@ -454,7 +484,7 @@ CPW publishes "Season Choice" licenses — one license, valid for the hunter's *
 
 ### What S06.3 (extraction) already did
 
-The extractor recognises `X` as its own `method_group="season_choice"` and sets `weapon_types = ["archery", "muzzleloader", "any_legal_weapon"]` (the union of the three choosable methods). The per-row season windows are captured faithfully. So the **data is present**; only the downstream entity shape is open. (10 such deer rows in CO V1; the moose codes are out of V1 species scope.)
+The extractor recognises `X` as its own `method_group="season_choice"` and sets `weapon_types = ["archery", "muzzleloader", "any_legal_weapon"]` (the union of the three choosable methods). The per-row season windows are captured faithfully. So the **data is present**; only the downstream entity shape is open. (**Original S06.3-era estimate: ~10 such deer rows in CO V1; revised at S06.7 entry 2026-06-23: 6 `season_choice` sections** with `list_value="C"` per the implementation agent's discovery — the early estimate was based on a different measure or pre-S06.3.1 data shape. Each X section carries 3 method-windows (archery/muzzleloader/rifle). The moose codes are out of V1 species scope.)
 
 ### The open question (S06.7)
 
@@ -470,7 +500,7 @@ S06.7 (season_definition / license_tag ingestion) is drafted. The choice should 
 
 ### Affected entries
 
-10 CO deer `season_choice` rows in `big-game-2026.json` (`method_group="season_choice"`); the moose `-X` codes (out of V1 species scope, but the same modeling applies if/when moose is added).
+**6 CO deer `season_choice` sections in `big-game-2026.json`** (`method_group="season_choice"`, `list_value="C"`; revised from the original S06.3-era ~10-row estimate at S06.7 entry per implementation agent discovery 2026-06-23); the moose `-X` codes (out of V1 species scope, but the same modeling applies if/when moose is added).
 
 ---
 
