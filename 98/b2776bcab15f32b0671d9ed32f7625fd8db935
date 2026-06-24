@@ -1,0 +1,33 @@
+docs/planning/epics/E06-colorado-regulation-text-ingestion.md
+  s_1e5445f40bcf6f::t_028b6396b216a4 3
+  s_1e5445f40bcf6f::t_f05fe664476a75 780
+  s_1e5445f40bcf6f::t_c42021a7b84229 844
+ingestion/tests/test_load_co_seasons_and_licenses.py
+  s_1e5445f40bcf6f::t_36994326fb1111 1735-1816
+docs/planning/epics/E06-confidence-findings/S06.7.md
+  s_1e5445f40bcf6f::t_8d99310f66bab5 14
+  s_1e5445f40bcf6f::t_cb4829cebc30b3 63
+  s_1e5445f40bcf6f::t_cd01e9185ca5fb 53
+ingestion/states/colorado/load_seasons_and_licenses.py
+  s_1e5445f40bcf6f::t_e4f8b55b7caf85 1108
+  s_1e5445f40bcf6f::t_4f9443e0c205f3 1266
+  s_1e5445f40bcf6f::t_3c68dd3629f1e6 1430
+  s_1e5445f40bcf6f::t_d2ff3bee6e29cd 963
+  s_1e5445f40bcf6f::t_d68ae9f4d82fe0 776-833
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "98b2776bcab15f32b0671d9ed32f7625fd8db935",
+  "prompts": {},
+  "sessions": {
+    "s_1e5445f40bcf6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "638a46ce-736c-4271-b385-9d99a5f1e82c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
