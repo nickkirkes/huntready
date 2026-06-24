@@ -774,6 +774,64 @@ def _parse_quota_range(raw: str | None) -> tuple[int, int] | None:
 
 
 # ---------------------------------------------------------------------------
+# Lossy-dedup content comparison (single source of truth for all 4 builders)
+# ---------------------------------------------------------------------------
+
+
+def _season_def_lossy_diffs(
+    existing: SeasonDefinition, new: SeasonDefinition
+) -> list[str]:
+    """Regulatory-content fields whose disagreement across a same-id dedup
+    collision signals real data drift worth a WARNING.
+
+    Shared by both season_definition builders so the comparison set cannot
+    drift between big-game and bear.
+
+    ``page_reference`` is deliberately EXCLUDED: the same season legitimately
+    recurs across multiple GMU-section pages (157 such benign collisions in the
+    2026 artifact), so a page-only difference is provenance metadata, not a
+    regulation change, and warning on it would drown the real signal.
+    """
+    diffs: list[str] = []
+    if existing.opens != new.opens:
+        diffs.append(f"opens: {existing.opens!r} vs {new.opens!r}")
+    if existing.closes != new.closes:
+        diffs.append(f"closes: {existing.closes!r} vs {new.closes!r}")
+    if existing.weapon_type != new.weapon_type:
+        diffs.append(f"weapon_type: {existing.weapon_type!r} vs {new.weapon_type!r}")
+    if existing.residency != new.residency:
+        diffs.append(f"residency: {existing.residency!r} vs {new.residency!r}")
+    if existing.verbatim_rule != new.verbatim_rule:
+        diffs.append("verbatim_rule differs")
+    return diffs
+
+
+def _license_tag_lossy_diffs(existing: LicenseTag, new: LicenseTag) -> list[str]:
+    """Regulatory-content fields whose disagreement across a same-id license_tag
+    dedup collision signals real data drift worth a WARNING.
+
+    Shared by both license_tag builders. The id-encoded fields (species,
+    gmu, hunt_code via ``license_code``), the constant ``purchase_url``, the
+    always-``None`` ``draw_spec_key``, and the shared ``source`` citation cannot
+    meaningfully differ for the same id and are not compared.
+    """
+    diffs: list[str] = []
+    if existing.kind != new.kind:
+        diffs.append(f"kind: {existing.kind!r} vs {new.kind!r}")
+    if existing.quota != new.quota:
+        diffs.append(f"quota: {existing.quota!r} vs {new.quota!r}")
+    if existing.quota_range != new.quota_range:
+        diffs.append(f"quota_range: {existing.quota_range!r} vs {new.quota_range!r}")
+    if existing.weapon_types != new.weapon_types:
+        diffs.append(f"weapon_types: {existing.weapon_types!r} vs {new.weapon_types!r}")
+    if existing.residency != new.residency:
+        diffs.append(f"residency: {existing.residency!r} vs {new.residency!r}")
+    if existing.verbatim_rule != new.verbatim_rule:
+        diffs.append("verbatim_rule differs")
+    return diffs
+
+
+# ---------------------------------------------------------------------------
 # Big-game season_definition builder
 # ---------------------------------------------------------------------------
 
@@ -902,15 +960,7 @@ def _build_big_game_season_definitions(
                     seen[sd_id] = sd
                 else:
                     existing = seen[sd_id]
-                    diffs = []
-                    if existing.opens != sd.opens:
-                        diffs.append(f"opens: {existing.opens!r} vs {sd.opens!r}")
-                    if existing.closes != sd.closes:
-                        diffs.append(f"closes: {existing.closes!r} vs {sd.closes!r}")
-                    if existing.weapon_type != sd.weapon_type:
-                        diffs.append(
-                            f"weapon_type: {existing.weapon_type!r} vs {sd.weapon_type!r}"
-                        )
+                    diffs = _season_def_lossy_diffs(existing, sd)
                     if diffs:
                         _LOGGER.warning(
                             "_build_big_game_season_definitions: lossy dedup — "
@@ -1055,19 +1105,7 @@ def _build_big_game_license_tags(
                 seen[lt_id] = lt
             else:
                 existing_lt = seen[lt_id]
-                lt_diffs = []
-                if existing_lt.kind != lt.kind:
-                    lt_diffs.append(f"kind: {existing_lt.kind!r} vs {lt.kind!r}")
-                if existing_lt.quota != lt.quota:
-                    lt_diffs.append(f"quota: {existing_lt.quota!r} vs {lt.quota!r}")
-                if existing_lt.quota_range != lt.quota_range:
-                    lt_diffs.append(
-                        f"quota_range: {existing_lt.quota_range!r} vs {lt.quota_range!r}"
-                    )
-                if existing_lt.weapon_types != lt.weapon_types:
-                    lt_diffs.append(
-                        f"weapon_types: {existing_lt.weapon_types!r} vs {lt.weapon_types!r}"
-                    )
+                lt_diffs = _license_tag_lossy_diffs(existing_lt, lt)
                 if lt_diffs:
                     _LOGGER.warning(
                         "_build_big_game_license_tags: lossy dedup — "
@@ -1225,20 +1263,7 @@ def _build_bear_season_definitions(
                     seen[sd_id] = sd
                 else:
                     existing_bear = seen[sd_id]
-                    bear_diffs = []
-                    if existing_bear.opens != sd.opens:
-                        bear_diffs.append(
-                            f"opens: {existing_bear.opens!r} vs {sd.opens!r}"
-                        )
-                    if existing_bear.closes != sd.closes:
-                        bear_diffs.append(
-                            f"closes: {existing_bear.closes!r} vs {sd.closes!r}"
-                        )
-                    if existing_bear.weapon_type != sd.weapon_type:
-                        bear_diffs.append(
-                            f"weapon_type: {existing_bear.weapon_type!r} vs "
-                            f"{sd.weapon_type!r}"
-                        )
+                    bear_diffs = _season_def_lossy_diffs(existing_bear, sd)
                     if bear_diffs:
                         _LOGGER.warning(
                             "_build_bear_season_definitions: lossy dedup — "
@@ -1402,25 +1427,7 @@ def _build_bear_license_tags(
                 seen[lt_id] = lt
             else:
                 existing_bear_lt = seen[lt_id]
-                bear_lt_diffs = []
-                if existing_bear_lt.kind != lt.kind:
-                    bear_lt_diffs.append(
-                        f"kind: {existing_bear_lt.kind!r} vs {lt.kind!r}"
-                    )
-                if existing_bear_lt.quota != lt.quota:
-                    bear_lt_diffs.append(
-                        f"quota: {existing_bear_lt.quota!r} vs {lt.quota!r}"
-                    )
-                if existing_bear_lt.quota_range != lt.quota_range:
-                    bear_lt_diffs.append(
-                        f"quota_range: {existing_bear_lt.quota_range!r} vs "
-                        f"{lt.quota_range!r}"
-                    )
-                if existing_bear_lt.weapon_types != lt.weapon_types:
-                    bear_lt_diffs.append(
-                        f"weapon_types: {existing_bear_lt.weapon_types!r} vs "
-                        f"{lt.weapon_types!r}"
-                    )
+                bear_lt_diffs = _license_tag_lossy_diffs(existing_bear_lt, lt)
                 if bear_lt_diffs:
                     page_ref_bear_lt: dict[str, Any] | None = row.get("page_reference")
                     page_ref_bear_lt_str: str | None = (

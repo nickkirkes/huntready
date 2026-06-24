@@ -1732,6 +1732,88 @@ class TestFixReview6Behaviors:
             f"No 'lossy dedup' WARNING expected for identical content; got: {lossy_warnings}"
         )
 
+    def test_big_game_builder_warns_on_lossy_dedup_differing_verbatim(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Same id + identical dates/weapon/residency but DIFFERENT verbatim_rule
+        → WARNING. Regression for the review finding that the collision check
+        compared only a subset of fields (dates/weapon) and silently dropped
+        rows differing in verbatim_rule/residency."""
+        cit = _make_citation()
+        base: dict = {  # type: ignore[type-arg]
+            "hunt_code": "D-M-006-E1-R",
+            "season_code": "E1",
+            "gmu_code": "006",
+            "list_value": "A",
+            "method_letter": "R",
+            "season_windows": [
+                {"start_date": "Oct. 1", "end_date": "Oct. 9", "raw_text": "Oct. 1-9"},
+            ],
+            "weapon_types": ["any_legal_weapon"],
+            "residency_scope": None,
+            "quota": None,
+            "quota_range": None,
+            "extras": "First occurrence verbatim text.",
+            "page_reference": {"page_num_1based": 37, "bbox": None,
+                               "pdf_filename": "x.pdf",
+                               "extracted_at": "2026-06-09T00:00:00+00:00"},
+        }
+        # Identical id-encoding + dates/weapon/residency; only extras (→ verbatim) differs.
+        row2 = {**base, "extras": "Second, different verbatim text."}
+        sec1 = _make_section(gmu_code="006", species_group="mule_deer",
+                             method_group="any_legal_weapon", rows=[base])
+        sec2 = _make_section(gmu_code="006", species_group="mule_deer",
+                             method_group="any_legal_weapon", rows=[row2])
+        with caplog.at_level(logging.WARNING):
+            result = mod._build_big_game_season_definitions([sec1, sec2], cit)
+        assert len(result) == 1
+        lossy = [r.message for r in caplog.records
+                 if r.levelno == logging.WARNING and "lossy dedup" in r.message.lower()]
+        assert lossy, "Expected a lossy-dedup WARNING when only verbatim_rule differs"
+        assert any("verbatim_rule" in m for m in lossy), (
+            f"WARNING should name verbatim_rule; got: {lossy}"
+        )
+
+    def test_big_game_builder_no_warning_on_page_only_difference(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Same id + identical regulatory content but DIFFERENT page_reference
+        → NO WARNING. page_reference is deliberately excluded from the lossy-dedup
+        comparison: the same season legitimately recurs across multiple
+        GMU-section pages (157 such benign collisions in the 2026 artifact), so a
+        page-only difference is provenance, not data drift."""
+        cit = _make_citation()
+        base: dict = {  # type: ignore[type-arg]
+            "hunt_code": "D-M-007-O1-A",
+            "season_code": "O1",
+            "gmu_code": "007",
+            "list_value": "A",
+            "method_letter": "A",
+            "season_windows": [
+                {"start_date": "Sept. 2", "end_date": "Sept. 30", "raw_text": "Sept. 2-30"},
+            ],
+            "weapon_types": ["archery"],
+            "residency_scope": None,
+            "quota": None,
+            "quota_range": None,
+            "extras": "Identical verbatim text in both.",
+            "page_reference": {"page_num_1based": 40, "bbox": None,
+                               "pdf_filename": "x.pdf",
+                               "extracted_at": "2026-06-09T00:00:00+00:00"},
+        }
+        # Identical regulatory content; ONLY the page number differs.
+        row2 = {**base, "page_reference": {**base["page_reference"], "page_num_1based": 42}}
+        sec1 = _make_section(gmu_code="007", species_group="mule_deer", rows=[base])
+        sec2 = _make_section(gmu_code="007", species_group="mule_deer", rows=[row2])
+        with caplog.at_level(logging.WARNING):
+            result = mod._build_big_game_season_definitions([sec1, sec2], cit)
+        assert len(result) == 1
+        lossy = [r.message for r in caplog.records
+                 if r.levelno == logging.WARNING and "lossy dedup" in r.message.lower()]
+        assert lossy == [], (
+            f"Page-only differences must NOT warn (benign provenance); got: {lossy}"
+        )
+
     # -----------------------------------------------------------------------
     # FIX 3: empty weapon_types raises RuntimeError / ValueError
     # -----------------------------------------------------------------------
