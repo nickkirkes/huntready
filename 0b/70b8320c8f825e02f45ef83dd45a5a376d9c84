@@ -1,0 +1,26 @@
+ingestion/states/colorado/load_seasons_and_licenses.py
+  s_1e5445f40bcf6f::t_ecd116a87eb981 569-570
+  s_1e5445f40bcf6f::t_e28240d2793216 515
+  s_1e5445f40bcf6f::t_0050c92e3b778f 539-542
+  s_1e5445f40bcf6f::t_cf56bc6cf342f5 1077
+ingestion/tests/test_load_co_seasons_and_licenses.py
+  s_1e5445f40bcf6f::t_432468c46daa3e 274,277,281,285,290
+docs/planning/epics/E06-confidence-findings/S06.7.md
+  s_1e5445f40bcf6f::t_df4b64568081f5 55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "0b70b8320c8f825e02f45ef83dd45a5a376d9c84",
+  "prompts": {},
+  "sessions": {
+    "s_1e5445f40bcf6f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "638a46ce-736c-4271-b385-9d99a5f1e82c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
