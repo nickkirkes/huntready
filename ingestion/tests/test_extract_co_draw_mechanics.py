@@ -699,6 +699,41 @@ class TestHybridRowParse:
 
 
 # ---------------------------------------------------------------------------
+# 7b. TestDedupCodesByCode — one dedup strategy across all hybrid paths
+# ---------------------------------------------------------------------------
+
+
+class TestDedupCodesByCode:
+    """``_dedup_codes_by_code`` is the SINGLE hybrid-code dedup strategy.
+
+    Locks the fix for the prior tuple-``set`` dedup that allowed the same hunt
+    code to appear twice with conflicting ``low_availability`` flags. Dedup is
+    by hunt-code string; the FIRST occurrence's flag wins.
+    """
+
+    def test_conflicting_flags_collapse_to_first_occurrence(self) -> None:
+        """Same code starred then unstarred → ONE record with first flag (True)."""
+        pairs = [("D-M-002-O2-R", True), ("D-M-002-O2-R", False)]
+        result = extract_draw_mechanics._dedup_codes_by_code(pairs)
+        assert result == [("D-M-002-O2-R", True)], (
+            "duplicate code with conflicting flags must collapse to the first "
+            f"occurrence, got {result}"
+        )
+
+    def test_unstarred_then_starred_keeps_first(self) -> None:
+        """First-occurrence-wins is order-sensitive: unstarred first → False wins."""
+        pairs = [("D-M-002-O2-R", False), ("D-M-002-O2-R", True)]
+        result = extract_draw_mechanics._dedup_codes_by_code(pairs)
+        assert result == [("D-M-002-O2-R", False)]
+
+    def test_distinct_codes_all_kept_and_sorted(self) -> None:
+        """Distinct codes are all retained and returned sorted by code string."""
+        pairs = [("D-M-003-O1-A", False), ("D-M-001-O1-A", True)]
+        result = extract_draw_mechanics._dedup_codes_by_code(pairs)
+        assert result == [("D-M-001-O1-A", True), ("D-M-003-O1-A", False)]
+
+
+# ---------------------------------------------------------------------------
 # 8. TestNormalize
 # ---------------------------------------------------------------------------
 
@@ -869,4 +904,58 @@ class TestPointOnlySpeciesLetterMismatch:
         error_msg = str(exc_info.value)
         assert "deer" in error_msg or "D" in error_msg, (
             f"Error message should reference species 'deer' or expected letter 'D': {error_msg}"
+        )
+
+    def test_missing_code_on_a_species_page_raises(self) -> None:
+        """A species page yielding NO point-only code raises (not warn-and-omit).
+
+        Every species in ``_POINT_ONLY_PAGES`` is known to publish a point-only
+        code; a miss is brochure drift / extraction regression and must fail loud
+        rather than silently omit the record (which would propagate a null into
+        S06.8's ``purchase_only_code``). Scenario: the deer page text no longer
+        contains a ``*-P-999-99-P`` code at all.
+        """
+        mock_pdf = MagicMock()
+        mock_pdf.__class__ = extract_draw_mechanics.PdfDocument
+
+        species_texts = {
+            "bear": "To apply for a point, enter B-P-999-99-P as your first-choice hunt code.",
+            "deer": "Deer season dates and unit tables — no preference-point code here.",  # MISSING
+            "elk": "To apply for a point, enter E-P-999-99-P as your first-choice hunt code.",
+            "pronghorn": "To apply for a point, enter A-P-999-99-P as your first-choice hunt code.",
+        }
+        page_to_species: dict[int, str] = {
+            v: k for k, v in extract_draw_mechanics._POINT_ONLY_PAGES.items()
+        }
+        current_page: list[int] = [0]
+
+        def fake_extract_text(page: object, **kwargs: object) -> str:
+            sp = page_to_species.get(current_page[0], "bear")
+            return species_texts.get(sp, "")
+
+        def fake_iter_pages_tracking(
+            pdf: object, start: int, end: int
+        ):  # type: ignore[no-untyped-def]
+            current_page[0] = start
+            mock_page = MagicMock()
+            yield (start - 1, mock_page)
+
+        with (
+            patch.object(
+                extract_draw_mechanics,
+                "iter_pages",
+                side_effect=fake_iter_pages_tracking,
+            ),
+            patch.object(
+                extract_draw_mechanics,
+                "extract_text",
+                side_effect=fake_extract_text,
+            ),
+        ):
+            with pytest.raises(ColoradoDrawMechanicsError) as exc_info:
+                extract_draw_mechanics._extract_point_only_codes(mock_pdf)
+
+        error_msg = str(exc_info.value)
+        assert "deer" in error_msg, (
+            f"Error message should name the missing species 'deer': {error_msg}"
         )

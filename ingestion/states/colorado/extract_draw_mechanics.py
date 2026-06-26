@@ -317,6 +317,25 @@ def _flatten_table(table: TableMatch) -> list[str | None]:
     return cells
 
 
+def _dedup_codes_by_code(pairs: list[tuple[str, bool]]) -> list[tuple[str, bool]]:
+    """Deduplicate ``(hunt_code, low_availability)`` pairs by hunt-code string.
+
+    The SINGLE dedup strategy used by every hybrid-code extraction path (bear
+    callout + deer/elk/pronghorn tables) so the paths cannot drift: a hunt code
+    is emitted once, with the ``low_availability`` of its FIRST occurrence (a
+    code listed both starred and unstarred resolves to one record, not two with
+    conflicting flags). Returns the result sorted by hunt code for stability;
+    the global sort in ``extract()`` is authoritative for artifact order.
+    """
+    seen: set[str] = set()
+    out: list[tuple[str, bool]] = []
+    for code, low in pairs:
+        if code not in seen:
+            seen.add(code)
+            out.append((code, low))
+    return sorted(out, key=lambda t: t[0])
+
+
 # ---------------------------------------------------------------------------
 # T2: Hybrid hunt-code extraction
 # ---------------------------------------------------------------------------
@@ -392,14 +411,8 @@ def _extract_hybrid_codes(pdf: PdfDocument) -> list[dict[str, object]]:
             "layout may have drifted; update _BEAR_BBOX"
         )
 
-    # Dedup bear codes by code string, first-seen low_availability wins
-    # (consistent with the deer/elk/pronghorn seen-set dedup path below).
-    bear_seen: set[str] = set()
-    bear_deduped: list[tuple[str, bool]] = []
-    for code, low in bear_raw:
-        if code not in bear_seen:
-            bear_seen.add(code)
-            bear_deduped.append((code, low))
+    # Dedup via the shared by-code helper (same strategy as deer/elk/pronghorn).
+    bear_deduped = _dedup_codes_by_code(bear_raw)
 
     # Fail-loud: the bear docstring states "3 codes on one line".
     # A partial extraction (1 or 2 codes) would pass the per-species non-zero
@@ -462,20 +475,19 @@ def _extract_hybrid_codes(pdf: PdfDocument) -> list[dict[str, object]]:
         s: [] for s in ("deer", "elk", "pronghorn")
     }
     for species, idx_list in species_table_map.items():
-        seen: set[str] = set()
         for idx in idx_list:
             all_cells = _flatten_table(tables[idx])
-            for code, low in _codes_from_cells(all_cells):
-                if code not in seen:
-                    seen.add(code)
-                    table_species_codes[species].append((code, low))
+            table_species_codes[species].extend(_codes_from_cells(all_cells))
 
     # ------------------------------------------------------------------
-    # Fail-loud: each species must yield at least one code
+    # Fail-loud: each species must yield at least one code.
+    # Dedup every path through the SAME by-code helper so a hunt code is never
+    # emitted twice with conflicting low_availability (a plain set() of
+    # (code, bool) tuples would NOT dedup by code — it keeps both flag values).
     # ------------------------------------------------------------------
     all_species_codes: dict[str, list[tuple[str, bool]]] = {
         "bear": bear_deduped,
-        **{s: sorted(set(v)) for s, v in table_species_codes.items()},
+        **{s: _dedup_codes_by_code(v) for s, v in table_species_codes.items()},
     }
 
     for species, codes in all_species_codes.items():
@@ -568,12 +580,13 @@ def _extract_point_only_codes(pdf: PdfDocument) -> list[dict[str, object]]:
     Source / extracted_at stamping is deferred to T5 (global stamp).
 
     Raises:
-        ColoradoDrawMechanicsError: if the extracted species-letter does not
-            match ``_SPECIES_LETTER[species]`` — wrong data is fail-loud.
-
-    Warns (log WARNING) but does not raise if no code is found on a page;
-    the record for that species is omitted (``purchase_only_code: str | None``
-    permits null, but absence from a live brochure page is unexpected).
+        ColoradoDrawMechanicsError: if a species in ``_POINT_ONLY_PAGES`` yields
+            NO point-only code (all four V1 species publish one — a miss is
+            brochure drift / extraction regression, fail-loud), or if the
+            extracted species-letter does not match ``_SPECIES_LETTER[species]``
+            (wrong data is fail-loud). The schema permits ``purchase_only_code``
+            null for a species CPW does not publish; that case is expressed by
+            omitting the species from ``_POINT_ONLY_PAGES``, not by a soft miss.
     """
     if not isinstance(pdf, PdfDocument):
         raise ColoradoDrawMechanicsError(
@@ -595,13 +608,19 @@ def _extract_point_only_codes(pdf: PdfDocument) -> list[dict[str, object]]:
 
         m = _POINT_ONLY_CODE_RE.search(text)
         if m is None:
-            _logger.warning(
-                "point_only_code: no code found for species=%s on PDF page %d — "
-                "brochure layout may have changed",
-                species,
-                page_1based,
+            # _POINT_ONLY_PAGES enumerates exactly the V1 species CPW is known to
+            # publish a point-only code for (all four confirmed present at the
+            # 2026-06-24 probe). A miss here is brochure drift or an extraction
+            # regression, NOT legitimate absence — fail loud rather than let a
+            # null silently propagate into S06.8's purchase_only_code. (The
+            # schema permits null for a species CPW does not publish; that case
+            # is handled by NOT listing the species in _POINT_ONLY_PAGES.)
+            raise ColoradoDrawMechanicsError(
+                f"point_only_code: no code found for species={species!r} on PDF "
+                f"page {page_1based} — brochure layout may have changed or the "
+                "anchor regex needs updating (every species in _POINT_ONLY_PAGES "
+                "is expected to publish a point-only code)"
             )
-            continue
 
         found_letter = m.group(1)
         if found_letter != expected_letter:
@@ -618,12 +637,6 @@ def _extract_point_only_codes(pdf: PdfDocument) -> list[dict[str, object]]:
                 "species": species,
                 "hunt_code": m.group(0),
             }
-        )
-
-    if not records:
-        raise ColoradoDrawMechanicsError(
-            "point_only_codes: no codes found on ANY species page — "
-            "anchor phrase likely drifted"
         )
 
     _logger.info(
