@@ -1,0 +1,77 @@
+docs/planning/epics/E07-m2-carry-forward-ingestion-hardening.md
+  s_cca41751b729b5::t_ec716dfc99eb06 141-144
+  s_cca41751b729b5::t_710f48eb6e0fc5 178
+  s_cca41751b729b5::t_a8e2c4b9ff15ca 186-193
+  s_cca41751b729b5::t_868bbf34d23375 225-226
+  s_cca41751b729b5::t_99c3e6353ddf9c 88-89
+  s_cca41751b729b5::t_534d220ae09909 64
+  s_cca41751b729b5::t_cac1571c0c4269 152
+  s_cca41751b729b5::t_1ff9c373c28d15 112
+  s_cca41751b729b5::t_906acf0fe03ce5 1-5,7,9-18,20-37,53-56,58-63,65-87,90-94,98-108,111,113-140,145-151,153,155-177,181-185,194-224,227-235
+  s_cca41751b729b5::t_372a10f53697b6 57
+  s_cca41751b729b5::t_1669c81a8deb9e 38-52
+  s_cca41751b729b5::t_597f4cd3f31ff3 109-110
+  s_cca41751b729b5::t_8bcef8216a7254 6
+  s_cca41751b729b5::t_f4678ab13cb608 179-180
+  s_cca41751b729b5::t_4c6a2294d40272 8
+  s_cca41751b729b5::t_74589987c34fae 19
+  s_cca41751b729b5::t_6252b7a838019c 154
+  s_cca41751b729b5::t_3a1941ac8eeae3 95-97
+docs/planning/epics/E08-mcp-server-foundation-review.md
+  s_cca41751b729b5::t_d3d0fa926166e0 1-6,8-66
+  s_cca41751b729b5::t_5772888081a85a 7
+docs/architecture.md
+  s_cca41751b729b5::t_c39bfb8338d910 529-533
+docs/planning/epics/E08-mcp-server-foundation.md
+  s_cca41751b729b5::t_14c9e4450537b5 201
+  s_cca41751b729b5::t_f2f863d41d9283 1-5,7-12,14,18-22,24-32,48-64,67-72,74-91,95-97,99-105,112-131,135-147,156-177,181-183,185-192,205-222,225-233,235-242,244-248,250-251
+  s_cca41751b729b5::t_9a2a71d0102253 43
+  s_cca41751b729b5::t_03857c473a168d 66
+  s_cca41751b729b5::t_ea54d8c1778e35 152
+  s_cca41751b729b5::t_68f594edd4dfa1 196
+  s_cca41751b729b5::t_093976e47f2501 243
+  s_cca41751b729b5::t_cd3e9a8e251123 204
+  s_cca41751b729b5::t_a2fbe6b937b4bd 193-194,197-200,202-203
+  s_cca41751b729b5::t_76196eead638b5 249
+  s_cca41751b729b5::t_fd72e3d07fbe03 73
+  s_cca41751b729b5::t_74eed24c2f38d2 132-134
+  s_cca41751b729b5::t_88766a5dc1ff31 195
+  s_cca41751b729b5::t_b7ff32e2b9c883 234
+  s_cca41751b729b5::t_de464040bc8406 33-42,44-47
+  s_cca41751b729b5::t_c9d23bbd4febc9 13,15-17
+  s_cca41751b729b5::t_aecb975c7f4deb 106-109,111
+  s_cca41751b729b5::t_1c68ca25e6b762 184
+  s_cca41751b729b5::t_006d93e242606c 148-151,153-155
+  s_cca41751b729b5::t_51aed27c60618a 92-94
+  s_cca41751b729b5::t_03ff655652fe50 6
+  s_cca41751b729b5::t_8c9ab6d0dde864 65
+  s_cca41751b729b5::t_67541dbeee5643 98
+  s_cca41751b729b5::t_c4950a633a8757 223-224
+  s_cca41751b729b5::t_3c5ed7e5cb00cd 23
+  s_cca41751b729b5::t_e773192bc1005d 178-180
+  s_cca41751b729b5::t_46e846c6c8e1dd 110
+docs/planning/README.md
+  s_cca41751b729b5::t_265ba82ace7d42 88-96,98-114
+  s_cca41751b729b5::t_7402a76c337d54 16
+  s_cca41751b729b5::t_5dafbcc17e22dd 97
+  s_cca41751b729b5::t_e1c1d3057233c0 225
+docs/adrs/ADR-006-schema-versioned-from-day-one.md
+  s_cca41751b729b5::t_4addc8ed384b5e 54-55
+  s_cca41751b729b5::t_ced12e93521224 24-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "bc10a04b88479f4c47cac28f453168355d4bd682",
+  "prompts": {},
+  "sessions": {
+    "s_cca41751b729b5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e295fbf4-2111-41b8-abd9-071f32a21d6f",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick.kirkes@gmail.com>"
+    }
+  }
+}
