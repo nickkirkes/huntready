@@ -1,0 +1,19 @@
+.roughly/known-pitfalls.md
+  s_5e9998e588fe66::t_da888fe4686510 1340-1388
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "b2c39d34605f3a88a0692037ebc0ef54dc8dc8a4",
+  "prompts": {},
+  "sessions": {
+    "s_5e9998e588fe66": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "960d5035-9745-43fe-b8f9-815cdcfc5698",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick@rowdycloud.io>"
+    }
+  }
+}
