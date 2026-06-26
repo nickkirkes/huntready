@@ -1,0 +1,26 @@
+ingestion/states/colorado/extract_draw_mechanics.py
+  s_5e9998e588fe66::t_9460e69685e14e 414-415
+  s_5e9998e588fe66::t_c3f97ae0dcc1f2 583-589
+  s_5e9998e588fe66::t_042bde91fcf614 611-622
+  s_5e9998e588fe66::t_80201c0329e2bb 480,483-486,490
+  s_5e9998e588fe66::t_72df12a67db800 320-338
+ingestion/tests/test_extract_co_draw_mechanics.py
+  s_5e9998e588fe66::t_104d074515a3e0 908-961
+  s_5e9998e588fe66::t_e47e3903614f1b 701-735
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "5f9af002619fa901339075b681022a5a21f36965",
+  "prompts": {},
+  "sessions": {
+    "s_5e9998e588fe66": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "960d5035-9745-43fe-b8f9-815cdcfc5698",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick@rowdycloud.io>"
+    }
+  }
+}
