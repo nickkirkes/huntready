@@ -1,0 +1,21 @@
+.roughly/plans/S06.8.0-draw-mechanics-extraction-plan.md
+  s_5e9998e588fe66::t_c9d2081e1acbb1 1-2
+  s_5e9998e588fe66::t_6858eb6e5914d7 3-5
+  s_5e9998e588fe66::t_ae8277c872cf99 6-158
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "691fb9d316be277b6c9465de864db7208a271dcb",
+  "prompts": {},
+  "sessions": {
+    "s_5e9998e588fe66": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "960d5035-9745-43fe-b8f9-815cdcfc5698",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick@rowdycloud.io>"
+    }
+  }
+}

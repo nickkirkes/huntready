@@ -1,0 +1,22 @@
+docs/prompts/m3-pm-prompt.md
+  s_b6b1c793a73350::t_35898e83e0ab2b 189
+  s_b6b1c793a73350::t_acba30ec81a288 104
+CLAUDE.md
+  s_b6b1c793a73350::t_9fbcc0b75cc51f 160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "0773f838a3b1ff94eb7c2c525299ebd7a8222f73",
+  "prompts": {},
+  "sessions": {
+    "s_b6b1c793a73350": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6839ae19-a4cf-41b2-a122-adfbdd55f874",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "Nick Kirkes <nick@rowdycloud.io>"
+    }
+  }
+}
