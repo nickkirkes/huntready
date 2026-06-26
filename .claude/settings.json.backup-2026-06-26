@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd ingestion && .venv/bin/ruff check ingestion/ tests/ && .venv/bin/mypy ingestion/lib/ && .venv/bin/pytest tests/ -q"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/plan-mode-gate.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
