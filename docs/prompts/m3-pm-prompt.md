@@ -106,7 +106,7 @@ For quick reference (authoritative scope in PRD 003):
 **Five epics, sequential:**
 
 - **E07 — M2 carry-forward + ingestion hardening.** PAD-US geometry pin-enforcement (Q21 option (a) — the two-gates fetch model), plus the agreed post-E06 ingestion-hygiene items (Known Issue #7 overlay-builder shared-lib extraction; MT extractor migration to `write_extraction_artifact`). The edge-runtime-Postgres **principle** (ADR-024, already `Proposed`) is settled here; ADR-024 flips to `Accepted` at E08 when the driver is chosen and the access layer ships. The only Python/ingestion epic in M3.
-- **E08 — MCP server foundation.** Streamable HTTP transport on Workers; the edge-Postgres driver spike + read-only-enforced access layer; CORS/preflight; the static-bearer-token auth checkpoint; the Shape C response builder + types wired and exercised by one internal health check. Prerequisite for all tools.
+- **E08 — MCP server foundation.** Streamable HTTP transport on Workers; the edge-Postgres driver spike + read-only-enforced access layer; CORS/preflight; the OAuth auth seam wired as a single middleware integration point (unenforced in the deployed V1 config); the Shape C response builder + types wired and exercised by one internal health check. Prerequisite for all tools.
 - **E09 — Regulation-stack tools.** `get_regulations`, `list_seasons`, `get_tag_requirements` — they share the most join logic. `get_regulations` is the flagship Shape C composite.
 - **E10 — Spatial + contact tools.** `check_land_status` (PostGIS point-in-polygon; `no_hunt_zone` vs huntable `other_overlay` distinction) and `get_agency_contacts` (requires sourcing/loading the hand-curated agency-contacts CSV per Q9 — net-new M3 data work).
 - **E11 — Productionization + deployment.** Auth seam finalized; external error capture behind a top-level error boundary; deploy to a reachable HTTPS endpoint; `mcp-server/README.md` + example client config; M3 UAT runbook; M3→M4 handoff; `m3` tag.
@@ -147,7 +147,7 @@ Story shape (refine during planning):
 1. **S08.1: Server bootstrap + Streamable HTTP transport** on Cloudflare Workers (stateless `createMcpHandler`); `initialize` + `tools/list` succeed; local-dev `mcp-remote` path documented.
 2. **S08.2: Edge-Postgres driver spike + access layer.** Decide Hyperdrive vs Supabase serverless driver (record as the ADR-024 addendum); implement the **read-only-enforced** connection (dedicated SELECT-only role, not service-role); secrets in Workers Secrets; verify a write attempt is rejected.
 3. **S08.3: Shape C response builder + types.** Wire the `GetRegulationsResponse` envelope + section types; round-trip a hand-built fixture; establish the `structuredContent` + `outputSchema` + read-only-annotation mechanism and the schema-version-gating-→-`meta.warnings` mechanism as reusable foundation.
-4. **S08.4: CORS/preflight + auth seam.** Static-bearer-token checkpoint (reject untokened, admit valid); CORS headers + `OPTIONS` for the eventual web origin (Q5 no-BFF consequence). Verify `mcp-server/` imports nothing from `ingestion/`; no `any`.
+4. **S08.4: CORS/preflight + auth seam (wired, unenforced).** Wire the OAuth auth seam as a single middleware integration point — a test with the seam enabled rejects a request lacking the configured credential and admits one with it, while the deployed V1 config leaves it unenforced (open endpoint). CORS headers + `OPTIONS` for the eventual web origin (Q5 no-BFF consequence). Verify `mcp-server/` imports nothing from `ingestion/`; no `any`.
 
 ### E09 — Regulation-stack tools
 
@@ -183,7 +183,7 @@ Story shape (refine during planning):
 
 Story shape (refine during planning):
 
-1. **S11.1: Auth-seam finalization** at V1 depth (static bearer token; OAuth-2.1-ready upgrade path documented).
+1. **S11.1: Auth-seam finalization** at V1 depth (the OAuth seam wired-but-unenforced as the documented drop-in; deployed endpoint open and read-only under Cloudflare ambient DDoS/WAF; no static token relied on as a V1 boundary).
 2. **S11.2: External error capture** (`@sentry/cloudflare` or Workers Observability) behind a top-level error boundary; induced error surfaces within 60s through one integration point.
 3. **S11.3: Deploy to a reachable HTTPS endpoint** on Cloudflare Workers; reachability + latency validated.
 4. **S11.4: Docs + client config** — `mcp-server/README.md` (tool shapes, worked examples, `mcp-remote` flow) + committed example client-config snippet. (PRD 003 names this both `.mcp-config.json` and `.mcp.json` / `claude_desktop_config.json` in different places — confirm the canonical committed filename with the human at E11 planning; do not guess.)
@@ -231,7 +231,7 @@ Validation agents are epic-specific. Use the right triad for the epic being plan
 
 ### E11 validation triad (productionization + deployment)
 
-**Agent 1 — Deployment & Auth-Seam Reviewer.** Checks: Workers deploy to a reachable HTTPS endpoint; the static-bearer-token gate rejects untokened and admits valid; OAuth-2.1-ready seam intact; secrets handling; CORS policy.
+**Agent 1 — Deployment & Auth-Seam Reviewer.** Checks: Workers deploy to a reachable HTTPS endpoint; the auth seam is wired as a single integration point and (in test/enabled mode) rejects a request lacking the configured credential and admits a valid one, while the deployed V1 config leaves it unenforced (open endpoint); no story claims an enforced V1 token boundary on the single open endpoint; Cloudflare ambient DDoS/WAF is the V1 baseline; CORS policy; secrets handling.
 
 **Agent 2 — Observability & Error-Capture Reviewer.** Checks: `@sentry/cloudflare` or Workers Observability; a top-level error boundary captures both transport-layer and tool-layer throws; induced error surfaces within 60s through one integration point.
 
@@ -371,9 +371,9 @@ Non-negotiable for M3. Every story context surfaces the constraints that apply t
 - Each tool returns `structuredContent` validated against a declared `outputSchema`, with read-only annotations; `content[0].text` is a derivative only.
 - Schema-version gating (ADR-006): unsupported versions excluded and surfaced in `meta.warnings`, never silent-dropped.
 
-**Auth (ADR-023; Q22) — split by client type:**
-- The **browser/public read path carries no secret token** (no-BFF browser-direct per Q5 — a browser-embedded bearer/API key is exposed in client-side code and is no control). Its abuse-control is **edge-side**: Cloudflare WAF + rate-limiting, optionally Turnstile. Do not let a story gate the browser path with a static token.
-- A **static bearer-token / API-key checkpoint** gates **programmatic / non-browser MCP clients** that can hold a secret; both sit behind one OAuth-2.1-ready seam (`@cloudflare/workers-oauth-provider` is the upgrade path). Metering/abuse-control on public data, not authorization.
+**Auth (ADR-023; Q22) — open endpoint + wired-but-unenforced seam:**
+- The V1 deployed endpoint is a **single open, read-only MCP endpoint** (public data) with **no enforced authentication** — consistent with the standing "no authentication in V1" scope (`architecture.md` / `context.md`). Do **not** let a story claim a static token meters or gates V1 access: on a single open endpoint a token is unenforceable (a client could omit it and take the open path), and a browser-shipped token is exposed anyway.
+- The OAuth-2.1 auth seam is **wired as one middleware integration point but unenforced** in V1 (`@cloudflare/workers-oauth-provider` is the drop-in upgrade path). Baseline abuse protection is Cloudflare's **ambient DDoS/WAF**; configured rate-limiting and any *enforced* token/tier/auth are V2 and require a real boundary (a separate authenticated route, or Cloudflare Access).
 - The GTM-determined production auth model (Q22) is out of M3 scope — flag triggers, do not decide.
 
 **CORS (Q5 no-BFF consequence):**

@@ -87,7 +87,7 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 - All five V1 tools (`get_regulations`, `check_land_status`, `list_seasons`, `get_tag_requirements`, `get_agency_contacts`) return properly structured, source-cited responses for Montana queries.
 - A query to `get_regulations` for an out-of-scope species or state returns a structured "not covered" response, not a silent empty result.
 - Every tool response includes a `sources` array.
-- An OAuth-2.1-ready auth seam gates the deployed endpoint at minimal V1 depth (a static bearer-token / API-key checkpoint for access metering on public data).
+- The deployed endpoint is open and read-only (public data; no enforced V1 authentication, consistent with the "no authentication in V1" scope); the OAuth-2.1 auth seam is wired but unenforced (the drop-in for later auth), with Cloudflare's ambient DDoS/WAF as baseline protection.
 
 **Deliverables:**
 - `mcp-server/` with the V1 tools implemented, deployed to Cloudflare Workers on the Streamable HTTP transport (stateless `createMcpHandler`).

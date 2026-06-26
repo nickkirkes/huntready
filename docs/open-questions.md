@@ -522,14 +522,14 @@ Decision owner: human (user) + PM jointly at the trigger event.
 
 ### Context
 
-M3 ships a deliberately minimal auth gate, **split by client type** because the no-BFF browser-direct path (Q5) cannot hold a secret — a bearer/API key shipped to the browser is exposed in client-side code and provides no control. So in V1 the browser/public read path carries no secret and is abuse-controlled at the **edge** (Cloudflare WAF + rate-limiting, optionally Turnstile), while a static bearer-token / API-key checkpoint gates programmatic / non-browser clients that can hold a secret. Its purpose on public data is access metering / abuse-control, not authorization (the data has no per-user resource owner). PRD 003 architects this behind a single auth seam so a full OAuth 2.1 flow can drop in later. What the *production* auth model should be — once HuntReady is a live public/commercial service — is determined by go-to-market strategy and is explicitly out of M3 scope.
+M3 ships an **OAuth-2.1-ready but unenforced** auth posture: a **single open, read-only MCP endpoint** (public data; no enforced authentication, consistent with the standing "no authentication in V1" scope), with the OAuth-2.1 auth seam **wired as one middleware integration point but unenforced** — the drop-in for real auth later. A static token is deliberately *not* relied on as a V1 boundary: on a single open endpoint a token can't be enforced (a client could omit it and take the open path), and a browser-shipped token is exposed in client-side code anyway. Baseline abuse protection in V1 is Cloudflare's **ambient DDoS/WAF**. Any *enforced* token, tier, quota, or authentication requires a real boundary — a separate authenticated route or Cloudflare Access — and is determined by go-to-market strategy, explicitly out of M3 scope.
 
 ### What needs to be decided (at the trigger)
 
 - IdP / OAuth provider choice (Cloudflare Access vs. a third-party IdP via `@cloudflare/workers-oauth-provider`: GitHub / Google / Auth0 / WorkOS / Stytch).
 - Scope design and whether any per-consumer authorization beyond metering is warranted.
 - API-key tiering / B2B access (B2B API access is a V1 non-goal per `context.md`; revisit if GTM calls for it).
-- Rate-limit / quota policy (the *mechanism* — edge rate-limiting — exists at M3 defaults; the *policy* is GTM-adjacent).
+- Rate-limit / quota policy (V1 has only Cloudflare's ambient DDoS/WAF; *configured* rate-limiting + the policy itself are GTM-adjacent V2 work, and an enforced quota needs a real boundary per above).
 - Monetization / metering model, if any.
 
 ### What moves this to a decision
