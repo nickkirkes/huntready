@@ -526,7 +526,11 @@ interface Warning {
     | "CONFLICTING_RULES"
     | "PENDING_CHANGE"
     | "BOUNDARY_AMBIGUOUS"
-    | "SUPERSEDED_BY_CORRECTION";
+    | "SUPERSEDED_BY_CORRECTION"
+    | "UNSUPPORTED_SCHEMA_VERSION";  // a row's schema_version is outside the
+                                     // server's supported range: the row is excluded from output and
+                                     // surfaced here (never silent-dropped, never a hard error) per the
+                                     // ADR-006 schema-version gating; typically section: "overall"
   section: "seasons" | "tags" | "methods" | "reporting" | "contacts" | "overall";
   message: string;
 }

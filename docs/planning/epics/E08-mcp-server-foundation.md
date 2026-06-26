@@ -1,0 +1,251 @@
+# E08: MCP Server Foundation
+
+**Status:** In Progress
+**Milestone:** M3 — Canonical Interface Live
+**Dependencies:** None blocking. E08 is the foundation every tool (E09/E10) reads through; E09/E10 depend on E08 (hard). E08 is **independent of E07** (E07 is Python ingestion; E08 is TypeScript serving — they share no code, only the ADR-024 *principle*, which is decidable independently). E08 reads the existing dev Supabase corpus (Montana frozen at `m1`; Colorado present from the M2-build operator pass) — it writes no data. **Authorized to plan + execute in parallel with M2's E06** (human direction 2026-06-26): the serving stack touches only `mcp-server/` and never `ingestion/`, so there is **no shared-file race** with in-flight E06 ingestion PRs (unlike E07). Run E08 on a separate worktree.
+**Validated:** 2026-06-26 (E08 serving triad — MCP Protocol & Transport Conformance + Edge Runtime & Data-Access + Response-Envelope/Shape-C reviewers all returned LAND-WITH-EDITS; all MUST-FIX + SHOULD-FIX findings applied; see "Validation triad notes" below. **Independent epic review** (`/roughly:review-epic`, opus) 2026-06-26 returned **Ready** — all 6 recommendations applied; see [`E08-mcp-server-foundation-review.md`](E08-mcp-server-foundation-review.md))
+**Drafted:** 2026-06-26
+**Estimated Stories:** 4 (S08.1–S08.4; the M3 PM plan estimates 4–6 for E08)
+**UAT Gating:** S08.1 (deployed Workers preview connectable by the MCP Inspector over Streamable HTTP) and S08.2 (read-only-enforced edge read against Supabase + a provably-rejected write). S08.3 / S08.4 are `UAT: no` (verified by `tsc` + fixture round-trip + CI tests). Stories with a deploy/operator-live component carry a **Group A (at-merge, static/unit/local) / Group B (deploy- or operator-verified, non-blocking)** split, mirroring the M1/M2 operator-pending posture.
+
+---
+
+## R0 — roadmap reconciliation: ✅ SATISFIED
+
+PRD 003 R0 required `docs/roadmap.md` §"M3" to be reconciled from the old local-stdio + REST-shim framing to the remote-MCP posture, with human sign-off, before E08 begins. **This already landed** in commit `fb3a11d` (PR #76, "reconcile source-of-truth for remote MCP posture") — the same change that added PRD 003 + ADR-023/024. Verified 2026-06-26: the roadmap M3 section, its divergence note (the old framing is preserved in past tense, pointing at PRD 003), the M4 dependency note ("the MCP server is already deployed (M3, Cloudflare Workers)"), the milestone-structure table, and the dependencies graph all reflect the remote posture; no residual local-stdio/REST-shim framing remains. **No precondition blocks S08.1 implementation on this axis.**
+
+> **Stale-PRD flag (PM does not edit PRDs):** PRD 003 §"The posture decision" (≈line 32) still reads *"The roadmap's M3 section itself has not yet been edited … That reconciliation … lands before E08 begins (R0)"* — now self-stale, since #76 performed it. Surfaced for a human one-line fix to PRD 003 at convenience; not blocking.
+
+---
+
+## Objective
+
+E08 stands up the three things every V1 tool depends on, so E09/E10 do not each re-solve them: **(1) the transport** (remote Streamable HTTP on Cloudflare Workers, the SDK's stateless handler path, stdio-via-`mcp-remote` for local dev), **(2) the edge-runtime read-only-enforced Postgres access layer** (path chosen by an E08 spike — Hyperdrive-pooled `postgres.js`/`pg` vs. a serverless HTTP Postgres driver — over a dedicated SELECT-only role, not the service-role key), and **(3) the Shape C response envelope + the `structuredContent`/`outputSchema`/read-only-annotation + schema-version-gating mechanisms** as reusable foundation. CORS/preflight and the OAuth-2.1 auth seam (wired but unenforced) wrap the transport.
+
+When E08 closes, the server starts locally, deploys to a Workers preview the MCP Inspector connects to over Streamable HTTP, lists **only** the V1 tool surface (no internal health check registered as a public tool — UAT criterion #1's "exactly five tools"), reads Supabase read-only-enforced from the edge runtime (and provably rejects a write), round-trips a hand-built Shape C fixture through the envelope, handles CORS preflight, exercises the auth seam in test-enabled mode while the deployed V1 config stays open, and imports nothing from `ingestion/` with no `any` types.
+
+See [PRD 003 §"E08 — MCP server foundation"](../prds/003-M3-canonical-interface.md) (outcome + exit criteria), the [`architecture.md` §"Serving deployment posture (M3 addendum)"](../../architecture.md) and §"Response shape: `GetRegulationsResponse`", [ADR-023](../../adrs/ADR-023-remote-mcp-server-posture.md) (transport/deploy/auth posture; flips `Proposed → Accepted` across E08 + E11), and [ADR-024](../../adrs/ADR-024-edge-runtime-postgres-access.md) (edge-runtime read-only-enforced Postgres; flips `Proposed → Accepted` at E08 when the access layer ships).
+
+**This is the first TypeScript serving epic.** The reviewer skill-sets and constraints differ from M1/M2 ingestion. No `mcp-server/` → `ingestion/` import; no Python required to build/test/run; no `any` types; the three-place schema (DDL / Pydantic / TS entity types) is **read-only for M3** — E08 adds *serving-composition* response types (the `GetRegulationsResponse` envelope), which are NOT part of the three-place 6-entity sync (see S08.3).
+
+---
+
+## Validation triad notes (2026-06-26)
+
+Three **serving** reviewers validated the draft (distinct skill-sets from the M1/M2 ingestion triad); all returned **LAND-WITH-EDITS** (no NEEDS-REVISION). The MCP-protocol reviewer web-confirmed that `createMcpHandler`/`WorkerTransport`/the stateless-no-DO path are **real current Cloudflare Agents-SDK APIs**, and that the `structuredContent`/`outputSchema`/annotation + auth-optional framing is spec-accurate. Every finding was applied. The load-bearing corrections:
+
+- **`tools/list` returns an empty array in E08** (no tools yet) — the AC was split (handshake conformance + an explicit tool-count *lock* at zero) and the "UAT criterion #1" miscitation fixed (the deployed-five-tool check is E11, not E08).
+- **`protocolVersion` negotiation through the SDK** added as the concrete form of R9's "spec bump = SDK upgrade" (the original ACs only mentioned `Mcp-Session-Id`, which is necessary but not sufficient).
+- **Stateless-Workers footgun: SDK ≥1.26 requires per-request server/transport instantiation** (`^1.9.0` floats above it) — locked. Plus the `remote-mcp-authless` template scaffolds the DO path; the committed `wrangler` config must carry **no DO binding/migration**.
+- **Hyperdrive is a connection *layer*, not a driver** — the spike axis is "Hyperdrive-pooled `pg`/`postgres.js`" vs "a serverless HTTP driver"; and the **secret mechanism differs by path** (Workers Secret for the HTTP driver vs the Hyperdrive resource's connection-string config — the raw DSN never in source/Secrets for Hyperdrive). Both corrected.
+- **The Supabase `geom::geometry` cast quirk** (WKT round-trip) is a foundation concern for S08.2's `ST_*` smoke query (it bit M2 twice) — added. The **write-rejection test must bite at the Postgres role level** (SQLSTATE 42501 against a SELECT-only role on local/CI Postgres), not a mock. Workers **no-socket-reuse-across-invocations** lifecycle posture added.
+- **Shape C exactness:** the `resolved` block (nullable `jurisdiction` + `overlays {role,name}`) was missing from the type list; `meta.data_freshness.is_stale` is the **>180-day** rule; the fixture must lock **null-section↔`coverage:"none"` vs populated-empty↔`"full"`** and exercise all three `Coverage` values; `Resolved*` types are **query-resolved projections** (add `confidence`, drop `id`; `ResolvedTag` adds `application_deadline` + embeds full `DrawSpec`) — match §"Response shape", not §"Schema types". Response types land in a **separate `response.ts`** so `schema.ts` stays unmodified.
+- **Genuine contract gap surfaced → RESOLVED 2026-06-26:** the schema-version-gating warning had no valid `Warning.code` (the 6-value union had no schema-version member). Surfaced flag-don't-decide; the human approved adding a 7th value `UNSUPPORTED_SCHEMA_VERSION` to `architecture.md` §"Response shape". S08.3 now uses it directly (no longer an open tension).
+- **Auth seam is a config toggle (one gated code path)** that, when enabled in test mode, rejects with `401` + a spec-shaped `WWW-Authenticate`/resource-metadata pointer (not a bare static-token compare); the credential is a test fixture, not a V1 boundary.
+
+---
+
+## Starting point (the M0 scaffold E08 replaces)
+
+- `mcp-server/src/index.ts` — a one-line placeholder (`console.log("HuntReady MCP Server — scaffold")`). E08 replaces it with the Worker entrypoint.
+- `mcp-server/package.json` — deps: `@modelcontextprotocol/sdk ^1.9.0` + `@supabase/supabase-js ^2.49.0`; scripts `dev` (`tsx`), `build` (`tsc`), `start`, `lint` (`tsc --noEmit`). **⚠️ `@supabase/supabase-js` is the PostgREST/REST client — ADR-024 explicitly rejects the "Supabase client over PostgREST" read path** (PostgREST is disabled by deny-all RLS, ADR-004). The S08.2 spike must not default to it; the "Supabase serverless driver" option in ADR-024 is a workerd-compatible *Postgres-wire* driver, not the PostgREST query builder. The spike decides whether `@supabase/supabase-js` is dropped.
+- `mcp-server/tsconfig.json` — `strict: true`, `target ES2022`, `module ESNext`, `moduleResolution Bundler`. E08 adds `@cloudflare/workers-types` (and the Workers toolchain) and likely a `wrangler.toml`/`wrangler.jsonc`. No Cloudflare/wrangler config exists yet — E08 creates it.
+- `mcp-server/src/types/schema.ts` — the read-contract mirror of the 6-entity model (already present; the TS leg of the three-place sync). **The `GetRegulationsResponse` envelope + section types are NOT yet present here** — S08.3 adds them (serving-composition types, not a three-place-sync change).
+- `web/` is a Next.js placeholder (M4 — out of scope; E08 does not touch it).
+- The MCP spec target is **2025-11-25 stable**, designed forward-compatible with the 2026-07-28 RC (no `Mcp-Session-Id` reliance). The exact SDK/Cloudflare-toolchain API surface (`createMcpHandler` / `WorkerTransport` / the Agents-SDK remote-MCP path / `@cloudflare/workers-oauth-provider`) is confirmed against the installed versions at **Stage-1 discovery** — this epic names the PRD's primitives and the conformance requirements, and lets the implementer + Stage-4 plan review pin exact APIs (do not depend on an unreleased RC).
+
+---
+
+## Architectural commitments (E08 must hold)
+
+| Commitment | Source | E08 implication |
+|---|---|---|
+| MCP server is the canonical interface; nothing bypasses it to the DB | [ADR-002](../../adrs/ADR-002-mcp-canonical-interface.md) | The Worker is the only read path; the web app (M4) is a client of it. |
+| Remote Streamable HTTP via stateless `createMcpHandler` on Cloudflare Workers; stdio retained for local dev via `mcp-remote` only; build against 2025-11-25 stable, stateless (no `Mcp-Session-Id` reliance) | [ADR-023](../../adrs/ADR-023-remote-mcp-server-posture.md), PRD 003 R9 | S08.1. No Durable Objects (tools are stateless reads). |
+| Edge-runtime Postgres read access, **read-only by enforcement** — a dedicated SELECT-only role, never the write-capable service-role key; path via E08 spike (Hyperdrive-pooled `postgres.js`/`pg` vs. a serverless HTTP Postgres driver — **not** `@supabase/supabase-js`/PostgREST); PostgREST stays disabled by RLS; PostGIS `ST_*` runs server-side (`extensions.`-prefixed; geometry-only functions round-trip via WKT per the Supabase cast quirk) | [ADR-024](../../adrs/ADR-024-edge-runtime-postgres-access.md), [ADR-004](../../adrs/ADR-004-supabase-postgres-postgis.md) | S08.2. ADR-024 flips `Proposed → Accepted` here. |
+| Shape C response envelope — always-present null-bearing sections; `Coverage` tri-state; `sources[]` everywhere; 7 `Warning` codes (incl. `UNSUPPORTED_SCHEMA_VERSION`, added 2026-06-26); no server-composed `overview`/`headline` | [ADR-011](../../adrs/ADR-011-shape-c-response-envelope.md), [ADR-013](../../adrs/ADR-013-server-returns-structure-client-composes-presentation.md), `architecture.md` §"Response shape" | S08.3. Types must match `architecture.md` exactly. |
+| Each tool returns `structuredContent` validated against a declared `outputSchema` (source of truth); read-only annotations (`readOnlyHint: true`, `idempotentHint: true`, `openWorldHint: false`); `content[0].text` is a thin markdown derivative only | `architecture.md` §"Serving deployment posture", PRD 003 success criterion #15 | S08.3 establishes the reusable mechanism. |
+| Schema-version gating (ADR-006): a row with an unsupported `schema_version` is **excluded and surfaced in `meta.warnings`** — never silently dropped, never a hard error | [ADR-006](../../adrs/ADR-006-schema-versioned-from-day-one.md), PRD 003 success criterion #14 | S08.3 establishes the gating-→-`meta.warnings` mechanism as foundation. |
+| `verbatim_rule` passed through byte-identically; confidence surfaced unchanged (no re-derivation/normalization at the serving layer) | [ADR-001](../../adrs/ADR-001-authority-preserved.md), [ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md), [ADR-017](../../adrs/ADR-017-confidence-calibration.md) | Foundation discipline; the response builder copies text, never transforms it. (Tool-level assertion is E09's; S08.3's fixture round-trip preserves bytes.) |
+| No BFF (Q5 resolved) → CORS/preflight is an M3 *server* concern (browser → Worker direct) | [ADR-023](../../adrs/ADR-023-remote-mcp-server-posture.md), open-questions Q5 | S08.4 emits CORS headers + handles `OPTIONS`; allowed-origin policy is configurable (tightened in M4). |
+| Auth: open read-only V1 endpoint; OAuth-2.1 seam **wired as one middleware integration point but unenforced**; no static token relied on as a V1 boundary; Cloudflare ambient DDoS/WAF is baseline | [ADR-023](../../adrs/ADR-023-remote-mcp-server-posture.md), open-questions Q22 | S08.4. Q22 (production auth) is flagged, not decided. |
+| `mcp-server/` imports nothing from `ingestion/`; requires no Python; no `any` types in serving TypeScript | [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md), [ADR-005](../../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md) | Enforced by a guard (lint/test) + `tsc` strict; verified every story. |
+| Secrets never committed; detect-secrets baseline preserved. The SELECT-only-role DSN is held by the driver-appropriate mechanism: a **Workers Secret** (`wrangler secret put`) if a serverless HTTP driver is chosen, or the **Hyperdrive resource's connection-string config** if Hyperdrive is chosen (the raw DSN never appears in source or a Workers Secret). Any future auth credential lives in Workers Secrets. | `architecture.md` §"Deployment", PRD 003 §"Secrets" | S08.2 + S08.4. The DSN/bearer surface is a fresh secret surface — keep it out of source. |
+| Three-place schema (DDL / Pydantic / TS entity types) is **read-only for M3** | PRD 003 §"Out of scope" | E08 adds serving-composition response types (S08.3), which are NOT the 6-entity three-place sync; if a tool genuinely cannot express loaded data, flag-and-discuss (not a silent schema edit). |
+
+---
+
+## Stories
+
+### S08.1: Server bootstrap + Streamable HTTP transport on Cloudflare Workers
+
+**Status:** Not started
+
+**As a** developer standing up the canonical interface
+**I want** the MCP server bootstrapped on the Streamable HTTP transport on Cloudflare Workers (stateless `createMcpHandler`), answering `initialize` + `tools/list`, deployable to a Workers preview the MCP Inspector connects to, with a documented `mcp-remote` local-dev path
+**So that** every subsequent tool (E09/E10) is built and exercised against a real remote MCP transport from the start, and the canonical-interface claim (ADR-002) is concretely true
+
+**UAT: yes** (deployed Workers preview connectable by the MCP Inspector over Streamable HTTP — Group B; local conformance closes Group A at-merge)
+
+**Context:**
+
+The spine of the serving stack. Replaces the `mcp-server/src/index.ts` placeholder with the Worker entrypoint. The SDK's **stateless handler path** (`createMcpHandler` per current Cloudflare Agents-SDK docs — no Durable Objects, since the V1 tools are stateless reads; this also sidesteps DO hibernation, PRD 003 R8). Build against the **2025-11-25 stable** spec, **stateless** (no `Mcp-Session-Id` reliance) so the 2026-07-28 RC is an SDK upgrade, not a rewrite (PRD 003 R9).
+
+**Two known Stage-1 footguns** (verified against current Cloudflare/MCP docs): (1) the `remote-mcp-authless` template (PRD 003 R2) historically scaffolds the **`McpAgent`/Durable-Object** path — reaching the stateless `createMcpHandler` target may be faster by following the Agents-SDK `createMcpHandler` guide directly than by stripping the DO from the template (Stage-1 decides; either way the committed `wrangler` config must carry **no DO binding/migration**). (2) **MCP SDK ≥ 1.26 enforces per-request server/transport instantiation** — a stateless Worker must construct the MCP server + transport **per request**, not in module/global scope (`package.json`'s `^1.9.0` resolves above 1.26). Lock per-request instantiation.
+
+**Stage-1 discovery confirms** the exact toolchain API against installed versions (`@modelcontextprotocol/sdk ^1.9.0`, the Cloudflare Agents-SDK remote-MCP path, `wrangler`, `@cloudflare/workers-types`); the epic names the PRD's primitives, the implementer pins the calls. Do **not** depend on an unreleased RC.
+
+**Tool-surface discipline (establishes the lock UAT criterion #1 relies on):** E08 registers no public tools yet (tools are E09/E10), so `tools/list` returns an **empty** tools array in E08 (the `tools` capability is still declared). Any internal health check used to exercise the envelope (S08.3) is **not** a registered MCP tool. E08 establishes the **tool-count lock** (the registry the handler reads from is asserted empty) so that when tools land they can't be inflated by a stray health-check tool. Note: PRD success criterion #1 (the *deployed five-tool* enumeration) is satisfied at **E11/M3 close**, not E08 — E08 builds the mechanism that makes it checkable.
+
+**Relevant ADRs:** [ADR-002](../../adrs/ADR-002-mcp-canonical-interface.md), [ADR-023](../../adrs/ADR-023-remote-mcp-server-posture.md). PRD 003 success criterion #1; exit criteria for E08.
+
+**Acceptance Criteria:**
+
+**Group A — local / static (close the story at-merge):**
+
+- [ ] `mcp-server/src/index.ts` is replaced with a Worker entrypoint that serves the MCP server over **Streamable HTTP** via the SDK's **stateless handler path** (`createMcpHandler` per current Cloudflare docs; Stage-1 pins the exact export — no Durable Objects). The placeholder `console.log` is gone. The stateless handler **constructs the MCP server + transport per request**, not in module/global scope (SDK ≥1.26 enforces this); a test or comment locks per-request instantiation.
+- [ ] The server starts locally (`wrangler dev` or equivalent) and answers a Streamable HTTP `initialize` handshake conformantly per the **2025-11-25 stable** spec; `initialize` performs `protocolVersion` negotiation **through the SDK** (the negotiated version is not hard-coded at the application layer; `MCP-Protocol-Version` header handling is the SDK/transport's, not re-implemented in app code). A test asserts `initialize` returns the SDK-negotiated `protocolVersion` + `serverInfo`/`capabilities`. The implementation is **stateless** (no reliance on `Mcp-Session-Id`). (This is the concrete form of PRD R9's "spec bump = SDK upgrade, not a rewrite.")
+- [ ] The server answers `tools/list` conformantly and returns an **empty tools array** in E08 (no tools registered yet); the `tools` capability is declared. A test asserts the tools length === 0 **and locks the registered-tool registry as empty**, so a later stray tool (e.g., S08.3's internal health check) cannot leak into `tools/list`. (This is the lock PRD success criterion #1 — the deployed five-tool check at E11 — relies on; E08 does not itself satisfy criterion #1.)
+- [ ] A `wrangler.toml`/`wrangler.jsonc` is committed (no secrets in it) carrying **no Durable Object binding/migration** (any template DO scaffolding removed — a grep/test asserts none, backing the "no DO" claim); `@cloudflare/workers-types` is wired; `package.json` scripts cover local dev + build + a deploy command. `tsc` strict passes; no `any`.
+- [ ] **The serving test harness is stood up in S08.1** (it is the first serving story): a test runner (`vitest`/`node:test`/equivalent) + `test` + `test:ci` `package.json` scripts + a CI invocation, so every downstream "a test asserts…" AC across S08.1–S08.4 is grounded. This establishes the serving analog of the Python `pytest` baseline the project tracks — record the initial serving test count in the S08.1 closure note as the baseline E09/E10 grow additively.
+- [ ] The local-dev `mcp-remote` path is documented (how a stdio-only client like Claude Desktop registers the remote server via the `mcp-remote` proxy) — a **documented note** is fine in E08 (no code stub, no committed client-config snippet required until E11/S11.4).
+- [ ] `mcp-server/` imports nothing from `ingestion/` (guard passes); no Python required to build/run.
+
+**Group B — deploy-verified (non-blocking; ticked in a follow-up once captured):**
+
+- [ ] The server deploys to a **Cloudflare Workers preview** reachable over HTTPS, and the **MCP Inspector** (or an equivalent remote MCP client) connects over Streamable HTTP and completes `initialize` + `tools/list`. (The `wrangler deploy`/preview run is the implementation agent's or human's action, not the PM's.) Captured in the E08 working note.
+
+---
+
+### S08.2: Edge-Postgres driver spike + read-only-enforced access layer
+
+**Status:** Not started
+
+**As a** developer giving the serving stack a safe read path from the edge runtime
+**I want** an E08 spike to choose the edge-Postgres driver (Hyperdrive vs. the Supabase serverless/HTTP driver) and a read-only-enforced access layer (a dedicated SELECT-only role, not the service-role key) reaching Supabase from the Workers runtime, with the DSN in Workers Secrets and a write attempt provably rejected
+**So that** every tool reads through one workerd-compatible, write-incapable connection — a serving-path defect or injection cannot mutate data (ADR-024)
+
+**UAT: yes** (a read-only-enforced read against Supabase succeeds from the edge runtime AND a write attempt is provably rejected — Group B operator/deploy-verified; the access-layer code + driver decision + write-rejection unit coverage close Group A at-merge)
+
+**Context:**
+
+`workerd` is not Node, so the scaffold's implicit direct-`pg`-pool assumption does not hold (PRD 003 R1) — and crucially, **`workerd` cannot reuse outbound sockets across request invocations**. The spike decides between two workerd-compatible Postgres-**wire** paths (neither is `@supabase/supabase-js`/PostgREST, which is rejected by ADR-024 / disabled by deny-all RLS): **(a) Cloudflare Hyperdrive** — edge connection-pooling + optional query-caching — driven by a TCP Postgres client (`postgres.js` or `node-postgres`/`pg`) over the Hyperdrive binding; vs **(b) a serverless HTTP/WebSocket Postgres driver** (the Supabase `fetch`-based serverless driver; `@neondatabase/serverless` is the canonical ecosystem analog) used directly, without Hyperdrive. **Hyperdrive is a connection *layer*, not itself a driver** — option (a) still uses `pg`/`postgres.js`; the real axis is "Hyperdrive-pooled `pg`/`postgres.js`" vs "a serverless HTTP driver with no Hyperdrive." Record the chosen path + caching posture as the **ADR-024 addendum** (the implementer/human records it; the PM flags ADR-024 to flip `Proposed → Accepted` — the PM does not edit the ADR).
+
+PostGIS `ST_*` is unaffected by the connection mechanism (it runs server-side; `extensions.`-prefixed). **But the SQL idiom must be Supabase-correct (foundation concern):** Supabase's bundled PostGIS rejects direct `geom::geometry` casts on `geography` columns (architecture.md §"Storage"). Any geometry-only `ST_*` function (`ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, …) must round-trip via WKT — `extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326)`. The S08.2 smoke query establishes this idiom for the single read path so E09/E10 inherit it rather than re-discovering it (it bit M2 twice — S05.7).
+
+**Read-only by enforcement, not convention:** a dedicated **SELECT-only Postgres role** (a `GRANT`, not an RLS-policy change — the deny-all RLS posture is untouched). The role is provisioned on the dev Supabase project (a human/operator step, like `supabase db push`; the implementer may author the GRANT SQL, the operator applies it). The serving connection uses this role's DSN, held in **Workers Secrets** — never the write-capable service-role key, never committed.
+
+**Caching caveat (ADR-024 / ADR-001):** regulatory freshness is a correctness property (`meta.data_freshness`). If Hyperdrive caching is enabled it is off or short-TTL in V1, with a cache purge built into the re-ingestion/deploy runbook. Default-on caching is not assumed.
+
+**Q14 interaction:** the read connection adopts the current Supabase key/credential format during E08 (advances Q14's serving half; the E01 RLS-verification-runbook half stays open — not E08's to close). Whether this fully closes Q14's serving half is an E08 finding to record.
+
+**Relevant ADRs:** [ADR-024](../../adrs/ADR-024-edge-runtime-postgres-access.md), [ADR-004](../../adrs/ADR-004-supabase-postgres-postgis.md), [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md). PRD 003 success criterion #11; exit criteria for E08; open-questions Q14.
+
+**Acceptance Criteria:**
+
+**Group A — static / unit / decision (close the story at-merge):**
+
+- [ ] The spike concludes with a chosen path (Hyperdrive-pooled `pg`/`postgres.js` **or** a serverless HTTP Postgres driver) and a one-paragraph rationale recorded as the **ADR-024 addendum** content (in the E08 working note for the human to fold into ADR-024). The PM flags ADR-024 to flip `Proposed → Accepted`; the PM does not edit the ADR.
+- [ ] The spike rationale records the **Workers connection-lifecycle posture** for the chosen path: `workerd` cannot reuse outbound sockets across invocations, so the access layer either connects-per-invocation (serverless HTTP driver) or relies on Hyperdrive's server-side pooling. The chosen posture and its implication for E09/E10's bounded-round-trip budget (one connection acquisition per tool call; no cross-request pool assumption) is noted.
+- [ ] A read-only Postgres access layer is implemented for the Workers runtime using the chosen path. It executes a parameterized read (incl. a PostGIS `extensions.`-prefixed `ST_*` smoke query; if that query uses a geometry-only function it round-trips via `extensions.ST_GeomFromText(extensions.ST_AsText(geom), 4326)` per the Supabase cast quirk) and is the **single read path** tools will use. No `@supabase/supabase-js`/PostGIS-over-PostgREST.
+- [ ] The connection uses a **SELECT-only role DSN**, not the service-role key. The GRANT SQL for the dedicated SELECT-only role is authored and committed (applied by the operator on the dev project — Group B). A test proves a write (`INSERT`/`UPDATE`/`DELETE`) through the access layer is rejected **at the Postgres role level** (expects `permission denied` / SQLSTATE `42501`), run against a SELECT-only role applied to a local/CI Postgres with the committed GRANT SQL. A pure mock that throws does **not** satisfy this AC — the rejection must come from the role, not application code. (The live deployed-edge proof is Group B.)
+- [ ] **CI/local Postgres+PostGIS substrate is provisioned** so the two preceding role-level + `ST_*`-smoke ACs genuinely close at Group A (not silently slip to Group B): a Postgres-with-PostGIS service in CI (with the committed GRANT applied) **or** a documented local-only run path the closure note records, including how the `extensions.`-prefixed smoke query runs (PostGIS in the `extensions` schema). If CI cannot host PostGIS, the closure note states explicitly which of these two ACs run locally-only vs in CI.
+- [ ] The connection credential is held by the **driver-appropriate** Workers mechanism, never committed, with `wrangler.toml`/`wrangler.jsonc` referencing a binding/secret name (never the literal DSN): **(a)** serverless HTTP driver → the SELECT-only DSN is a **Workers Secret** (`wrangler secret put`) read from `env`; **(b)** Hyperdrive → the SELECT-only DSN is configured on the **Hyperdrive resource** (`wrangler hyperdrive create --connection-string=…`) and the Worker reads `env.<HYPERDRIVE_BINDING>.connectionString` (the raw DSN never appears in source or a Workers Secret); a `localConnectionString`/dev binding for `wrangler dev` is documented. detect-secrets baseline preserved.
+- [ ] If Hyperdrive is chosen, caching is **off or short-TTL by default**, with the freshness rationale (`meta.data_freshness` is a correctness property — ADR-024/ADR-001) documented and a Hyperdrive cache-purge step recorded as a forward-note for the E11 re-ingestion/deploy runbook. Default-on caching is not assumed.
+- [ ] The E08 finding on Q14 is recorded in the working note for PM/human follow-up, stating explicitly whether the **SELECT-only-role DSN** (a Postgres connection string — distinct from the Supabase API-key question) uses a legacy vs current connection-string format, and whether this closes Q14's serving half or only advances it.
+- [ ] `tsc` strict passes; no `any`; `mcp-server/` imports nothing from `ingestion/`.
+
+**Group B — operator/deploy-verified (non-blocking; ticked in a follow-up once captured):**
+
+- [ ] The operator provisions the SELECT-only role on the dev Supabase project; a read-only-enforced read against the **Montana corpus** (frozen at `m1`) succeeds **from the deployed Workers edge runtime**, and a write attempt is **provably rejected** live. Captured in the E08 working note.
+
+---
+
+### S08.3: Shape C response builder + envelope/section types + reusable mechanisms
+
+**Status:** Not started
+
+**As a** developer giving the tools one correct response contract
+**I want** the `GetRegulationsResponse` Shape C envelope + section types wired (matching `architecture.md` exactly), a response builder that round-trips a hand-built fixture, and the reusable `structuredContent`/`outputSchema`/read-only-annotation + schema-version-gating-→-`meta.warnings` mechanisms established
+**So that** E09/E10 compose tool responses against a proven envelope instead of each re-deriving the null-bearing-section, coverage-tri-state, annotation, and schema-version-gating logic
+
+**UAT: no** (verified by `tsc` strict + a fixture round-trip test + the gating/annotation unit tests in CI)
+
+**Context:**
+
+The Shape C envelope (ADR-011) is intricate and easy to get subtly wrong (PRD 003 R4/R5): always-present **null-bearing** sections (a section that doesn't apply carries explicit `null`, not an omitted key); the `Coverage` tri-state (`"full" | "partial" | "none"`) distinguishing "not applicable" (`null` section) from "not in our dataset" (`coverage: "none"`); plural `tags`/`reporting`; embedded `draw_spec`; the six `Warning` codes; and `meta` (`schema_version: 2`, `generated_at`, `data_freshness`, `coverage`, `warnings`). The canonical source is `architecture.md` §"Response shape: `GetRegulationsResponse`" — the types must match it **exactly** (the E08 Shape-C reviewer checks every interface against it).
+
+**These are serving-composition types, not the three-place 6-entity schema.** Adding `GetRegulationsResponse` + the `*Section`/`Resolved*` types to `mcp-server/src/types/` is a serving-layer addition — it does **not** trigger the DDL/Pydantic/TS three-place sync (that sync is the 6 entities; those entity types already exist in `schema.ts` and are read-only for M3). `architecture.md` §"Response shape" is the source of truth for these response types. Land them in a **separate file** (e.g., `mcp-server/src/types/response.ts`) that **imports** shared types (`SourceCitation`, `WeaponType`, `Residency`, `GeometryRole`, `DrawSpec`, `ReservedPool`, `ClosurePredicate`) from `schema.ts` rather than redefining them, so the three-place `schema.ts` stays visibly unmodified.
+
+**The `Resolved*` section types are query-resolved projections, not the entity types** — match `architecture.md` §"Response shape", NOT §"Schema types", for these. Each adds `confidence: "high"|"medium"|"low"` (inherited from the parent `regulation_record` per ADR-017) and drops entity-only fields (`id`, etc.); `ResolvedTag` additionally carries `application_deadline: string | null` and embeds the full `draw_spec: DrawSpec | null` (and omits `quota_range`/`draw_spec_key`). An implementer who anchors on the `schema.ts` entity types instead would build the wrong shape.
+
+**Reusable mechanisms to establish (so E09/E10 inherit, not re-invent):**
+- The `structuredContent` (validated against a declared `outputSchema`) + read-only MCP annotations (`readOnlyHint: true`, `idempotentHint: true`, `openWorldHint: false`) + the thin `content[0].text` markdown-derivative pattern.
+- The **schema-version gating** (ADR-006): a row carrying an unsupported `schema_version` is **excluded from output and surfaced as a `meta.warnings` entry** — never silently dropped (that would violate "never silent empty"), never a hard error. Establish this as a shared helper E09 reuses, with a test using a synthetic out-of-range version (PRD 003 success criterion #14). **Contract resolved 2026-06-26 (human-approved):** `architecture.md` §"Response shape" `Warning.code` now carries a 7th value `UNSUPPORTED_SCHEMA_VERSION` (the earlier 6-value union had no schema-version member). The gating warning uses `code: "UNSUPPORTED_SCHEMA_VERSION"`, `section: "overall"`, message naming the unsupported version. S08.3 wires the 7-value union into `response.ts`.
+- No server-composed `overview`/`headline` (ADR-013); `content[0].text` is a thin derivative assembled from the structured sections, not a source of truth.
+
+**Exercise end-to-end via an internal health check** (not a registered public MCP tool — keeps `tools/list` at exactly the V1 surface): round-trip a hand-constructed Shape C fixture through the envelope + a DB read (S08.2) to prove the wiring. `verbatim_rule` bytes are preserved through the builder (no normalization — ADR-008 foundation; the tool-level byte-identity assertion is E09's).
+
+**Relevant ADRs:** [ADR-011](../../adrs/ADR-011-shape-c-response-envelope.md), [ADR-013](../../adrs/ADR-013-server-returns-structure-client-composes-presentation.md), [ADR-006](../../adrs/ADR-006-schema-versioned-from-day-one.md), [ADR-001](../../adrs/ADR-001-authority-preserved.md)/[ADR-008](../../adrs/ADR-008-verbatim-regulation-text.md). `architecture.md` §"Response shape"; PRD 003 success criteria #14 + #15; exit criteria for E08.
+
+**Acceptance Criteria:**
+
+- [ ] The full response contract is added under `mcp-server/src/types/` (in a **separate `response.ts`**, not by editing `schema.ts` — a `git diff` on `schema.ts` is empty for S08.3) and **matches `architecture.md` §"Response shape" exactly**: `GetRegulationsResponse` incl. its inline `query`, `resolved`, and `meta` blocks; `SeasonsSection`/`ResolvedSeasonWindow`, `TagsSection`/`ResolvedTag`, `MethodsSection`, `ReportingSection`/`ResolvedReportingObligation`, `ContactsSection`/`Contact`, `Coverage`, `Warning`. Specifically lock:
+  - `resolved`: `jurisdiction` is **nullable** (a coverage gap returns `null` here, not an empty object) carrying `state`, `primary_unit: string | null`, `overlays: { role: GeometryRole; name: string }[]` (reusing `GeometryRole` from `schema.ts`, not redefined); plus `species_canonical: string | null`, `license_year: number | null`.
+  - `ResolvedTag.draw_spec` is the **full `DrawSpec | null`** entity from §"Schema types" (embedded for context — not a slimmed inline shape); `ResolvedTag.reserved_pools` is `ReservedPool[]` (per `architecture.md` §"Response shape" — enumerated here so it isn't under-specified).
+  - `Warning` is `{ code: <7-value union>; section: "seasons"|"tags"|"methods"|"reporting"|"contacts"|"overall"; message: string }` — the 7th value is `UNSUPPORTED_SCHEMA_VERSION` (matches the 2026-06-26 `architecture.md` addition).
+  - `meta` is `{ schema_version: 2; generated_at; data_freshness { most_recent_source_date; stalest_source_date; is_stale }; coverage { jurisdiction; species; overall }; warnings }`, where `is_stale` is `true` **iff the stalest contributing `source.publication_date` is > 180 days before `generated_at`** (architecture.md §"Response shape" + §"Operational posture").
+  - `tsc` strict compiles; no `any`.
+- [ ] A response builder constructs the envelope and **round-trips a hand-built fixture** asserting: (a) null-bearing sections serialize as explicit `null`, not omitted keys; (b) the **"no data"** case pairs a `null` section with `meta.coverage.* = "none"`, while the **"not required"** case pairs a **populated-but-empty** section (e.g., `reporting.obligations: []`) with `coverage: "full"` — locking the ADR-011 not-applicable-vs-not-in-dataset distinction; (c) all three `Coverage` values (`"full"|"partial"|"none"`) are exercised across `meta.coverage.{jurisdiction,species,overall}`; (d) `is_stale` is exercised with one stale (>180d) and one fresh source; (e) `sources[]` present.
+- [ ] The `structuredContent` + declared `outputSchema` + read-only-annotation (`readOnlyHint`/`idempotentHint`/`openWorldHint`) + thin `content[0].text` derivative mechanism is established as a reusable helper, exercised by the internal health check. The helper **validates `structuredContent` against the declared `outputSchema` server-side before returning** (the spec's server-MUST-conform obligation); a **negative test** feeds a deliberately schema-violating payload and asserts the helper rejects it (not just a happy-path round-trip).
+- [ ] The **schema-version-gating helper** is established: a row with an unsupported `schema_version` is excluded from output and surfaced as a `meta.warnings` entry with `code: "UNSUPPORTED_SCHEMA_VERSION"`, `section: "overall"`, and a message naming the version — not silently dropped, not a hard error. A test with a synthetic out-of-range version proves it. (The `Warning.code` 7th value was human-approved + added to `architecture.md` 2026-06-26 — no longer an open tension.)
+- [ ] No server-composed `overview`/`headline`; `content[0].text` is a thin derivative only. `verbatim_rule` bytes **and** `confidence` pass through the builder unchanged (the fixture carries a non-`high` confidence value to prove no normalization-to-`high`; round-trip byte-identity on `verbatim_rule`).
+- [ ] The internal health check exercises the envelope + a real DB read (S08.2) end-to-end and is **not** registered as a public MCP tool (`tools/list` unchanged — the S08.1 tool-count lock holds).
+- [ ] The `response.ts` **barrel-export convention is decided and applied** in `mcp-server/src/types/index.ts` (re-export the new response types through the barrel, or import them directly from `response.js` — pick one and make it the convention E09/E10 follow). Record the choice in the closure note.
+- [ ] `mcp-server/` imports nothing from `ingestion/`; no `any`.
+
+---
+
+### S08.4: CORS/preflight + OAuth-2.1 auth seam (wired, unenforced) + boundary guards
+
+**Status:** Not started
+
+**As a** developer making the open V1 endpoint browser-reachable and auth-upgrade-ready
+**I want** CORS headers + `OPTIONS` preflight handling, the OAuth-2.1 auth seam wired as a single middleware integration point (present but unenforced in the deployed V1 config), and the architecture-boundary guards (no `ingestion/` import, no `any`)
+**So that** the M4 web app can call the Worker directly from the browser (no BFF, Q5), real auth is a drop-in at one integration point when GTM lands (Q22), and the serving boundary is enforced mechanically
+
+**UAT: no** (CORS preflight from a test browser origin + the seam-enabled/seam-unenforced behavior are verifiable by CI tests; no separate human UAT sign-off required — the deployed-endpoint auth-seam UAT is E11's)
+
+**Context:**
+
+**CORS (Q5 no-BFF consequence):** the M4 web app calls the Worker directly from the browser, so the Worker emits CORS headers and handles `OPTIONS` preflight. The *mechanism* is M3; the allowed-origin *policy* is configurable and tightened in M4 (a permissive policy is acceptable for the public-data M3 demo window).
+
+**Stage-1 check (right-size the seam):** `@cloudflare/workers-oauth-provider` is a *full* OAuth provider that wraps the whole Worker — confirm at Stage-1 that the **test-mode credential check does NOT require standing up the full provider**. The V1 seam is a thin gated middleware path (one code path, config-toggled); the full provider is the *named drop-in* for later (Q22), not what E08 builds. Do not over-pull the library surface for a foundation.
+
+**Auth seam — wired but unenforced (ADR-023):** the V1 deployed endpoint is a **single open, read-only MCP endpoint** with **no enforced authentication** (public data; consistent with the standing V1 scope). The OAuth-2.1 seam is wired as **one middleware integration point** (`@cloudflare/workers-oauth-provider` is the drop-in upgrade path) — present but **unenforced** in the deployed config. **Do NOT claim a static token meters or gates V1 access:** on a single open endpoint a token is unenforceable (a client could omit it and take the open path) and a browser-shipped token is exposed anyway. Prove the seam is *real* with a test: **with the seam enabled in test mode**, a request lacking the configured credential is rejected and one bearing it is admitted — while the **deployed V1 config leaves it unenforced (open)**. Baseline abuse protection is Cloudflare's ambient DDoS/WAF (a platform default, not a configured feature). Any *enforced* token/tier/quota is V2 and needs a real boundary (a separate authenticated route or Cloudflare Access) — **Q22, flag-don't-decide.** Any seam credential lives in Workers Secrets, not committed.
+
+**Boundary guards:** a mechanical guard (lint rule or AST/test) verifies `mcp-server/` imports nothing from `ingestion/` (ADR-003/ADR-005) — the serving analog of the ingestion `TestNoStateAdapterImports` guard; and `tsc` strict enforces no `any`.
+
+**Relevant ADRs:** [ADR-023](../../adrs/ADR-023-remote-mcp-server-posture.md), [ADR-003](../../adrs/ADR-003-ingestion-upstream-offline.md), [ADR-005](../../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md). PRD 003 success criteria #9 + #11; open-questions Q5 (resolved), Q22 (deferred); exit criteria for E08.
+
+**Acceptance Criteria:**
+
+- [ ] The Worker emits CORS headers and handles `OPTIONS` preflight; a test exercises a preflight from a configured test browser origin and asserts the response headers. The allowed-origin policy is **configurable** (env/config, not hardcoded) so M4 can tighten it; a permissive default is acceptable for the M3 demo window.
+- [ ] The OAuth-2.1 auth seam is a **single middleware integration point** whose enabled/disabled state is a **config toggle (one gated code path, not a separate route)**; `@cloudflare/workers-oauth-provider` is named as the drop-in. With the seam **enabled in test mode**, an unauthenticated request is rejected with `401` and the response advertises the auth requirement in spec shape (a `WWW-Authenticate` / Protected-Resource-Metadata pointer — the OAuth-2.1 drop-in surface, **not** a bare static-token string-compare); a request bearing the configured test credential is admitted. The **deployed V1 config disables the seam (open endpoint)**. The test documents that the credential is a **test fixture, not a V1 enforcement boundary** — no story text or AC claims an enforced V1 token boundary on the single open endpoint.
+- [ ] Any seam credential is read from Workers Secrets, never committed; detect-secrets baseline preserved.
+- [ ] A mechanical boundary guard verifies `mcp-server/` imports nothing from `ingestion/` (lint rule or AST/test); `tsc` strict passes with no `any` types across the serving codebase.
+- [ ] Q22 (production auth model) is referenced as the deferred decision; nothing in E08 decides it. Cloudflare ambient DDoS/WAF is named as the V1 baseline protection.
+
+---
+
+## Known issues / forward notes to carry into E09+
+
+- **ADR status flips (PM flags human; PM does not edit ADRs):** ADR-024 → `Accepted` at S08.2 **contingent on S08.2 Group B live-verification** (the driver is chosen + the access-layer code ships at Group A merge, but the read-only-*enforcement* claim isn't proven until the live edge read + rejected-write are captured in Group B — flag the flip as Group-B-contingent, don't auto-flip at Group A merge). ADR-023 → `Accepted` progressively across E08 (transport/deploy stood up) and E11 (auth seam finalized + deployed). Track in `docs/planning/README.md` M3 ADR-status note.
+- **R0 roadmap reconciliation** (human action) should land before S08.1 implementation — see the precondition callout above.
+- **Q14 (Supabase key migration):** S08.2 advances the serving half; record whether it closes that half or only advances it. The E01 RLS-verification-runbook half stays open (not M3's).
+- **Q22 (GTM production auth):** flagged at S08.4; PM surfaces triggers, does not decide. If go-to-market trigger conditions surface mid-M3, flag-and-pause.
+- **Schema-generic discipline for E09/E10 (PRD 003 R7):** the foundation (envelope, gating, access layer) must carry no MT-specific branches so Colorado works at `m2` without server changes. S08.3's envelope + S08.2's access layer are schema-generic; E09/E10 inherit this.
+- **`@supabase/supabase-js` dep disposition:** if the S08.2 spike drops it (PostgREST path rejected by ADR-024), remove it from `package.json` to avoid implying a second read path.
+- **Single-read-path guard (consider in E09):** to make "the access layer is the single read path" mechanically true (not just asserted), consider a lint/test guard that the access-layer module is the only place opening a DB connection — the serving analog of the no-`ingestion/`-import guard, cheap insurance against the "uncontrolled second query path" ADR-004 exists to prevent.
+- **E08 → E09 gate:** E08 closes with all four stories merged and the `Audited`/serving-audit-equivalent posture noted; E09 planning runs via `/plan-next-epic` after E08 is fully closed. (The serving audit shape differs from M1/M2 ingestion audits — establish it at E08/E11 close.)
+- **Parallel-with-E06 safety:** E08 touches only `mcp-server/`; E06 touches only `ingestion/`. No shared files, no merge race. Run E08 on a separate worktree per the human's direction.
