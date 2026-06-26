@@ -6,8 +6,10 @@ This document explains HuntReady's Claude Code permission configuration: what it
 allows, asks, and denies; where each setting lives and why; how it reconciles with
 the **roughly** plugin; and how it reconciles with the operator's existing
 `~/.claude/settings.json`. It is the companion to the change staged in
-`.claude/settings.json` (diff at the end) and to the draft ADR
-`docs/adrs/ADR-DRAFT-claude-code-permission-config-ownership.md`.
+`.claude/settings.json` (diff at the end). This is the standalone record of the
+decision — a formal ADR was considered and deliberately skipped: this is reversible
+dev-environment config, not product/system architecture, so it does not meet the
+repo's ADR bar.
 
 The goal is to collapse per-step approval noise in this repo (auto-accept edits,
 run the dev loop without prompts) while keeping hard guardrails (no secret reads,
@@ -257,6 +259,5 @@ resumption, task-status lag, and shutdown.
 3. Open Claude Code in the repo and run `/permissions` to confirm the rules loaded.
 4. Don't run `/roughly:setup` with a formatter on this repo (§5).
 5. Consider disabling `ruckus@nickkirkes` in `~/.claude/settings.json` (§3).
-6. Review the draft ADR; if accepted, number and commit it per repo convention.
 
 Nothing in this task was committed, and no branch was created.
