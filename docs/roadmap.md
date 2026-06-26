@@ -78,24 +78,26 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 
 ## M3 — Canonical interface live
 
-**Outcome:** The MCP server is the canonical interface to HuntReady's data, exposing the V1 tool set, backed by the Montana corpus. It is installable locally by any MCP-capable agentic client.
+**Outcome:** The MCP server is the canonical interface to HuntReady's data, exposing the V1 tool set, backed by the Montana corpus. It is a remote, spec-conformant MCP server — reachable over HTTPS by any MCP-capable client, and connectable locally for development via the `mcp-remote` proxy.
+
+*(M3's posture was evolved from a local-stdio server with a REST shim to a remote, deployed, authenticated-capable MCP server during M3 planning — see [PRD 003](planning/prds/003-M3-canonical-interface.md) for the rationale and the production-intent driver that motivated it. The earlier local-only framing is preserved in this document's git history.)*
 
 **Signals:**
-- The MCP server runs locally and registers cleanly with Claude Desktop.
+- The MCP server is deployed and reachable over HTTPS, speaking the current MCP spec's Streamable HTTP transport; it also connects to Claude Desktop locally via the `mcp-remote` proxy.
 - All five V1 tools (`get_regulations`, `check_land_status`, `list_seasons`, `get_tag_requirements`, `get_agency_contacts`) return properly structured, source-cited responses for Montana queries.
 - A query to `get_regulations` for an out-of-scope species or state returns a structured "not covered" response, not a silent empty result.
 - Every tool response includes a `sources` array.
-- The HTTP shim that exposes the tools for the web companion is live and documented.
+- The deployed endpoint is open and read-only (public data; no enforced V1 authentication, consistent with the "no authentication in V1" scope); the OAuth-2.1 auth seam is wired but unenforced (the drop-in for later auth), with Cloudflare's ambient DDoS/WAF as baseline protection.
 
 **Deliverables:**
-- `mcp-server/` with the V1 tools implemented.
-- `mcp-server/http.ts` exposing REST-style endpoints.
-- `mcp-server/README.md` documenting each tool's shape and a worked example.
-- A working `.mcp-config.json` at the repo root.
+- `mcp-server/` with the V1 tools implemented, deployed to Cloudflare Workers on the Streamable HTTP transport (stateless `createMcpHandler`).
+- A read-only-enforced edge-runtime Postgres access layer (Hyperdrive or the Supabase serverless driver; see ADR-024).
+- `mcp-server/README.md` documenting each tool's shape, a worked example, and the local-dev `mcp-remote` flow.
+- A committed example client-config snippet (for `claude_desktop_config.json` / `.mcp.json`) at the repo root.
 - Tests for each tool: at minimum one happy path, one missing-data path.
-- External error capture integrated (Sentry or equivalent). Errors from the MCP server and its HTTP shim are routed to an external service, not logged to application logs. Vendor choice is a preference and can change; the commitment is that error capture is routed through a single integration point.
+- External error capture integrated (`@sentry/cloudflare` or Cloudflare Workers Observability — the workerd-compatible options). Errors are routed to an external service through a single integration point behind a top-level Worker error boundary. Vendor choice is a preference and can change; the commitment is the single integration point.
 
-**Exit criteria:** an agentic client can hold a useful, grounded conversation with HuntReady about hunting in Montana. Colorado support follows automatically once M2 lands.
+**Exit criteria:** an agentic client can hold a useful, grounded conversation with HuntReady about hunting in Montana, against a deployed remote server, with sources on every answer. Colorado support follows once M2 lands without server code changes (given schema-generic tools), validated by Colorado spot-checks.
 
 ---
 
@@ -105,14 +107,14 @@ Dependencies run strictly forward. M1 cannot begin until M0 is complete. M3 can 
 
 **Signals:**
 - The web app is deployed to a public URL (Vercel or equivalent).
-- The MCP server's HTTP shim is deployed to a public URL (Fly.io, Railway, or equivalent).
+- The MCP server is already deployed (M3, Cloudflare Workers); M4 deploys the web companion to a public URL (Vercel or equivalent) and points it at the deployed server.
 - The primary flow works for Montana and Colorado, for all five V1 species.
 - Source citations are prominently displayed on every regulation panel.
 - A reviewer can reach the demo in one click and understand the product in under two minutes.
 
 **Deliverables:**
 - `web/` complete: map view, species/date picker, regulation panel with source links, tag info panel, agency contacts.
-- Deployment configuration for both the web app and the MCP server HTTP shim.
+- Deployment configuration for the web app (the MCP server's deployment landed in M3 on Cloudflare Workers).
 - A single Mapbox token configured via environment variable; no other secrets.
 - Error capture active in the deployed web app, using the same provider selected in M3. Client-side errors are visible alongside server-side errors.
 

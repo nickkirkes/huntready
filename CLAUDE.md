@@ -134,7 +134,7 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
 - [docs/architecture.md](docs/architecture.md) — system design, schema types, response shapes
 - [docs/roadmap.md](docs/roadmap.md) — milestones M0-M5
 - [docs/open-questions.md](docs/open-questions.md) — unresolved decisions (check before making architectural calls)
-- [docs/adrs/](docs/adrs/) — 22 architecture decision records:
+- [docs/adrs/](docs/adrs/) — 24 architecture decision records:
   - ADR-001: Authority preserved, not replaced
   - ADR-002: MCP server as canonical interface
   - ADR-003: Ingestion upstream and offline
@@ -157,6 +157,8 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
   - ADR-020: Derive-and-Assert for id text-PK Slug Drift (resolves Q19; shared `drift_guard.py` two-primitive API)
   - ADR-021: `jurisdiction_binding.role='no_hunt_zone'` 8th enum value (accepted via S05.3.5 5-place sync)
   - ADR-022: Single-Module Per-State PDF Extractors (accepted via S06.3.1; codifies the per-state monolithic-extractor convention raised + declined 3× during S06.3 review)
+  - ADR-023: Remote Authenticated MCP Server Posture (Proposed; M3 — Cloudflare Workers + Streamable HTTP + static-bearer-token auth seam; resolves Q5/Q6)
+  - ADR-024: Edge-Runtime Postgres Access for the Serving Stack (Proposed; M3 — refines ADR-003; read-only-enforced SELECT-only role via Hyperdrive/Supabase serverless driver)
 
 ## Environment variables
 

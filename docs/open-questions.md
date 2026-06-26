@@ -119,7 +119,11 @@ For bear specifically: the per-BMU prose decomposes into `season_definition.verb
 
 ## Blocking M4
 
+> **Both questions in this section were RESOLVED 2026-06-24** (via PRD 003 / ADR-023). They are retained in place — each with a resolution note above its original framing — for handoff context, mirroring the in-place resolution of Q11 under "Blocking M1." The "Blocking M4" label is now historical: nothing in this section still blocks M4.
+
 ### Q5. Does the web companion need its own lightweight BFF, or is the MCP HTTP shim enough?
+
+**Status (2026-06-24 via PRD 003 / M3 planning): RESOLVED — no BFF in V1.** With Postgres as the storage layer and Shape C composing the full regulatory stack in a single `get_regulations` SQL pass, the M4 web app calls the MCP server's Streamable HTTP transport directly and composites client-side (Q5 option 1). Consequence surfaced during resolution: the no-BFF decision makes CORS/preflight an M3 *server* concern (browser → Worker direct), folded into M3 scope. Resolution home: [ADR-023](adrs/ADR-023-remote-mcp-server-posture.md) + the architecture.md no-BFF addendum.
 
 **Why it matters:** The architecture commits to the MCP server as canonical, with an HTTP shim for the web app. But if the web app's query patterns diverge meaningfully from the MCP tool shape (e.g., it wants composite responses that combine several tools' outputs), a thin BFF in front of the shim may be worth it. The wrong answer here is building a BFF too early, which invites duplicating logic from the MCP server.
 
@@ -137,6 +141,8 @@ With Postgres as the storage layer, the tools can return richer, pre-composited 
 ---
 
 ### Q6. What is the deployment target for the MCP server's HTTP shim?
+
+**Status (2026-06-24 via PRD 003 / M3 planning): RESOLVED — Cloudflare Workers.** The M3 posture shifted from a local stdio server + REST shim to a remote, deployed Streamable HTTP MCP server, which changed the decision frame: Cloudflare Workers (with the Agents-SDK remote-MCP toolchain, managed-OAuth upgrade path, edge autoscale, native WAF/rate-limiting, no cold-start sleep) is selected. Note Cloudflare Workers was *not* among this question's original options (Railway/Fly/Render/Vercel) — the remote-MCP posture is why a platform outside the original set is chosen. The Q6 caution against a second unfamiliar platform is addressed by PRD 003 R2 (start from Cloudflare's remote-MCP template; stateless `createMcpHandler`, no Durable Objects). Resolution home: [ADR-023](adrs/ADR-023-remote-mcp-server-posture.md) + the README deployment section.
 
 **Why it matters:** The web app deploys cleanly to Vercel. The database is on Supabase. The MCP server's HTTP shim is the remaining piece — a long-running Node process that reads from Supabase and serves HTTP. The choice has small but real implications for cold-start latency, cost, and operational complexity.
 
@@ -261,6 +267,8 @@ With Postgres as the storage layer, the tools can return richer, pre-composited 
 **Surfaced by:** E01 epic audit (2026-04-28). Observed in the Supabase dashboard — legacy keys are on a separate tab labeled "Legacy anon, service_role API keys."
 
 **Resolution home:** Update to `architecture.md` storage section and `docs/runbooks/E01-migration-verification.md`. An ADR only if the new keys change the RLS enforcement model.
+
+**M3 note (2026-06-24):** the serving stack's read-only DB connection adopts the current key format during E08 (advances this question's serving half); the E01 RLS-verification-runbook half is untouched by M3 and stays open.
 
 ---
 
@@ -458,7 +466,7 @@ Drift between slug-derivation logic and the structured fields under the same `id
 
 ## Q21: Should the geometry loaders pin-enforce the committed PAD-US manifest at fetch time (mirroring the PDF loaders' `expected_sha256` two-gates model)?
 
-**Status:** Open (re-evaluation triggered at prod env setup begin, post-E06 close)
+**Status (2026-06-24 via PRD 003 / M3 planning): RESOLVED — option (a), pin-enforce at fetch time; implemented in M3 epic E07.** The re-evaluation trigger ("M3 planning starts") fired; production intent (the user confirmed prod is coming post-OnX) makes dev/prod PAD-US snapshot parity a real correctness concern, satisfying option (a)'s "if dev/prod parity matters → ship (a)" criterion. The geometry loaders adopt the two-gates `expected_sha256`/`expected_layer_hash` model (mirroring the PDF loaders) in E07. No separate ADR — this is an established pattern (the PDF two-gates precedent), recorded in the E07 closure. The estimated-effort and option detail below stand as the implementation reference for E07.
 **Surfaced by:** M2-build operator pass 2026-06-23 (two PAD-US 4.1 republish drifts in 18 calendar days: 2026-06-04 base → 2026-06-21 OID drift fixed by S06.6.1 → 2026-06-22 GeometryCollection drift fixed by S06.6.2)
 **Touches:** `ingestion/ingestion/lib/arcgis.py` (`fetch_features` + `_require_objectid`), `ingestion/states/colorado/load_restricted_areas.py` (PAD-US Group B manifest+metadata fixture), `ingestion/states/colorado/load_gmus.py` (CPW FeatureServer; same pattern would extend), state-adapter fixture-commit convention (manifest+metadata committed; features-*.geojson gitignored)
 
@@ -503,6 +511,32 @@ Decision owner: human (user) + PM jointly at the trigger event.
 - S06.6.2 closure: `docs/planning/epics/E06-colorado-regulation-text-ingestion.md` § "S06.6.2: PAD-US GeometryCollection area-preservation handling"
 - M2-build operator pass closure narrative: `docs/planning/README.md` "Last Updated" entry 2026-06-23
 - Working analog (PDF side): S06.1's `pdf_fetch.fetch_pdf` `expected_sha256` param (the project precedent for the two-gates model)
+
+---
+
+## Q22: What is the production auth model for the MCP server?
+
+**Status:** Open (deferred; trigger = production go-decision / post-OnX + a go-to-market strategy)
+**Surfaced by:** M3 planning 2026-06-24 ([PRD 003](planning/prds/003-M3-canonical-interface.md))
+**Touches:** the MCP server auth seam ([ADR-023](adrs/ADR-023-remote-mcp-server-posture.md)), `@cloudflare/workers-oauth-provider`, deployment
+
+### Context
+
+M3 ships an **OAuth-2.1-ready but unenforced** auth posture: a **single open, read-only MCP endpoint** (public data; no enforced authentication, consistent with the standing "no authentication in V1" scope), with the OAuth-2.1 auth seam **wired as one middleware integration point but unenforced** — the drop-in for real auth later. A static token is deliberately *not* relied on as a V1 boundary: on a single open endpoint a token can't be enforced (a client could omit it and take the open path), and a browser-shipped token is exposed in client-side code anyway. Baseline abuse protection in V1 is Cloudflare's **ambient DDoS/WAF**. Any *enforced* token, tier, quota, or authentication requires a real boundary — a separate authenticated route or Cloudflare Access — and is determined by go-to-market strategy, explicitly out of M3 scope.
+
+### What needs to be decided (at the trigger)
+
+- IdP / OAuth provider choice (Cloudflare Access vs. a third-party IdP via `@cloudflare/workers-oauth-provider`: GitHub / Google / Auth0 / WorkOS / Stytch).
+- Scope design and whether any per-consumer authorization beyond metering is warranted.
+- API-key tiering / B2B access (B2B API access is a V1 non-goal per `context.md`; revisit if GTM calls for it).
+- Rate-limit / quota policy (V1 has only Cloudflare's ambient DDoS/WAF; *configured* rate-limiting + the policy itself are GTM-adjacent V2 work, and an enforced quota needs a real boundary per above).
+- Monetization / metering model, if any.
+
+### What moves this to a decision
+
+A production go-decision (e.g., the outcome of the OnX process) plus a GTM strategy. No V1 action; M3's minimal seam is sufficient until then.
+
+**Resolution home:** an ADR (extending or superseding ADR-023's auth-seam section) once the GTM model is known.
 
 ---
 

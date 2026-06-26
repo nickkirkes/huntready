@@ -82,7 +82,7 @@ An MCP server built on the Anthropic TypeScript SDK. Exposes a small, well-scope
 The V1 tool set:
 
 - `get_regulations(lat, lng, species, date)` — the headline tool. Given a point, a species, and a date, returns the applicable regulation sections with source citations, license requirements, tag requirements, methods of take, and season windows.
-- `check_land_status(lat, lng)` — returns the land management authority, public/private status, and access constraints for a point. Backed by PAD-US and BLM PLAD.
+- `check_land_status(lat, lng)` — returns the land management authority, public/private status, and access constraints for a point. Backed by PAD-US and BLM PLAD. **M3/V1 note:** in V1 this resolves against the loaded `geometry`/`jurisdiction_binding` overlays — the PAD-US-derived restricted-area / no-hunt-zone rows from E05 — distinguishing a true closure (`no_hunt_zone`) from a regulated-but-huntable `other_overlay`; the fuller PAD-US + BLM PLAD public/private framing is the eventual contract. See the M3 serving-posture addendum below, ADR-023, and PRD 003.
 - `list_seasons(state, species, year)` — returns season windows for a given state/species/year combination.
 - `get_tag_requirements(state, species, year, residency)` — returns the tag type(s), draw vs. general status, application deadlines, and direct links to the state agency's purchase flow.
 - `get_agency_contacts(lat, lng)` — returns the regional game warden contact, regulation questions hotline, and regional office for the district containing the point.
@@ -123,7 +123,7 @@ Postgres+PostGIS is the correct storage for this product, not a future upgrade. 
 
 Supabase specifically is chosen over self-hosted Postgres, Fly.io Postgres, or Neon for three reasons. First, setup time is near zero — a project is provisioned in minutes with PostGIS available as a checkbox-enabled extension. Second, the managed dashboard and migration tooling reduce operational friction during V1 when time is the scarcest resource. Third, Supabase's capabilities beyond Postgres (Auth, Storage, Edge Functions, Realtime) are available for V2 without a platform migration — not because V1 needs them, but because the option to use them later is free.
 
-**What V1 uses from Supabase:** Postgres, PostGIS, database migrations, and the service-role connection from the MCP server and ingestion pipeline. That is all.
+**What V1 uses from Supabase:** Postgres, PostGIS, database migrations, the ingestion pipeline's service-role connection, and the MCP server's read-only edge connection (a SELECT-only role reached via Hyperdrive or the Supabase serverless driver, per ADR-024 — *not* the service-role key). That is all.
 
 **PostGIS operator note (operator-facing).** Supabase's bundled PostGIS rejects direct `geom::geometry` casts on `geography` columns — a cluster-config quirk, not a missing extension. Workaround at every site that needs a geometry-only PostGIS function (`ST_IsValid`, `ST_NumGeometries`, `ST_Equals`, etc.): round-trip via WKT, `ST_GeomFromText(ST_AsText(geom), 4326)`. Documented in `docs/runbooks/E02-geometry-verification.md` and `.roughly/known-pitfalls.md`. The runbooks use the workaround at every relevant query.
 
@@ -534,6 +534,18 @@ interface Warning {
 
 The response is returned as `structuredContent` on the MCP tool response. A parallel `content[0].text` field carries a minimal markdown rendering (overview text assembled from the structured sections, plus a coverage summary) for agentic clients that do not parse `structuredContent` — the minimal rendering is a thin derivative for backward compatibility, not a source of truth.
 
+## Serving deployment posture (M3 addendum)
+
+*Added 2026-06-24 during M3 planning; see [ADR-023](adrs/ADR-023-remote-mcp-server-posture.md), [ADR-024](adrs/ADR-024-edge-runtime-postgres-access.md), and [PRD 003](planning/prds/003-M3-canonical-interface.md). This addendum supersedes the earlier implicit framing of M3 as a local stdio server with a REST shim.*
+
+The MCP server (ADR-002) is deployed as a **remote, spec-conformant Streamable HTTP server on Cloudflare Workers** (stateless `createMcpHandler`; no Durable Objects, since the V1 tools are stateless reads). A stdio entrypoint is retained for local development via the `mcp-remote` proxy. **V1 auth is OAuth-2.1-ready but unenforced.** The endpoint is a **single open, read-only MCP endpoint** (public data; no enforced authentication, consistent with the "no authentication in V1" scope below). The OAuth-2.1 auth seam is **wired as one middleware integration point but not enforced** in the deployed V1 config — it is the drop-in for real auth (`@cloudflare/workers-oauth-provider`) when a GTM model gives the auth model a subject to protect (Q22). V1 does **not** rely on a static bearer token as a boundary: a single open endpoint cannot enforce a client-type split (a programmatic client could omit the token and take the open path), so any *enforced* token, tier, or quota requires a real boundary — a separate authenticated route or Cloudflare Access — which is a Q22/V2 decision. Baseline abuse protection in V1 is Cloudflare's **ambient DDoS/WAF** (a platform default, not a configured feature). The full GTM-determined auth model is deferred (open-questions Q22).
+
+The server reads Postgres from the Workers edge runtime via Hyperdrive or the Supabase serverless driver (ADR-024), over a **read-only-enforced** connection (a dedicated SELECT-only role, not the write-capable service-role key). PostGIS `ST_*` runs server-side and is unaffected by the edge connection mechanism.
+
+**No BFF (Q5 resolved):** because Shape C composes the full regulatory stack in a single `get_regulations` SQL pass, the web companion (M4) calls the MCP server directly and composites client-side; there is no backend-for-frontend. The browser-to-Worker call makes CORS/preflight a server-side (M3) concern.
+
+Each tool returns `structuredContent` validated against a declared `outputSchema` as the source of truth, sets the read-only MCP annotations (`readOnlyHint`, `idempotentHint`), and carries `content[0].text` markdown only as a derivative.
+
 ## State coverage in V1
 
 Montana and Colorado are the seed states. Rationale:
@@ -553,7 +565,7 @@ Named here so that a reader of this doc doesn't mistake their absence for an ove
 - **A mobile app.** The web companion is sufficient to demonstrate the product shape. Native mobile is a post-PMF decision.
 - **Authentication, accounts, or saved queries.** The prototype is stateless at the user level. A production version adds accounts to power hunt planning, reminders, and partnerships.
 - **Real-time data feeds.** V1 uses data ingested at build time. A production version adds emergency-order monitoring and same-day rule-change ingestion, which is an operational capability rather than a feature.
-- **B2B API packaging.** The MCP server *is* a B2B API, conceptually, but V1 does not ship rate limiting, authentication, billing, or tiered access. Those are part of the commercial V2.
+- **B2B API packaging.** The MCP server *is* a B2B API, conceptually, but V1 does not ship *enforced* authentication, configured rate limiting, billing, or tiered access. Those are part of the commercial V2. (The M3 remote endpoint stays consistent with this: it is open and read-only, protected only by Cloudflare's ambient DDoS/WAF, and ships the OAuth auth seam *wired but unenforced* — the drop-in point for V2 auth, not enforced auth. See the "Serving deployment posture (M3 addendum)" section and ADR-023.)
 - **Harvest reporting integration, hunter education verification, or license purchase proxying.** HuntReady links to the state agency's flows for these; it does not implement them. This is a permanent architectural position, not a V1 limitation.
 
 ## Deployment
@@ -562,11 +574,11 @@ V1 deploys to three hosting surfaces, all free-tier at V1 scale:
 
 - **Supabase** hosts the Postgres database with PostGIS. Created as a single project with the extension enabled. Migrations applied via the Supabase CLI.
 - **Vercel** hosts the Next.js web companion at a public URL.
-- A process host (Railway or equivalent) runs the MCP server's HTTP shim as a long-running Node process. The server reads from Supabase via the service-role connection string.
+- **Cloudflare Workers** hosts the MCP server as a remote Streamable HTTP endpoint (per ADR-023; this supersedes the earlier "HTTP shim on a long-running Node process" plan). The server reads from Supabase from the edge runtime via Hyperdrive or the Supabase serverless driver, over a **read-only-enforced** connection (a dedicated SELECT-only role, not the service-role key — per ADR-024). See the "Serving deployment posture (M3 addendum)" section above.
 
-The MCP server is also installable locally for agentic clients — a `.mcp-config.json` in the repo root lets a user register HuntReady with Claude Desktop in one line. Local installation uses the same Supabase database as the hosted server.
+The remote server also supports local development via the `mcp-remote` proxy — a committed example client-config snippet (for `.mcp.json` / `claude_desktop_config.json`) lets a user register HuntReady with Claude Desktop. Local dev uses the same Supabase database as the deployed server.
 
-Secrets in V1: the Supabase secret key (for the MCP server), the Supabase publishable key (for the web app, scoped by RLS), and the Mapbox token (for the web map). All other configuration is non-sensitive.
+Secrets in V1: the MCP server's read-only DB credential (a SELECT-only-role DSN held in Workers Secrets — not the write-capable service-role key, per ADR-024), the Supabase publishable key (for the web app, scoped by RLS), and the Mapbox token (for the web map). (The OAuth auth seam is wired but unenforced in V1, so no auth credential is required for the deployed config; any credential added when the seam is enforced lives in Workers Secrets.) All other configuration is non-sensitive.
 
 ## Operational posture
 
