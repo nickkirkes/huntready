@@ -1,0 +1,27 @@
+.claude/settings.json
+  h_e984f1904148c6 2-72
+  s_5e9998e588fe66::t_18fed099976466 96
+.claude/settings.json.backup-2026-06-26
+  s_5e9998e588fe66::t_066ad445e7550a 1-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "7da1c90bf66c5a01d7f97431bee8ecfd0bcf5bb1",
+  "prompts": {},
+  "humans": {
+    "h_e984f1904148c6": {
+      "author": "Nick Kirkes <nick@rowdycloud.io>"
+    }
+  },
+  "sessions": {
+    "s_5e9998e588fe66": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "960d5035-9745-43fe-b8f9-815cdcfc5698",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick@rowdycloud.io>"
+    }
+  }
+}
