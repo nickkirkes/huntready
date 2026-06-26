@@ -101,7 +101,7 @@ Do not begin epic planning until you have read PRD 003, the thinking-layer docum
 
 For quick reference (authoritative scope in PRD 003):
 
-**Outcome:** A remote, spec-conformant MCP server, deployed over HTTPS on Cloudflare Workers (Streamable HTTP transport, stateless `createMcpHandler`), exposing the five V1 tools backed by the Montana corpus (Colorado automatically once `m2` lands). Every response is structured and source-cited (Shape C, ADR-011). Out-of-scope queries return a structured `coverage: "none"` — never a silent empty. An OAuth-2.1-ready static-bearer-token auth seam gates the endpoint at minimal V1 depth. Postgres is reached read-only-enforced from the edge runtime (ADR-024). External error capture is integrated through one integration point. The serving stack imports nothing from `ingestion/`.
+**Outcome:** A remote, spec-conformant MCP server, deployed over HTTPS on Cloudflare Workers (Streamable HTTP transport, stateless `createMcpHandler`), exposing the five V1 tools backed by the Montana corpus (Colorado automatically once `m2` lands). Every response is structured and source-cited (Shape C, ADR-011). Out-of-scope queries return a structured `coverage: "none"` — never a silent empty. The V1 endpoint is a single open, read-only MCP endpoint (public data; no enforced authentication) with the OAuth-2.1 auth seam wired as one middleware integration point but unenforced — the drop-in for real auth (Q22). Cloudflare's ambient DDoS/WAF is V1 baseline protection. Postgres is reached read-only-enforced from the edge runtime (ADR-024). External error capture is integrated through one integration point. The serving stack imports nothing from `ingestion/`.
 
 **Five epics, sequential:**
 
@@ -186,7 +186,7 @@ Story shape (refine during planning):
 1. **S11.1: Auth-seam finalization** at V1 depth (the OAuth seam wired-but-unenforced as the documented drop-in; deployed endpoint open and read-only under Cloudflare ambient DDoS/WAF; no static token relied on as a V1 boundary).
 2. **S11.2: External error capture** (`@sentry/cloudflare` or Workers Observability) behind a top-level error boundary; induced error surfaces within 60s through one integration point.
 3. **S11.3: Deploy to a reachable HTTPS endpoint** on Cloudflare Workers; reachability + latency validated.
-4. **S11.4: Docs + client config** — `mcp-server/README.md` (tool shapes, worked examples, `mcp-remote` flow) + committed example client-config snippet. (PRD 003 names this both `.mcp-config.json` and `.mcp.json` / `claude_desktop_config.json` in different places — confirm the canonical committed filename with the human at E11 planning; do not guess.)
+4. **S11.4: Docs + client config** — `mcp-server/README.md` (tool shapes, worked examples, `mcp-remote` flow) + a committed example client-config snippet at repo root (for `.mcp.json` / `claude_desktop_config.json`, invoking `mcp-remote` against the deployed URL).
 5. **S11.5 (UAT: yes): M3 UAT runbook + M3→M4 handoff** — produce the human-driven UAT runbook (mirroring `docs/runbooks/M1-uat.md`) and the M3→M4 handoff; the `m3` tag pushes at UAT sign-off. A post-implementation audit (mirroring `E05-audit.md`) is recommended at close.
 
 E08–E11's exact decomposition is the planning agent's call; expect to revise mid-epic if the first deployed tool surfaces transport or edge-runtime realities not visible at planning time (the serving analog of M1's E03 PDF-discovery cycles).
