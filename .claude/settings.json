@@ -9,30 +9,11 @@
       "Bash(.venv/bin/mypy:*)",
       "Bash(.venv/bin/pytest:*)",
       "Bash(.venv/bin/python:*)",
-      "Bash(ruff:*)",
-      "Bash(mypy:*)",
-      "Bash(pytest:*)",
-      "Bash(python -m pytest:*)",
       "Bash(pre-commit run:*)",
       "Bash(npm run:*)",
-      "Bash(npm install)",
-      "Bash(npm ci)",
       "Bash(npx tsc:*)",
-      "Bash(npx next lint:*)",
-      "Bash(tsc:*)",
       "Bash(supabase migration list:*)",
-      "Bash(supabase status:*)",
-      "Bash(git status:*)",
-      "Bash(git diff:*)",
-      "Bash(git log:*)",
-      "Bash(git show:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git restore:*)",
-      "Bash(git stash:*)",
-      "Bash(git switch:*)",
-      "Bash(git checkout:*)",
-      "Bash(git branch:*)"
+      "Bash(supabase status:*)"
     ],
     "ask": [
       "Bash(git push:*)",
@@ -41,10 +22,9 @@
       "Bash(supabase migration repair:*)"
     ],
     "deny": [
-      "Bash(rm -rf:*)",
       "Bash(sudo:*)",
-      "Bash(curl:*)",
-      "Bash(wget:*)",
+      "Bash(rm -rf ~:*)",
+      "Bash(rm -rf /Users:*)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Read(.env)",
@@ -53,22 +33,6 @@
       "Read(**/*.pem)",
       "Read(**/*.key)"
     ]
-  },
-  "sandbox": {
-    "enabled": true,
-    "credentials": {
-      "files": [
-        { "path": "./.env", "mode": "deny" },
-        { "path": "./.env.local", "mode": "deny" },
-        { "path": "~/.aws", "mode": "deny" },
-        { "path": "~/.ssh", "mode": "deny" }
-      ],
-      "envVars": [
-        { "name": "SUPABASE_SECRET_KEY", "mode": "deny" },
-        { "name": "DATABASE_URL", "mode": "deny" },
-        { "name": "ANTHROPIC_API_KEY", "mode": "deny" }
-      ]
-    }
   },
   "hooks": {
     "Stop": [
