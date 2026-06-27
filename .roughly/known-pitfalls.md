@@ -1407,17 +1407,20 @@ Empirically verified against `agents@0.17.0`, `@modelcontextprotocol/sdk@1.29.0`
 
 Declaring the `tools` capability advertises it during `initialize` but installs no handler. `client.listTools()` then throws `-32601 Method not found`, and a deployed server errors on `tools/list`. `McpServer` installs the handler only when the first `server.tool()` call is made.
 
-**To serve a conformant EMPTY tool list (zero tools registered):** call the SDK's idempotent initializer `setToolRequestHandlers()`. This method is typed `private`, so call it via a cast narrowing (no `any`):
+**To serve a conformant EMPTY tool list (zero tools registered), use the SDK's PUBLIC API:** register an explicit empty handler via the public `server.server.setRequestHandler` with the public `ListToolsRequestSchema`:
 
 ```typescript
-(server as unknown as { setToolRequestHandlers(): void }).setToolRequestHandlers();
+import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
 ```
 
-**Do NOT use the public alternative** `server.server.setRequestHandler(ListToolsRequestSchema, …)`: it works for zero tools but is **forward-incompatible** — the first `server.tool()` call in E09/E10 then throws `"A request handler for tools/list already exists"` because the public path does not set the SDK's internal `_toolHandlersInitialized` flag. `setToolRequestHandlers()` sets that flag, so later `server.tool()` registration composes cleanly.
+**Do NOT reach into private SDK internals** to do this. The tempting "forward-compatible" shortcut — calling the private `setToolRequestHandlers()` via a cast (which also sets the private `_toolHandlersInitialized` flag so a later `server.tool()` composes without throwing) — makes a *foundation* depend on three non-public surfaces (`setToolRequestHandlers`, `_toolHandlersInitialized`, and `_registeredTools` if tests introspect it). A routine SDK upgrade can then break the server or its tests with no protocol-level change. For a foundation that E09/E10 inherit, prefer public API even at the cost of a documented evolution step.
 
-**Lock the private-method dependency:** add a test asserting `typeof (server as any).setToolRequestHandlers === "function"` with a descriptive failure message so an SDK rename fails loudly with a root-cause message rather than a cryptic runtime error at deploy time.
+**Forward path (the cost of the public approach, and why it's acceptable):** when E09/E10 register real tools, they must DELETE the empty-handler line above — keeping both makes the first `server.tool()` throw `"A request handler for tools/list already exists"`. That failure is **loud and immediate** (caught by the first test run), not silent, so it is a safe, self-announcing migration step — strictly preferable to runtime brittleness on private internals.
 
-Surfaced by S08.1 implementation on 2026-06-26.
+**Lock it with the PUBLIC protocol, not internals:** assert `(await client.listTools()).tools` is `[]` over an in-memory `Client`/`Server` pair. This is the registry-empty lock — if a future edit registers a tool, `tools/list` returns it and the test fails. No `_registeredTools` introspection needed.
+
+Surfaced by S08.1 implementation 2026-06-26; corrected 2026-06-27 after review flagged the private-internals dependency (the original S08.1 ship used the private `setToolRequestHandlers()` path; the fix replaced it with the public handler).
 
 ### Stateless Workers + MCP SDK ≥ 1.26 require per-request server/transport instantiation
 

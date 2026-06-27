@@ -74,54 +74,18 @@ describe("createMcpServer — protocol conformance", () => {
     expect(LATEST_PROTOCOL_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("tools/list returns an empty array", async () => {
+  it("tools/list returns an empty array — registry-empty lock", async () => {
+    // E08 registers zero tools. This public-protocol assertion IS the
+    // registry-empty lock: if a future edit registers a tool in
+    // createMcpServer(), tools/list returns it and this test fails. The lock
+    // uses only the public MCP protocol — no private SDK internals
+    // (_registeredTools / setToolRequestHandlers) are asserted, so a routine SDK
+    // refactor of non-public details cannot break this foundation test.
     const { client: c } = await setup();
 
     const { tools } = await c.listTools();
     expect(tools).toHaveLength(0);
-  });
-
-  it("registry-empty lock — public and internal agree that zero tools are registered", async () => {
-    const { client: c } = await setup();
-
-    // Public assertion via the MCP protocol.
-    expect((await c.listTools()).tools).toEqual([]);
-
-    // Internal introspection: catches a stray future tool registered inside the
-    // factory before any connect() call. This assertion would fail loudly if a
-    // future change registered a tool in createMcpServer(), even if the public
-    // tools/list assertion somehow still passed.
-    const s = createMcpServer();
-    const reg = (
-      s as unknown as { _registeredTools?: Record<string, unknown> }
-    )._registeredTools;
-    // Guard first so an SDK rename of this internal field produces an actionable
-    // message rather than a generic "Cannot convert undefined to object".
-    expect(
-      reg,
-      "_registeredTools must exist on McpServer — SDK internal API changed; see server.ts block comment",
-    ).toBeDefined();
-    expect(Object.keys(reg as Record<string, unknown>)).toHaveLength(0);
-    // Close the standalone server to avoid open handles in the test runner.
-    await s.close();
-  });
-
-  it("setToolRequestHandlers exists on McpServer (SDK private-API existence lock)", async () => {
-    // server.ts calls the SDK's private setToolRequestHandlers() via a cast so that
-    // tools/list is answered conformantly while zero tools are registered AND a later
-    // server.tool() (E09/E10) composes without a double-register throw. The cast
-    // defeats the type checker, so this test fails LOUDLY with a root-cause message if
-    // a future SDK upgrade renames/removes the method (otherwise every other test would
-    // fail with an opaque "is not a function" TypeError in setup()).
-    const s = createMcpServer();
-    const fn = (
-      s as unknown as { setToolRequestHandlers?: unknown }
-    ).setToolRequestHandlers;
-    expect(
-      typeof fn,
-      "setToolRequestHandlers must exist — if this fails, the SDK renamed the private method; review the alternative pattern in server.ts block comment",
-    ).toBe("function");
-    await s.close();
+    expect(tools).toEqual([]);
   });
 
   it("per-request freshness — each createMcpServer() call yields a distinct instance", async () => {

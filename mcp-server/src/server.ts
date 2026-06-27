@@ -1,29 +1,32 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 /**
  * Factory that produces the HuntReady MCP server instance.
  *
  * E08 registers ZERO public tools — the server is intentionally empty at this
- * milestone. The load-bearing call below explains why we still invoke
- * setToolRequestHandlers():
+ * milestone. We must still answer tools/list: declaring `capabilities.tools`
+ * in the constructor obliges the server to handle it (the declaration alone
+ * does NOT install a handler, so an unhandled tools/list returns error -32601).
+ * We therefore install an explicit empty tools/list handler.
  *
- * Without it, `{ capabilities: { tools: {} } }` in the constructor declares
- * the capability but does NOT install a tools/list request handler, so any
- * client that sends tools/list receives error -32601 (method not found).
+ * PUBLIC API ONLY — no private SDK internals. The handler is registered via the
+ * public `server.server.setRequestHandler(...)` with the public
+ * `ListToolsRequestSchema`. We deliberately do NOT reach into the SDK's private
+ * `setToolRequestHandlers()` method or `_toolHandlersInitialized` flag: a
+ * foundation that E09/E10 inherit must not break on a routine SDK refactor of
+ * non-public details.
  *
- * Calling setToolRequestHandlers() installs that handler (returning []) AND
- * sets the SDK's internal _toolHandlersInitialized flag. The flag makes the
- * call idempotent: E09/E10's first server.tool() call invokes the same method
- * internally without throwing "A request handler for tools/list already exists".
- *
- * The alternative — setRequestHandler(ListToolsRequestSchema, ...) — is NOT
- * used because it is forward-incompatible: E09's first server.tool() would
- * throw precisely that double-register error.
+ * FORWARD PATH for E09/E10 (when real tools land): DELETE the empty-handler line
+ * below and register tools with `server.tool(...)` / `server.registerTool(...)`
+ * — those install the tools/list handler themselves. Keeping BOTH would throw
+ * "A request handler for tools/list already exists" at the first server.tool()
+ * call. That failure is LOUD and immediate (caught by the first test run), not a
+ * silent bug — it is the intended signal to remove this line.
  *
  * Any future internal health check (S08.3) is NOT a registered MCP tool; the
- * tools-registry-empty lock in tests/server.test.ts enforces this invariant.
- * This is the canonical zero-tool-but-conformant pattern that E09/E10 inherit —
- * E09 simply adds server.tool(...) calls; this setup line stays unchanged.
+ * tools-registry-empty lock in tests/server.test.ts (public `client.listTools()`
+ * returning []) enforces this invariant.
  */
 export function createMcpServer(): McpServer {
   const server = new McpServer(
@@ -31,10 +34,11 @@ export function createMcpServer(): McpServer {
     { capabilities: { tools: {} } },
   );
 
-  // Install the tools/list + tools/call handlers idempotently so the server
-  // responds conformantly to tools/list with [] and remains forward-compatible
-  // with E09/E10 tool registrations (see block comment above).
-  (server as unknown as { setToolRequestHandlers(): void }).setToolRequestHandlers();
+  // Explicit empty tools/list handler (public API). Returns [] until E09/E10
+  // register real tools — at which point this line is removed (see block comment).
+  server.server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [],
+  }));
 
   return server;
 }
