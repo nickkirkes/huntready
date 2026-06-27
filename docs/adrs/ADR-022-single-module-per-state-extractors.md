@@ -1,7 +1,8 @@
-# ADR-022: Single-Module Per-State PDF Extractors
+# ADR-022: Single-Module Per-State Adapters (Extractors and Loaders)
 
 **Date:** 2026-06
 **Status:** Accepted
+**Amended:** 2026-06-27 — scope broadened from PDF extractors to **all per-state adapter modules, including DB loaders** (`load_*.py`). The single-module convention had governed loaders informally since the S06.6 closure ("declined per ADR-022 / single-module-per-loader convention") and was re-litigated against S06.8's `load_draw_specs.py`; this amendment makes the scope explicit so the recurring "monolithic module" finding is dispositioned identically for loaders and extractors. The reasoning below applies verbatim to loaders — substitute "loader" for "extractor" and "row-count / FK-integrity / mocked-write test locks" for "artifact-regression SHA locks."
 **Decider:** Nick Kirkes
 **Tags:** ingestion
 
@@ -11,11 +12,13 @@
 
 Each state's PDF extractor is one `.py` module organized into labelled sections — probe notes → constants / TypedDicts → cleanup helpers → hunt-code / season-window parsing → table-block parsing → confidence assignment → orchestrator → CLI. They are large: MT `extract_dea.py` (1,655 LOC), `extract_legal_descriptions.py` (1,372), `extract_black_bear.py` (3,603); CO `extract_big_game.py` (2,922 after S06.3.1's R16 row-fusion port). There is no multi-module or package-structured extractor anywhere in the repo.
 
+The same shape governs the per-state **DB loaders** (`load_*.py`): each is one labelled-section module — constants → artifact loaders → pure builders → validators / guards → three-phase `main()` (build → guards → write) → CLI. They are likewise large: CO `load_seasons_and_licenses.py` (1,924 LOC), MT `load_seasons_and_licenses.py` (1,538), MT `load_jurisdiction_bindings.py` (919), CO `load_draw_specs.py` (1,093). There is no multi-module or package-structured loader anywhere in the repo either. The identical "monolithic module, split it" finding recurs against loaders — declined at the S06.6 closure and again at S06.8 — for the same reasons it is declined against extractors.
+
 Code reviewers — cubic included — recurrently raise a P2/P1 "monolithic module, split into focused modules, hard to evolve" finding against these files. It surfaced **three times** against CO `extract_big_game.py` during S06.3 alone, and again against the S06.3.1 R16 change. Each instance was declined, with the rationale recorded informally in `.roughly/known-pitfalls.md` and tracked as E06 Known Issue #9. The cost of the informal disposition is that the question gets re-litigated every time someone touches an extractor: there is no canonical, citable decision a reviewer can be pointed at. This ADR makes the decision durable.
 
 ## Decision
 
-Each state's PDF extractor remains a **single labelled-section `.py` module**. The recurring "split this into modules" review finding is a valid observation but is **declined by citing this ADR**. Extractor modularization is reopened only by a future ADR that supersedes this one and applies the new structure **uniformly across every state extractor in a single PR** — never as a piecemeal, per-story refactor at review time.
+Each state's per-state adapter module — **PDF extractor (`extract_*.py`) and DB loader (`load_*.py`) alike** — remains a **single labelled-section `.py` module**. The recurring "split this into modules" review finding is a valid observation but is **declined by citing this ADR**. Adapter modularization is reopened only by a future ADR that supersedes this one and applies the new structure **uniformly across every state adapter of that kind in a single PR** — never as a piecemeal, per-story refactor at review time.
 
 ## Reasoning
 
