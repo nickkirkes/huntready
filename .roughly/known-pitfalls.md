@@ -1414,33 +1414,35 @@ import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
 ```
 
-**The resolution has three constraints that pull against each other** — three separate reviews each flagged a different one, so the design must satisfy all at once:
+**The resolution has four constraints that pull against each other** — four separate reviews each flagged one, so the design must satisfy all at once:
 
-1. *No private SDK internals* — calling the private `setToolRequestHandlers()` via a cast (which also sets `_toolHandlersInitialized` so a later `server.tool()` composes) makes a foundation depend on three non-public surfaces (`setToolRequestHandlers`, `_toolHandlersInitialized`, `_registeredTools`); a routine SDK upgrade then breaks it with no protocol change.
-2. *Don't block the first real tool* — `McpServer.tool()` / `registerTool()` sugar calls the SDK's internal `setToolRequestHandlers()`, which throws `"A request handler for tools/list already exists"` if you already installed a `tools/list` handler.
-3. *Always-valid, no silent handler-less server* — a clever "register-tools callback" branch that skips the empty handler when a callback is passed silently produces a `-32601` server if that callback registers zero tools.
+1. *No private SDK internals* — the private `setToolRequestHandlers()` / `_toolHandlersInitialized` / `_registeredTools` path makes a foundation depend on non-public surfaces a routine SDK upgrade can break.
+2. *Don't block the first real tool* — once any `tools/list` handler is installed, `McpServer.tool()` / `registerTool()` throws `"A request handler for tools/list already exists"`.
+3. *Always-valid, no silent handler-less server* — a "registerTools callback" branch that skips the handler when a callback is passed silently yields a `-32601` server if that callback registers nothing.
+4. *Extension must be additive via the NORMAL tool API* — serving tools through a hand-written low-level `setRequestHandler(ListToolsRequestSchema, …)` works for E08 but forces E09 into a breaking refactor (it still can't call `server.tool()`); the next story must be able to just call `server.tool(...)`.
 
-**Resolution: install the empty `tools/list` handler ALWAYS via the public low-level API, and SERVE TOOLS THROUGH THAT SAME HANDLER (a registry) — do NOT use the `McpServer.tool()` sugar.**
+**Resolution: register a placeholder tool and immediately `.remove()` it.** This initializes the tools subsystem (installing the tools/list + tools/call handlers) using only PUBLIC API, then leaves zero net tools:
 
 ```typescript
-import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 export function createMcpServer(): McpServer {
   const server = new McpServer({ name, version }, { capabilities: { tools: {} } });
-  // Always installed → always valid; never 404s. E09/E10 POPULATE the returned
-  // list (replace [] with the registry) and add a sibling CallToolRequestSchema
-  // dispatch handler. The line STAYS; do not use server.tool() (it would
-  // double-register and throw). `McpServer.tool()` is only sugar over these
-  // low-level handlers, so nothing is lost.
-  server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
+  // Public + always-valid + additively extensible. registerTool installs the
+  // handlers; .remove() leaves them in place with zero tools, so tools/list
+  // returns [] AND E09/E10 add tools with the NORMAL server.tool(...) API as a
+  // plain additive call (no conflict, no line removed).
+  server
+    .registerTool("__bootstrap_noop__", { description: "removed immediately" },
+      async () => ({ content: [{ type: "text", text: "" }] }))
+    .remove();
   return server;
 }
 ```
 
-This is fully public (#1), needs no line removed and never conflicts because tools are served via the same low-level handler rather than `server.tool()` (#2), and the handler is unconditionally present so the server is always valid (#3).
+Satisfies all four: only public API (#1); `server.tool()` afterward is conflict-free because the subsystem is already initialized (#2, #4); the handlers are unconditionally present so the server is always valid (#3). `RegisteredTool.remove()` is public and leaves the request handlers installed.
 
-**Lock it with the PUBLIC protocol, not internals:** over an in-memory `Client`/`Server` pair, assert `(await client.listTools()).tools` is `[]`. This is the registry-empty lock — if a future edit registers a tool, `tools/list` returns it and the test fails. No `_registeredTools` introspection.
+**Lock it with the PUBLIC protocol, not internals:** over an in-memory `Client`/`Server` pair assert (a) `(await client.listTools()).tools` is `[]` (registry-empty lock), and (b) after calling `server.tool("ping", …)` on a fresh `createMcpServer()`, `tools/list` surfaces `ping` with no throw (additive-extension lock). No `_registeredTools` introspection.
 
-Surfaced by S08.1 2026-06-26; converged 2026-06-27 across three reviews that flagged, in turn, the private-internals dependency, the `server.tool()` double-register block, and a callback variant's silent handler-less server — the always-valid registry-driven low-level handler resolves all three.
+Surfaced by S08.1 2026-06-26; converged 2026-06-27 across four reviews that flagged, in turn: private-internals dependency → `server.tool()` double-register block → a callback variant's silent handler-less server → the low-level-handler variant still blocking the normal tool API. Register-then-remove is the only public idiom that is always-valid AND additively extensible via `McpServer.tool()`.
 
 ### Stateless Workers + MCP SDK ≥ 1.26 require per-request server/transport instantiation
 

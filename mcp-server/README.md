@@ -31,7 +31,7 @@ npx -y mcp-remote https://<worker-preview-url>/mcp
 
 ## Test-harness baseline
 
-S08.1 establishes the serving test harness (vitest, Node pool) with a baseline of **14 passing tests** — the serving analog of the Python `pytest` baseline the project tracks. E09/E10 grow this count additively.
+S08.1 establishes the serving test harness (vitest, Node pool) with a baseline of **15 passing tests** — the serving analog of the Python `pytest` baseline the project tracks. E09/E10 grow this count additively.
 
 The harness is Node-pool: tests exercise the MCP server factory (`createMcpServer`) and scan source/config files. They do not import `src/index.ts`, which imports the workerd-only `agents/mcp` package. The deployed Streamable-HTTP transport handshake (the `initialize` + `tools/list` exchange against the live Worker) is verified by the Group B MCP Inspector run.
 
@@ -39,5 +39,5 @@ Test file breakdown:
 
 | File | Tests | What it covers |
 |------|-------|----------------|
-| `tests/server.test.ts` | 5 | Protocol conformance: `initialize` handshake identity, tools capability declared, `protocolVersion` owned by the SDK, `tools/list` returns `[]` (registry-empty lock, public protocol only), per-request freshness |
+| `tests/server.test.ts` | 6 | Protocol conformance: `initialize` handshake identity, tools capability declared, `protocolVersion` owned by the SDK, `tools/list` returns `[]` (registry-empty lock, public protocol only), additive `McpServer.tool()` extension works without conflict (E09/E10 contract), per-request freshness |
 | `tests/boundary.test.ts` | 9 | Config safety + architectural invariants: no Durable Objects in `wrangler.jsonc`, no ingestion imports in `src/`, per-request server instantiation locked in `src/index.ts`, no hard-coded `protocolVersion` |

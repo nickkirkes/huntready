@@ -89,6 +89,31 @@ describe("createMcpServer — protocol conformance", () => {
     expect(tools).toEqual([]);
   });
 
+  it("tools added later via the normal McpServer.tool() API are additive — no conflict (E09/E10 extension contract)", async () => {
+    // Locks the forward path this bootstrap exists to enable: E09/E10 add a tool
+    // with the NORMAL server.tool() API and it just works — no factory line
+    // removed, no "a request handler for tools/list already exists" throw. The
+    // register-then-remove bootstrap in createMcpServer() initializes the tools
+    // subsystem so this additive call is conflict-free. This test fails loudly if
+    // a future bootstrap change reintroduces the double-register block.
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    const s = createMcpServer();
+    // Simulate E09 adding a tool the normal way (must not throw).
+    s.tool("ping", async () => ({
+      content: [{ type: "text" as const, text: "pong" }],
+    }));
+    await s.connect(serverTransport);
+    const c = new Client({ name: "test", version: "0.0.0" });
+    await c.connect(clientTransport);
+    // Assign to outer vars so afterEach cleans up even on failure.
+    client = c;
+    server = s;
+
+    const { tools } = await c.listTools();
+    expect(tools.map((t) => t.name)).toEqual(["ping"]);
+  });
+
   it("per-request freshness — each createMcpServer() call yields a distinct instance", async () => {
     // This locks the per-request instantiation pattern used in src/index.ts:
     // every incoming Worker request gets its own McpServer, so state cannot
