@@ -1386,3 +1386,43 @@ Surfaced by S06.8.0 real-PDF probe on 2026-06-24 (CPW draw-instructions front ma
 **Fix:** Use ONE dedup strategy across all extraction paths: dedup by identity key (hunt-code string), first-attribute-wins, applied after all paths have run. Collect into a single `dict[str, record]`; a late-arriving duplicate for an already-seen code logs a `WARNING` (same pattern as the "Lossy dedup on id-text PKs must be made visible" pitfall) rather than silently winning or being silently dropped. Reference: `ingestion/states/colorado/extract_draw_mechanics.py` unified-dedup pattern (S06.8.0).
 
 Surfaced by S06.8.0 Stage-6 review on 2026-06-24.
+
+### Backfill-id derivation must byte-mirror the upstream builder — grep the call site before writing the walk
+
+**Symptom:** A loader that backfills a soft-FK onto rows another loader already wrote (e.g., S06.8 backfilling `license_tag.draw_spec_key` onto S06.7's `license_tag` rows) produces zero or wrong hits at `db.update_*` because the derived target id diverges from the id the upstream builder stored.
+
+**Cause:** Subtle divergences accumulate silently. Common failure modes: (a) using a section-level fallback field (`row["section"]["gmu_code"]`) where the upstream used the row-level field (`row["gmu_code"]`); (b) mismatching species_group canonicalization (`"black_bear"` vs. the DB value `"bear"`); (c) inconsistent blank-row skip behavior. Each divergence makes the backfill target a nonexistent id — caught best-case by `db.update_*`'s `cur.rowcount == 0` fail-loud guard, but silently overwrites the wrong row worst-case.
+
+**Fix:** Before writing the backfill walk, grep the upstream builder's `_*_id(...)` call site directly: `grep -n "_id(" ingestion/states/colorado/load_seasons_and_licenses.py`. Copy the field-access expression verbatim; do not paraphrase. If the upstream builder skips blank/malformed rows, the backfill must apply the same skip condition or it will attempt to update ids that were never written. Add a code comment at the call site naming the upstream module + function + approximate line number, e.g. `# must match load_seasons_and_licenses.py:_co_license_tag_id call at :1345`. Reference: `ingestion/states/colorado/load_draw_specs.py` backfill walk (S06.8).
+
+Surfaced by S06.8 Stage-2 discovery on 2026-06-26.
+
+### Malformed upstream values that become PKs — skip-with-WARNING, never normalize in the loader
+
+**Symptom:** An extractor emits a row whose hunt-code field carries a trailing artifact (e.g., `"B-E-851-O2-R +"` from a pdfplumber row-fusion residual). The downstream loader receives it, derives a PK from it, and must decide: normalize the value and write a clean row, or skip it.
+
+**Cause:** Normalizing in the loader is incoherent when a sibling loader already wrote the same corrupted id from the same artifact — the "cleaned" backfill would target a nonexistent id. The loader does not own the extraction layer; it must treat the artifact as authoritative (ADR-008). A `"B-E-851-O2-R +"` id in one loader does not match the `"B-E-851-O2-R +"` id that S06.7's `license_tag` writer used, so the backfill fails regardless. The real fix is at the extractor (ADR-022 — extractors own extraction).
+
+**Fix:** Skip the malformed row with a `WARNING` naming (a) the raw value, (b) the row index/context, and (c) the extractor that should be fixed. Do NOT normalize/clean in the loader — that creates a silent mismatch with any sibling loader using the same artifact. Track skipped-row counts and include them in the `--dry-run` summary so the operator knows how many rows were affected. Note: cubic and the review triad disagreed on skip-vs-faithful-load here; the human ratified skip-with-WARNING (S06.8, 2026-06-27). Reference: `ingestion/states/colorado/load_draw_specs.py` malformed-hunt-code skip path (S06.8).
+
+Surfaced by S06.8 Stage-6 review on 2026-06-27.
+
+### Derive-and-asserted constants that are validate-only (not consumed in construction) must be marked with a comment
+
+**Symptom:** A module-level `Final` constant (e.g., `_HYBRID_ELIGIBILITY_POINT_LINE: Final[int] = 6`) is asserted against an artifact field to validate it, but is not used in pool construction or any other runtime logic. Static analysis (cubic, ruff unused-variable) and human reviewers flag it as a dead constant or "unused import."
+
+**Cause:** Some constants encode an UPSTREAM determination already applied by the extractor — the hybrid-vs-non-hybrid decision was made by `extract_draw_mechanics.py` and is encoded in the artifact's `hybrid_mechanics.point_line` field. The loader's `_HYBRID_ELIGIBILITY_POINT_LINE` validates that the artifact's value matches the expected threshold, but the pool-construction logic does not need to read it at runtime (the artifact already carries the result of applying it). Without a comment, the intent is invisible.
+
+**Fix:** Add a comment directly on the constant's definition explaining that it is a validate-only drift guard, not a construction input: `# validate-only: asserted against artifact field at L<lineno>; not consumed in pool construction`. This prevents a future refactor from either deleting it (losing the drift guard) or "fixing" it by wiring it into construction logic where it doesn't belong. Reference: `ingestion/states/colorado/load_draw_specs.py::_HYBRID_ELIGIBILITY_POINT_LINE` (S06.8).
+
+Surfaced by S06.8 Stage-6 review on 2026-06-27.
+
+### Conflict-detection validators must compare raw artifact values — not coerced or normalized ones
+
+**Symptom:** A cross-listing / quota-conflict guard converts values before checking for conflicts: `values.add(int(quota))`. Two distinct artifact encodings that coerce to the same integer (e.g., `"300"` and `300`) collapse into one set entry, and the conflict check `len(values) > 1` silently produces false-negative (no conflict detected).
+
+**Cause:** Coercion before comparison loses the encoding distinction that the artifact faithfully preserves. For a guard whose job is to detect unexpected variation, a coercion step widens the equivalence class in ways that are not always sound — two semantically different values (e.g., `"N/A"` coerced to `0` alongside a real quota of `0`) would incorrectly appear identical.
+
+**Fix:** Store the raw artifact value string in the comparison set: `values.add(str(quota))` or simply use the unmodified field. Reserve coercion for the downstream write site where the type must conform to the schema. The conflict guard's job is to detect ARTIFACT-level divergence — it must compare at the artifact's own granularity, not at the schema's. Reference: `ingestion/states/colorado/load_draw_specs.py::_validate_cross_listing_consistency` (S06.8).
+
+Surfaced by S06.8 Stage-6 review on 2026-06-27.
