@@ -143,6 +143,13 @@ prompt source we're actually fixing. The tuned block is in `user-settings.recomm
 
 **Why these knobs:**
 
+- **`filesystem.allowWrite: ["/tmp", "/private/tmp"]`** — the sandbox auto-allows
+  writes only inside the working tree and the session temp dir; **out-of-tree writes
+  escape to a prompt.** Your agent harness writes its scratchpad under
+  `/private/tmp/claude-501/.../scratchpad` (outside any repo), so every scratchpad
+  `mkdir`/`cat >` would prompt without this. Allowing the temp roots is low-risk
+  (not on `$PATH`, not shell config) and is the single biggest remaining
+  prompt-source for these agent sessions.
 - **`excludedCommands`** — tools that don't sandbox cleanly run *outside* it and fall
   back to the regular permission flow (where your existing allow-list already permits
   most of them, so they still don't prompt). Included: `git` (so push-over-SSH keeps
