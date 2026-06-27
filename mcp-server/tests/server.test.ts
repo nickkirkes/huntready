@@ -98,10 +98,15 @@ describe("createMcpServer — protocol conformance", () => {
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();
     const s = createMcpServer();
-    // Simulate E09 adding a tool the normal way (must not throw).
-    s.tool("ping", async () => ({
-      content: [{ type: "text" as const, text: "pong" }],
-    }));
+    // Simulate E09 adding a tool the recommended way (must not throw).
+    // Use registerTool() — server.tool() is deprecated per the MCP TypeScript SDK
+    // / Anthropic mcp-builder guidance (DO use registerTool; DO NOT use tool() or
+    // low-level setRequestHandler for tools).
+    s.registerTool(
+      "ping",
+      { description: "health check" },
+      async () => ({ content: [{ type: "text" as const, text: "pong" }] }),
+    );
     await s.connect(serverTransport);
     const c = new Client({ name: "test", version: "0.0.0" });
     await c.connect(clientTransport);
