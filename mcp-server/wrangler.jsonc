@@ -1,0 +1,12 @@
+// No Durable Objects: V1 MCP tools are stateless reads (ADR-023). No-DO + tools-registry-empty locks live in tests/.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "huntready-mcp",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-11-25",
+  // REQUIRED: the `agents/mcp` package imports `node:async_hooks`; without this flag the Worker fails to start.
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  }
+}

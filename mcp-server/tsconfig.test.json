@@ -1,0 +1,12 @@
+{
+  // Test-only typecheck config. Extends the base (Workers) tsconfig but adds the Node
+  // type globals the Node-pool tests need (node:fs / node:path / node:url / import.meta).
+  // The base tsconfig.json deliberately excludes "node" so production src/ is type-checked
+  // against the workerd environment ONLY — that base check is the gate that keeps a Node
+  // global from silently passing into Worker code. This config is for tests/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["@cloudflare/workers-types", "node"]
+  },
+  "include": ["tests/**/*.ts"]
+}

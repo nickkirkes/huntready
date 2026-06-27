@@ -4,18 +4,23 @@
   "type": "module",
   "description": "HuntReady MCP server — canonical interface for regulation data (ADR-002)",
   "scripts": {
-    "dev": "tsx src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "lint": "tsc --noEmit"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsc --noEmit",
+    "lint": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "test:ci": "vitest run --reporter=verbose"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.9.0",
-    "@supabase/supabase-js": "^2.49.0"
+    "@supabase/supabase-js": "^2.49.0",
+    "agents": "^0.17.0"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260627.1",
     "@types/node": "^22.0.0",
-    "tsx": "^4.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^4.1.9",
+    "wrangler": "^4.105.0"
   }
 }
