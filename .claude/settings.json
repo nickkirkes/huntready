@@ -1,4 +1,39 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(.venv/bin/ruff:*)",
+      "Bash(.venv/bin/mypy:*)",
+      "Bash(.venv/bin/pytest:*)",
+      "Bash(.venv/bin/python:*)",
+      "Bash(pre-commit run:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(supabase migration list:*)",
+      "Bash(supabase status:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(supabase db push:*)",
+      "Bash(supabase db reset:*)",
+      "Bash(supabase migration repair:*)"
+    ],
+    "deny": [
+      "Bash(sudo:*)",
+      "Bash(rm -rf ~:*)",
+      "Bash(rm -rf /Users:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(.env.*.local)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)"
+    ]
+  },
   "hooks": {
     "Stop": [
       {

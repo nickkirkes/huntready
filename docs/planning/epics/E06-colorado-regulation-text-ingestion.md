@@ -1,11 +1,11 @@
 # E06: Colorado Regulation Text Ingestion
 
-**Status:** In Progress — 10 of 15 stories closed (S06.0 / S06.1 / S06.3 / S06.4 / S06.3.1 / S06.5 / S06.6 / S06.6.1 / S06.6.2 / S06.7 Group A; S06.2 omitted by design at S06.3 Stage-1 discovery); **S06.7 Group A complete at-merge 2026-06-24** (first CO multi-link adapter `load_seasons_and_licenses.py`: season_definition 2013 + license_tag 2470 + license_season 2013 + regulation_season 2013 + regulation_license 2470 dry-run-verified; Q20 Season Choice resolved → per-window fan-out; PRD 002 SC #2 asymmetric-coverage locked on GMU 001 mule_deer; ADR-020 drift-guard at 4 entity sites, link builders carved out; pytest 1787 → 1907 + 4 skipped; no lib/schema/MT/TS changes; new Known Issue #13 for the ~477 female-row empty-windows extractor gap; Group B live-write operator-pending). **S06.8 (draw_spec) is now next active** — dispatch when ready (S06.7's `license_tag` rows are the `draw_spec_key` backfill targets; live execution gated on the operator Group B but the dry-run path can begin in parallel)
+**Status:** In Progress — 10 of 15 stories closed (S06.0 / S06.1 / S06.3 / S06.4 / S06.3.1 / S06.5 / S06.6 / S06.6.1 / S06.6.2 / S06.7 Group A; S06.2 omitted by design at S06.3 Stage-1 discovery); **S06.7 Group A complete at-merge 2026-06-24** (first CO multi-link adapter `load_seasons_and_licenses.py`: season_definition 2013 + license_tag 2470 + license_season 2013 + regulation_season 2013 + regulation_license 2470 dry-run-verified; Q20 Season Choice resolved → per-window fan-out; PRD 002 SC #2 asymmetric-coverage locked on GMU 001 mule_deer; ADR-020 drift-guard at 4 entity sites, link builders carved out; pytest 1787 → 1907 + 4 skipped; no lib/schema/MT/TS changes; new Known Issue #13 for the ~477 female-row empty-windows extractor gap; Group B live-write operator-pending). **S06.8.0 carved out 2026-06-24 (15 → 16 stories) — now next active.** At S06.8 build Stage-2 discovery + an independent Phase-A brochure probe, the CO extraction artifacts were found to carry **zero draw-mechanics data** (`apply_by`/`quota` null on all 2,762 rows; no `draw_phase`/`successor_hunt_code`/hybrid/residency fields) — S06.8's 80/20-hybrid + 20/25-residency premise needs the brochure draw-instructions front matter (pp. 8–32) the per-unit extractor never captured. Per user decision 2026-06-24, **S06.8.0** (CPW draw-instructions front-matter extraction → committed `draw-mechanics-2026.json`) is carved out **before S06.8** (mirrors S06.3.1 / S06.6.1 / S06.6.2). Phase A is complete + **outcome (a) confirmed extractable**: hybrid eligibility is an explicit per-hunt-code table (p. 29), deadlines on p. 14, point-only codes per species section, weighted-preference is moose/sheep/goat-only (out of V1). **S06.8 is blocked on S06.8.0**; its ACs are revised (Phase C) to consume the artifact once S06.8.0 merges. S06.7's `license_tag` rows remain the `draw_spec_key` backfill targets; S06.8 live execution still gated on operator Group B
 **Milestone:** M2 — Colorado Ingestion
 **Dependencies:** E04 (M1 carry-forward + CO schema prep), E05 (CO geometry ingestion — all 9 stories closed + audited 2026-06-06; epic at [`completed/E05-colorado-geometry-ingestion.md`](completed/E05-colorado-geometry-ingestion.md))
 **Validated:** 2026-06-08 (E06 validation triad: Source Faithfulness + Draw-Mechanics & Confidence + Schema Stress-Test & Drift-Guard; verdicts LAND-WITH-MINOR-EDITS + LAND-WITH-EDITS + LAND-WITH-MINOR-EDITS; **all 11 MUST-FIX findings applied at draft time** — broken ADR-020 link sweep [5 occurrences]; S06.0 Last-Modified/Content-Length header capture + cover-page confirmation + multi-source option (a)/(c) consequence chains + conditional 6th `db.update_geometry_verbatim` decision + schema-gap enum-extension precision; S06.1 `pending: true` drift-marker semantics; S06.3/S06.4/S06.5 ADR-008 paraphrase-prohibition + no-`layout=True` AST guard + docstring grep-parity discipline; S06.4/S06.6/S06.9 `SourceCitation.document_type` silent-widening guard per ADR-019 §"Decision" item 5; S06.6 `_JURISDICTION_BINDING_ID_FORMAT` 3-test lock + statewide-anchor 3rd-candidate flag tighten + ADR-017 FINALIZE lock; S06.7 `drift_guard.assert_id_matches` every-build-function-site language + pure id-derivation function AC + Q16/Q17/closure-temporal-anchors pre-code flag protocols; S06.8 `successor_hunt_code_key` composite-key form + 20%/25% coupling rule + `application_deadline` location lock + `purchase_only_code` per-species string + `inactive_forfeit_years=null` + module-level `Final` constants for `_HYBRID_*` parameters + `draw_spec` composite-PK exclusion AC + Q17 per-GMU caps flag; S06.9 `assert_dispatch_dict_drift_free` module-top timing + pure `_derive_reporting_obligation_id` callable; S06.10 `drift_guard` NOT imported AC + AST guard + `%s`-bound distance lock + 4-builder portion code-path preservation. Plus the most load-bearing SHOULD-FIX items.)
 **Completed:** —
-**Estimated Stories:** 15 (S06.0 through S06.11, plus S06.3.1 carved out 2026-06-16 post-S06.4-closure to address Known Issues #10 + #11, plus **S06.6.1 carved out 2026-06-21** post-S06.6-closure to address the M2-build operator-pass Step 4 PAD-US OBJECTID drift, plus **S06.6.2 carved out 2026-06-22** post-S06.6.1-closure to address the second-consecutive PAD-US drift surfaced during the operator-pass resume (GeometryCollection area-preservation in `lib/arcgis`) — all per the S03.6.1 / S05.3.5 mid-epic carve-out precedent; carve-outs added at sequencing slots if surfaced mid-epic)
+**Estimated Stories:** 16 (S06.0 through S06.11, plus S06.3.1 carved out 2026-06-16 post-S06.4-closure to address Known Issues #10 + #11, plus **S06.6.1 carved out 2026-06-21** post-S06.6-closure to address the M2-build operator-pass Step 4 PAD-US OBJECTID drift, plus **S06.6.2 carved out 2026-06-22** post-S06.6.1-closure to address the second-consecutive PAD-US drift surfaced during the operator-pass resume (GeometryCollection area-preservation in `lib/arcgis`), plus **S06.8.0 carved out 2026-06-24** at S06.8 build discovery — the CO artifacts carry no draw-mechanics data, so the brochure draw-instructions front matter (pp. 8–32) is extracted into `draw-mechanics-2026.json` before S06.8 builds — all per the S03.6.1 / S05.3.5 mid-epic carve-out precedent; carve-outs added at sequencing slots if surfaced mid-epic)
 **UAT Gating:** S06.3 / S06.4 (extraction faithfulness), S06.8 (draw_spec faithfulness against CPW publication), S06.11 (M2 milestone UAT). Most other stories are `UAT: no` — verification-gated against SQL counts deferred to S06.11. S06.5, S06.9 may flip to `UAT: yes` mid-epic if extraction surfaces faithfulness ambiguities.
 
 ---
@@ -845,9 +845,72 @@ Mirrors M1's S03.7 pattern. CO's multi-link adapter — the first E06 story prod
 
 ---
 
-### S06.8: `draw_spec` ingestion (CPW preference-point hybrid — Q12/Q17 trigger surface)
+### S06.8.0: CPW draw-instructions front-matter extraction (pp. 8–32) — mid-epic carve-out, prerequisite for S06.8
 
 **Status:** Not Started
+
+**Carve-out provenance:** Surfaced 2026-06-24 at S06.8 build Stage-2 discovery + an independent Phase-A brochure probe. The committed CO extraction artifacts (`big-game-2026.json`, `black-bear-2026.json`) carry the per-unit hunt tables (brochure pp. 33–71) but **zero draw-mechanics data**: `apply_by`, `quota`, `quota_range` are null on all 2,762 big-game rows; there is no `draw_phase`, `successor_hunt_code`, hybrid-eligibility flag, or residency-cap field on any row. S06.8's premise (80/20 hybrid pools, 20%/25% residency caps, successor chains, application deadlines) is written against data the per-unit extractor never captured — it lives in the brochure's draw-instructions front matter (pp. 8–32). Per the user decision 2026-06-24 ("carve out re-extraction first") + the project's mid-epic carve-out precedent (S06.3.1 / S06.6.1 / S06.6.2), this story extracts that front matter into a committed reference artifact **before** S06.8 builds. Mirrors the S06.3 / S06.4 extraction-story shape (deterministic committed JSON + SHA pin), structurally a sibling of those extractors rather than a fix to S06.7.
+
+**As a** developer modeling CPW's preference-point hybrid draw mechanics
+**I want** the brochure's draw-instructions front matter (hybrid hunt-code set, per-species point-only codes, draw deadlines, residency-cap coupling) extracted into a committed `draw-mechanics-2026.json` reference artifact
+**So that** S06.8 joins it against the per-unit hunt codes to build faithful `draw_spec` rows instead of inventing hybrid/residency/deadline data
+
+**UAT: yes** — PM-run faithfulness spot-check of the extracted hybrid hunt-code set + point-only codes + deadlines against the source brochure pages.
+
+**Phase A — probe gate (COMPLETE; outcome (a) confirmed):** Phase A read the brochure and characterized what CPW publishes in machine-extractable form. Findings (working note to capture the page-by-page detail):
+
+- **Hybrid eligibility = explicit per-hunt-code table (p. 29 "Hybrid Draw Hunt Codes"):** CPW lists the hybrid-draw hunt codes for Bear / Deer / Elk / Pronghorn by name (`*B-E-851-O1-R`, `D-M-002-O2-R`, `D-M-142-L1-R`, …). The `*`-prefix legend + full per-species lists span pp. 28–29 (possibly 30). Qualification rule: "minimum of five preference points" → confirms `_HYBRID_RANDOM_POOL_MIN_POINTS = 5`. The table is real but multi-column and graphics-overlapped — pdfplumber raw `extract_text` interleaves columns (same class of challenge as S06.3); table-aware extraction (`find_tables` / bbox crops) is required.
+- **Deadlines (p. 14):** Primary draw **April 7** (8 p.m. MT), Secondary draw **June 30** (8 p.m. MT), Leftover/reissued OTC **Aug. 4**. Primary species: deer/elk/pronghorn/moose/bear; Secondary: deer/elk/pronghorn/bear. "The secondary draw has replaced the leftover draw of previous years."
+- **Point-only / preference-point codes (pp. 13, 19 + per species-section headers):** "specific preference-point hunt codes are listed at the beginning of each species section." The per-species `P-999`-style point-only codes are published (pp. 30/45/63/68/72 carry `P-999` hits). Preference points apply to the **primary draw only**, not secondary (p. 19).
+- **Residency 20% / 25% (p. 14 "Nonresident License Allocations" + coupling):** the 20%-vs-25% nonresident cap couples to the rolling-three-year ≥6-point determination (research §1); the **same upstream determination drives both the hybrid 80/20 pool split and the 20% cap** (hybrid set → 0.20; everything else → 0.25). The hybrid-participate floor (5 points) and the residency-coupling line (6 rolling points) are deliberately distinct constants per the S06.8 spec.
+- **Weighted preference (`linear_weighted_random`) = moose/sheep/goat only (p. 19)** — all out of PRD 002 V1 scope; CO V1 ships zero weighted rows. No extraction needed.
+
+**Phase A outcome: (a) extractable.** The data exists in published per-hunt-code / per-species form; a real extractor is justified (not the degraded faithful-V1 fallback). Phase A's evidence-first read replaces the spec's prior research-note assumptions.
+
+**Phase B — build the extractor:**
+
+- New `ingestion/states/colorado/extract_draw_mechanics.py` (state-agnostic-clean per AST guard; ADR-008 verbatim discipline — no `layout=True`; cleanup-rules docstring grep-parity; single-module per ADR-022) reads the committed brochure PDF (`fixtures/co-cpw-big-game-2026-brochure-2026-03-04.pdf`) and emits a deterministic committed artifact via `lib/pdf.write_extraction_artifact` (one-record-per-line per the S06.3 convention).
+- **Artifact `extracted/draw-mechanics-2026.json`** shape (final field set locked at plan time against the live pages): the **hybrid hunt-code set** (list of hunt codes, per species, that use the 80/20 hybrid pools + 20% residency cap); the **per-species point-only / preference-point codes**; the **deadline set** (primary / secondary / leftover dates); the **residency-cap coupling** (hybrid → 0.20, non-hybrid → 0.25) as published; SHA-256 determinism-pinned in tests.
+- Fail-loud guards: hybrid-table anchor missing → raise; species-section point-only-code anchor missing → raise (do NOT silently emit an empty set); count-band guard on the extracted hybrid hunt-code count.
+- **Flag-and-discuss any datum that doesn't fit the published shape** (e.g., a per-hunt-code residency value contradicting the hybrid coupling → Q17 / multi-source-provenance candidate; a hybrid code that doesn't appear in the per-unit tables → STOP and surface).
+
+**Phase C — revise S06.8 to consume the artifact:** after S06.8.0 merges, S06.8's ACs (#908 hybrid pools, #910 coupling, #913 deadline-count, #907 `purchase_only_code`) are revised to read the `draw-mechanics-2026.json` reference set: hunt codes in the hybrid set get `pools=[{0.80 rank_ordered_by_points},{0.20 unweighted_random, min_points:5}]` + `residency_cap={nonresident_max_share:0.20}`; all other limited-draw codes get `pools=[{1.0 rank_ordered_by_points}]` + `{nonresident_max_share:0.25}`; `application_deadline` from the extracted deadline set per `draw_phase`; `purchase_only_code` per species from the extracted point-only codes. S06.8's faithful-V1 fallback is no longer needed — the data is real.
+
+**Deliverables:**
+
+- `ingestion/states/colorado/extract_draw_mechanics.py` (new; expected 400–900 LOC depending on the p.28–29 table complexity)
+- `ingestion/states/colorado/extracted/draw-mechanics-2026.json` (new committed artifact + SHA pin)
+- `ingestion/tests/test_extract_co_draw_mechanics.py` (new; 30–60 tests incl. determinism SHA lock + hybrid-set count lock + per-species point-only-code presence)
+- `docs/planning/epics/E06-confidence-findings/S06.8.0.md` working note with the Phase A page-by-page findings table (deletes at `m2` tag per ADR-017 §6)
+
+**Relevant ADRs:** [ADR-001](../adrs/ADR-001-authority-preserved.md) (no invented data — extract what CPW publishes; fail loud on missing anchors), [ADR-005](../adrs/ADR-005-python-for-ingestion-typescript-for-serving.md) (state-agnostic-clean; no `lib/` edits beyond the existing `write_extraction_artifact`), [ADR-008](../adrs/ADR-008-verbatim-regulation-text.md) (no `layout=True`; verbatim cleanup-rules grep-parity), [ADR-022](../adrs/ADR-022-single-module-per-state-extractors.md) (single-module per-state extractor).
+
+**Depends on:** S06.0 (brochure URL/SHA pinned + PDF on disk), S06.1 (PDF-fetch infra). The brochure PDF is already committed-locally (`fixtures/co-cpw-big-game-2026-brochure-2026-03-04.pdf`, SHA `38cf26e1…3582b3`); no operator fetch needed.
+
+**Unblocks:** S06.8 (`draw_spec` ingestion consumes `draw-mechanics-2026.json`).
+
+**Acceptance Criteria:**
+
+- [ ] `ingestion/states/colorado/extract_draw_mechanics.py` exists, state-agnostic-clean (AST guard), single-module (ADR-022), ADR-008-faithful (no `layout=True`; cleanup-rules docstring grep-parity; AST guard locks no `layout=True`)
+- [ ] Emits `extracted/draw-mechanics-2026.json` via `lib/pdf.write_extraction_artifact` (one-record-per-line); deterministic — two consecutive runs produce byte-identical output; SHA-256 pinned in the test file
+- [ ] **Hybrid hunt-code set extracted** from the p.28–29 "Hybrid Draw Hunt Codes" table for each of Bear / Deer / Elk / Pronghorn; count-band guard on the total; locked by a real-artifact count test. Every extracted hybrid hunt code is verified to be a syntactically valid CPW hunt code (`_HUNT_CODE_GRAMMAR` analog)
+- [ ] **Per-species point-only / preference-point codes extracted** (or explicitly recorded as absent for a species CPW does not publish one for — do NOT invent a code; null is permitted per `PointSystem.purchase_only_code: str | None`)
+- [ ] **Deadline set extracted** (primary April 7 / secondary June 30 / leftover Aug 4 2026) as structured dates; the dates are read from the brochure, not hard-coded blind (a constant cross-checked against the extracted value is acceptable, with the extracted value authoritative)
+- [ ] **Residency-cap coupling recorded** (hybrid → 0.20, non-hybrid → 0.25) per the published rule; any per-hunt-code published value contradicting the coupling routes to flag-and-discuss (Q17 / multi-source-provenance candidate) before adoption — **silent adoption is a process violation**
+- [ ] Fail-loud on missing hybrid-table anchor or missing species point-only-code anchor (no silent empty-set emit)
+- [ ] Zero `linear_weighted_random` / weighted-preference extraction (moose/sheep/goat are out of V1 scope; documented)
+- [ ] `docs/planning/epics/E06-confidence-findings/S06.8.0.md` working note exists with the Phase A page-by-page findings
+- [ ] No `ingestion/lib/` edits beyond consuming existing helpers; no schema/migration/three-place-sync; no `db.py` touches; no MT-file touches; no TS-stack diffs; no production-DB writes (extraction-only, dry-run-decoupled)
+- [ ] Test baseline grows additively; 30+ tests in `test_extract_co_draw_mechanics.py`
+- [ ] **UAT:** PM-run faithfulness spot-check of the extracted hybrid set + point-only codes + deadlines against the source brochure pages
+
+**Sequencing:** lands **before S06.8**. Merge order updates to: `… → S06.7 ✓ → S06.8.0 (NEW; next active) → S06.8 → S06.9 → S06.10 → S06.11`. E06 estimated stories 15 → 16. After S06.8.0 closes, S06.8's ACs are revised (Phase C) to consume the artifact; S06.8's earlier faithful-V1 fallback framing is retired (the data is extractable).
+
+---
+
+### S06.8: `draw_spec` ingestion (CPW preference-point hybrid — Q12/Q17 trigger surface)
+
+**Status:** Blocked on S06.8.0 (carved out 2026-06-24 — the CO artifacts carry no draw-mechanics data; S06.8.0 extracts the brochure front matter into `draw-mechanics-2026.json` first). Once S06.8.0 merges, the ACs below are revised (Phase C) to consume that artifact: hunt codes in the extracted hybrid set get the 80/20 pools + `nonresident_max_share=0.20`, all other limited-draw codes get the single 1.0 pool + `0.25`; `application_deadline` + `purchase_only_code` come from the extracted deadline / point-only-code sets.
 
 **As a** developer modeling CPW's preference-point hybrid draw mechanics
 **I want** every applicable CO hunt code's `draw_spec` row written with `point_system.kind='preference_linear'`, 80/20 split allocation pools (`rank_ordered_by_points` + `unweighted_random`), `residency_cap.nonresident_max_share` populated where CPW publishes it, three-stage draw chained via `successor_hunt_code`
@@ -1123,7 +1186,7 @@ The final E06 story; mirrors M1's S03.12 pattern. Operator runs the 10 success-c
 
 **Within E06: stories run sequentially.** Per M2 PM prompt §"Parallelization Strategy", the human creates a feature branch per story and merges before the next begins. The PM does not recommend parallel work within E06.
 
-**Recommended merge order:** S06.0 → S06.1 → S06.2 (conditional) → S06.3 → S06.4 (may fold into S06.3) → S06.5 → S06.6 → S06.7 → S06.8 → S06.9 → S06.10 → S06.11
+**Recommended merge order:** S06.0 → S06.1 → S06.2 (conditional) → S06.3 → S06.4 (may fold into S06.3) → S06.5 → S06.6 → S06.7 → **S06.8.0 (carve-out)** → S06.8 → S06.9 → S06.10 → S06.11
 
 **Dependency rationale (in order):**
 
@@ -1134,7 +1197,7 @@ The final E06 story; mirrors M1's S03.12 pattern. Operator runs the 10 success-c
 - **S06.1 → S06.2 → S06.3 → S06.4**: PDF fetch infra → primitives extension (conditional) → per-source extraction (parallelizable across S06.3 + S06.4 if Black Bear is separate brochure; but convention is sequential per the prompt)
 - **S06.3 + S06.4 → S06.6**: regulation_record ingestion needs all extraction artifacts available
 - **S06.6 → S06.7**: link-table ingestion FKs to regulation_record (FK-direction)
-- **S06.7 → S06.8**: draw_spec ingestion backfills license_tag.draw_spec_key (per ADR-012)
+- **S06.7 → S06.8.0 → S06.8**: S06.8.0 extracts the brochure draw-instructions front matter (`draw-mechanics-2026.json`) the per-unit artifacts lack; S06.8 then builds draw_spec from it + backfills license_tag.draw_spec_key (per ADR-012)
 - **S06.6 → S06.9**: reporting_obligation ingestion may FK to regulation_record per Q18 disposition
 - **S06.5 → S06.10**: binding loader writes `role='no_hunt_zone'` against geometry rows with populated `verbatim_rule` (S06.5 ships first)
 - **S06.6 + S06.7 + S06.9 + S05.5 fixture → S06.10**: binding loader consumes the regulation_record × geometry-overlays.json cross product + writes regulation_reporting links

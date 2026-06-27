@@ -1337,3 +1337,52 @@ Surfaced by S06.7 Stage-6 review on 2026-06-23.
 **Fix:** Keep id-derivation function parameters in exact correspondence with the fields the id format string actually encodes — no more, no fewer. If a parameter is present but not in the format string, either add it to the format string (if it should be part of the id) or delete it from the function signature. A docstring that lists a parameter not embedded in the id is a lie that prevents the drift guard from working. Reference: `ingestion/states/colorado/load_seasons_and_licenses.py::_co_season_definition_id` (S06.7 — `season_code` removed). Extends the "name the source-of-truth before copying numbers" discipline to function signatures.
 
 Surfaced by S06.7 Stage-4 plan review on 2026-06-23.
+
+### A downstream story's premise can assume artifact fields the upstream extractor never captured — probe field presence on the committed artifact before planning
+
+**Symptom:** A story spec reads plausibly: "derive hybrid pool splits, residency caps, deadlines, and successor chains from the committed CO extraction artifacts." At Stage-2 discovery, a direct artifact probe reveals that ALL rows in `big-game-2026.json` have `apply_by=null`, `quota=null`, `quota_range=null`, and no `draw_phase` or `successor_hunt_code` fields at all. The per-unit extractor (S06.3) captured hunt tables from the brochure's hunt-code pages (pp. 33–71) but not the draw-instructions front matter (pp. 8–32) where CPW publishes that data. This forced a mid-epic carve-out (S06.8.0) to extract the front matter first, delaying the downstream story.
+
+**Cause:** Spec authors write against the source PDF — they know the data is *somewhere* in the document. But the upstream extraction story scoped only a subset of the PDF's sections. The downstream spec inherits the assumption "if the PDF has it, the artifact has it." That inference is wrong whenever the upstream extractor's page range excludes the relevant section.
+
+**Fix:** During Stage-2 discovery for any story that reads from a committed extraction artifact, verify field presence explicitly before writing the plan. For JSON artifacts:
+
+```bash
+python -c "
+import json, collections
+rows = json.load(open('ingestion/states/colorado/extracted/big-game-2026.json'))
+all_rows = [r for sec in rows for r in sec.get('rows', [])]
+print(collections.Counter(r.get('apply_by') is not None for r in all_rows))
+"
+```
+
+A result of `Counter({False: 2762})` means the field is universally null and the plan cannot depend on it. Do this for EVERY field the story spec requires. Discovering the gap at Stage-2 is cheap (one grep or json probe); discovering it at Stage-4 plan-review or at build time is a mid-epic carve-out. Extends the "E03 story discovery — source-audit upstream artifacts for every epic-required row type before planning" pitfall (Conventions — Ingestion adapters) to the field-presence level: that pitfall covers missing ROW TYPES; this one covers missing FIELDS on existing rows.
+
+Surfaced by S06.8 Stage-2 discovery on 2026-06-24 (S06.8 draw_spec ingestion probed `big-game-2026.json` and found null `apply_by`/`quota`/`quota_range` on all 2,762 rows; CPW draw-instructions front matter was unextracted; carve-out S06.8.0 was required).
+
+### Multi-column reference tables split across several `find_tables()` results — attribute header-less continuations to the preceding header table; recover callout lines via bbox crop
+
+**Symptom:** A brochure section presents species/category codes in a visual grid whose pdfplumber extraction returns one header row and multiple header-less continuation blocks — often with an additional category (e.g., bear) that appears nowhere in any returned table at all, living instead in a callout text line adjacent to the grid.
+
+**Cause:** pdfplumber's `find_tables()` splits visual columns into separate `Table` objects when it detects column gaps. A two-part table (header row + continuation rows) surfaces as TABLE A (header) followed by TABLE B (no header) — there is no parent-child relationship; only rendering order signals the connection. Separately, bear hunt codes on CPW p. 29 live in a callout / shaded-box line that pdfplumber never classifies as a table row.
+
+**Concrete case:** CPW Big Game brochure p. 29 "Hybrid Draw Hunt Codes" — deer, elk, and pronghorn blocks each surface as a 1-row header table followed by 1–2 header-less continuation tables. Bear codes are in a standalone callout recovered only via `extract_text(page, bbox=(x0, y0, x1, y1))` crop, not via any `find_tables()` result.
+
+**Fix — continuation attribution:** after finding a header table, attribute subsequent HEADER-LESS tables to the same category until the next header-bearing table appears. A header table is distinguished by having a first cell matching a known category name (e.g., `"Deer"`, `"Elk"`); a header-less table has a numeric or code first cell. Collect all tables in page order; walk them once, carrying `current_category` state.
+
+**Fix — callout lines:** for sub-blocks that are not tabular (sidebars, shaded callout boxes), use a column-scoped bbox crop — `extract_text(page, bbox=(x0, y0, x1, y1))` — to isolate the region, then parse codes from the resulting text with a regex. Do not attempt to recover these via `find_tables()`. Pair with the existing multi-column-prose crop pitfall above (keep crop edges in inter-line whitespace, add fail-loud regex-anchor guard).
+
+Surfaced by S06.8.0 real-PDF probe on 2026-06-24 (CPW draw-instructions front matter p. 29 "Hybrid Draw Hunt Codes" section).
+
+### A per-category non-zero guard does not catch partial under-extraction — pin exact counts when known, and use ONE dedup strategy across all extraction paths
+
+**Two related findings from S06.8.0 (hybrid draw-code extractor):**
+
+**Finding A — band guards miss partial under-extraction.** The hybrid extractor guarded (a) "each of the 4 species categories must yield ≥ 1 code" and (b) a total count band `[80, 160]`. But a partial bear extraction (1–2 of the known 3 codes) passes both: the non-zero-per-category guard fires only at zero; the band guard is satisfied by `1+39+38+36=114`, which is well within `[80, 160]`. The 3 specific bear codes were identified empirically from the PDF (3 distinct `B-*` codes on p. 29); any under-extraction is detectable only via an exact-count assertion, not a band.
+
+**Fix:** When an exact empirical count is known for a category, assert it exactly with a fail-loud check before the write boundary. Keep the band guard as a sanity check for the total, but add a per-category exact-count assertion for categories whose cardinality is fully enumerable from the source document.
+
+**Finding B — mixed dedup strategies admit conflicting duplicates.** The bear path used `sorted(set(tuples))` (dedup on the full tuple). The table-species path used a `seen: set[str]` first-occurrence-wins guard keyed on the hunt-code string. A bear code appearing with both a plain form and a footnote-marker form (`*` suffix) in the source would produce one canonical entry via the tuple-set approach. If that same code appeared across both paths — e.g., from both the callout and a continuation table — the two paths would produce TWO records with potentially different attributes, because the tuple-set and the seen-set are separate and do not prevent cross-path duplicates. The inconsistency is invisible at test time because the two paths are exercised by separate test fixtures.
+
+**Fix:** Use ONE dedup strategy across all extraction paths: dedup by identity key (hunt-code string), first-attribute-wins, applied after all paths have run. Collect into a single `dict[str, record]`; a late-arriving duplicate for an already-seen code logs a `WARNING` (same pattern as the "Lossy dedup on id-text PKs must be made visible" pitfall) rather than silently winning or being silently dropped. Reference: `ingestion/states/colorado/extract_draw_mechanics.py` unified-dedup pattern (S06.8.0).
+
+Surfaced by S06.8.0 Stage-6 review on 2026-06-24.
