@@ -51,18 +51,29 @@ new sibling keys.
 | `permissions.ask` | `git push`, `supabase db push`, `supabase db reset`, `supabase migration repair` | Networked / DB-mutating / history-rewriting. `ask` prompts even though your global settings allow `git push` — a deliberate re-gate for this repo (see §3). |
 | `permissions.deny` | `sudo`; `rm -rf ~`, `rm -rf /Users`; `git push --force`/`-f`; reads of `.env*`, `*.pem`, `*.key` | Hard guardrails that **do not collide** with your global allow-list (see §3 for what was deliberately dropped). Deny wins over any allow, in any scope. |
 
-### 1b. User settings — `~/.claude/settings.json` (one line, manual)
+### 1b. User settings — `~/.claude/settings.json` (the primary layer)
 
-Provided as `user-settings.recommended.json`. **Merge** this single key into your
-existing file (don't replace it):
+Provided as `user-settings.recommended.json`. **Merge** these keys into your
+existing file — they are all net-new (no collision with your `permissions.allow`).
+Do not replace the file.
 
-```json
-{ "teammateMode": "auto" }
-```
+This is where the real prompt-reduction lives, and it has to be here — **your build
+sessions run in worktree/scratchpad paths outside the repo** (e.g.
+`/private/tmp/.../bbq-worktrees-huntready-M3/.../scratchpad`), where the project
+`.claude/settings.json` is never loaded. Only user settings apply there. It adds:
 
-It sets the agent-teams display mode to split panes when you're in tmux/iTerm2,
-in-process otherwise. That is the *only* user-level change recommended — the floor
-and the sandbox were deliberately kept out of your global file (§3).
+- **`sandbox.enabled: true` (auto-allow)** — the OS boundary replaces the
+  per-command Bash prompt. Sandboxed Bash just runs; out-of-tree writes and new
+  network domains still escape to a prompt. This is what silences the prompting,
+  everywhere, *safely* (containment, not blind trust).
+- **`permissions.defaultMode: acceptEdits`** — auto-accept file edits in every
+  project (file tools aren't sandboxed, so this is the edit-side counterpart to
+  the sandbox's bash-side coverage).
+- **`permissions.deny`** — a minimal floor that doesn't collide with your global
+  allow-list: `sudo`, force-push, `rm -rf ~`, `rm -rf /Users`.
+- **`teammateMode: "auto"`** — agent-teams split panes in tmux/iTerm2.
+- **`sandbox.excludedCommands` / `network.allowedDomains` / `credentials`** — the
+  tuning that keeps your real workflow smooth and your secrets protected (§4).
 
 ---
 
@@ -74,18 +85,16 @@ Precedence (high → low): **managed → CLI args → `.claude/settings.local.js
 
 | Setting | Home | Reason |
 | :-- | :-- | :-- |
-| `permissions` (allow/ask/deny + `defaultMode`), `env` (agent teams) | Project `.claude/settings.json` | Applies to roughly's subagents (they inherit the session — §5), committed/shared, and scoped so it can't disturb your other projects. |
-| `teammateMode` | User `~/.claude/settings.json` | Display preference; harmless globally. |
-| Sandbox | **Not enabled** (optional — §4) | A global sandbox would break your native/DB tooling; even project-scoped it fights local `psql`/`supabase`. Left off by default. |
+| `sandbox`, `defaultMode: acceptEdits`, minimal `deny` floor, `teammateMode` | **User** `~/.claude/settings.json` | The prompt-reduction + containment layer. Must be user-level: build sessions run in worktree/scratchpad paths outside the repo, where project settings don't load (§1b). |
+| Project `permissions` (dev-loop `allow`, `ask` gates, scoped secret-read `deny`), `env` (agent teams) | Project `.claude/settings.json` | HuntReady-specific overrides: gates `git push`/`supabase db push`, hard-denies reads of this repo's `.env`, applies to roughly's subagents (§5). |
 | Hooks (Stop, plan-mode-gate) | Untouched, project file | Roughly-managed. Merged around. |
 
-Why **not** a user-level deny "floor" (my earlier draft proposed one): your global
-config intentionally allows things a blanket floor would block — `Bash(curl:*)`,
-`rm -rf /tmp/...`, and `grep`-ing `.env` in other repos. A user-scope deny wins
-everywhere and would silently break those. Scoping the guardrails to HuntReady
-keeps your other projects exactly as they are. The cost is that the guardrails
-don't survive a *full overwrite* of the project file — but the only path that does
-that is under your control (§5).
+The user-level `deny` floor is deliberately *minimal* — only entries that don't
+collide with your global allow-list (`sudo`, force-push, `rm -rf ~`/`/Users`). It
+does **not** include a global `Read(.env)` deny: that would break `grep .env`
+workflows in your other repos, and the sandbox's `credentials` block gives stronger,
+OS-level secret protection anyway (§4). The project file keeps a `Read(.env)` deny
+scoped to HuntReady.
 
 ---
 
@@ -123,41 +132,45 @@ each.)
 
 ---
 
-## 4. Sandbox — optional, off by default for this operator
+## 4. Sandbox — enabled at user level (the chosen fix)
 
-The macOS sandbox (Seatbelt, zero-install) would let a broad Bash allow-list run
-safely. But your workflow runs a lot of things the sandbox prompts on or breaks:
-`psql` to `127.0.0.1` local Supabase, the `supabase` CLI, and (in other repos)
-Expo/Xcode/CocoaPods, which write outside the working tree and use Apple Events.
-Enabling it globally would degrade those; even project-scoped it fights HuntReady's
-heavy local-DB verification. So it is **left off**.
+The macOS sandbox (Seatbelt, zero-install) lets a broad Bash allow run *safely*: in
+auto-allow mode the OS boundary substitutes for the per-command prompt, so bash runs
+without prompting while out-of-tree writes and new network domains still escape to a
+prompt. It is enabled in **user** settings so it applies in every session, including
+the worktree/scratchpad sessions where project settings don't load (§1b) — that's the
+prompt source we're actually fixing. The tuned block is in `user-settings.recommended.json`.
 
-If you later want OS-level Bash containment for HuntReady specifically, enable it in
-the project file and smooth the rough edges:
+**Why these knobs:**
 
-```json
-{
-  "sandbox": {
-    "enabled": true,
-    "network": { "allowedDomains": ["services.arcgis.com", "*.arcgis.com", "www2.census.gov", "fwp.mt.gov", "spl.cde.state.co.us", "*.supabase.co"] },
-    "excludedCommands": ["psql", "supabase"],
-    "credentials": {
-      "files": [{ "path": "./.env", "mode": "deny" }, { "path": "~/.ssh", "mode": "deny" }, { "path": "~/.aws", "mode": "deny" }],
-      "envVars": [{ "name": "SUPABASE_SECRET_KEY", "mode": "deny" }, { "name": "DATABASE_URL", "mode": "deny" }]
-    }
-  }
-}
-```
+- **`excludedCommands`** — tools that don't sandbox cleanly run *outside* it and fall
+  back to the regular permission flow (where your existing allow-list already permits
+  most of them, so they still don't prompt). Included: `git` (so push-over-SSH keeps
+  working), `psql`/`supabase` (local DB + CLI), `brew`/`docker`/`gh` (system + Go-TLS),
+  and the native toolchain `pod`/`bundle`/`gem`/`xcodebuild`/`xcrun`/`swiftc`/`eas`/
+  `plutil`/`osascript`/`open`. Trim or extend per what you actually run.
+- **`network.allowedDomains`** — pre-allows the hosts you hit constantly (npm, pypi,
+  github, the ArcGIS/Census/CPW/Supabase data sources) so you don't even get the
+  one-time per-host prompt. Anything else prompts once per session, then is remembered.
+- **`credentials`** — OS-level denies reads of `~/.ssh` and `~/.aws` and unsets
+  `SUPABASE_SECRET_KEY`/`DATABASE_URL`/`ANTHROPIC_API_KEY` for sandboxed subprocesses.
+  This is the real security win: it closes the gap a `Read(.env)` deny leaves open (a
+  Python script that opens `.env` itself isn't stopped by a Read rule), and it means a
+  sandboxed loader can't reach the prod DB even if invoked without `--dry-run`.
 
-`sandbox.credentials` is the one feature worth calling out: it OS-level-denies the
-secret files and unsets the secret env vars for sandboxed subprocesses — closing
-the gap that `Read(...)` deny rules leave open (a Python script that opens `.env`
-itself is not stopped by a Read deny). It only takes effect when the sandbox is on.
+**Caveats to expect (nothing hard-breaks):**
 
-**Note on the limit of `Read` denies:** they block the built-in Read tool and
-file-reading Bash commands Claude recognizes (`cat`, `head`, `tail`, `sed`), but
-not an arbitrary `python`/`node` script that opens a file. Without the sandbox,
-secret protection in HuntReady rests on the Read denies plus not committing `.env`.
+- The escape hatch (`allowUnsandboxedCommands`, default on) means any command that
+  fails under the sandbox is retried unsandboxed *with a prompt* — so a tool you
+  didn't exclude degrades to one prompt, not a failure.
+- Orchestrators like `npx expo run:ios` spawn `pod`/`xcodebuild` as children inside
+  the sandbox; `excludedCommands` only excludes the top-level command, so those
+  sessions may still hit the escape-hatch prompt. Add an `npx expo` exclusion if it
+  bites, or just approve.
+- `git push` over SSH works because `git` is excluded; the `~/.ssh` credentials deny
+  only applies to *sandboxed* subprocesses, so your keys stay protected from those.
+- `jest` can hang under the sandbox (watchman incompatibility) — run `jest --no-watchman`.
+- After applying, run `/sandbox` and confirm Mode = auto-allow (it's the default).
 
 ---
 
@@ -252,11 +265,17 @@ resumption, task-status lag, and shutdown.
 
 ## 7. How to apply (no commit performed by this task)
 
-1. **Project file:** apply the staged diff to `.claude/settings.json` (the merged
+1. **User file (the one that fixes the prompting):** merge the keys from
+   `user-settings.recommended.json` into `~/.claude/settings.json` — `sandbox`,
+   `permissions.defaultMode`, `permissions.deny`, `teammateMode`. They're all
+   net-new; **do not touch your existing `permissions.allow`.**
+2. Run `/sandbox` and confirm Mode = auto-allow; run `/permissions` to confirm rules
+   loaded. The first time a non-pre-allowed host is hit, approve it once.
+3. **Project file:** apply the staged diff to `.claude/settings.json` (the merged
    file is `settings.json.merged`; unified diff in the hand-back). `.claude/` is a
    protected path this session can't write directly, so this is a copy-in step.
-2. **User file:** merge `{ "teammateMode": "auto" }` into `~/.claude/settings.json`.
-3. Open Claude Code in the repo and run `/permissions` to confirm the rules loaded.
+   (Mostly redundant now that the sandbox runs at user level — but it keeps the
+   HuntReady-scoped `ask`/secret-deny gates.)
 4. Don't run `/roughly:setup` with a formatter on this repo (§5).
 5. Consider disabling `ruckus@nickkirkes` in `~/.claude/settings.json` (§3).
 
