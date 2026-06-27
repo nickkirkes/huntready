@@ -1,0 +1,19 @@
+docs/claude-code-permissions.md
+  s_1193bbc9beb1f6::t_25801678c368ba 146-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "bf50bf63385e77e65cb38610c14af13cf8c4397d",
+  "prompts": {},
+  "sessions": {
+    "s_1193bbc9beb1f6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9459fe20-fd77-412c-b495-4857fe5c2330",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Nick Kirkes <nick@rowdycloud.io>"
+    }
+  }
+}
