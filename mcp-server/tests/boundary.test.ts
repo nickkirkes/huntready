@@ -1,15 +1,21 @@
 /**
  * Boundary + config-safety tests (S08.1 T7)
  *
- * Source/config-scanning tests that lock architectural guarantees that cannot be
- * unit-imported because src/index.ts imports `agents/mcp`, which is workerd-only
- * and cannot load in the Node vitest pool. All tests read files as text via
- * node:fs — no import of src/index.ts as a module.
+ * These lock architectural guarantees that cannot be unit-imported because
+ * src/index.ts imports `agents/mcp`, which is workerd-only and cannot load in the
+ * Node vitest pool. Rather than scan raw source text (where a comment or string
+ * literal can spuriously match a forbidden pattern), the TypeScript guards parse
+ * the file with the TypeScript compiler API and inspect the SYNTAX TREE — the
+ * direct analog of the Python ingestion AST guards (TestNoColoradoLeakIntoSharedLib
+ * / TestNoStateAdapterImports, which use ast.walk). Comments and unrelated string
+ * literals are not part of the inspected nodes, so documentation edits cannot
+ * break these locks.
  */
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 
 // ESM __dirname equivalent.
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -20,12 +26,17 @@ const wranglerConfigPath = resolve(__dirname, "../wrangler.jsonc");
 const indexTsPath = resolve(__dirname, "../src/index.ts");
 
 // ---------------------------------------------------------------------------
-// Helper: recursively collect all .ts files under a directory.
-// Analog of the Python ingestion AST guards (TestNoColoradoLeakIntoSharedLib /
-// TestNoStateAdapterImports). Python uses ast.walk; TypeScript has no stdlib
-// AST, so this is a regex source-scan — the same approach used in the ingestion
-// project's raw-string slug scans.
+// AST helpers (TypeScript compiler API)
 // ---------------------------------------------------------------------------
+function parseSourceFile(filePath: string): ts.SourceFile {
+  return ts.createSourceFile(
+    filePath,
+    readFileSync(filePath, "utf-8"),
+    ts.ScriptTarget.ES2022,
+    /* setParentNodes */ true,
+  );
+}
+
 function collectTsFiles(dir: string): string[] {
   const results: string[] = [];
   for (const entry of readdirSync(dir)) {
@@ -40,38 +51,116 @@ function collectTsFiles(dir: string): string[] {
   return results;
 }
 
+/** Every module specifier this file imports/exports from, static + dynamic. */
+function moduleSpecifiers(sf: ts.SourceFile): string[] {
+  const specs: string[] = [];
+  const visit = (node: ts.Node): void => {
+    // import ... from "X"
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+      specs.push(node.moduleSpecifier.text);
+    }
+    // export ... from "X"
+    else if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      specs.push(node.moduleSpecifier.text);
+    }
+    // import X = require("Y")
+    else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference) &&
+      ts.isStringLiteral(node.moduleReference.expression)
+    ) {
+      specs.push(node.moduleReference.expression.text);
+    }
+    // dynamic import("X")
+    else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length > 0 &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      specs.push((node.arguments[0] as ts.StringLiteral).text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return specs;
+}
+
+/** All call expressions to a bare identifier `name` (e.g. `createMcpServer()`). */
+function callsToIdentifier(sf: ts.SourceFile, name: string): ts.CallExpression[] {
+  const calls: ts.CallExpression[] = [];
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === name
+    ) {
+      calls.push(node);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return calls;
+}
+
+/** True if `node` is lexically nested inside any function/method body. */
+function isInsideFunction(node: ts.Node): boolean {
+  let p = node.parent;
+  while (p) {
+    if (
+      ts.isFunctionDeclaration(p) ||
+      ts.isFunctionExpression(p) ||
+      ts.isArrowFunction(p) ||
+      ts.isMethodDeclaration(p)
+    ) {
+      return true;
+    }
+    p = p.parent;
+  }
+  return false;
+}
+
+/** True if any Identifier node in the tree is named `name` (ignores comments/strings). */
+function usesIdentifier(sf: ts.SourceFile, name: string): boolean {
+  let found = false;
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && node.text === name) {
+      found = true;
+    }
+    if (!found) ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return found;
+}
+
 // ---------------------------------------------------------------------------
-// Test 1: No Durable Objects in wrangler config
+// Test 1: No Durable Objects in wrangler config (structural key check)
 // ---------------------------------------------------------------------------
 describe("wrangler.jsonc — no Durable Objects", () => {
-  it("does not contain the durable_objects key", () => {
+  // Match the quoted CONFIG KEY form ("durable_objects":), not the bare word, so
+  // the human comment "No Durable Objects" cannot trip the assertion. (wrangler
+  // config is JSONC; a structural key check is the syntactic analog here.)
+  it("does not declare a durable_objects binding", () => {
     const text = readFileSync(wranglerConfigPath, "utf-8");
-
-    // The wrangler file contains a human-readable comment: "No Durable Objects"
-    // (with a space + capital letters). That is intentional and fine.
-    // The regex /durable_objects/i checks for the snake_case config key that
-    // Wrangler parses. "Durable Objects" (space-separated, title-case) does NOT
-    // contain "durable_objects" as a substring, so the comment does not trigger
-    // this assertion. This correctly separates documentation from configuration.
-    expect(/durable_objects/i.test(text)).toBe(false);
+    expect(/"durable_objects"\s*:/.test(text)).toBe(false);
   });
 
   it("does not declare a migrations array", () => {
     const text = readFileSync(wranglerConfigPath, "utf-8");
-
-    // Durable Object migrations would appear as `"migrations": [...]`.
-    // Asserting this key is absent locks the no-DO guarantee from the config
-    // side (complementing the durable_objects key check above).
     expect(/"migrations"\s*:/.test(text)).toBe(false);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Test 2: No-ingestion-import guard
+// Test 2: No-ingestion-import guard (AST walk over import/export specifiers)
 // Serving analog of the ingestion TestNoColoradoLeakIntoSharedLib /
-// TestNoStateAdapterImports AST guards. Ensures no TypeScript source file
-// under src/ imports from `ingestion/`, keeping the serving stack cleanly
-// separated from the Python ingestion pipeline (ADR-003 / ADR-005).
+// TestNoStateAdapterImports AST guards (ADR-003 / ADR-005). Inspects actual
+// module specifiers only — a comment or string literal mentioning "ingestion"
+// cannot trip it.
 // ---------------------------------------------------------------------------
 describe("src/ — no ingestion imports", () => {
   const tsFiles = collectTsFiles(srcDir);
@@ -82,56 +171,50 @@ describe("src/ — no ingestion imports", () => {
 
   for (const filePath of tsFiles) {
     it(`${filePath} does not import from ingestion`, () => {
-      const text = readFileSync(filePath, "utf-8");
-
-      // Static import: from 'ingestion/...' or from "ingestion/..."
-      const staticImportMatch = /from\s+['"][^'"]*ingestion/.test(text);
-      // Dynamic import: import('ingestion/...') or import("ingestion/...")
-      const dynamicImportMatch = /import\(\s*['"][^'"]*ingestion/.test(text);
-
-      expect(staticImportMatch, `Static ingestion import found in ${filePath}`).toBe(false);
-      expect(dynamicImportMatch, `Dynamic ingestion import found in ${filePath}`).toBe(false);
+      const specs = moduleSpecifiers(parseSourceFile(filePath));
+      const offending = specs.filter((s) => /(^|[/\\])ingestion([/\\]|$)/.test(s));
+      expect(
+        offending,
+        `ingestion import(s) found in ${filePath}: ${offending.join(", ")}`,
+      ).toEqual([]);
     });
   }
 });
 
 // ---------------------------------------------------------------------------
-// Test 3: Per-request instantiation lock on index.ts
-// Locks the SDK >=1.26 + stateless-workerd per-request construction
-// requirement: createMcpServer() must be called INSIDE the fetch handler,
-// never at module/global scope. Cannot be checked by import because index.ts
-// imports agents/mcp (workerd-only); this is a source-text scan instead.
+// Test 3: Per-request instantiation lock on index.ts (AST)
+// Locks the SDK >=1.26 + stateless-workerd requirement: createMcpServer() must be
+// constructed INSIDE the request handler, never at module/global scope (module
+// scope = state shared across concurrent requests = the bug). Checks call sites in
+// the syntax tree, so a comment mentioning createMcpServer() cannot affect it.
 // ---------------------------------------------------------------------------
 describe("src/index.ts — per-request server instantiation", () => {
-  it("calls createMcpServer() inside the fetch handler, not at module scope", () => {
-    const text = readFileSync(indexTsPath, "utf-8");
+  it("constructs createMcpServer() inside a function, never at module scope", () => {
+    const sf = parseSourceFile(indexTsPath);
+    const calls = callsToIdentifier(sf, "createMcpServer");
 
-    // The function must appear somewhere in the file.
-    expect(text.includes("createMcpServer()")).toBe(true);
-
-    const fetchHandlerIdx = text.indexOf("async fetch(");
-    // Use lastIndexOf for the CALL site: indexOf could be fooled by an earlier
-    // mention in a comment (e.g. "// don't call createMcpServer() at module scope").
-    // The real construction is the last occurrence; it must sit inside the handler.
-    const createServerIdx = text.lastIndexOf("createMcpServer()");
-
-    // fetch handler must be declared before createMcpServer() is called,
-    // meaning the call appears after "async fetch(" in the source.
-    expect(fetchHandlerIdx).toBeGreaterThan(-1);
-    expect(createServerIdx).toBeGreaterThan(fetchHandlerIdx);
+    // It must actually be called…
+    expect(calls.length).toBeGreaterThan(0);
+    // …and every call site must be nested inside a function/method (the fetch
+    // handler), never a module-scope statement.
+    const moduleScopeCalls = calls.filter((c) => !isInsideFunction(c));
+    expect(
+      moduleScopeCalls.length,
+      "createMcpServer() must not be called at module scope (per-request only)",
+    ).toBe(0);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Test 4: index.ts does not hard-code protocolVersion
-// The protocol version is negotiated by the SDK/transport layer, never
-// hard-coded at the application layer. The positive assertion that the SDK
-// owns the version lives in tests/server.test.ts.
+// Test 4: index.ts does not reference protocolVersion (AST)
+// The protocol version is negotiated by the SDK/transport, never touched at the
+// application layer. Checks for an actual `protocolVersion` Identifier in code —
+// a comment mentioning protocolVersion is not an Identifier node and is ignored.
+// The positive "SDK owns the version" assertion lives in tests/server.test.ts.
 // ---------------------------------------------------------------------------
-describe("src/index.ts — no hard-coded protocolVersion", () => {
-  it("does not contain the literal string protocolVersion", () => {
-    const text = readFileSync(indexTsPath, "utf-8");
-
-    expect(text.includes("protocolVersion")).toBe(false);
+describe("src/index.ts — no app-layer protocolVersion", () => {
+  it("does not reference a protocolVersion identifier", () => {
+    const sf = parseSourceFile(indexTsPath);
+    expect(usesIdentifier(sf, "protocolVersion")).toBe(false);
   });
 });
