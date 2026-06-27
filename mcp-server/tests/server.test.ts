@@ -77,10 +77,11 @@ describe("createMcpServer — protocol conformance", () => {
   it("tools/list returns an empty array — registry-empty lock", async () => {
     // E08 registers zero tools. This public-protocol assertion IS the
     // registry-empty lock: if a future edit registers a tool in
-    // createMcpServer(), tools/list returns it and this test fails. The lock
-    // uses only the public MCP protocol — no private SDK internals
-    // (_registeredTools / setToolRequestHandlers) are asserted, so a routine SDK
-    // refactor of non-public details cannot break this foundation test.
+    // createMcpServer(), tools/list returns it and this test fails. The lock uses
+    // only the public MCP protocol — no private SDK internals (_registeredTools /
+    // setToolRequestHandlers) are asserted, so a routine SDK refactor of
+    // non-public details cannot break this foundation test. The handler is
+    // always installed (never 404s); E09/E10 populate it (see src/server.ts).
     const { client: c } = await setup();
 
     const { tools } = await c.listTools();

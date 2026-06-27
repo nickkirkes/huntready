@@ -1414,13 +1414,33 @@ import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
 ```
 
-**Do NOT reach into private SDK internals** to do this. The tempting "forward-compatible" shortcut — calling the private `setToolRequestHandlers()` via a cast (which also sets the private `_toolHandlersInitialized` flag so a later `server.tool()` composes without throwing) — makes a *foundation* depend on three non-public surfaces (`setToolRequestHandlers`, `_toolHandlersInitialized`, and `_registeredTools` if tests introspect it). A routine SDK upgrade can then break the server or its tests with no protocol-level change. For a foundation that E09/E10 inherit, prefer public API even at the cost of a documented evolution step.
+**The resolution has three constraints that pull against each other** — three separate reviews each flagged a different one, so the design must satisfy all at once:
 
-**Forward path (the cost of the public approach, and why it's acceptable):** when E09/E10 register real tools, they must DELETE the empty-handler line above — keeping both makes the first `server.tool()` throw `"A request handler for tools/list already exists"`. That failure is **loud and immediate** (caught by the first test run), not silent, so it is a safe, self-announcing migration step — strictly preferable to runtime brittleness on private internals.
+1. *No private SDK internals* — calling the private `setToolRequestHandlers()` via a cast (which also sets `_toolHandlersInitialized` so a later `server.tool()` composes) makes a foundation depend on three non-public surfaces (`setToolRequestHandlers`, `_toolHandlersInitialized`, `_registeredTools`); a routine SDK upgrade then breaks it with no protocol change.
+2. *Don't block the first real tool* — `McpServer.tool()` / `registerTool()` sugar calls the SDK's internal `setToolRequestHandlers()`, which throws `"A request handler for tools/list already exists"` if you already installed a `tools/list` handler.
+3. *Always-valid, no silent handler-less server* — a clever "register-tools callback" branch that skips the empty handler when a callback is passed silently produces a `-32601` server if that callback registers zero tools.
 
-**Lock it with the PUBLIC protocol, not internals:** assert `(await client.listTools()).tools` is `[]` over an in-memory `Client`/`Server` pair. This is the registry-empty lock — if a future edit registers a tool, `tools/list` returns it and the test fails. No `_registeredTools` introspection needed.
+**Resolution: install the empty `tools/list` handler ALWAYS via the public low-level API, and SERVE TOOLS THROUGH THAT SAME HANDLER (a registry) — do NOT use the `McpServer.tool()` sugar.**
 
-Surfaced by S08.1 implementation 2026-06-26; corrected 2026-06-27 after review flagged the private-internals dependency (the original S08.1 ship used the private `setToolRequestHandlers()` path; the fix replaced it with the public handler).
+```typescript
+import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+export function createMcpServer(): McpServer {
+  const server = new McpServer({ name, version }, { capabilities: { tools: {} } });
+  // Always installed → always valid; never 404s. E09/E10 POPULATE the returned
+  // list (replace [] with the registry) and add a sibling CallToolRequestSchema
+  // dispatch handler. The line STAYS; do not use server.tool() (it would
+  // double-register and throw). `McpServer.tool()` is only sugar over these
+  // low-level handlers, so nothing is lost.
+  server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
+  return server;
+}
+```
+
+This is fully public (#1), needs no line removed and never conflicts because tools are served via the same low-level handler rather than `server.tool()` (#2), and the handler is unconditionally present so the server is always valid (#3).
+
+**Lock it with the PUBLIC protocol, not internals:** over an in-memory `Client`/`Server` pair, assert `(await client.listTools()).tools` is `[]`. This is the registry-empty lock — if a future edit registers a tool, `tools/list` returns it and the test fails. No `_registeredTools` introspection.
+
+Surfaced by S08.1 2026-06-26; converged 2026-06-27 across three reviews that flagged, in turn, the private-internals dependency, the `server.tool()` double-register block, and a callback variant's silent handler-less server — the always-valid registry-driven low-level handler resolves all three.
 
 ### Stateless Workers + MCP SDK ≥ 1.26 require per-request server/transport instantiation
 
