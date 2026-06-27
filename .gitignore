@@ -48,3 +48,8 @@ yarn-error.log*
 # Working notes (deleted at milestone tags per ADR-017 §6)
 # Prevent accidental re-creation post-deletion
 docs/planning/epics/E03-confidence-findings/
+
+# Claude Code settings backups — transient pre-edit snapshots; git history is
+# the real backup, and a committed snapshot risks being restored over the live
+# settings (it can be a stale/incomplete copy that drops the permissions block).
+.claude/settings.json.backup-*

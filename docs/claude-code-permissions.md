@@ -46,7 +46,7 @@ new sibling keys.
 | Block | Setting | Why |
 | :-- | :-- | :-- |
 | `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1"` | Enable agent teams in this repo | Experimental, inert until you ask for teammates. See §6. |
-| `permissions.defaultMode` = `acceptEdits` | Auto-accept edits + safe in-tree fs commands | Edits flow; state-changing/networked Bash still gates. Not plan mode, so it doesn't trip roughly's plan-mode-gate. |
+| `permissions.defaultMode` = `acceptEdits` | Auto-accept edits + safe in-tree fs commands | Edits flow; state-changing/networked Bash still gates behind a prompt. Not plan mode, so it doesn't trip roughly's plan-mode-gate. |
 | `permissions.allow` | ruff, mypy, pytest, `.venv/bin/python`, `pre-commit run`, `npm run`, `npx tsc`, read-only `supabase` | The repo's actual dev loop (Stop hook + `.pre-commit-config.yaml` + `package.json`). Mostly redundant with your global allow-list, but explicit here so the policy is self-contained and shareable. |
 | `permissions.ask` | `git push`, `supabase db push`, `supabase db reset`, `supabase migration repair` | Networked / DB-mutating / history-rewriting. `ask` prompts even though your global settings allow `git push` — a deliberate re-gate for this repo (see §3). |
 | `permissions.deny` | `sudo`; `rm -rf ~`, `rm -rf /Users`; `git push --force`/`-f`; reads of `.env*`, `*.pem`, `*.key` | Hard guardrails that **do not collide** with your global allow-list (see §3 for what was deliberately dropped). Deny wins over any allow, in any scope. |
@@ -105,8 +105,8 @@ Four concrete interactions, and how each was resolved:
    circuit-broken by Claude Code itself.)
 3. **Secret reads — kept (a net security win).** You have broad
    `Read(//Users/nickkirkes/**)` and no deny, so an agent can currently read
-   `~/.aws/credentials`, `~/.ssh/`, and any `.env`. The project denies on
-   `.env*`/`*.pem`/`*.key` close that **inside HuntReady**, where `.env` holds the
+   `~/.aws/credentials`, `~/.ssh/`, and any `.env`. The project's deny rules for
+   `.env*`/`*.pem`/`*.key` close that gap **inside HuntReady**, where `.env` holds the
    Supabase secret + `DATABASE_URL`. Scoped to the project so it doesn't break your
    `.env`-grep workflows in other repos.
 4. **`git push` — re-gated to a prompt here.** You globally allow `git push`; the
