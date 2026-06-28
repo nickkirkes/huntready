@@ -79,14 +79,20 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO huntready_readonly;
 --    the named role.  A bare statement (no FOR ROLE) covers only tables created
 --    by whoever applies THIS script — so if a later migration creates tables as
 --    a different owner, huntready_readonly would silently lack SELECT on them.
---    To keep the coverage durable, set the default for every DDL-owner role that
---    (a) exists in this environment and (b) the applying role is a member of
---    (the membership check avoids "permission denied" on roles we can't alter):
---    the current role plus the common Supabase migration owners.
 --
---    Belt-and-suspenders: this whole script is idempotent and re-grants SELECT
---    ON ALL TABLES (section 4), so re-running it after any migration also closes
---    the gap for any creating role not covered below.
+--    Rather than guess owner names with a hardcoded allowlist, derive the owner
+--    set FROM THE LIVE CATALOG: every role that currently owns a table in the
+--    public schema (the roles that demonstrably create this schema's tables),
+--    plus the applying role itself.  Future tables created by any of those same
+--    owners are then covered.  Each candidate is membership-guarded
+--    (pg_has_role ... 'MEMBER') so we never attempt an ALTER we lack rights for
+--    (which would otherwise raise "permission denied").
+--
+--    Residual limitation (inherent to ALTER DEFAULT PRIVILEGES — there is no
+--    "for any future role" form): a brand-new owner introduced by a later
+--    migration is not covered until provisioning re-runs.  Belt-and-suspenders:
+--    this whole script is idempotent and re-grants SELECT ON ALL TABLES
+--    (section 4), so re-running it after any migration closes that gap.
 -- -----------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -95,8 +101,13 @@ BEGIN
   FOR ddl_owner IN
     SELECT rolname
       FROM pg_roles
-     WHERE rolname IN (current_user, 'postgres', 'supabase_admin')
-       AND pg_has_role(current_user, rolname, 'MEMBER')
+     WHERE pg_has_role(current_user, rolname, 'MEMBER')
+       AND (
+             rolname = current_user
+          OR rolname IN (
+               SELECT tableowner FROM pg_tables WHERE schemaname = 'public'
+             )
+           )
   LOOP
     EXECUTE format(
       'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public'

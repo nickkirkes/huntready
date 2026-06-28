@@ -44,7 +44,12 @@ describe.skipIf(!DSN)("db access layer — live role tests", () => {
   });
 
   afterAll(async () => {
-    await client.close();
+    // Optional-chain the teardown: if beforeAll threw before assigning `client`
+    // (e.g. a malformed DSN or a connectivity failure surfacing from
+    // createDbClient), an unconditional `client.close()` would raise a secondary
+    // "cannot read close of undefined" error that masks the real setup failure.
+    // Short-circuiting when `client` is unset keeps the original failure visible.
+    await client?.close();
   });
 
   // -------------------------------------------------------------------------
