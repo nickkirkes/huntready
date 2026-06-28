@@ -86,7 +86,7 @@ E05 closed 2026-06-06 (audit re-run + hygiene fixes merged 2026-06-08); E06 plan
 
 ---
 
-## M3 — Canonical Interface Live (planning active, parallel with M2's close)
+## M3 — Canonical Interface Live (active — E08 in progress, parallel with M2's close)
 
 M3 builds the serving stack — the remote, spec-conformant MCP server (the canonical interface per ADR-002) deployed on Cloudflare Workers over Streamable HTTP, exposing the five V1 tools backed by the Montana corpus (Colorado automatically once `m2` lands). Scope is authoritative in [PRD 003](prds/003-M3-canonical-interface.md). Posture: remote Streamable HTTP + edge-runtime read-only Postgres + an OAuth-2.1 auth seam wired-but-unenforced (ADR-023 / ADR-024, both `Proposed` — they flip to `Accepted` as the implementing epics ship). Five sequential epics; planned one at a time as each predecessor merges (E07 is *isolation, not dependency*; E09/E10 depend on E08; E11 on E09+E10).
 
@@ -95,7 +95,7 @@ M3 builds the serving stack — the remote, spec-conformant MCP server (the cano
 | Epic | Name | Status | Validated | Completed | Stories |
 |---|---|---|---|---|---|
 | E07 | M2 Carry-forward + Ingestion Hardening | **Planned + Validated 2026-06-26** (drafted + E07 ingestion triad LAND-WITH-EDITS ×3, all findings applied; epic at `epics/E07-m2-carry-forward-ingestion-hardening.md`). The only Python/ingestion epic in M3. **Implementation/merge follows the relevant M2 ingestion work landing** (shared-file coordination — see the epic's "M2-coordination timing" note). No loaded-row change in any story. | 2026-06-26 | — | 4 (S07.1–S07.4) |
-| E08 | MCP Server Foundation | **Planned + Validated 2026-06-26** (planned ahead of E07 merge per explicit human direction — E08 shares no code with E07/M2, touches only `mcp-server/`; **runs in parallel with M2's E06 on a separate worktree, no file race**; E08 serving triad LAND-WITH-EDITS ×3, all findings applied; epic at `epics/E08-mcp-server-foundation.md`). 4 stories: S08.1 transport (Streamable HTTP / stateless `createMcpHandler`) · S08.2 edge-Postgres driver spike + read-only-enforced access layer (ADR-024 flips Accepted here) · S08.3 Shape C response builder + types · S08.4 CORS + OAuth seam (wired-unenforced). **R0 roadmap-M3-section reconciliation: ✅ satisfied** (landed in commit `fb3a11d` / #76 alongside PRD 003; no precondition blocks S08.1). Epic review (`/roughly:review-epic`, opus) returned **Ready** — all 6 findings applied. | 2026-06-26 | — | 4 (S08.1–S08.4) |
+| E08 | MCP Server Foundation | **In Progress** — 1 of 4 stories closed. **S08.1 (transport bootstrap) closed Group A at-merge 2026-06-27** via PR #79 / `0361a65` (first TypeScript serving story): Workers `fetch` entrypoint serving MCP over Streamable HTTP (`createMcpHandler` from `agents/mcp`; per-request `createMcpServer()`; no DO; stateless; empty-but-conformant `tools/list` via register-then-remove); **serving test baseline = 15 vitest** (server 6 + boundary 9) + first serving CI; Group A ACs PM-verified MET; **Group B (deploy + MCP Inspector) operator-pending, non-blocking**. Planned + serving-triad-validated 2026-06-26 (LAND-WITH-EDITS ×3) + epic review **Ready** (6 findings applied). **R0 roadmap reconciliation ✅ satisfied** (#76). Runs in parallel with M2's E06 on a separate worktree — no file race. **S08.2 next active** (edge-Postgres driver spike + read-only-enforced access layer; ADR-024 flips Accepted, contingent on its Group B; `@supabase/supabase-js` disposition decided here). | 2026-06-26 | — | 4 (S08.1–S08.4) |
 | E09 | Regulation-stack Tools | Not Started (planned after E08 merges; `get_regulations` / `list_seasons` / `get_tag_requirements`) | — | — | 4–6 (est.) |
 | E10 | Spatial + Contact Tools | Not Started (planned after E09 merges; `check_land_status` + `get_agency_contacts` + agency-contacts CSV per Q9) | — | — | 3–5 (est.) |
 | E11 | Productionization + Deployment | Not Started (planned after E10 merges; auth-seam finalize + error capture + deploy + README/client-config + M3 UAT runbook + M3→M4 handoff + `m3` tag) | — | — | 4–6 (est.) |
@@ -109,7 +109,16 @@ M3 builds the serving stack — the remote, spec-conformant MCP server (the cano
 | S07.3 | MT extractor migration to `write_extraction_artifact` (`dea-2026.json` only — E06 Known Issue #8) | Not Started | no | Implementation |
 | S07.4 | Edge-runtime Postgres access principle (ADR-024) — acceptance-readiness gate | Not Started | no | PM + human (no code, no ADR edit) |
 
-**M3 ADR-status tracking:** ADR-023 (`Proposed`) flips to `Accepted` across E08 (transport/deploy) + E11 (auth seam finalized). ADR-024 (`Proposed`) flips to `Accepted` at E08 (driver chosen + access layer ships); E07's S07.4 confirms its *principle* is settled and surfaces it to the human (the PM does not edit the ADR). **Q22 (GTM-determined production auth model)** is the M3-deferred open question — PM flags its triggers, does not decide it.
+### E08 Story Status
+
+| Story | Title | Status | UAT | Owner |
+|---|---|---|---|---|
+| S08.1 | Server bootstrap + Streamable HTTP transport on Cloudflare Workers | **Complete (Group A) at-merge 2026-06-27** (PR #79 / `0361a65`); Group B (deploy + MCP Inspector) operator-pending | yes (Group B deploy-verified; Group A closed at-merge) | Implementation |
+| S08.2 | Edge-Postgres driver spike + read-only-enforced access layer | **Next active** | yes (read-only-enforced edge read + provably-rejected write — Group B) | Implementation |
+| S08.3 | Shape C response builder + envelope/section types + reusable mechanisms | Not Started | no | Implementation |
+| S08.4 | CORS/preflight + OAuth-2.1 auth seam (wired, unenforced) + boundary guards | Not Started | no | Implementation |
+
+**M3 ADR-status tracking:** ADR-023 (`Proposed`) — S08.1 stood up the Streamable HTTP transport (one of ADR-023's two E08 pillars); it stays `Proposed` until the deploy is live-verified (S08.1 Group B) and the auth seam finalizes (E11), then flips to `Accepted`. ADR-024 (`Proposed`) flips to `Accepted` at **S08.2** (driver chosen + read-only access layer ships) **contingent on S08.2's Group B** live read-only-enforcement verification. E07's S07.4 confirms ADR-024's *principle* is settled. The PM flags each flip; the PM does not edit the ADR. **Q22 (GTM-determined production auth model)** is the M3-deferred open question — PM flags its triggers, does not decide it.
 
 ---
 
