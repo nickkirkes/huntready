@@ -117,12 +117,35 @@ describe.skipIf(!DSN)("db access layer — live role tests", () => {
     ).rejects.toMatchObject({ code: "42501" });
   });
 
+  it("Test C (supplemental) — SELECT-only role rejects INSERT with SQLSTATE 42501", async () => {
+    // INSERT is the canonical write the "SELECT-only" contract must block, so it
+    // is exercised explicitly. The row is FULLY VALID (every NOT NULL column
+    // supplied — id, name, kind, geom, state, source) so the ONLY possible
+    // failure is the role-level privilege denial: a regression that accidentally
+    // granted INSERT would otherwise insert the row and this test would fail,
+    // catching the regression. (Postgres checks table INSERT privilege at
+    // executor startup, before constraints, so even a malformed row would surface
+    // 42501 first — the valid row removes any doubt about the failure cause.)
+    await expect(
+      client.query(
+        "INSERT INTO geometry (id, name, kind, geom, state, source) " +
+          "VALUES ($1, $2, $3, extensions.ST_GeogFromText($4), $5, $6::jsonb)",
+        [
+          "HACK-geom",
+          "Hack",
+          "hunting_district",
+          "SRID=4326;MULTIPOLYGON(((-114 47,-113 47,-113 48,-114 48,-114 47)))",
+          "US-MT",
+          "{}",
+        ],
+      ),
+    ).rejects.toMatchObject({ code: "42501" });
+  });
+
   it("Test C (supplemental) — SELECT-only role rejects DELETE with SQLSTATE 42501", async () => {
-    // DELETE is used (rather than INSERT) as the supplemental write witness
-    // because it carries NO column-value constraints: an INSERT that omitted a
-    // NOT NULL column could in principle surface a 23502 not-null violation, but
-    // a privilege-denied role gets 42501 at executor startup before any tuple is
-    // touched — so DELETE makes 42501 the unambiguous, only-possible failure.
+    // DELETE rounds out the write-verb coverage (INSERT + UPDATE + DELETE all
+    // proven blocked). It carries no column-value constraints, so 42501 is
+    // unambiguous here too.
     await expect(
       client.query("DELETE FROM geometry WHERE id = $1", ["MT-TEST-geom"]),
     ).rejects.toMatchObject({ code: "42501" });

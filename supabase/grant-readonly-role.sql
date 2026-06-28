@@ -73,10 +73,38 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO huntready_readonly;
 
 
 -- -----------------------------------------------------------------------------
--- 5. Default privileges — covers tables created AFTER this script runs.
+-- 5. Default privileges for FUTURE tables.
+--
+--    ALTER DEFAULT PRIVILEGES is ROLE-SCOPED: it only affects tables created by
+--    the named role.  A bare statement (no FOR ROLE) covers only tables created
+--    by whoever applies THIS script — so if a later migration creates tables as
+--    a different owner, huntready_readonly would silently lack SELECT on them.
+--    To keep the coverage durable, set the default for every DDL-owner role that
+--    (a) exists in this environment and (b) the applying role is a member of
+--    (the membership check avoids "permission denied" on roles we can't alter):
+--    the current role plus the common Supabase migration owners.
+--
+--    Belt-and-suspenders: this whole script is idempotent and re-grants SELECT
+--    ON ALL TABLES (section 4), so re-running it after any migration also closes
+--    the gap for any creating role not covered below.
 -- -----------------------------------------------------------------------------
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-  GRANT SELECT ON TABLES TO huntready_readonly;
+DO $$
+DECLARE
+  ddl_owner text;
+BEGIN
+  FOR ddl_owner IN
+    SELECT rolname
+      FROM pg_roles
+     WHERE rolname IN (current_user, 'postgres', 'supabase_admin')
+       AND pg_has_role(current_user, rolname, 'MEMBER')
+  LOOP
+    EXECUTE format(
+      'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public'
+      ' GRANT SELECT ON TABLES TO huntready_readonly',
+      ddl_owner
+    );
+  END LOOP;
+END $$;
 
 
 -- -----------------------------------------------------------------------------
