@@ -776,6 +776,13 @@ def upsert_reporting_obligation(
     )
     with conn.cursor() as cur:
         cur.execute(_UPSERT_REPORTING_OBLIGATION_SQL, params)
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"upsert_reporting_obligation: cur.rowcount == 0 for id={obligation.id!r}"
+                " — UPSERT touched no rows. The current SQL uses DO UPDATE so this"
+                " is structurally unreachable; reaching this branch indicates the"
+                " SQL has been changed to DO NOTHING (schema-drift tripwire)."
+            )
     _logger.debug(
         "upserted reporting_obligation id=%s kind=%s",
         obligation.id, obligation.kind,
