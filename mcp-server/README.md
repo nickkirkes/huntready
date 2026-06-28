@@ -29,6 +29,55 @@ npx -y mcp-remote https://<worker-preview-url>/mcp
 - `npm run deploy` — deploy to a Cloudflare Workers preview (`wrangler deploy`). This is an operator/human action, not part of the at-merge close.
 - Connect the **MCP Inspector** (or an equivalent remote MCP client) to the preview URL over Streamable HTTP and complete `initialize` + `tools/list` (expect an **empty** tools array — E08 registers no public tools yet). This is the S08.1 Group B verification, captured in the E08 working note.
 
+## Database access (S08.2)
+
+The single read path from the serving stack to the database is `src/db.ts` (`createDbClient`). It uses `postgres.js` (the `postgres` npm package) over the Postgres wire protocol, connecting to Supabase's Supavisor transaction-mode pooler with a SELECT-only role.
+
+### Credential setup
+
+The SELECT-only-role DSN is **never committed**. For deployed environments, set it as a Workers Secret:
+
+```sh
+# Run from mcp-server/
+wrangler secret put SUPABASE_READONLY_DSN
+```
+
+For local `wrangler dev`, create a gitignored `.dev.vars` file in `mcp-server/`:
+
+```
+SUPABASE_READONLY_DSN=postgresql://huntready_readonly:<password>@<project-ref>.pooler.supabase.com:6543/postgres?sslmode=require
+```
+
+Never commit `.dev.vars`. It is listed in the project `.gitignore`.
+
+### Role provisioning
+
+The `huntready_readonly` role and its SELECT grant are **not** a Supabase migration — apply the GRANT SQL by hand on each environment:
+
+```sh
+supabase db query --db-url "$DATABASE_URL" < supabase/grant-readonly-role.sql
+```
+
+Then set the role password out of band:
+
+```sql
+ALTER ROLE huntready_readonly PASSWORD '<generated>';
+```
+
+See [`docs/planning/epics/E08-confidence-findings/S08.2.md`](../docs/planning/epics/E08-confidence-findings/S08.2.md) §6 for the full Group B operator runbook, including the FORCE-RLS verification step and the `extensions.ST_*` search-path check.
+
+### Local live-DB tests
+
+The four live database tests in `tests/db.test.ts` require a PostGIS container with the substrate and role applied. Without `TEST_READONLY_DSN` set they skip cleanly. To run them locally, start the container, apply `tests/fixtures/ci-substrate.sql` and `supabase/grant-readonly-role.sql`, set the password, then:
+
+```sh
+TEST_READONLY_DSN=postgresql://huntready_readonly:<password>@localhost:5432/huntready_test npm test
+```
+
+The CI workflow (`.github/workflows/ci.yml`) provisions the container and runs these tests automatically on every push/PR.
+
+---
+
 ## Test-harness baseline
 
 S08.1 establishes the serving test harness (vitest, Node pool) with a baseline of **15 passing tests** — the serving analog of the Python `pytest` baseline the project tracks. E09/E10 grow this count additively.

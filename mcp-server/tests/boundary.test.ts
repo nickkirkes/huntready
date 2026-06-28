@@ -218,3 +218,35 @@ describe("src/index.ts — no app-layer protocolVersion", () => {
     expect(usesIdentifier(sf, "protocolVersion")).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Test 5: DB client constructed per request, never at module scope (AST)
+// Serving analog of the per-request createMcpServer() lock (Test 3 above).
+// Honors workerd's no-cross-invocation-socket-reuse posture: createDbClient()
+// opens a real connection and MUST be called inside a request handler or test
+// setup function — never at module/global scope where it would be shared
+// across concurrent requests.
+//
+// Unlike Test 3, this guard does NOT assert that a call EXISTS. In S08.2
+// src/index.ts does not yet call createDbClient() (the live call site is
+// S08.3). The guard passes vacuously now and locks the pattern for S08.3:
+// when createDbClient() is added to index.ts it must be inside a function.
+//
+// Checks call sites in the syntax tree — a comment mentioning createDbClient
+// cannot affect this guard.
+// ---------------------------------------------------------------------------
+describe("src/ — DB client constructed per request, never at module scope", () => {
+  it("never calls createDbClient at module scope", () => {
+    const moduleScopeCalls: string[] = [];
+    for (const filePath of collectTsFiles(srcDir)) {
+      const sf = parseSourceFile(filePath);
+      for (const call of callsToIdentifier(sf, "createDbClient")) {
+        if (!isInsideFunction(call)) moduleScopeCalls.push(filePath);
+      }
+    }
+    expect(
+      moduleScopeCalls,
+      "createDbClient must be called per-request, never at module scope",
+    ).toEqual([]);
+  });
+});
