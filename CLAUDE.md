@@ -159,7 +159,7 @@ Per ADR-009, documentation is the primary handoff mechanism between sessions (hu
   - ADR-019: Doc-type precedence in multi-source regulation merge
   - ADR-020: Derive-and-Assert for id text-PK Slug Drift (resolves Q19; shared `drift_guard.py` two-primitive API)
   - ADR-021: `jurisdiction_binding.role='no_hunt_zone'` 8th enum value (accepted via S05.3.5 5-place sync)
-  - ADR-022: Single-Module Per-State Adapters (extractors + loaders) (accepted via S06.3.1 for extractors; **amended 2026-06-27 to cover DB loaders `load_*.py`** after the "split the loader" finding recurred against S06.8's `load_draw_specs.py`; codifies the per-state monolithic-module convention raised + declined 3× during S06.3 and again at S06.6/S06.8 — declined uniformly, reopened only by a superseding ADR applied across all adapters in one PR)
+  - ADR-022: Single-Module Per-State Adapters (extractors + loaders) (accepted via S06.3.1 for extractors; **amended 2026-06-27 to cover DB loaders `load_*.py`** after the "split the loader" finding recurred against S06.8's `load_draw_specs.py`; codifies the per-state monolithic-module convention raised + declined 3× during S06.3 and again at S06.6/S06.8 — declined uniformly, reopened only by a superseding ADR applied uniformly across all adapters of that kind in one PR)
   - ADR-023: Remote Authenticated MCP Server Posture (Proposed; M3 — Cloudflare Workers + Streamable HTTP + OAuth-2.1-ready auth seam wired-but-unenforced; V1 endpoint is open + read-only under Cloudflare ambient DDoS/WAF; resolves Q5/Q6)
   - ADR-024: Edge-Runtime Postgres Access for the Serving Stack (Proposed; M3 — refines ADR-003; read-only-enforced SELECT-only role via Hyperdrive/Supabase serverless driver)
 
