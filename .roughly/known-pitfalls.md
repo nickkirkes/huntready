@@ -1426,3 +1426,128 @@ Surfaced by S06.8 Stage-6 review on 2026-06-27.
 **Fix:** Store the raw artifact value string in the comparison set: `values.add(str(quota))` or simply use the unmodified field. Reserve coercion for the downstream write site where the type must conform to the schema. The conflict guard's job is to detect ARTIFACT-level divergence — it must compare at the artifact's own granularity, not at the schema's. Reference: `ingestion/states/colorado/load_draw_specs.py::_validate_cross_listing_consistency` (S06.8).
 
 Surfaced by S06.8 Stage-6 review on 2026-06-27.
+
+## Integration — MCP server / Cloudflare Workers (serving)
+
+The entries below are the first serving-side pitfalls for this project. S08.1 established the vitest (Node pool) test baseline at **16 tests** — the serving analog of the Python pytest baseline. E09 and E10 grow it additively.
+
+### `createMcpHandler` lives in `agents/mcp` (Cloudflare Agents SDK), not `@modelcontextprotocol/sdk`
+
+The MCP server entrypoint imports `createMcpHandler` from `agents/mcp`. That module is **workerd-only** — it transitively imports `cloudflare:` protocol modules (via `agents/index.js`), so it CANNOT be imported in a plain-Node vitest test. The import throws:
+
+```text
+Only URLs with a scheme in: file, data, and node are supported … Received protocol 'cloudflare:'
+```
+
+**Fix:** Split the code. Put the testable MCP-server construction in a Node-importable factory (`src/server.ts`) that imports ONLY from `@modelcontextprotocol/sdk`. Keep the thin `createMcpHandler` wiring in the workerd-only entrypoint (`src/index.ts`). Node-pool tests import the factory directly; the entrypoint is verified only by a deployed MCP Inspector run (Group B). `McpServer`, the SDK `Client`, and `InMemoryTransport` ARE Node-importable and can be used freely in vitest.
+
+Empirically verified against `agents@0.17.0`, `@modelcontextprotocol/sdk@1.29.0`, `wrangler@4.105.0`, `vitest@4.1.9` on 2026-06-26 (S08.1).
+
+### `new McpServer({…}, { capabilities: { tools: {} } })` does NOT install a `tools/list` handler
+
+Declaring the `tools` capability advertises it during `initialize` but installs no handler. `client.listTools()` then throws `-32601 Method not found`, and a deployed server errors on `tools/list`. `McpServer` installs the handler only when the first `server.tool()` call is made.
+
+**To serve a conformant EMPTY tool list (zero tools registered), use the SDK's PUBLIC API:** register an explicit empty handler via the public `server.server.setRequestHandler` with the public `ListToolsRequestSchema`:
+
+```typescript
+import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+server.server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [] }));
+```
+
+**The resolution has four constraints that pull against each other** — four separate reviews each flagged one, so the design must satisfy all at once:
+
+1. *No private SDK internals* — the private `setToolRequestHandlers()` / `_toolHandlersInitialized` / `_registeredTools` path makes a foundation depend on non-public surfaces a routine SDK upgrade can break.
+2. *Don't block the first real tool* — once any `tools/list` handler is installed, `McpServer.tool()` / `registerTool()` throws `"A request handler for tools/list already exists"`.
+3. *Always-valid, no silent handler-less server* — a "registerTools callback" branch that skips the handler when a callback is passed silently yields a `-32601` server if that callback registers nothing.
+4. *Extension must be additive via the NORMAL tool API* — serving tools through a hand-written low-level `setRequestHandler(ListToolsRequestSchema, …)` works for E08 but forces E09 into a breaking refactor (it still can't call `server.tool()`); the next story must be able to just call `server.tool(...)`.
+
+**Resolution: register a placeholder tool and immediately `.remove()` it.** This initializes the tools subsystem (installing the tools/list + tools/call handlers) using only PUBLIC API, then leaves zero net tools:
+
+```typescript
+export function createMcpServer(): McpServer {
+  const server = new McpServer({ name, version }, { capabilities: { tools: {} } });
+  // Public + always-valid + additively extensible. registerTool installs the
+  // handlers; .remove() leaves them in place with zero tools, so tools/list
+  // returns [] AND E09/E10 add tools with the NORMAL server.tool(...) API as a
+  // plain additive call (no conflict, no line removed).
+  server
+    .registerTool("__bootstrap_noop__", { description: "removed immediately" },
+      async () => ({ content: [{ type: "text", text: "" }] }))
+    .remove();
+  return server;
+}
+```
+
+Satisfies all four: only public API (#1); `server.tool()` afterward is conflict-free because the subsystem is already initialized (#2, #4); the handlers are unconditionally present so the server is always valid (#3). `RegisteredTool.remove()` is public and leaves the request handlers installed.
+
+**Lock it with the PUBLIC protocol, not internals:** over an in-memory `Client`/`Server` pair assert (a) `(await client.listTools()).tools` is `[]` (registry-empty lock), and (b) after calling `server.tool("ping", …)` on a fresh `createMcpServer()`, `tools/list` surfaces `ping` with no throw (additive-extension lock). No `_registeredTools` introspection.
+
+Surfaced by S08.1 2026-06-26; converged 2026-06-27 across four reviews that flagged, in turn: private-internals dependency → `server.tool()` double-register block → a callback variant's silent handler-less server → the low-level-handler variant still blocking the normal tool API. Register-then-remove is the only public idiom that is always-valid AND additively extensible via `McpServer.tool()`.
+
+### Stateless Workers + MCP SDK ≥ 1.26 require per-request server/transport instantiation
+
+Construct the `McpServer` + handler INSIDE the `fetch` handler, never at module/global scope. workerd cannot safely share server/transport state across concurrent invocations, and SDK ≥ 1.26 enforces per-request construction. (`@modelcontextprotocol/sdk ^1.9.0` resolves to `1.29.0` via the `agents` peer pin, so this constraint applies to this project.)
+
+Since `src/index.ts` is workerd-only and cannot be unit-imported, lock the per-request pattern with a source-scan test:
+
+```typescript
+// assert createMcpServer() appears AFTER async fetch(
+const src = fs.readFileSync("src/index.ts", "utf8");
+const fetchIdx = src.indexOf("async fetch(");
+const callIdx = src.lastIndexOf("createMcpServer()");
+assert(callIdx > fetchIdx, "createMcpServer() must be called inside the fetch handler");
+```
+
+Use `lastIndexOf` for the call site so an earlier mention in a comment cannot fool the assertion.
+
+Surfaced by S08.1 implementation on 2026-06-26.
+
+### `wrangler.jsonc` needs `compatibility_flags: ["nodejs_compat"]` — and must NOT contain a `durable_objects` block
+
+`agents/mcp` imports `node:async_hooks`. Without `nodejs_compat` in `compatibility_flags`, the Worker fails to start. Add it to `wrangler.jsonc`:
+
+```jsonc
+"compatibility_flags": ["nodejs_compat"]
+```
+
+Also: keep the committed `wrangler.jsonc` free of any `durable_objects` binding or `migrations` block. V1 MCP tools are stateless reads — no Durable Object is needed. The `remote-mcp-authless` Cloudflare template scaffolds the DO/`McpAgent` path; following the `createMcpHandler` guide directly avoids it.
+
+Lock the no-DO constraint with a config-text test matching the snake_case key:
+
+```typescript
+const cfg = fs.readFileSync("wrangler.jsonc", "utf8");
+assert(!cfg.includes("durable_objects"), "wrangler.jsonc must not contain a durable_objects block");
+```
+
+Note: a human-readable comment `"// No Durable Objects"` does NOT contain the substring `durable_objects` (it has a space), so this assert is safe against such comments.
+
+Surfaced by S08.1 implementation on 2026-06-26.
+
+### Keep `@types/node` out of the Workers `src` tsconfig — split into base + test configs
+
+A single `tsconfig.json` with `"types": ["@cloudflare/workers-types", "node"]` lets Node globals (`process`, `Buffer`, `__dirname`, sync `fs`) type-check cleanly in `src/` even though they don't exist in workerd — a runtime failure that `tsc` silently misses.
+
+**Fix:** split into two tsconfig files:
+
+- **`tsconfig.json`** (base) — `"types": ["@cloudflare/workers-types"]`, `"include": ["src/**/*.ts"]`. This is the gate that keeps Node globals out of Worker source code.
+- **`tsconfig.test.json`** — extends the base, adds `"node"` to `types`, sets `"include": ["tests/**/*.ts", "src/**/*.ts"]` for the test runner.
+
+Make `lint` run both: `tsc --noEmit && tsc --noEmit -p tsconfig.test.json`.
+
+Verified: a `process.env` reference in `src/` correctly fails `tsc --noEmit` with TS2591 under this split, and passes under the test config.
+
+Surfaced by S08.1 implementation on 2026-06-26.
+
+### `createMcpHandler`'s default route is `/mcp` — all clients must target that path
+
+Requests to any other path return a silent 404. Clients (MCP Inspector, `mcp-remote`, E09/E10 integration tests) must hit `<origin>/mcp`. Name the route explicitly in a README or in-source comment so a path mismatch is not misread as a deploy failure.
+
+Surfaced by S08.1 implementation on 2026-06-26.
+
+### Drop `passWithNoTests: true` from `vitest.config.ts` once any test file exists
+
+`passWithNoTests: true` is appropriate only during bootstrap before any test file exists. Afterward it is a CI footgun — a glob that resolves to zero files (e.g., a case-renamed `tests/` directory on a Linux CI runner) exits 0 and passes CI green with the entire test gate silently absent.
+
+Remove the option as soon as the first test file is committed. The S08.1 baseline test file removes it.
+
+Surfaced by S08.1 implementation on 2026-06-26.
