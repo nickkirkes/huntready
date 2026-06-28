@@ -132,7 +132,9 @@ export function createDbClient(dsn: string): DbClient {
 // ---------------------------------------------------------------------------
 
 /**
- * Plain parameterized read that exercises the GiST-indexed `state` column.
+ * Plain parameterized read filtered on `state` (covered by the btree
+ * `(state, kind)` index, geometry_state_kind_idx — NOT the GiST index, which is
+ * on the `geom` column).
  * $1 = state code (e.g. "US-MT" or "US-CO").
  *
  * Used as the basic connectivity smoke test: if this returns a row the

@@ -68,7 +68,7 @@ See [`docs/planning/epics/E08-confidence-findings/S08.2.md`](../docs/planning/ep
 
 ### Local live-DB tests
 
-The four live database tests in `tests/db.test.ts` require a PostGIS container with the substrate and role applied. Without `TEST_READONLY_DSN` set they skip cleanly. To run them locally, start the container, apply `tests/fixtures/ci-substrate.sql` and `supabase/grant-readonly-role.sql`, set the password, then:
+The five live database tests in `tests/db.test.ts` require a PostGIS container with the substrate and role applied. Without `TEST_READONLY_DSN` set they skip cleanly. To run them locally, start the container, apply `tests/fixtures/ci-substrate.sql` and `supabase/grant-readonly-role.sql`, set the password, then:
 
 ```sh
 TEST_READONLY_DSN=postgresql://huntready_readonly:<password>@localhost:5432/huntready_test npm test

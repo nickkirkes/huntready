@@ -65,10 +65,18 @@ GRANT USAGE ON SCHEMA extensions TO huntready_readonly;
 
 
 -- -----------------------------------------------------------------------------
--- 4. SELECT on all tables that currently exist in the public schema.
---    Table-set-agnostic: grants whatever tables are present at apply time.
---    CRITICAL: SELECT ONLY — no INSERT, UPDATE, DELETE anywhere in this file.
+-- 4. Converge table privileges to read-only: REVOKE ALL, then GRANT SELECT.
+--    The REVOKE strips any table privilege the role may have accumulated (a
+--    manual GRANT, or drift from an earlier provisioning) so re-running this
+--    script ENFORCES the read-only end state rather than merely adding SELECT.
+--    Mirrors the base migration's REVOKE-ALL posture
+--    (20260425000001_rls_deny_all.sql).  Both statements are table-set-agnostic
+--    (whatever tables exist at apply time) and idempotent (REVOKE of an absent
+--    privilege is a no-op).
+--    CRITICAL: SELECT is the ONLY privilege this file GRANTs — no INSERT,
+--    UPDATE, or DELETE grant appears anywhere.
 -- -----------------------------------------------------------------------------
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM huntready_readonly;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO huntready_readonly;
 
 
