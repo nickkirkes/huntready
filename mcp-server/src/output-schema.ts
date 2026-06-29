@@ -305,7 +305,7 @@ export const warningSchema = z.object({
     "overall",
   ]),
   message: z.string(),
-});
+}).strict();
 
 const _assertWarning: AssertEqual<z.infer<typeof warningSchema>, Warning> = true;
 

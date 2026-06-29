@@ -325,6 +325,26 @@ describe("buildStructuredToolResult", () => {
     const fixture = makeResponse({ sources: [] });
     expect(() => buildStructuredToolResult(fixture)).toThrow();
   });
+
+  it("negative: throws when a meta.warnings element carries an unknown key (warningSchema is strict)", () => {
+    const fixture = makeResponse();
+    const bad = {
+      ...fixture,
+      meta: {
+        ...fixture.meta,
+        warnings: [
+          {
+            code: "STALE_SOURCE",
+            section: "overall",
+            message: "x",
+            extra: "server-composed field — forbidden",
+          },
+        ],
+      },
+    } as unknown as GetRegulationsResponse;
+
+    expect(() => buildStructuredToolResult(bad)).toThrow();
+  });
 });
 
 // ---------------------------------------------------------------------------

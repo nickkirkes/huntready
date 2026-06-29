@@ -89,18 +89,21 @@ function parseSourceDate(value: string): number {
  * @param generatedAt - ISO-8601 timestamp for the response generation time
  *   (e.g. `new Date().toISOString()`).
  *
- * Date comparison strategy: `publication_date` values are ISO `YYYY-MM-DD`
- * strings. Lexicographic comparison (`<` / `>` on strings) is correct for
- * that format — alphabetical order matches chronological order for zero-padded
- * ISO dates. `Date.parse` is NOT used to avoid timezone ambiguity from bare
- * date strings (which `Date.parse` parses as UTC midnight but whose offset
- * interpretation is implementation-defined in some environments). The
- * lexicographic approach is unambiguous and sufficient.
+ * Date comparison strategy: EVERY source `publication_date` is parsed and
+ * validated via `parseSourceDate` (canonical `YYYY-MM-DD` format check + UTC
+ * round-trip — see its JSDoc), and `most_recent`/`stalest` are selected by the
+ * parsed UTC timestamp, NOT lexicographically. Selecting numerically (rather
+ * than by string order) means the selection does not presuppose well-formed
+ * input, and validating every source up front means a malformed sibling cannot
+ * escape into `most_recent_source_date` unvalidated. The original input strings
+ * (not reformatted dates) are returned, so no representation drift is
+ * introduced.
  *
  * `is_stale` uses `Date.parse` on the full `generatedAt` ISO-8601 timestamp
- * (which includes a timezone offset and is therefore unambiguous) minus
- * `Date.parse` on `stalest_source_date` (treated as UTC midnight, which is
- * the correct conservative interpretation for a plain date).
+ * (which includes a timezone offset and is therefore unambiguous) minus the
+ * `parseSourceDate`-derived UTC timestamp of `stalest_source_date`. `generatedAt`
+ * itself is guarded for parseability (a NaN there is a server bug, not bad
+ * upstream data).
  */
 export function buildDataFreshness(
   sources: readonly { publication_date: string }[],
