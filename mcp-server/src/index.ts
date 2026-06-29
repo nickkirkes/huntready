@@ -3,7 +3,11 @@ import { createMcpHandler } from "agents/mcp";
 import { createMcpServer } from "./server.js";
 
 interface Env {
-  // No bindings yet (S08.2 adds the DB binding).
+  // SELECT-only-role DSN, held as a Workers Secret.
+  // Set via: `wrangler secret put SUPABASE_READONLY_DSN`
+  // Local dev: add `SUPABASE_READONLY_DSN=<dsn>` to the gitignored `.dev.vars`.
+  // S08.2 wires the credential; S08.3 adds the live health-check call site.
+  SUPABASE_READONLY_DSN: string;
 }
 
 export default {

@@ -9,4 +9,21 @@
   "observability": {
     "enabled": true
   }
+  // ---------------------------------------------------------------------------
+  // Secrets (not binding keys — Workers Secrets are runtime `env`, not wrangler
+  // config keys, so they do NOT appear under a "vars" or "secrets" key here).
+  //
+  // SUPABASE_READONLY_DSN
+  //   A `postgresql://` connection string for the SELECT-only Postgres role.
+  //   This value MUST NEVER appear in this file or in source control.
+  //
+  //   Deployed environments:
+  //     wrangler secret put SUPABASE_READONLY_DSN
+  //     (prompts for the value interactively; stores it encrypted in Cloudflare)
+  //
+  //   Local dev (wrangler dev):
+  //     Create a gitignored `.dev.vars` file in this directory:
+  //       SUPABASE_READONLY_DSN=postgresql://...
+  //     `.dev.vars` and `.dev.vars.*` are listed in mcp-server/.gitignore.
+  // ---------------------------------------------------------------------------
 }
