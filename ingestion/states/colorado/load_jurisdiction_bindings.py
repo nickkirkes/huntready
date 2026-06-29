@@ -11,7 +11,7 @@ query).
 **regulation_reporting** link rows connect each CO bear regulation_record to the
 single CO ``reporting_obligation`` (``co-bear-mandatory-check-5day-statewide``).
 CO V1 has ~46 bear regulation_records, so ~46 link rows are written.
-Formula: ``len(reporting_links) == len(co_bear_obligation_ids) * len(bear_rrs)``
+Formula: ``len(reporting_links) == len(co_bear_obligations) * len(bear_rrs)``
 (CO V1: 1 × 46 ≈ 46 links).
 
 Three-phase shape
@@ -690,6 +690,8 @@ def _build_no_hunt_zone_bindings_co(
     Guard 17: per-zone zero nearby GMU matches → raise.
     Guard 18: zone source citation missing from source_lookup → raise.
     Guard 19: duplicate binding id within a single build run → raise.
+    Guard 20: per-zone zero bindings despite non-empty nearby GMUs → raise
+              (every nearby GMU lacked CO reg_records — broken sync).
     """
     # Index reg_records by their parent geometry id for O(N) fan-out.
     rrs_by_parent: dict[str, list[RegulationRecord]] = {}
@@ -737,6 +739,10 @@ def _build_no_hunt_zone_bindings_co(
             "other_overlay" if zone_id == _AFA_GEOM_ID else "no_hunt_zone"
         )
 
+        # Track per-zone binding count to detect the case where GMUs were found
+        # but none had regulation_records (Guard 20: per-zone zero-bindings guard).
+        bindings_before = len(bindings)
+
         for gmu_id in nearby_gmu_ids:
             rrs_for_gmu = rrs_by_parent.get(gmu_id, [])
             if not rrs_for_gmu:
@@ -775,6 +781,22 @@ def _build_no_hunt_zone_bindings_co(
                         source=zone_source,
                     )
                 )
+
+        # Guard 20: per-zone zero-bindings guard.
+        # Guard 17 (above) fires when nearby_gmu_ids itself is empty.
+        # This guard fires when GMUs were found but EVERY nearby GMU lacked
+        # CO regulation_records — the zone becomes invisible in query results.
+        # This indicates a broken geometry/regulation_record sync: either
+        # load_regulation_records.py (S06.6) has not been run yet, or the
+        # nearby GMUs genuinely have no CO reg_records (investigate).
+        if len(bindings) == bindings_before:
+            raise RuntimeError(
+                f"no-hunt zone {zone_id!r} produced zero bindings despite "
+                f"{len(nearby_gmu_ids)} nearby GMU(s) {sorted(nearby_gmu_ids)}: "
+                f"every nearby GMU lacked CO regulation_records. "
+                f"Either run load_regulation_records.py (S06.6) first, or "
+                f"investigate whether the geometry/regulation_record sync is broken."
+            )
 
     return bindings
 
@@ -887,51 +909,70 @@ def _query_all_colorado_regulation_records(
 # ---------------------------------------------------------------------------
 
 
-def _query_co_reporting_obligation_ids(
+def _query_co_reporting_obligations(
     conn: psycopg.Connection[tuple[object, ...]],
-) -> list[str]:
-    """Fetch all CO reporting_obligation ids from the DB.
+) -> list[tuple[str, list[str] | None]]:
+    """Fetch all CO reporting_obligation rows (id, applies_to_regions) from the DB.
 
     Uses a LIKE 'co-%' filter to scope to Colorado obligations only.
-    Returns ids in deterministic ORDER BY id order.
+    Returns rows in deterministic ORDER BY id order.
 
     Scoping note: ``reporting_obligation`` has no ``state`` column, so this relies
     on the ``co-`` id-prefix naming convention (MT obligations use ``mt-``). The
     convention is backstopped downstream: ``_build_regulation_reporting_links``
-    Guard C fails loud on any returned id that is not ``co-bear-``-prefixed, so a
-    future non-bear (or mis-prefixed) CO obligation cannot be silently mis-routed
-    to bear reg_records.
+    Guard C fails loud on any returned id that is not ``co-bear-``-prefixed or
+    whose ``applies_to_regions`` is non-null, so a future non-bear or regional CO
+    obligation cannot be silently mis-routed to all bear reg_records.
+
+    ``applies_to_regions`` is fetched so the builder can enforce the STATEWIDE-only
+    contract: ``None`` means statewide (permitted for V1 fan-out); a non-null list
+    means regional routing, which requires explicit species/region routing code
+    before it can be linked.
 
     Fails loud (empty list check in caller) if no CO rows exist, which means
     ``load_reporting_obligations.py`` (S06.9) has not been run yet.
     """
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT id FROM reporting_obligation WHERE id LIKE 'co-%' ORDER BY id"
+            "SELECT id, applies_to_regions FROM reporting_obligation "
+            "WHERE id LIKE 'co-%' ORDER BY id"
         )
-        return [str(row[0]) for row in cur.fetchall()]
+        rows = cur.fetchall()
+    result: list[tuple[str, list[str] | None]] = []
+    for row in rows:
+        ob_id = str(row[0])
+        raw_regions = row[1]
+        regions: list[str] | None = list(raw_regions) if raw_regions is not None else None
+        result.append((ob_id, regions))
+    return result
 
 
 def _build_regulation_reporting_links(
     reg_records: list[RegulationRecord],
-    obligation_ids: list[str],
+    obligations: list[tuple[str, list[str] | None]],
 ) -> list[RegulationReporting]:
     """Build regulation_reporting link rows for CO V1.
 
     CO V1 semantics: exactly 1 STATEWIDE bear mandatory_check obligation
-    (``co-bear-mandatory-check-5day-statewide``). It links to every CO bear
-    regulation_record — i.e., every reg_record with
+    (``co-bear-mandatory-check-5day-statewide``, ``applies_to_regions=None``).
+    It links to every CO bear regulation_record — i.e., every reg_record with
     ``species_group == 'bear'``.
 
-    Formula: ``len(result) == len(obligation_ids) * len(bear_rrs)``.
+    ``obligations`` is a list of ``(id, applies_to_regions)`` tuples as returned
+    by ``_query_co_reporting_obligations``. ``applies_to_regions=None`` means
+    statewide (the only V1-permitted fan-out path).
 
-    Guard A: obligation_ids is empty → raises (S06.9 hasn't run).
+    Formula: ``len(result) == len(obligations) * len(bear_rrs)``.
+
+    Guard A: obligations is empty → raises (S06.9 hasn't run).
     Guard B: no bear regulation_records → raises (S06.6 hasn't run / no bear data).
-    Guard C: non-``co-bear-`` obligation id → raises (unknown species/region routing
-             needed; V1 only knows the STATEWIDE bear mandatory_check).
+    Guard C: non-``co-bear-`` obligation id OR non-null ``applies_to_regions`` →
+             raises (V1 only knows the STATEWIDE bear mandatory_check;
+             a regional or non-bear obligation requires explicit species/region
+             routing code before it can be linked — do not silently fan out).
     Guard D: duplicate composite PK → raises (structural code bug, not data drift).
     """
-    if not obligation_ids:
+    if not obligations:
         raise RuntimeError(
             "no CO reporting_obligation rows found — run load_reporting_obligations.py "
             "(S06.9) against this DB first"
@@ -945,20 +986,23 @@ def _build_regulation_reporting_links(
         )
 
     # Guard C: V1 only knows the STATEWIDE bear mandatory_check.
-    # Any other obligation kind would need explicit species/region routing code.
-    for ob_id in obligation_ids:
-        if not ob_id.startswith("co-bear-"):
+    # Any non-bear obligation or regional obligation (applies_to_regions non-null)
+    # requires explicit species/region routing code — do NOT silently fan out.
+    for ob_id, regions in obligations:
+        if not ob_id.startswith("co-bear-") or regions is not None:
             raise RuntimeError(
-                f"unexpected CO reporting_obligation id {ob_id!r}: V1 only knows "
-                f"the STATEWIDE bear mandatory_check obligation (prefix 'co-bear-'). "
-                f"A new obligation kind requires explicit species/region routing code "
-                f"in _build_regulation_reporting_links before it can be linked."
+                f"unexpected CO reporting_obligation {ob_id!r} "
+                f"(applies_to_regions={regions!r}): V1 only links STATEWIDE "
+                f"(applies_to_regions IS NULL) bear obligations. "
+                f"A regional or non-bear obligation requires explicit "
+                f"species/region routing code in _build_regulation_reporting_links "
+                f"before it can be linked."
             )
 
     links: list[RegulationReporting] = []
     seen: set[tuple[str, str, str, int, str]] = set()
 
-    for ob_id in obligation_ids:
+    for ob_id, _regions in obligations:
         for rr in bear_rrs:
             pk = (rr.state, rr.jurisdiction_code, rr.species_group, rr.license_year, ob_id)
             if pk in seen:
@@ -982,21 +1026,21 @@ def _build_regulation_reporting_links(
 
 def _assert_regulation_reporting_structural_invariant(
     links: list[RegulationReporting],
-    obligation_ids: list[str],
+    obligations: list[tuple[str, list[str] | None]],
     bear_rr_count: int,
 ) -> None:
-    """Assert len(links) == len(obligation_ids) * bear_rr_count.
+    """Assert len(links) == len(obligations) * bear_rr_count.
 
     This is a correctness check on the loop arithmetic in
     ``_build_regulation_reporting_links``, independent of any OQ7 band guard.
     Raises RuntimeError naming the mismatch if violated.
     """
-    expected = len(obligation_ids) * bear_rr_count
+    expected = len(obligations) * bear_rr_count
     if len(links) != expected:
         raise RuntimeError(
             f"regulation_reporting structural invariant violated: "
             f"got {len(links)} link rows but expected "
-            f"{len(obligation_ids)} obligation(s) × {bear_rr_count} bear reg_records "
+            f"{len(obligations)} obligation(s) × {bear_rr_count} bear reg_records "
             f"= {expected}; this indicates a code bug in "
             f"_build_regulation_reporting_links, not artifact drift"
         )
@@ -1120,9 +1164,9 @@ def main(argv: list[str] | None = None) -> int:
         all_bindings = statewide_bindings + overlay_bindings + no_hunt_bindings
 
         # Build regulation_reporting links (FIX 1).
-        # Query obligation ids inside the same DB connection (single open conn).
-        obligation_ids = _query_co_reporting_obligation_ids(conn)
-        reporting_links = _build_regulation_reporting_links(reg_records, obligation_ids)
+        # Query obligations (id, applies_to_regions) inside the same DB connection.
+        obligations = _query_co_reporting_obligations(conn)
+        reporting_links = _build_regulation_reporting_links(reg_records, obligations)
 
         # PHASE 2: GUARD
         # Cross-builder duplicate-id check: each builder maintains its own
@@ -1149,7 +1193,7 @@ def main(argv: list[str] | None = None) -> int:
             [rr for rr in reg_records if rr.species_group == _CO_BEAR_SPECIES_GROUP]
         )
         _assert_regulation_reporting_structural_invariant(
-            reporting_links, obligation_ids, bear_rr_count
+            reporting_links, obligations, bear_rr_count
         )
 
         # Log summary before the guard so operators see the breakdown even if
@@ -1159,7 +1203,7 @@ def main(argv: list[str] | None = None) -> int:
             "regulation_reporting: %d link rows built "
             "(%d obligation(s) × %d bear reg_records)",
             len(reporting_links),
-            len(obligation_ids),
+            len(obligations),
             bear_rr_count,
         )
         _assert_binding_count_within_guard(len(all_bindings))

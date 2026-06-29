@@ -57,7 +57,7 @@ from states.colorado.load_jurisdiction_bindings import (
     _fetch_zone_wkts,
     _load_overlay_fixture,
     _query_all_colorado_regulation_records,
-    _query_co_reporting_obligation_ids,
+    _query_co_reporting_obligations,
     is_binding_eligible_co,
 )
 from states.colorado.load_regulation_records import (
@@ -1028,9 +1028,81 @@ class TestBuildNoHuntZoneBindings:
             with pytest.raises(RuntimeError, match="duplicate binding id"):
                 _build_no_hunt_zone_bindings_co(conn, [rr1, rr2], source_lookup)
 
-    def test_gmu_with_no_reg_records_produces_no_bindings(self) -> None:
-        """A nearby GMU with no reg_records silently produces 0 bindings (not a raise)."""
-        rr = _make_reg_record(jurisdiction_code="CO-GMU-99")  # different from nearby "CO-GMU-1"
+    def test_gmu_with_no_reg_records_emits_warning_zone_still_binds(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Zone has TWO nearby GMUs: one WITH reg_records, one WITHOUT.
+
+        FIX A: the per-GMU WARNING fires for the empty GMU, the zone still
+        produces ≥1 binding from the non-empty GMU (no raise), and no binding
+        references the empty GMU.
+        """
+        # CO-GMU-1 has a reg_record; CO-GMU-2 does NOT.
+        rr = _make_reg_record(jurisdiction_code="CO-GMU-1", species_group="mule_deer")
+        source_lookup = {
+            _RMNP_GEOM_ID: _make_gis_source(_RMNP_GEOM_ID),
+            "CO-GMU-1-geom": _make_gis_source("CO-GMU-1-geom"),
+            "CO-GMU-2-geom": _make_gis_source("CO-GMU-2-geom"),
+        }
+        conn = MagicMock()
+
+        with (
+            patch(
+                "states.colorado.load_jurisdiction_bindings._fetch_zone_wkts",
+                return_value={_RMNP_GEOM_ID: "MULTIPOLYGON EMPTY"},
+            ),
+            patch(
+                "states.colorado.load_jurisdiction_bindings.query_nearby_gmus_for_zone",
+                # Two nearby GMUs: CO-GMU-1 (has rr) + CO-GMU-2 (no rr)
+                return_value=["CO-GMU-1-geom", "CO-GMU-2-geom"],
+            ),
+            patch(
+                "states.colorado.load_jurisdiction_bindings.EXPECTED_CO_RA_ORPHAN_IDS",
+                frozenset({_RMNP_GEOM_ID}),
+            ),
+            caplog.at_level(
+                logging.WARNING,
+                logger="states.colorado.load_jurisdiction_bindings",
+            ),
+        ):
+            # Should NOT raise: CO-GMU-1 provides ≥1 binding; zone is visible.
+            result = _build_no_hunt_zone_bindings_co(conn, [rr], source_lookup)
+
+        # (a) Zone produces ≥1 binding from the non-empty GMU
+        zone_bindings = [b for b in result if b.geometry_id == _RMNP_GEOM_ID]
+        assert len(zone_bindings) >= 1, (
+            "Zone must produce ≥1 binding when at least one nearby GMU has reg_records"
+        )
+
+        # (b) WARNING was emitted for the empty GMU
+        warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+        assert any(
+            "CO-GMU-2-geom" in msg and "no CO regulation_records" in msg
+            for msg in warning_messages
+        ), (
+            f"Expected a WARNING about CO-GMU-2-geom having no regulation_records. "
+            f"Got warnings: {warning_messages!r}"
+        )
+
+        # (c) No binding references the empty GMU
+        empty_gmu_bindings = [
+            b for b in result
+            if b.regulation_record_jurisdiction_code == "CO-GMU-2"
+        ]
+        assert len(empty_gmu_bindings) == 0, (
+            "No binding should reference the empty GMU (CO-GMU-2)"
+        )
+
+    def test_zone_with_all_empty_gmus_raises(self) -> None:
+        """FIX A: zone whose ALL nearby GMUs lack reg_records raises RuntimeError.
+
+        This is Guard 20: GMUs were found (Guard 17 doesn't fire) but none of
+        them had CO regulation_records, so the zone emits zero bindings and would
+        become invisible in query results.
+        """
+        # CO-GMU-99 has the only reg_record; nearby GMUs are CO-GMU-1 and CO-GMU-2
+        # — neither maps to CO-GMU-99, so the zone produces zero bindings.
+        rr = _make_reg_record(jurisdiction_code="CO-GMU-99", species_group="mule_deer")
         source_lookup = {
             _RMNP_GEOM_ID: _make_gis_source(_RMNP_GEOM_ID),
             "CO-GMU-99-geom": _make_gis_source("CO-GMU-99-geom"),
@@ -1044,21 +1116,16 @@ class TestBuildNoHuntZoneBindings:
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings.query_nearby_gmus_for_zone",
-                return_value=["CO-GMU-1-geom"],  # nearby GMU has no reg records
+                # Both nearby GMUs lack reg_records (rr is CO-GMU-99, not CO-GMU-1/2)
+                return_value=["CO-GMU-1-geom", "CO-GMU-2-geom"],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings.EXPECTED_CO_RA_ORPHAN_IDS",
                 frozenset({_RMNP_GEOM_ID}),
             ),
         ):
-            # Should raise because the one zone has zero nearby reg_records contributing
-            # But actually: no raise here — zero match is fine (GMU exists, no rr maps there)
-            # Guard 17 only fires when nearby_gmu_ids itself is empty.
-            # This test confirms there's no spurious raise when nearby GMU has no rr.
-            result = _build_no_hunt_zone_bindings_co(conn, [rr], source_lookup)
-        # CO-GMU-99 reg_record doesn't map to CO-GMU-1-geom nearby; result is 0 bindings.
-        zone_bindings = [b for b in result if b.geometry_id == _RMNP_GEOM_ID]
-        assert len(zone_bindings) == 0
+            with pytest.raises(RuntimeError, match="zero bindings despite"):
+                _build_no_hunt_zone_bindings_co(conn, [rr], source_lookup)
 
 
 # ---------------------------------------------------------------------------
@@ -1275,8 +1342,8 @@ class TestMainStatewideGuard:
                 return_value=[],
             ),
             patch(
-                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligation_ids",
-                return_value=["co-bear-mandatory-check-5day-statewide"],
+                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligations",
+                return_value=[("co-bear-mandatory-check-5day-statewide", None)],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings._build_regulation_reporting_links",
@@ -1351,8 +1418,8 @@ class TestMainCrossBuilderDedupGuard:
                 return_value=[],
             ),
             patch(
-                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligation_ids",
-                return_value=["co-bear-mandatory-check-5day-statewide"],
+                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligations",
+                return_value=[("co-bear-mandatory-check-5day-statewide", None)],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings._build_regulation_reporting_links",
@@ -1417,8 +1484,8 @@ class TestMainCrossBuilderDedupGuard:
                 return_value=[],
             ),
             patch(
-                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligation_ids",
-                return_value=["co-bear-mandatory-check-5day-statewide"],
+                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligations",
+                return_value=[("co-bear-mandatory-check-5day-statewide", None)],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings._build_regulation_reporting_links",
@@ -1477,8 +1544,8 @@ class TestBuildRegulationReportingLinks:
     def _make_deer_rr(self, jurisdiction_code: str = "CO-GMU-1") -> RegulationRecord:
         return _make_reg_record(jurisdiction_code=jurisdiction_code, species_group="mule_deer")
 
-    def test_empty_obligation_ids_raises(self) -> None:
-        """Guard A: empty obligation_ids → raises naming S06.9."""
+    def test_empty_obligations_raises(self) -> None:
+        """Guard A: empty obligations list → raises naming S06.9."""
         rr = self._make_bear_rr()
         with pytest.raises(RuntimeError, match="no CO reporting_obligation rows found"):
             _build_regulation_reporting_links([rr], [])
@@ -1488,22 +1555,36 @@ class TestBuildRegulationReportingLinks:
         deer_rr = self._make_deer_rr()
         with pytest.raises(RuntimeError, match="no CO bear regulation_records found"):
             _build_regulation_reporting_links(
-                [deer_rr], ["co-bear-mandatory-check-5day-statewide"]
+                [deer_rr], [("co-bear-mandatory-check-5day-statewide", None)]
             )
 
     def test_non_co_bear_obligation_id_raises(self) -> None:
         """Guard C: non-'co-bear-' obligation id → raises naming the id."""
         rr = self._make_bear_rr()
-        with pytest.raises(RuntimeError, match="unexpected CO reporting_obligation id"):
+        with pytest.raises(RuntimeError, match="unexpected CO reporting_obligation"):
             _build_regulation_reporting_links(
-                [rr], ["co-elk-mandatory-report-statewide"]
+                [rr], [("co-elk-mandatory-report-statewide", None)]
+            )
+
+    def test_regional_bear_obligation_raises(self) -> None:
+        """Guard C: bear obligation with non-null applies_to_regions → raises.
+
+        FIX B: a future regional bear obligation (e.g. applies_to_regions=["R7"])
+        must not be silently fanned out to ALL bear reg_records. Guard C now
+        checks both the id prefix AND applies_to_regions.
+        """
+        rr = self._make_bear_rr()
+        with pytest.raises(RuntimeError, match="unexpected CO reporting_obligation"):
+            _build_regulation_reporting_links(
+                [rr],
+                [("co-bear-region-7-tooth-submission", ["R7"])],
             )
 
     def test_one_obligation_one_bear_rr_produces_one_link(self) -> None:
-        """1 bear obligation × 1 bear reg_record → 1 link with correct fields."""
+        """1 STATEWIDE bear obligation × 1 bear reg_record → 1 link with correct fields."""
         rr = self._make_bear_rr(jurisdiction_code="CO-GMU-5")
         ob_id = "co-bear-mandatory-check-5day-statewide"
-        result = _build_regulation_reporting_links([rr], [ob_id])
+        result = _build_regulation_reporting_links([rr], [(ob_id, None)])
         assert len(result) == 1
         link = result[0]
         assert isinstance(link, RegulationReporting)
@@ -1514,12 +1595,12 @@ class TestBuildRegulationReportingLinks:
         assert link.reporting_obligation_id == ob_id
 
     def test_one_obligation_n_bear_rrs_produces_n_links(self) -> None:
-        """1 obligation × N bear reg_records → N links."""
+        """1 STATEWIDE obligation × N bear reg_records → N links."""
         rrs = [
             self._make_bear_rr(f"CO-GMU-{i}") for i in range(1, 6)
         ]
         ob_id = "co-bear-mandatory-check-5day-statewide"
-        result = _build_regulation_reporting_links(rrs, [ob_id])
+        result = _build_regulation_reporting_links(rrs, [(ob_id, None)])
         assert len(result) == 5
         obligation_ids_in_result = {lnk.reporting_obligation_id for lnk in result}
         assert obligation_ids_in_result == {ob_id}
@@ -1531,7 +1612,7 @@ class TestBuildRegulationReportingLinks:
         elk_rr = _make_reg_record(jurisdiction_code="CO-GMU-10", species_group="elk")
         ob_id = "co-bear-mandatory-check-5day-statewide"
         result = _build_regulation_reporting_links(
-            [bear_rr, deer_rr, elk_rr], [ob_id]
+            [bear_rr, deer_rr, elk_rr], [(ob_id, None)]
         )
         # Only 1 link — for the bear reg_record
         assert len(result) == 1
@@ -1543,20 +1624,20 @@ class TestBuildRegulationReportingLinks:
         rr2 = self._make_bear_rr("CO-GMU-1")  # same jurisdiction_code + species
         ob_id = "co-bear-mandatory-check-5day-statewide"
         with pytest.raises(RuntimeError, match="duplicate regulation_reporting composite PK"):
-            _build_regulation_reporting_links([rr1, rr2], [ob_id])
+            _build_regulation_reporting_links([rr1, rr2], [(ob_id, None)])
 
     def test_structural_invariant_passes(self) -> None:
-        """len(links) == len(obligation_ids) × bear_rr_count."""
+        """len(links) == len(obligations) × bear_rr_count."""
         bear_rrs = [self._make_bear_rr(f"CO-GMU-{i}") for i in range(1, 4)]
         ob_id = "co-bear-mandatory-check-5day-statewide"
-        links = _build_regulation_reporting_links(bear_rrs, [ob_id])
+        links = _build_regulation_reporting_links(bear_rrs, [(ob_id, None)])
         # 1 obligation × 3 bear rrs = 3 links
         assert len(links) == 3
-        _assert_regulation_reporting_structural_invariant(links, [ob_id], 3)
+        _assert_regulation_reporting_structural_invariant(links, [(ob_id, None)], 3)
 
     def test_structural_invariant_fails_raises(self) -> None:
         """_assert_regulation_reporting_structural_invariant raises on mismatch."""
-        # 2 links but claim 3 obligation_ids × 2 bear = 6 expected
+        # 1 link but claim 3 obligations × 2 bear = 6 expected
         dummy_ob_id = "co-bear-mandatory-check-5day-statewide"
         links = [
             RegulationReporting(
@@ -1568,7 +1649,9 @@ class TestBuildRegulationReportingLinks:
             ),
         ]
         with pytest.raises(RuntimeError, match="structural invariant violated"):
-            _assert_regulation_reporting_structural_invariant(links, [dummy_ob_id] * 3, 2)
+            _assert_regulation_reporting_structural_invariant(
+                links, [(dummy_ob_id, None)] * 3, 2
+            )
 
     def test_co_bear_species_group_constant(self) -> None:
         """_CO_BEAR_SPECIES_GROUP is 'bear' (the DB value, not 'black_bear')."""
@@ -1576,45 +1659,71 @@ class TestBuildRegulationReportingLinks:
 
 
 # ---------------------------------------------------------------------------
-# TestQueryCoReportingObligationIds (FIX 1)
+# TestQueryCoReportingObligations (FIX B)
 # ---------------------------------------------------------------------------
 
 
-class TestQueryCoReportingObligationIds:
-    """Tests for _query_co_reporting_obligation_ids."""
+class TestQueryCoReportingObligations:
+    """Tests for _query_co_reporting_obligations (renamed from _query_co_reporting_obligation_ids).
 
-    def test_returns_ids_from_cursor(self) -> None:
-        """Mocked cursor returning two co-bear- rows → list of two ids."""
+    FIX B: function now returns list[tuple[str, list[str] | None]] (id, applies_to_regions).
+    """
+
+    def test_returns_id_and_null_regions_tuple(self) -> None:
+        """STATEWIDE obligation (applies_to_regions=None DB value) → (id, None) tuple."""
         conn = _make_mock_conn(rows=[
-            ("co-bear-mandatory-check-5day-statewide",),
-            ("co-bear-other-obligation",),
+            ("co-bear-mandatory-check-5day-statewide", None),
         ])
-        result = _query_co_reporting_obligation_ids(conn)
+        result = _query_co_reporting_obligations(conn)
+        assert result == [("co-bear-mandatory-check-5day-statewide", None)]
+
+    def test_returns_id_and_regions_list_tuple(self) -> None:
+        """Regional obligation (applies_to_regions non-null) → (id, [...]) tuple."""
+        conn = _make_mock_conn(rows=[
+            ("co-bear-region-7-tooth-submission", ["R7"]),
+        ])
+        result = _query_co_reporting_obligations(conn)
+        assert result == [("co-bear-region-7-tooth-submission", ["R7"])]
+
+    def test_returns_multiple_rows_preserving_order(self) -> None:
+        """Multiple rows returned in ORDER BY id order as tuples."""
+        conn = _make_mock_conn(rows=[
+            ("co-bear-mandatory-check-5day-statewide", None),
+            ("co-bear-other-obligation", None),
+        ])
+        result = _query_co_reporting_obligations(conn)
         assert result == [
-            "co-bear-mandatory-check-5day-statewide",
-            "co-bear-other-obligation",
+            ("co-bear-mandatory-check-5day-statewide", None),
+            ("co-bear-other-obligation", None),
         ]
 
     def test_returns_empty_list_when_no_rows(self) -> None:
         conn = _make_mock_conn(rows=[])
-        result = _query_co_reporting_obligation_ids(conn)
+        result = _query_co_reporting_obligations(conn)
         assert result == []
+
+    def test_sql_contains_applies_to_regions(self) -> None:
+        """FIX B: SQL now selects applies_to_regions in addition to id."""
+        conn = _make_mock_conn(rows=[])
+        _query_co_reporting_obligations(conn)
+        sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
+        assert "applies_to_regions" in sql
 
     def test_sql_contains_reporting_obligation(self) -> None:
         conn = _make_mock_conn(rows=[])
-        _query_co_reporting_obligation_ids(conn)
+        _query_co_reporting_obligations(conn)
         sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
         assert "reporting_obligation" in sql
 
     def test_sql_contains_co_like_filter(self) -> None:
         conn = _make_mock_conn(rows=[])
-        _query_co_reporting_obligation_ids(conn)
+        _query_co_reporting_obligations(conn)
         sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
         assert "co-%" in sql
 
     def test_sql_contains_order_by_id(self) -> None:
         conn = _make_mock_conn(rows=[])
-        _query_co_reporting_obligation_ids(conn)
+        _query_co_reporting_obligations(conn)
         sql = conn.cursor.return_value.__enter__.return_value.execute.call_args[0][0]
         assert "ORDER BY id" in sql
 
@@ -1667,8 +1776,8 @@ class TestMainRegulationReporting:
                 return_value=[],
             ),
             patch(
-                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligation_ids",
-                return_value=[ob_id],
+                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligations",
+                return_value=[(ob_id, None)],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings._assert_binding_count_within_guard",
@@ -1731,8 +1840,8 @@ class TestMainRegulationReporting:
                 return_value=[],
             ),
             patch(
-                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligation_ids",
-                return_value=[ob_id],
+                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligations",
+                return_value=[(ob_id, None)],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings._assert_binding_count_within_guard",
@@ -1806,8 +1915,8 @@ class TestFix2StatewideSourceConditional:
                 return_value=[],
             ),
             patch(
-                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligation_ids",
-                return_value=[ob_id],
+                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligations",
+                return_value=[(ob_id, None)],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings._assert_binding_count_within_guard",
@@ -1872,8 +1981,8 @@ class TestFix2StatewideSourceConditional:
                 return_value=[],
             ),
             patch(
-                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligation_ids",
-                return_value=[ob_id],
+                "states.colorado.load_jurisdiction_bindings._query_co_reporting_obligations",
+                return_value=[(ob_id, None)],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings._assert_binding_count_within_guard",
@@ -1968,17 +2077,28 @@ class TestFix3MalformedRegRecordSource:
 
 
 class TestFix4NoRegRecordsWarning:
-    """FIX 4: nearby GMU with no CO regulation_records emits WARNING, no raise."""
+    """FIX 4: nearby GMU with no CO regulation_records emits WARNING, no raise.
+
+    FIX A (Guard 20) adds a per-zone zero-bindings guard: if ALL nearby GMUs
+    lack reg_records, raises RuntimeError. The per-GMU WARNING still fires for
+    the PARTIAL case (some GMUs have reg_records, some do not).
+    """
 
     def test_empty_rrs_for_nearby_gmu_emits_warning_not_raise(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
-        """A nearby GMU (CO-GMU-1) has no reg_records — WARNING logged, no binding emitted."""
-        # CO-GMU-99 has the only reg_record; CO-GMU-1 is returned as nearby but has no rr
-        rr = _make_reg_record(jurisdiction_code="CO-GMU-99", species_group="mule_deer")
+        """PARTIAL case: one nearby GMU has reg_records, one does not.
+
+        FIX A: zone still produces ≥1 binding (no raise), but the empty GMU
+        emits a per-GMU WARNING. This is the partial case vs. the all-empty
+        case (Guard 20) tested in TestBuildNoHuntZoneBindings.
+        """
+        # CO-GMU-1 has the reg_record; CO-GMU-2 is returned as nearby but has no rr
+        rr = _make_reg_record(jurisdiction_code="CO-GMU-1", species_group="mule_deer")
         source_lookup = {
             _RMNP_GEOM_ID: _make_gis_source(_RMNP_GEOM_ID),
-            "CO-GMU-99-geom": _make_gis_source("CO-GMU-99-geom"),
+            "CO-GMU-1-geom": _make_gis_source("CO-GMU-1-geom"),
+            "CO-GMU-2-geom": _make_gis_source("CO-GMU-2-geom"),
         }
         conn = MagicMock()
 
@@ -1989,7 +2109,8 @@ class TestFix4NoRegRecordsWarning:
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings.query_nearby_gmus_for_zone",
-                return_value=["CO-GMU-1-geom"],  # nearby GMU has no reg_records
+                # Two nearby GMUs: CO-GMU-1 (has rr) + CO-GMU-2 (no rr)
+                return_value=["CO-GMU-1-geom", "CO-GMU-2-geom"],
             ),
             patch(
                 "states.colorado.load_jurisdiction_bindings.EXPECTED_CO_RA_ORPHAN_IDS",
@@ -1997,19 +2118,22 @@ class TestFix4NoRegRecordsWarning:
             ),
             caplog.at_level(logging.WARNING, logger="states.colorado.load_jurisdiction_bindings"),
         ):
+            # Does NOT raise — CO-GMU-1 provides ≥1 binding; zone is visible.
             result = _build_no_hunt_zone_bindings_co(conn, [rr], source_lookup)
 
-        # No raise — result is zero zone bindings (rr is CO-GMU-99, nearby is CO-GMU-1)
+        # Zone produces ≥1 binding (from CO-GMU-1)
         zone_bindings = [b for b in result if b.geometry_id == _RMNP_GEOM_ID]
-        assert len(zone_bindings) == 0
+        assert len(zone_bindings) >= 1, (
+            "Zone must produce ≥1 binding when at least one nearby GMU has reg_records"
+        )
 
-        # WARNING must have been emitted
+        # WARNING must have been emitted for the empty GMU (CO-GMU-2)
         warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
         assert any(
-            "CO-GMU-1-geom" in msg and "no CO regulation_records" in msg
+            "CO-GMU-2-geom" in msg and "no CO regulation_records" in msg
             for msg in warning_messages
         ), (
-            f"Expected a WARNING about CO-GMU-1-geom having no regulation_records. "
+            f"Expected a WARNING about CO-GMU-2-geom having no regulation_records. "
             f"Got warnings: {warning_messages!r}"
         )
 
