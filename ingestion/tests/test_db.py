@@ -418,6 +418,23 @@ class TestUpsertReportingObligation:
         assert params[7] == ["R2", "R3", "R4", "R5", "R6", "R7"]
         assert params[8] == ["hide", "skull"]
 
+    def test_fail_loud_on_zero_rowcount(self) -> None:
+        """Schema-drift tripwire: if the SQL ever changes to DO NOTHING and a
+        conflict suppresses the write, the guard must raise with the obligation id
+        so the loader bug surfaces immediately instead of silently dropping writes.
+        For the current DO UPDATE SQL this branch is unreachable; monkeypatching
+        rowcount=0 simulates the post-drift state."""
+        obligation = _make_statewide_obligation()
+        mock_conn, mock_cursor = _make_mock_conn()
+        mock_cursor.rowcount = 0
+
+        with pytest.raises(RuntimeError) as exc_info:
+            upsert_reporting_obligation(mock_conn, obligation)
+
+        error_msg = str(exc_info.value)
+        assert "cur.rowcount == 0" in error_msg
+        assert obligation.id in error_msg
+
 
 # ---------------------------------------------------------------------------
 # TestWriteRegulationReporting
