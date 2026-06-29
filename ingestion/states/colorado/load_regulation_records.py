@@ -68,10 +68,9 @@ _SOURCES_YAML = _COLORADO_DIR / "sources.yaml"
 # Constants
 # ---------------------------------------------------------------------------
 
-# Naming note: the four existing CO loaders use ``CO_STATE_CODE = "US-CO"``.
-# This loader uses ``_STATE`` to mirror MT precedent (montana/load_regulation_records.py)
-# and the S05.6 scaffold (colorado/load_jurisdiction_bindings.py:55), ahead of the
-# S06.0/D3 rename of those four loaders that ships bundled with S06.10.
+# All CO loaders use ``_STATE``. The four geometry-era loaders (load_state_boundary,
+# load_gmus, load_restricted_areas, build_overlay_fixture) were renamed from
+# ``CO_STATE_CODE`` in S06.10 per S06.0/D3.
 _STATE: Final[str] = "US-CO"
 
 _LICENSE_YEAR: Final[int] = 2026

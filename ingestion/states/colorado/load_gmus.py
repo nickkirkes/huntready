@@ -38,7 +38,7 @@ import json
 import logging
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import psycopg
 import requests
@@ -71,7 +71,7 @@ CO_FIXTURE_DIR = Path(__file__).parent / "fixtures"
 CO_LAYER_SLUG = "CPWAdminData"
 CO_AGENCY = "Colorado Parks and Wildlife"
 CO_STATE_SLUG = "co-cpw"
-CO_STATE_CODE = "US-CO"
+_STATE: Final[str] = "US-CO"
 CO_GMU_ID_PREFIX = "CO-GMU"
 
 # ---------------------------------------------------------------------------
@@ -192,7 +192,7 @@ def _feature_to_geometry(
         name=name,
         kind="gmu",
         geom=geometry_wkt,
-        state=CO_STATE_CODE,
+        state=_STATE,
         license_year=None,
         source=citation,
     )
