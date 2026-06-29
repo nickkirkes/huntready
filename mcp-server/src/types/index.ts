@@ -21,3 +21,18 @@ export type {
   Geometry,
   JurisdictionBinding,
 } from "./schema.js";
+
+export type {
+  GetRegulationsResponse,
+  Coverage,
+  SeasonsSection,
+  ResolvedSeasonWindow,
+  TagsSection,
+  ResolvedTag,
+  MethodsSection,
+  ReportingSection,
+  ResolvedReportingObligation,
+  ContactsSection,
+  Contact,
+  Warning,
+} from "./response.js";

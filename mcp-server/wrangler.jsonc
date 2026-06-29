@@ -25,5 +25,15 @@
   //     Create a gitignored `.dev.vars` file in this directory:
   //       SUPABASE_READONLY_DSN=postgresql://...
   //     `.dev.vars` and `.dev.vars.*` are listed in mcp-server/.gitignore.
+  //
+  // HEALTHCHECK_TOKEN  (OPTIONAL)
+  //   Enables the internal `/healthz` smoke endpoint (DB read + Shape C envelope
+  //   round-trip). The endpoint is DISABLED by default (returns 404, opens no DB
+  //   connection) so the open public V1 endpoint exposes no unauthenticated,
+  //   DB-hitting path. To enable it, provision this secret and call /healthz with
+  //   `Authorization: Bearer <token>`. This is a liveness gate, NOT an auth
+  //   boundary (real auth is S08.4 / Q22). Leave unset to keep /healthz off.
+  //     wrangler secret put HEALTHCHECK_TOKEN
+  //   Local dev: add `HEALTHCHECK_TOKEN=<token>` to the gitignored `.dev.vars`.
   // ---------------------------------------------------------------------------
 }

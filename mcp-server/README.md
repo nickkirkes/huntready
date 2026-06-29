@@ -66,6 +66,22 @@ ALTER ROLE huntready_readonly PASSWORD '<generated>';
 
 See [`docs/planning/epics/E08-confidence-findings/S08.2.md`](../docs/planning/epics/E08-confidence-findings/S08.2.md) §6 for the full Group B operator runbook, including the FORCE-RLS verification step and the `extensions.ST_*` search-path check.
 
+### Internal health check (`/healthz`) — S08.3
+
+The Worker serves an internal smoke endpoint at `/healthz` (a real DB read + a Shape C envelope round-trip). It is **disabled by default**: with no `HEALTHCHECK_TOKEN` configured it returns `404` and opens **no** DB connection, so the open public endpoint never exposes an unauthenticated, DB-hitting path. It is a **liveness gate, not an auth boundary** (real auth is S08.4 / Q22).
+
+To enable it, provision the secret and call the endpoint with a bearer token:
+
+```sh
+# Run from mcp-server/
+wrangler secret put HEALTHCHECK_TOKEN
+# then:
+curl -H "Authorization: Bearer <token>" https://<worker-url>/healthz
+# → 200 {"ok":true,...} healthy, 503 unhealthy
+```
+
+For local `wrangler dev`, add `HEALTHCHECK_TOKEN=<token>` to the gitignored `.dev.vars`. `runHealthCheck` is also exercised directly by `tests/health-check.test.ts`, so the gate costs no test coverage.
+
 ### Local live-DB tests
 
 The five live database tests in `tests/db.test.ts` require a PostGIS container with the substrate and role applied. Without `TEST_READONLY_DSN` set they skip cleanly. To run them locally, start the container, apply `tests/fixtures/ci-substrate.sql` and `supabase/grant-readonly-role.sql`, set the password, then:
