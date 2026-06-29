@@ -67,6 +67,22 @@ type AssertEqual<A, B> = [A] extends [B]
     : never
   : never;
 
+/**
+ * Top-level key-set equality. `satisfies z.ZodType<Interface>` is ONE-
+ * directional — it checks the schema's output is assignable to the interface
+ * (catching a MISSING or wrong-typed key) but NOT the reverse, so an EXTRA key
+ * in the schema produces an output that is still structurally assignable and
+ * slips through. The optional-field schemas (`reservedPool`/`allocationPool`/
+ * `drawSpec`) can't use the bidirectional `AssertEqual` (zod's `T | undefined`
+ * optional inference makes it brittle), so pair their `satisfies` with this
+ * key-set check to recover extra/missing top-level key detection.
+ */
+type SameKeys<A, B> = [keyof A] extends [keyof B]
+  ? [keyof B] extends [keyof A]
+    ? true
+    : never
+  : never;
+
 // ---------------------------------------------------------------------------
 // Enum schemas (shared)
 // ---------------------------------------------------------------------------
@@ -168,6 +184,12 @@ export const reservedPoolSchema = z.object({
   verbatim_rule: z.string(),
 }) satisfies z.ZodType<ReservedPool>;
 
+// `satisfies` above catches missing/mistyped keys; SameKeys catches an extra key.
+const _kReservedPool: SameKeys<
+  z.infer<typeof reservedPoolSchema>,
+  ReservedPool
+> = true;
+
 export const pointSystemSchema = z.object({
   kind: z.enum(["preference_linear", "bonus_squared", "bonus_weighted"]),
   accrual: z.enum(["annual_on_apply", "annual_if_purchased"]),
@@ -220,6 +242,11 @@ export const allocationPoolSchema = z.object({
   tie_break: z.enum(["random", "rank_ordered"]).optional(),
 }) satisfies z.ZodType<AllocationPool>;
 
+const _kAllocationPool: SameKeys<
+  z.infer<typeof allocationPoolSchema>,
+  AllocationPool
+> = true;
+
 /**
  * `DrawSpec` embeds `AllocationPool[]` (optional fields) and `ChoiceConfig` —
  * use `satisfies` for the same reason as `reservedPoolSchema`.
@@ -246,6 +273,8 @@ export const drawSpecSchema = z.object({
   parameters: z.record(z.string(), z.unknown()).nullable(),
   source: sourceCitationSchema,
 }) satisfies z.ZodType<DrawSpec>;
+
+const _kDrawSpec: SameKeys<z.infer<typeof drawSpecSchema>, DrawSpec> = true;
 
 // ---------------------------------------------------------------------------
 // Response schemas
@@ -291,7 +320,7 @@ export const resolvedSeasonWindowSchema = z.object({
   page_reference: z.string().nullable(),
   confidence: confidenceSchema,
   source: sourceCitationSchema,
-});
+}).strict();
 
 const _assertResolvedSeasonWindow: AssertEqual<
   z.infer<typeof resolvedSeasonWindowSchema>,
@@ -308,7 +337,7 @@ export const seasonsSectionSchema = z.object({
   ]),
   windows: z.array(resolvedSeasonWindowSchema),
   source: sourceCitationSchema,
-});
+}).strict();
 
 const _assertSeasonsSection: AssertEqual<
   z.infer<typeof seasonsSectionSchema>,
@@ -330,7 +359,7 @@ export const resolvedTagSchema = z.object({
   verbatim_rule: z.string(),
   confidence: confidenceSchema,
   source: sourceCitationSchema,
-});
+}).strict();
 
 const _assertResolvedTag: AssertEqual<
   z.infer<typeof resolvedTagSchema>,
@@ -340,7 +369,7 @@ const _assertResolvedTag: AssertEqual<
 export const tagsSectionSchema = z.object({
   tags: z.array(resolvedTagSchema),
   source: sourceCitationSchema,
-});
+}).strict();
 
 const _assertTagsSection: AssertEqual<
   z.infer<typeof tagsSectionSchema>,
@@ -353,7 +382,7 @@ export const methodsSectionSchema = z.object({
   verbatim_rule: z.string(),
   confidence: confidenceSchema,
   source: sourceCitationSchema,
-});
+}).strict();
 
 const _assertMethodsSection: AssertEqual<
   z.infer<typeof methodsSectionSchema>,
@@ -385,7 +414,7 @@ export const resolvedReportingObligationSchema = z.object({
   verbatim_rule: z.string(),
   confidence: confidenceSchema,
   source: sourceCitationSchema,
-});
+}).strict();
 
 const _assertResolvedReportingObligation: AssertEqual<
   z.infer<typeof resolvedReportingObligationSchema>,
@@ -395,7 +424,7 @@ const _assertResolvedReportingObligation: AssertEqual<
 export const reportingSectionSchema = z.object({
   obligations: z.array(resolvedReportingObligationSchema),
   source: sourceCitationSchema,
-});
+}).strict();
 
 const _assertReportingSection: AssertEqual<
   z.infer<typeof reportingSectionSchema>,
@@ -409,7 +438,7 @@ export const contactSchema = z.object({
   email: z.string().nullable(),
   url: z.string().nullable(),
   source: sourceCitationSchema,
-});
+}).strict();
 
 const _assertContact: AssertEqual<z.infer<typeof contactSchema>, Contact> = true;
 
@@ -417,7 +446,7 @@ export const contactsSectionSchema = z.object({
   regional_warden: contactSchema.nullable(),
   regional_office: contactSchema.nullable(),
   rules_hotline: contactSchema.nullable(),
-});
+}).strict();
 
 const _assertContactsSection: AssertEqual<
   z.infer<typeof contactsSectionSchema>,
@@ -428,56 +457,85 @@ const _assertContactsSection: AssertEqual<
 // Envelope schema (exported — consumed by MCP SDK registerTool + response-builder)
 // ---------------------------------------------------------------------------
 
-export const getRegulationsResponseSchema = z.object({
-  query: z.object({
-    lat: z.number(),
-    lng: z.number(),
-    species: z.string(),
-    date: z.string(),
-  }),
+// `.strict()` on every serving-composition object so envelope drift — a
+// server-composed `overview`/`headline` or any unknown key (ADR-013 forbids
+// these) — FAILS validation in buildStructuredToolResult instead of silently
+// passing through into `structuredContent`. `.strict()` is a runtime-parse
+// constraint only; it does NOT change `z.infer`, so the AssertEqual drift-guard
+// below still holds and response.ts stays an exact mirror of architecture.md.
+// Embedded ENTITY schemas (sourceCitation/drawSpec/...) are intentionally left
+// non-strict — they are passthrough data, not serving composition.
+export const getRegulationsResponseSchema = z
+  .object({
+    query: z
+      .object({
+        lat: z.number(),
+        lng: z.number(),
+        species: z.string(),
+        date: z.string(),
+      })
+      .strict(),
 
-  resolved: z
-    .object({
-      jurisdiction: z
-        .object({
-          state: z.string(),
-          primary_unit: z.string().nullable(),
-          overlays: z.array(
-            z.object({
-              role: geometryRoleSchema,
-              name: z.string(),
-            })
-          ),
-        })
-        .nullable(),
-      species_canonical: z.string().nullable(),
-      license_year: z.number().nullable(),
-    }),
+    resolved: z
+      .object({
+        jurisdiction: z
+          .object({
+            state: z.string(),
+            primary_unit: z.string().nullable(),
+            overlays: z.array(
+              z
+                .object({
+                  role: geometryRoleSchema,
+                  name: z.string(),
+                })
+                .strict()
+            ),
+          })
+          .strict()
+          .nullable(),
+        species_canonical: z.string().nullable(),
+        license_year: z.number().nullable(),
+      })
+      .strict(),
 
-  seasons: seasonsSectionSchema.nullable(),
-  tags: tagsSectionSchema.nullable(),
-  methods: methodsSectionSchema.nullable(),
-  reporting: reportingSectionSchema.nullable(),
-  contacts: contactsSectionSchema.nullable(),
+    seasons: seasonsSectionSchema.nullable(),
+    tags: tagsSectionSchema.nullable(),
+    methods: methodsSectionSchema.nullable(),
+    reporting: reportingSectionSchema.nullable(),
+    contacts: contactsSectionSchema.nullable(),
 
-  sources: z.array(sourceCitationSchema),
+    // sources must be non-empty: meta.data_freshness carries non-null
+    // most_recent/stalest dates that are only computable from >=1 source, so an
+    // empty array cannot truthfully populate the freshness block. `.min(1)`
+    // enforces this at the validation boundary WITHOUT changing `z.infer` (still
+    // `SourceCitation[]`), so response.ts stays an exact mirror of architecture.md
+    // and the drift-guard below holds. (architecture.md's `sources` cardinality +
+    // the total-coverage-gap case is a spec-candidate for human clarification.)
+    sources: z.array(sourceCitationSchema).min(1),
 
-  meta: z.object({
-    schema_version: z.literal(2),
-    generated_at: z.string(),
-    data_freshness: z.object({
-      most_recent_source_date: z.string(),
-      stalest_source_date: z.string(),
-      is_stale: z.boolean(),
-    }),
-    coverage: z.object({
-      jurisdiction: coverageSchema,
-      species: coverageSchema,
-      overall: coverageSchema,
-    }),
-    warnings: z.array(warningSchema),
-  }),
-});
+    meta: z
+      .object({
+        schema_version: z.literal(2),
+        generated_at: z.string(),
+        data_freshness: z
+          .object({
+            most_recent_source_date: z.string(),
+            stalest_source_date: z.string(),
+            is_stale: z.boolean(),
+          })
+          .strict(),
+        coverage: z
+          .object({
+            jurisdiction: coverageSchema,
+            species: coverageSchema,
+            overall: coverageSchema,
+          })
+          .strict(),
+        warnings: z.array(warningSchema),
+      })
+      .strict(),
+  })
+  .strict();
 
 const _assertGetRegulationsResponse: AssertEqual<
   z.infer<typeof getRegulationsResponseSchema>,

@@ -223,6 +223,26 @@ describe("buildDataFreshness", () => {
     ).toThrow();
   });
 
+  it("throws on an IMPOSSIBLE calendar date (2026-02-30) that Date.parse would roll over", () => {
+    // Date.parse("2026-02-30T00:00:00Z") rolls to 2026-03-02 rather than
+    // rejecting; the round-trip check catches it.
+    expect(() =>
+      buildDataFreshness([{ publication_date: "2026-02-30" }], GENERATED_AT),
+    ).toThrow();
+  });
+
+  it("throws on a non-canonical date format (2026-1-1, not zero-padded)", () => {
+    expect(() =>
+      buildDataFreshness([{ publication_date: "2026-1-1" }], GENERATED_AT),
+    ).toThrow();
+  });
+
+  it("throws on a slash-delimited date (2026/06/01) that Date.parse's legacy parser would accept", () => {
+    expect(() =>
+      buildDataFreshness([{ publication_date: "2026/06/01" }], GENERATED_AT),
+    ).toThrow();
+  });
+
   it("most_recent_source_date picks the latest date across multiple sources", () => {
     const result = buildDataFreshness(
       [
@@ -289,6 +309,21 @@ describe("buildStructuredToolResult", () => {
     } as unknown as GetRegulationsResponse;
 
     expect(() => buildStructuredToolResult(bad)).toThrow();
+  });
+
+  it("negative: throws when an unknown top-level key is present (strict envelope rejects server-composed overview/headline drift)", () => {
+    const fixture = makeResponse();
+    const bad = {
+      ...fixture,
+      overview: "server-composed summary — forbidden by ADR-013",
+    } as unknown as GetRegulationsResponse;
+
+    expect(() => buildStructuredToolResult(bad)).toThrow();
+  });
+
+  it("negative: throws when sources is empty (sources .min(1) — freshness cannot be truthfully built from zero sources)", () => {
+    const fixture = makeResponse({ sources: [] });
+    expect(() => buildStructuredToolResult(fixture)).toThrow();
   });
 });
 

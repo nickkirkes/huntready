@@ -1556,24 +1556,32 @@ Surfaced by S08.1 implementation on 2026-06-26.
 
 Also: keep the committed `wrangler.jsonc` free of any `durable_objects` binding or `migrations` block. V1 MCP tools are stateless reads — no Durable Object is needed. The `remote-mcp-authless` Cloudflare template scaffolds the DO/`McpAgent` path; following the `createMcpHandler` guide directly avoids it.
 
-### Zod schema ↔ TS interface drift-guard: `AssertEqual` breaks on optional fields — use `satisfies z.ZodType<Interface>` instead
+### Zod schema ↔ TS interface drift-guard: `AssertEqual` for flat schemas; `satisfies` + a key-set check for optional-field schemas
 
-When a zod schema must stay in lockstep with a TypeScript interface (e.g. `getRegulationsResponseSchema` mirroring `GetRegulationsResponse` in `response.ts`), add a compile-time guard. Use the bidirectional `AssertEqual`:
+When a zod schema must stay in lockstep with a TypeScript interface (e.g. `getRegulationsResponseSchema` mirroring `GetRegulationsResponse` in `response.ts`), add a compile-time guard. For **flat schemas with no optional `?` fields**, use the bidirectional `AssertEqual` — it catches BOTH missing and extra fields:
 
 ```typescript
 type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
 const _assertX: AssertEqual<z.infer<typeof xSchema>, X> = true;
 ```
 
-for **flat schemas with no optional `?` fields** — it catches both missing and extra fields. For schemas that have optional object properties or embed types that do (in S08.3: `ReservedPool.eligibility`, `AllocationPool.eligibility`/`tie_break?`, and `DrawSpec` which embeds both), `AssertEqual` is brittle because zod models optionals as `T | undefined` in ways that break the bidirectional check. Use `... satisfies z.ZodType<Interface>` on the schema constant instead. This is inherent to zod's optional modeling — NOT specific to a zod major version, so a version bump will not unlock `AssertEqual` for those cases. Never reach for `@ts-expect-error` to force it — that suppresses the signal. The need to switch to `satisfies` IS the signal. (See `src/output-schema.ts`.)
+For schemas with optional object properties or that embed types that do (in S08.3: `ReservedPool.eligibility`, `AllocationPool.eligibility`/`tie_break?`, and `DrawSpec` which embeds both), `AssertEqual` is brittle because zod models optionals as `T | undefined` in ways that break the bidirectional check. **`satisfies z.ZodType<Interface>` alone is NOT a sufficient replacement: it is ONE-directional** — it checks the schema's output is assignable to the interface (catching a missing or mistyped key) but NOT the reverse, so an **EXTRA key in the schema slips through** (its output is still structurally assignable). Pair `satisfies` with a top-level key-set equality assertion to recover extra/missing-key detection without tripping the `T | undefined` brittleness:
 
-Surfaced by S08.3 2026-06-29.
+```typescript
+type SameKeys<A, B> = [keyof A] extends [keyof B] ? ([keyof B] extends [keyof A] ? true : never) : never;
+export const xSchema = z.object({ ... }) satisfies z.ZodType<X>;   // missing/mistyped keys
+const _kX: SameKeys<z.infer<typeof xSchema>, X> = true;            // extra/missing keys
+```
+
+(Residual gap: `SameKeys` checks only TOP-LEVEL keys — an extra key nested inside an inline sub-object still escapes both checks; keep inline sub-objects minimal, or extract+guard them.) The optional-field brittleness is inherent to zod's optional modeling — NOT specific to a zod major version, so a version bump will not unlock `AssertEqual`. Never reach for `@ts-expect-error` to force `AssertEqual` — the need to switch to `satisfies`+`SameKeys` IS the signal. (See `src/output-schema.ts`.) **Separately, for the RUNTIME contract:** make serving-composition response schemas `.strict()` so a server-composed `overview`/`headline` or any unknown key fails validation rather than passing through into `structuredContent` (`.strict()` does not change `z.infer`, so the compile-time guards still hold); leave embedded passthrough ENTITY schemas non-strict.
+
+Surfaced by S08.3 2026-06-29; strengthened 2026-06-29 (satisfies one-directional gap + `.strict()` runtime guard).
 
 ### `Date.parse` returns `NaN` on malformed input — every NaN comparison is `false`, making stale data look fresh
 
-`Date.parse(malformed)` returns `NaN`, and `NaN > 180` is `false`, so an unparseable date silently passes the staleness check as if it were fresh. In a freshness/staleness computation (a correctness property, ADR-001), guard with `Number.isNaN(Date.parse(x))` and throw at the computation site for EVERY parsed input — both `generatedAt` AND each source `publication_date`. Do NOT add a value-format regex to the serving-layer zod output schema to catch this: format validation of stored data is the ingestion layer's job, and over-constraining the serving output boundary risks rejecting legitimately-stored data (ADR-001 authority-preserved). The guard belongs at the computation site, not the schema boundary. (See `buildDataFreshness` in `src/response-builder.ts`.)
+`Date.parse(malformed)` returns `NaN`, and `NaN > 180` is `false`, so an unparseable date silently passes the staleness check as if it were fresh. In a freshness/staleness computation (a correctness property, ADR-001), guard at the computation site for EVERY parsed input — both `generatedAt` AND each source `publication_date`, not just the one you happen to select. **`Number.isNaN(Date.parse(x))` is necessary but NOT sufficient for `YYYY-MM-DD` source dates:** `Date.parse`'s legacy fallback parser ACCEPTS non-canonical strings (`"2026-1-1"`, `"01/02/2026"` — often in LOCAL time with different semantics), and some impossible dates ROLL OVER instead of rejecting (`Date.parse("2026-02-30T00:00:00Z")` → 2026-03-02, not NaN). For a canonical date, (1) require the exact `^\d{4}-\d{2}-\d{2}$` shape, then (2) round-trip the parsed UTC date back to `YYYY-MM-DD` and require equality with the input — this rejects both non-canonical formats and impossible calendar dates. Do NOT add this as a value-format regex on the serving-layer zod OUTPUT schema (format validation of stored data is the ingestion layer's job; over-constraining the serving boundary risks rejecting legitimately-stored passthrough data, ADR-001 authority-preserved) — the guard belongs at the freshness COMPUTATION site, where you genuinely cannot compute days-stale from a non-date. (See `parseSourceDate` / `buildDataFreshness` in `src/response-builder.ts`.)
 
-Surfaced by S08.3 2026-06-29.
+Surfaced by S08.3 2026-06-29; strengthened 2026-06-29 (canonical-format + round-trip, not just NaN).
 
 ### `gateBySchemaVersion` returns warnings — callers must wire them into `meta.warnings` or they are silently dropped
 

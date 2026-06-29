@@ -53,6 +53,35 @@ export const SUPPORTED_SCHEMA_VERSIONS: readonly number[] = [2];
 export const STALE_THRESHOLD_DAYS = 180;
 
 /**
+ * Parse a source `publication_date` (a canonical ISO calendar date, YYYY-MM-DD)
+ * to epoch milliseconds, failing loud on anything that is not a real,
+ * canonically-formatted date.
+ *
+ * `Date.parse` alone is NOT sufficient: its legacy fallback parser accepts
+ * non-canonical strings ("2026-1-1", "01/02/2026") — often interpreted in LOCAL
+ * time with different semantics — and some impossible dates roll over rather
+ * than rejecting. So we (1) require the exact `YYYY-MM-DD` shape, then (2)
+ * round-trip the parsed UTC date back to `YYYY-MM-DD` and require it to equal the
+ * input, which rejects impossible calendar dates (e.g. "2026-02-30", which would
+ * otherwise become 2026-03-02). Freshness is a correctness property (ADR-001),
+ * so a malformed/impossible date throws rather than being treated as fresh.
+ */
+function parseSourceDate(value: string): number {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(
+      `buildDataFreshness: source publication_date is not a canonical YYYY-MM-DD date: ${JSON.stringify(value)}`,
+    );
+  }
+  const ms = Date.parse(`${value}T00:00:00Z`);
+  if (Number.isNaN(ms) || new Date(ms).toISOString().slice(0, 10) !== value) {
+    throw new Error(
+      `buildDataFreshness: source publication_date is not a real calendar date: ${JSON.stringify(value)}`,
+    );
+  }
+  return ms;
+}
+
+/**
  * Compute the data freshness block from the contributing source citations.
  *
  * @param sources - The sources whose `publication_date` values are compared.
@@ -100,33 +129,28 @@ export function buildDataFreshness(
     );
   }
 
-  // Parse and validate EVERY source date, then select min/max by the parsed
-  // timestamp — NOT lexicographically. Validating only the selected stalest (as
-  // an earlier version did) left a gap: a malformed date that is not the
-  // lexicographic minimum escapes validation entirely and can be returned as
-  // most_recent_source_date or skew the selection (the lexicographic min/max
-  // presupposes well-formed YYYY-MM-DD input — a bad sibling breaks that
-  // assumption). Validating all of them up front and selecting numerically
-  // closes both holes. `Date.parse` returns NaN for a malformed date and every
-  // NaN comparison is false, so freshness (a correctness property, ADR-001)
-  // must fail loud here rather than silently treat bad metadata as fresh. We do
-  // NOT add a value-format regex to the zod output schema: format validation of
-  // stored data is the ingestion layer's responsibility, and over-constraining
-  // the serving boundary risks rejecting legitimately-stored data (ADR-001
-  // authority-preserved). The original strings (not reformatted dates) are
-  // returned, so no representation drift is introduced.
+  // Parse and validate EVERY source date with parseSourceDate (canonical
+  // YYYY-MM-DD + round-trip — see its JSDoc), then select min/max by the parsed
+  // timestamp, NOT lexicographically. Two gaps are closed here: (1) validating
+  // only the selected stalest would let a malformed sibling that is not the
+  // lexicographic minimum escape validation and be returned as
+  // most_recent_source_date; (2) lexicographic min/max presupposes well-formed
+  // input, which a bad sibling breaks. Validating all up front and selecting
+  // numerically closes both. Freshness is a correctness property (ADR-001), so a
+  // malformed/impossible date is a loud throw, not silently treated as fresh.
+  // This guard lives at the COMPUTATION site (not as a value-format regex on the
+  // zod output schema): you literally cannot compute days-stale from a non-date,
+  // whereas rejecting passthrough data at the schema boundary would over-
+  // constrain legitimately-stored data (ADR-001 authority-preserved). The
+  // original strings (not reformatted dates) are returned — no representation
+  // drift.
   let mostRecent = sources[0].publication_date;
   let stalest = sources[0].publication_date;
   let mostRecentMs = -Infinity;
   let stalestMs = Infinity;
 
   for (const src of sources) {
-    const ms = Date.parse(src.publication_date);
-    if (Number.isNaN(ms)) {
-      throw new Error(
-        `buildDataFreshness: source publication_date is not a parseable date: ${JSON.stringify(src.publication_date)}`,
-      );
-    }
+    const ms = parseSourceDate(src.publication_date);
     if (ms > mostRecentMs) {
       mostRecent = src.publication_date;
       mostRecentMs = ms;
