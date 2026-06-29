@@ -169,6 +169,19 @@ _LICENSE_YEAR: Final[int] = 2026
 # are linked to it).
 _CO_BEAR_SPECIES_GROUP: Final[str] = "bear"
 
+# CO V1 ships EXACTLY ONE reporting_obligation: the STATEWIDE bear
+# mandatory_check written by S06.9 (load_reporting_obligations.py). The link
+# builder fans each obligation out to every bear regulation_record, which is
+# correct for a statewide bear obligation — so a second obligation would NOT be
+# caught by the per-obligation shape guard (Guard C) or the structural invariant
+# (which scales with the obligation count). This exact-count guard fails loud if
+# the CO obligation set ever differs from the known single row, mirroring S06.9's
+# exact (1, 1) count band: a genuinely new CPW obligation must be a deliberate,
+# reviewed event (verify the fan-out semantics still hold, then bump this count),
+# not a silent doubling of the regulation_reporting link set. The S06.9.1
+# re-extraction keeps the count at 1 (same id, refreshed verbatim_rule).
+_EXPECTED_CO_REPORTING_OBLIGATION_COUNT: Final[int] = 1
+
 # Module-level logger (used throughout the adapter).
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -965,6 +978,10 @@ def _build_regulation_reporting_links(
     Formula: ``len(result) == len(obligations) * len(bear_rrs)``.
 
     Guard A: obligations is empty → raises (S06.9 hasn't run).
+    Guard A2: obligation count != _EXPECTED_CO_REPORTING_OBLIGATION_COUNT (1) →
+              raises (an unexpected second obligation would otherwise silently
+              fan out to every bear reg_record and still pass the structural
+              invariant; mirrors S06.9's exact (1, 1) count band).
     Guard B: no bear regulation_records → raises (S06.6 hasn't run / no bear data).
     Guard C: non-``co-bear-`` obligation id OR non-null ``applies_to_regions`` →
              raises (V1 only knows the STATEWIDE bear mandatory_check;
@@ -976,6 +993,20 @@ def _build_regulation_reporting_links(
         raise RuntimeError(
             "no CO reporting_obligation rows found — run load_reporting_obligations.py "
             "(S06.9) against this DB first"
+        )
+
+    # Guard A2: exact-cardinality lock. CO V1 ships exactly one reporting_obligation
+    # (S06.9). Guard C + the structural invariant both accept N statewide bear
+    # obligations, so a second one would be absorbed silently — fail loud instead
+    # and force a deliberate review + count bump when CPW publishes a new one.
+    if len(obligations) != _EXPECTED_CO_REPORTING_OBLIGATION_COUNT:
+        raise RuntimeError(
+            f"expected exactly {_EXPECTED_CO_REPORTING_OBLIGATION_COUNT} CO "
+            f"reporting_obligation row(s) (the STATEWIDE bear mandatory_check from "
+            f"S06.9) but found {len(obligations)}: "
+            f"{sorted(ob_id for ob_id, _ in obligations)}. A new CPW obligation is a "
+            f"reviewable change — confirm the link fan-out semantics still hold for "
+            f"each obligation, then update _EXPECTED_CO_REPORTING_OBLIGATION_COUNT."
         )
 
     bear_rrs = [rr for rr in reg_records if rr.species_group == _CO_BEAR_SPECIES_GROUP]

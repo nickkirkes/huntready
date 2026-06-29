@@ -1580,6 +1580,24 @@ class TestBuildRegulationReportingLinks:
                 [("co-bear-region-7-tooth-submission", ["R7"])],
             )
 
+    def test_second_statewide_bear_obligation_raises(self) -> None:
+        """Guard A2: a second statewide bear obligation → raises (exact-count lock).
+
+        Both rows pass Guard C (co-bear- + statewide) and the structural invariant
+        scales with the obligation count, so a second obligation would otherwise
+        silently double the link set. The exact-count guard (mirroring S06.9's
+        (1,1) band) fails loud so a new CPW obligation is a reviewed change.
+        """
+        rr = self._make_bear_rr()
+        with pytest.raises(RuntimeError, match="expected exactly 1 CO"):
+            _build_regulation_reporting_links(
+                [rr],
+                [
+                    ("co-bear-mandatory-check-5day-statewide", None),
+                    ("co-bear-second-statewide-obligation", None),
+                ],
+            )
+
     def test_one_obligation_one_bear_rr_produces_one_link(self) -> None:
         """1 STATEWIDE bear obligation × 1 bear reg_record → 1 link with correct fields."""
         rr = self._make_bear_rr(jurisdiction_code="CO-GMU-5")
