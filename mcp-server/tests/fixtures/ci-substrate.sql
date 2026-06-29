@@ -13,14 +13,34 @@
 
 
 -- -----------------------------------------------------------------------------
--- 1. Extensions schema + PostGIS.
---    Matches the project's extensions-schema convention so extensions.ST_*
---    calls resolve in CI tests.
---    See .roughly/known-pitfalls.md (extensions.-prefix entry) and
---    migrations/20260425000000_initial_schema.sql L24.
+-- 1. PostGIS in the `extensions` schema (mirroring production / Supabase).
+--
+--    The postgis/postgis CI image PRE-INSTALLS PostGIS into `public`.  That
+--    breaks two things:
+--      (a) PostGIS registers a `geometry` TYPE in public — so `CREATE TABLE
+--          geometry` below (which creates an associated composite type
+--          public.geometry) collides: "type geometry already exists".
+--      (b) ST_* live in public, not `extensions`, so the serving stack's
+--          `extensions.`-prefixed calls (and the smoke queries) would not
+--          resolve.
+--    Because the extension already exists, a bare
+--    `CREATE EXTENSION IF NOT EXISTS postgis SCHEMA extensions` is a NO-OP (the
+--    SCHEMA clause is ignored) — it does NOT relocate PostGIS.  And PostGIS is
+--    non-relocatable, so `ALTER EXTENSION ... SET SCHEMA` is not an option.
+--
+--    Production installs PostGIS into `extensions`
+--    (migrations/20260425000000_initial_schema.sql L24) with `extensions` on the
+--    search_path.  Reproduce that here: drop the image's public install and
+--    recreate it in `extensions`, then put `extensions` on this session's
+--    search_path so the bare `geography` type name in the table below resolves
+--    exactly as it does under Supabase.  (DROP ... CASCADE also removes the
+--    image's postgis_topology / tiger_geocoder add-ons, which we do not need.)
+--    See .roughly/known-pitfalls.md (extensions.-prefix entry).
 -- -----------------------------------------------------------------------------
+DROP EXTENSION IF EXISTS postgis CASCADE;
 CREATE SCHEMA IF NOT EXISTS extensions;
-CREATE EXTENSION IF NOT EXISTS postgis SCHEMA extensions;
+CREATE EXTENSION postgis SCHEMA extensions;
+SET search_path TO public, extensions;
 
 
 -- -----------------------------------------------------------------------------
@@ -28,8 +48,9 @@ CREATE EXTENSION IF NOT EXISTS postgis SCHEMA extensions;
 --
 --    The geometry TYPE is bare geography(MultiPolygon, 4326), NOT
 --    extensions.geography.  PostGIS types are registered in pg_type and
---    resolved by search_path; only PostGIS function *calls* take the
---    extensions. prefix.  This matches the real DDL exactly:
+--    resolved by search_path (section 1 put `extensions` on this session's
+--    search_path); only PostGIS function *calls* take the extensions. prefix.
+--    This matches the real DDL exactly:
 --    migrations/20260425000000_initial_schema.sql:173.
 --
 --    verbatim_rule and legal_description columns are intentionally omitted —
