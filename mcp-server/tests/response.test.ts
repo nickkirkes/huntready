@@ -211,6 +211,18 @@ describe("buildDataFreshness", () => {
     ).toThrow();
   });
 
+  it("throws on a malformed source date even when it is NOT the stalest (every source validated, not just the selected min)", () => {
+    // "not-a-date" sorts lexicographically AFTER "2025-06-01", so it is not the
+    // stalest — an earlier impl that only validated the selected stalest would
+    // have let it through into most_recent_source_date unvalidated.
+    expect(() =>
+      buildDataFreshness(
+        [{ publication_date: "2025-06-01" }, { publication_date: "not-a-date" }],
+        GENERATED_AT,
+      ),
+    ).toThrow();
+  });
+
   it("most_recent_source_date picks the latest date across multiple sources", () => {
     const result = buildDataFreshness(
       [

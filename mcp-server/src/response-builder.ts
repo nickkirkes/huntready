@@ -100,28 +100,41 @@ export function buildDataFreshness(
     );
   }
 
-  // Lexicographic min/max is correct for zero-padded ISO YYYY-MM-DD strings.
+  // Parse and validate EVERY source date, then select min/max by the parsed
+  // timestamp — NOT lexicographically. Validating only the selected stalest (as
+  // an earlier version did) left a gap: a malformed date that is not the
+  // lexicographic minimum escapes validation entirely and can be returned as
+  // most_recent_source_date or skew the selection (the lexicographic min/max
+  // presupposes well-formed YYYY-MM-DD input — a bad sibling breaks that
+  // assumption). Validating all of them up front and selecting numerically
+  // closes both holes. `Date.parse` returns NaN for a malformed date and every
+  // NaN comparison is false, so freshness (a correctness property, ADR-001)
+  // must fail loud here rather than silently treat bad metadata as fresh. We do
+  // NOT add a value-format regex to the zod output schema: format validation of
+  // stored data is the ingestion layer's responsibility, and over-constraining
+  // the serving boundary risks rejecting legitimately-stored data (ADR-001
+  // authority-preserved). The original strings (not reformatted dates) are
+  // returned, so no representation drift is introduced.
   let mostRecent = sources[0].publication_date;
   let stalest = sources[0].publication_date;
+  let mostRecentMs = -Infinity;
+  let stalestMs = Infinity;
 
   for (const src of sources) {
-    if (src.publication_date > mostRecent) mostRecent = src.publication_date;
-    if (src.publication_date < stalest) stalest = src.publication_date;
-  }
-
-  // Fail loud if the stalest source date is unparseable. `Date.parse(stalest)`
-  // would otherwise be NaN, making `is_stale` silently false — stale data
-  // looking fresh. `publication_date` is only typed `string` in the shared
-  // schema, so guard the value at this computation site (ADR-001 fail-loud).
-  // We do NOT add a value-format regex to the zod output schema: format
-  // validation of stored data is the ingestion layer's responsibility, and
-  // over-constraining the serving boundary risks rejecting legitimately-stored
-  // data (ADR-001 authority-preserved).
-  const stalestMs = Date.parse(stalest);
-  if (Number.isNaN(stalestMs)) {
-    throw new Error(
-      `buildDataFreshness: stalest source publication_date is not a parseable date: ${JSON.stringify(stalest)}`,
-    );
+    const ms = Date.parse(src.publication_date);
+    if (Number.isNaN(ms)) {
+      throw new Error(
+        `buildDataFreshness: source publication_date is not a parseable date: ${JSON.stringify(src.publication_date)}`,
+      );
+    }
+    if (ms > mostRecentMs) {
+      mostRecent = src.publication_date;
+      mostRecentMs = ms;
+    }
+    if (ms < stalestMs) {
+      stalest = src.publication_date;
+      stalestMs = ms;
+    }
   }
 
   const ageMs = generatedAtMs - stalestMs;
