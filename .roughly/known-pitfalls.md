@@ -1556,6 +1556,37 @@ Surfaced by S08.1 implementation on 2026-06-26.
 
 Also: keep the committed `wrangler.jsonc` free of any `durable_objects` binding or `migrations` block. V1 MCP tools are stateless reads — no Durable Object is needed. The `remote-mcp-authless` Cloudflare template scaffolds the DO/`McpAgent` path; following the `createMcpHandler` guide directly avoids it.
 
+### Zod schema ↔ TS interface drift-guard: `AssertEqual` breaks on optional fields — use `satisfies z.ZodType<Interface>` instead
+
+When a zod schema must stay in lockstep with a TypeScript interface (e.g. `getRegulationsResponseSchema` mirroring `GetRegulationsResponse` in `response.ts`), add a compile-time guard. Use the bidirectional `AssertEqual`:
+
+```typescript
+type AssertEqual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
+const _assertX: AssertEqual<z.infer<typeof xSchema>, X> = true;
+```
+
+for **flat schemas with no optional `?` fields** — it catches both missing and extra fields. For schemas that have optional object properties or embed types that do (in S08.3: `ReservedPool.eligibility`, `AllocationPool.eligibility`/`tie_break?`, and `DrawSpec` which embeds both), `AssertEqual` is brittle because zod models optionals as `T | undefined` in ways that break the bidirectional check. Use `... satisfies z.ZodType<Interface>` on the schema constant instead. This is inherent to zod's optional modeling — NOT specific to a zod major version, so a version bump will not unlock `AssertEqual` for those cases. Never reach for `@ts-expect-error` to force it — that suppresses the signal. The need to switch to `satisfies` IS the signal. (See `src/output-schema.ts`.)
+
+Surfaced by S08.3 2026-06-29.
+
+### `Date.parse` returns `NaN` on malformed input — every NaN comparison is `false`, making stale data look fresh
+
+`Date.parse(malformed)` returns `NaN`, and `NaN > 180` is `false`, so an unparseable date silently passes the staleness check as if it were fresh. In a freshness/staleness computation (a correctness property, ADR-001), guard with `Number.isNaN(Date.parse(x))` and throw at the computation site for EVERY parsed input — both `generatedAt` AND each source `publication_date`. Do NOT add a value-format regex to the serving-layer zod output schema to catch this: format validation of stored data is the ingestion layer's job, and over-constraining the serving output boundary risks rejecting legitimately-stored data (ADR-001 authority-preserved). The guard belongs at the computation site, not the schema boundary. (See `buildDataFreshness` in `src/response-builder.ts`.)
+
+Surfaced by S08.3 2026-06-29.
+
+### `gateBySchemaVersion` returns warnings — callers must wire them into `meta.warnings` or they are silently dropped
+
+`gateBySchemaVersion(rows)` returns `{ included, warnings }` and emits one `UNSUPPORTED_SCHEMA_VERSION` warning per excluded row — but it cannot force the caller to propagate those warnings into the response `meta.warnings`. An E09/E10 tool handler that uses `included` but drops `warnings` silently loses data with no user-visible signal, violating ADR-006's "never silent-drop" promise. Every call site in E09/E10 must spread the returned warnings into `meta.warnings`. Consider an AST guard or test lock when those stories land to prevent a future handler from omitting the wire-up. (See `gateBySchemaVersion` in `src/response-builder.ts`.)
+
+Surfaced by S08.3 2026-06-29.
+
+### Internal health check = HTTP route (`/healthz`), NOT a registered MCP tool
+
+To exercise the envelope and a real DB read end-to-end without inflating `tools/list` (the S08.1 registry-empty lock), wire it as an HTTP route in `src/index.ts` that calls a Node-importable function (`runHealthCheck` in `src/health-check.ts`), NOT via `registerTool`. The entire DB-client lifecycle — including `createDbClient()` construction — belongs inside try/finally so that even a malformed or missing DSN degrades to a structured `{ ok: false }` 503 response, never a hard 500. Optional-chain the `close()` call (`client?.close()`) since `createDbClient()` may itself throw before `client` is assigned. The MCP SDK's `structuredContent` boundary is typed `Record<string, unknown>` — cast the validated response with `as unknown as Record<string, unknown>` (the single sanctioned any-free seam, mirroring the pattern in `src/db.ts`). (See `src/health-check.ts` + `src/index.ts`.)
+
+Surfaced by S08.3 2026-06-29.
+
 Lock the no-DO constraint with a config-text test matching the snake_case key:
 
 ```typescript
