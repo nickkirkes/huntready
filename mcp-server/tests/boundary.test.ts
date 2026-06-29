@@ -250,3 +250,39 @@ describe("src/ — DB client constructed per request, never at module scope", ()
     ).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Test 6: response.ts imports shared types from schema.js (AST)
+// Locks that response.ts does NOT redefine SourceCitation, DrawSpec, etc. from
+// scratch — it imports them from schema.js. A future refactor that moves the
+// import or redefines the types inline would break the three-place sync
+// discipline; this guard catches it at the module-specifier level.
+// ---------------------------------------------------------------------------
+describe("src/types/response.ts — imports shared types from schema.js", () => {
+  it("has a module specifier for ./schema.js", () => {
+    const responseTsPath = resolve(__dirname, "../src/types/response.ts");
+    const sf = parseSourceFile(responseTsPath);
+    expect(
+      moduleSpecifiers(sf).includes("./schema.js"),
+      "response.ts must import shared types from ./schema.js, not redefine them",
+    ).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Test 7: src/types/index.ts barrel re-exports response.js (AST)
+// Locks the barrel convention established in T7: any consumer that imports from
+// the types barrel (src/types/index.ts) gets the response types too. A future
+// edit that removes the re-export block would break that consumer contract;
+// this guard catches it immediately.
+// ---------------------------------------------------------------------------
+describe("src/types/index.ts — barrel re-exports response.js", () => {
+  it("has a module specifier for ./response.js", () => {
+    const indexTsTypesPath = resolve(__dirname, "../src/types/index.ts");
+    const sf = parseSourceFile(indexTsTypesPath);
+    expect(
+      moduleSpecifiers(sf).includes("./response.js"),
+      "src/types/index.ts must re-export from ./response.js",
+    ).toBe(true);
+  });
+});
