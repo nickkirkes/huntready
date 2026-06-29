@@ -100,10 +100,12 @@ function parseSourceDate(value: string): number {
  * introduced.
  *
  * `is_stale` uses `Date.parse` on the full `generatedAt` ISO-8601 timestamp
- * (which includes a timezone offset and is therefore unambiguous) minus the
- * `parseSourceDate`-derived UTC timestamp of `stalest_source_date`. `generatedAt`
- * itself is guarded for parseability (a NaN there is a server bug, not bad
- * upstream data).
+ * minus the `parseSourceDate`-derived UTC timestamp of `stalest_source_date`.
+ * `generatedAt` is guarded both for parseability AND for carrying an explicit
+ * timezone designator (trailing `Z` or `±HH:MM`) — a parseable but offset-less
+ * date-time would be interpreted as local time and make `is_stale` depend on the
+ * server's timezone, so it is rejected (`new Date().toISOString()` always emits
+ * `Z`). A failure here is a server/caller bug, not bad upstream data.
  */
 export function buildDataFreshness(
   sources: readonly { publication_date: string }[],
@@ -129,6 +131,19 @@ export function buildDataFreshness(
   if (Number.isNaN(generatedAtMs)) {
     throw new Error(
       `buildDataFreshness: generatedAt is not a parseable timestamp: ${JSON.stringify(generatedAt)}`,
+    );
+  }
+
+  // generatedAt must carry an explicit timezone designator. A parseable ISO
+  // date-time WITHOUT an offset (e.g. "2026-06-29T12:00:00") is interpreted as
+  // LOCAL time by Date.parse (only date-ONLY strings default to UTC), which would
+  // make is_stale depend on the server's timezone — a timezone-dependent
+  // correctness bug. `new Date().toISOString()` always emits a trailing "Z", so
+  // a missing offset is a caller error; fail loud (ADR-001) rather than compute a
+  // timezone-ambiguous instant. Accepts a trailing "Z" or a "±HH:MM"/"±HHMM" offset.
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/.test(generatedAt)) {
+    throw new Error(
+      `buildDataFreshness: generatedAt must carry a timezone designator (trailing "Z" or "±HH:MM") so the instant is unambiguous; got ${JSON.stringify(generatedAt)}`,
     );
   }
 

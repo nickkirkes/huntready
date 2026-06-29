@@ -205,6 +205,22 @@ describe("buildDataFreshness", () => {
     ).toThrow();
   });
 
+  it("throws when generatedAt is parseable but has NO timezone designator (would be parsed as local time)", () => {
+    // "2026-06-29T12:00:00" (no trailing Z / offset) is parseable but interpreted
+    // as LOCAL time, which makes is_stale timezone-dependent — reject it.
+    expect(() =>
+      buildDataFreshness([{ publication_date: "2020-01-01" }], "2026-06-29T12:00:00"),
+    ).toThrow();
+  });
+
+  it("accepts a generatedAt with a ±HH:MM offset (not only trailing Z)", () => {
+    const result = buildDataFreshness(
+      [{ publication_date: "2026-06-01" }],
+      "2026-06-29T12:00:00+02:00",
+    );
+    expect(result.is_stale).toBe(false);
+  });
+
   it("throws when a source publication_date is unparseable (no silent is_stale=false)", () => {
     expect(() =>
       buildDataFreshness([{ publication_date: "TBD" }], GENERATED_AT),
