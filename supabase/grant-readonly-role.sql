@@ -1,0 +1,167 @@
+-- =============================================================================
+-- HuntReady: SELECT-Only Role Provisioning
+-- supabase/grant-readonly-role.sql
+-- =============================================================================
+-- OPERATOR-APPLIED DB PROVISIONING — NOT A MIGRATION.
+-- This file lives OUTSIDE supabase/migrations/ and is applied by hand to each
+-- environment and by CI against a test substrate:
+--
+--   supabase db query --db-url "$DATABASE_URL" < supabase/grant-readonly-role.sql
+--
+-- The SELECT-only-role DSN is held in Workers Secrets (Cloudflare), never in
+-- source.  The role is created WITHOUT a password here; the operator/CI sets
+-- the password out-of-band:
+--
+--   ALTER ROLE huntready_readonly PASSWORD '<generated>';
+--
+-- Apply this script AFTER all migrations have been applied (the tables must
+-- exist for GRANT SELECT ON ALL TABLES to cover them).
+--
+-- Idempotent: safe to re-run on the same environment.  The RLS ALLOW-SELECT
+-- policy block skips tables that already have the policy.
+--
+-- Table-set-agnostic: the same script applies cleanly on the full dev Supabase
+-- project (all 10 app tables, every one FORCE ROW LEVEL SECURITY) AND on a
+-- minimal CI substrate where only the `geometry` table exists.
+--
+-- Relevant ADRs: 002 (MCP server as canonical interface), 023 (remote
+-- authenticated MCP server posture), 024 (edge-runtime Postgres access).
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- 1. Create the role if it does not already exist (LOGIN, no password here).
+-- -----------------------------------------------------------------------------
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'huntready_readonly') THEN
+    CREATE ROLE huntready_readonly LOGIN;
+  END IF;
+END $$;
+
+
+-- -----------------------------------------------------------------------------
+-- 2. Grant CONNECT on the current database.
+--    A literal DB name would be environment-specific; current_database() is
+--    portable across dev / CI / prod.
+-- -----------------------------------------------------------------------------
+DO $$
+BEGIN
+  EXECUTE format(
+    'GRANT CONNECT ON DATABASE %I TO huntready_readonly',
+    current_database()
+  );
+END $$;
+
+
+-- -----------------------------------------------------------------------------
+-- 3. Schema-level USAGE grants.
+--    public  — all app tables live here.
+--    extensions — PostGIS is installed with SCHEMA extensions in this project
+--                 (see migrations/20260425000000_initial_schema.sql L24).
+--                 USAGE is required so the role can resolve ST_* function calls
+--                 (e.g. extensions.ST_DWithin) made through the serving stack.
+-- -----------------------------------------------------------------------------
+GRANT USAGE ON SCHEMA public     TO huntready_readonly;
+GRANT USAGE ON SCHEMA extensions TO huntready_readonly;
+
+
+-- -----------------------------------------------------------------------------
+-- 4. Converge table privileges to read-only: REVOKE ALL, then GRANT SELECT.
+--    The REVOKE strips any table privilege the role may have accumulated (a
+--    manual GRANT, or drift from an earlier provisioning) so re-running this
+--    script ENFORCES the read-only end state rather than merely adding SELECT.
+--    Mirrors the base migration's REVOKE-ALL posture
+--    (20260425000001_rls_deny_all.sql).  Both statements are table-set-agnostic
+--    (whatever tables exist at apply time) and idempotent (REVOKE of an absent
+--    privilege is a no-op).
+--    CRITICAL: SELECT is the ONLY privilege this file GRANTs — no INSERT,
+--    UPDATE, or DELETE grant appears anywhere.
+-- -----------------------------------------------------------------------------
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM huntready_readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO huntready_readonly;
+
+
+-- -----------------------------------------------------------------------------
+-- 5. Default privileges for FUTURE tables.
+--
+--    ALTER DEFAULT PRIVILEGES is ROLE-SCOPED: it only affects tables created by
+--    the named role.  A bare statement (no FOR ROLE) covers only tables created
+--    by whoever applies THIS script — so if a later migration creates tables as
+--    a different owner, huntready_readonly would silently lack SELECT on them.
+--
+--    Rather than guess owner names with a hardcoded allowlist, derive the owner
+--    set FROM THE LIVE CATALOG: every role that currently owns a table in the
+--    public schema (the roles that demonstrably create this schema's tables),
+--    plus the applying role itself.  Future tables created by any of those same
+--    owners are then covered.  Each candidate is membership-guarded
+--    (pg_has_role ... 'MEMBER') so we never attempt an ALTER we lack rights for
+--    (which would otherwise raise "permission denied").
+--
+--    Residual limitation (inherent to ALTER DEFAULT PRIVILEGES — there is no
+--    "for any future role" form): a brand-new owner introduced by a later
+--    migration is not covered until provisioning re-runs.  Belt-and-suspenders:
+--    this whole script is idempotent and re-grants SELECT ON ALL TABLES
+--    (section 4), so re-running it after any migration closes that gap.
+-- -----------------------------------------------------------------------------
+DO $$
+DECLARE
+  ddl_owner text;
+BEGIN
+  FOR ddl_owner IN
+    SELECT rolname
+      FROM pg_roles
+     WHERE pg_has_role(current_user, rolname, 'MEMBER')
+       AND (
+             rolname = current_user
+          OR rolname IN (
+               SELECT tableowner FROM pg_tables WHERE schemaname = 'public'
+             )
+           )
+  LOOP
+    EXECUTE format(
+      'ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public'
+      ' GRANT SELECT ON TABLES TO huntready_readonly',
+      ddl_owner
+    );
+  END LOOP;
+END $$;
+
+
+-- -----------------------------------------------------------------------------
+-- 6. RLS ALLOW-SELECT policies.
+--
+--    Every app table has FORCE ROW LEVEL SECURITY (see
+--    migrations/20260425000001_rls_deny_all.sql).  The deny-all policies are
+--    scoped TO anon, authenticated — huntready_readonly is neither, so without
+--    explicit ALLOW policies the role would be blocked by FORCE RLS even though
+--    it holds SELECT privilege.
+--
+--    This block loops over all tables in the public schema and creates a
+--    FOR SELECT TO huntready_readonly USING (true) policy on each, skipping
+--    tables that already have it (idempotent).
+--
+--    On the CI substrate (RLS not forced), the policy is created but inert —
+--    harmless.
+-- -----------------------------------------------------------------------------
+DO $$
+DECLARE
+  t record;
+BEGIN
+  FOR t IN
+    SELECT tablename
+      FROM pg_tables
+     WHERE schemaname = 'public'
+  LOOP
+    IF NOT EXISTS (
+      SELECT FROM pg_policies
+       WHERE schemaname = 'public'
+         AND tablename  = t.tablename
+         AND policyname = 'huntready_readonly_select'
+    ) THEN
+      EXECUTE format(
+        'CREATE POLICY huntready_readonly_select ON public.%I'
+        ' FOR SELECT TO huntready_readonly USING (true)',
+        t.tablename
+      );
+    END IF;
+  END LOOP;
+END $$;

@@ -993,6 +993,26 @@ json.dump(old, open(".secrets.baseline", "w"), indent=2)
 
 The alternative — inline `# pragma: allowlist secret` on the flagged line — is also valid but was rejected for the MT loader precedent. Pattern landed in S05.0 (2026-06-01).
 
+### `detect-secrets` attributes secrets inside a YAML `run: |` block scalar to the block-START line — inline pragma on the secret line is silently ignored
+
+**Symptom:** A secret literal inside a GitHub Actions `run: |` multi-line block scalar (e.g. a throwaway password in `psql ... -c "ALTER ROLE ... PASSWORD 'x'"`) gets flagged at the block-START line (the `run: |` line), NOT the line where the literal actually appears. An inline `# pragma: allowlist secret` placed on the secret line therefore does NOT suppress the finding — detect-secrets is looking at the block-start line, which has no pragma. The pre-commit hook keeps failing even after the secret line is annotated.
+
+**Cause:** detect-secrets treats a YAML block-scalar value as a single logical string attributed to the key's line. The pragma check looks for the comment on that key line, not on the line within the expanded scalar where the literal appears.
+
+**Fix:** Move the secret out of the block scalar into a `env:` var on its own line with a trailing pragma, and reference it via `$VAR_NAME` inside the block:
+
+```yaml
+env:
+  READONLY_PW: ci_readonly_pw  # pragma: allowlist secret
+steps:
+  - run: |
+      psql "$DATABASE_URL" -c "ALTER ROLE readonly_role PASSWORD '$READONLY_PW'"
+```
+
+Regular (non-block) YAML scalars and single-line shell commands honor an inline trailing pragma fine; only the `|` / `>` block-scalar form has this line-attribution quirk. Also: in Markdown shell-recipe code fences, a line ending in `\` (line continuation) cannot take a trailing pragma comment — collapse such commands to a single line, or use libpq env vars (`PGPASSWORD` + `-h/-U/-d` flags) instead of credential-in-URL DSNs to avoid the "Basic Auth Credentials" detector entirely.
+
+Surfaced by S08.2 (`.github/workflows/ci.yml` CI substrate recipe + the S08.2 working-note shell recipe on 2026-06-27).
+
 ## Conventions — Documentation & planning discipline
 
 ### Deferred open-question verdicts require an amendment-pending breadcrumb in `docs/open-questions.md`
@@ -1551,3 +1571,26 @@ Surfaced by S08.1 implementation on 2026-06-26.
 Remove the option as soon as the first test file is committed. The S08.1 baseline test file removes it.
 
 Surfaced by S08.1 implementation on 2026-06-26.
+
+### Use `postgres` (postgres.js) as the edge Postgres driver for Supabase — NOT `@neondatabase/serverless`
+
+**Symptom:** Reaching for `@neondatabase/serverless` as "the serverless/edge Postgres driver" for a Supabase backend. Its `fetch`-HTTP mode (`neon()`) speaks ONLY to Neon's proprietary SQL-over-HTTP endpoint — not to Supabase's Supavisor or direct Postgres. Its WebSocket `Pool` mode requires a `wsproxy` process in front of Postgres. Neither path targets Supabase cleanly.
+
+**Fix:** Use the `postgres` npm package (postgres.js). It speaks the standard Postgres wire protocol and runs in BOTH Node (TCP sockets, used by the vitest Node pool) and `workerd` (`cloudflare:sockets`, enabled by the `nodejs_compat` compatibility flag). For Supabase's Supavisor transaction-mode pooler, two settings are mandatory:
+
+- `prepare: false` — named prepared statements are connection-scoped; Supavisor remaps connections per transaction, so named statements are unavailable.
+- `max: 1` — workerd cannot reuse outbound sockets across requests; one connection per invocation is the correct model (connect-per-request, no shared pool).
+
+Construct the client per request inside the `fetch` handler, never at module scope. `@supabase/supabase-js` is the PostgREST HTTP client, not a wire-protocol driver, and is rejected by ADR-024 for the serving stack.
+
+Surfaced by S08.2 driver spike on 2026-06-27; decision recorded in ADR-024 addendum.
+
+### Serving-CI Group A/B split for edge-only infra; PostGIS types are bare, only PostGIS function calls take `extensions.` prefix
+
+**Two related findings from S08.2 (edge-Postgres access layer and CI substrate):**
+
+**Finding A — role-level write-rejection tests can run in Node, not workerd.** A read-only-enforcement test (asserting that a `SELECT`-only role's write attempt raises `SQLSTATE 42501`) seems unrunnable in the vitest Node pool because Hyperdrive and other workerd-native edge bindings are unavailable in Node. However, `postgres` (postgres.js) runs in Node over TCP just as it runs in workerd over `cloudflare:sockets`. The enforcement test can therefore run in Node against a local or CI `postgis/postgis` Docker image with the committed `GRANT SELECT` applied (Group A, at-merge); the workerd runtime-compatibility proof is a deployed live check (Group B, operator-pending). The key constraint: the write-rejection MUST be a real `SQLSTATE 42501` from a `SELECT`-only role over the committed GRANT — never a mock that just throws.
+
+**Finding B — in a CI substrate DDL, PostGIS types are bare but PostGIS function calls still need `extensions.` prefix.** Writing `geom extensions.geography(MultiPolygon, 4326)` in a `CREATE TABLE` fails with `type "extensions.geography" does not exist`. PostGIS types (`geography`, `geometry`, `box2d`, etc.) are registered in `pg_type` and resolved via `search_path` — reference them bare, exactly as the real migrations do: `geom geography(MultiPolygon, 4326)`. Only PostGIS *function calls* take the `extensions.` prefix (`extensions.ST_IsValid(...)`, `extensions.ST_DWithin(...)`, etc.). Additionally, a CI substrate must be minimal hand-authored DDL — NOT the real Supabase migrations — because the deny-all RLS migration references `anon` and `authenticated` roles absent from a vanilla `postgis/postgis` image. A `SELECT`-only role under `FORCE RLS` also needs an explicit `FOR SELECT ... USING (true)` ALLOW policy, because the deny-all policies are scoped to `anon`/`authenticated` only and do not cover a custom CI role.
+
+Surfaced by S08.2 CI substrate authoring on 2026-06-27 (`ci-substrate.sql` + `grant-readonly-role.sql`).
