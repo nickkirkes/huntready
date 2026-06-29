@@ -440,6 +440,18 @@ Surfaced by S06.3 cubic review iteration 3 on 2026-06-10.
 
 Surfaced by S06.5 real-PDF probe on 2026-06-17 (CPW Big Game brochure p. 78, `verbatim_rule` population for restricted-area no-hunt zones). Related: three-column layout pitfall (FWP Legal Descriptions, S03.5) and two-column page layout pitfall (Black Bear booklet p. 7, S03.4) above.
 
+### Multi-column PDF prose: an END-anchor regex can match a sibling-column heading before the body prose — capturing heading-only text
+
+**Symptom:** A prose-block extractor bounds its capture between a START anchor (the section heading) and an END anchor (the next heading). On a multi-column page, pdfplumber's `extract_text()` interleaves columns in reading order that may place a RIGHT-column heading immediately after a LEFT-column heading — before the left-column body prose arrives. The END anchor matches the sibling-column heading first, so the captured `verbatim_rule` is the heading text ALONE with no rule text. Because the result is a non-empty string, no downstream non-empty validator fires.
+
+**Concrete instance:** `ingestion/states/colorado/extract_black_bear.py::_extract_mandatory_inspection_candidate` (CPW Big Game brochure p. 73, "Mandatory Bear Inspections & Seals" section). `_BEAR_INSPECTION_END_RE` matched `"Multiple Options for Hunting Bear"` — the right-column heading — before the left-column body arrived. Consequently `black-bear-2026.json`'s lone reporting-obligation entry carries `verbatim_rule="Mandatory Bear Inspections & Seals"` (just the heading) instead of the full `"Hunters must personally present their bear head and hide…"` prose.
+
+**Downstream impact:** A loader consuming such an artifact cannot distinguish heading-only from full prose — both are non-empty strings. ADR-008 forbids fabricating the missing text in the loader. S06.9's loader handles this by emitting a `WARNING` when the written `verbatim_rule` equals the `_KNOWN_HEADING_ONLY_VERBATIM` constant (a single `Final[str]` compared by `==`; a loader-side mitigation, not a root-cause fix).
+
+**Mitigations:** (a) At extraction time, add a length or content sanity check on bounded prose blocks — warn or fail if a captured block equals its own heading text or is implausibly short. Prefer column-cropping (bbox per column) over whole-page `extract_text()` for multi-column prose, per the S06.5 multi-column-crop pitfall above. (b) At load time, compare each written `verbatim_rule` against the known heading-only value and emit a `WARNING` on a match — this makes the gap visible in run logs so operators can identify which brochure editions need re-extraction. S06.9 uses a single `_KNOWN_HEADING_ONLY_VERBATIM: Final[str]` constant compared by `==`; promote it to a `frozenset[str]` with membership testing only if multiple heading-only values accumulate across editions.
+
+Surfaced by S06.9 implementation on 2026-06-28 (CPW Big Game brochure p. 73 mandatory-inspection prose extraction).
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
@@ -1446,6 +1458,18 @@ Surfaced by S06.8 Stage-6 review on 2026-06-27.
 **Fix:** Store the raw artifact value string in the comparison set: `values.add(str(quota))` or simply use the unmodified field. Reserve coercion for the downstream write site where the type must conform to the schema. The conflict guard's job is to detect ARTIFACT-level divergence — it must compare at the artifact's own granularity, not at the schema's. Reference: `ingestion/states/colorado/load_draw_specs.py::_validate_cross_listing_consistency` (S06.8).
 
 Surfaced by S06.8 Stage-6 review on 2026-06-27.
+
+### Per-state loader scope can diverge from the MT precedent — confirm the story boundary, not just the code shape, when porting
+
+**Symptom:** A loader for a new state is architected as a port of the equivalent Montana loader. The MT loader combines two jobs in one transaction: writing entity rows AND writing link rows (e.g., MT S03.9 `load_reporting_obligations.py` writes both `reporting_obligation` entity rows AND `regulation_reporting` link rows in one atomic write). The new-state loader faithfully replicates both jobs — importing `RegulationReporting`, calling `db.write_regulation_reporting`, and building link rows — even though the epic's story split assigned link-row writes to a different story.
+
+**Cause:** MT's combined structure is a valid single-story scope for Montana because its `regulation_reporting` links FK only to `regulation_record` (already written). CO's equivalent links FK to BOTH `regulation_record` AND `geometry` — entities whose write order is managed by a distinct story (S06.10). The epic's story boundary reflects this difference: CO S06.9 writes ONLY the `reporting_obligation` entity rows; CO S06.10's binding loader writes the `regulation_reporting` links alongside the jurisdiction bindings. A port that combines both jobs would write link rows before the geometry FK targets exist and would duplicate S06.10's work.
+
+**The state-agnostic-clean AST guard does NOT catch a scope over-port.** The guard verifies that the adapter does not import from sibling state adapters. It does not verify that the adapter stays within its story-scoped write responsibilities. Only reading the epic's story-boundary prose catches this.
+
+**Fix:** Before writing the plan for any new-state loader that mirrors a prior-state combined loader, confirm the NEW state's story boundary explicitly from the epic spec — not from the prior-state code shape. Write down which DB tables this story writes and which tables the next sequenced story writes. Over-porting is invisible to both CI and code-review unless the reviewer checks the epic spec against the module's write calls.
+
+Surfaced by S06.9 scope-boundary confirmation on 2026-06-28 (CO reporting-obligation ingestion; MT's combined S03.9 pattern was NOT ported because CO S06.9 is entity-only, link rows belong to S06.10).
 
 ## Integration — MCP server / Cloudflare Workers (serving)
 
