@@ -1,6 +1,7 @@
 # E08: MCP Server Foundation
 
-**Status:** In Progress
+**Status:** **Complete 2026-06-30** (all 4 stories merged: S08.1 #79 · S08.2 #82 · S08.3 #84 · S08.4 #86 — see "E08 close-out" below)
+**Audited:** _pending — human running `roughly:audit-epic` on E08; gates `/plan-next-epic` for E09_
 **Milestone:** M3 — Canonical Interface Live
 **Dependencies:** None blocking. E08 is the foundation every tool (E09/E10) reads through; E09/E10 depend on E08 (hard). E08 is **independent of E07** (E07 is Python ingestion; E08 is TypeScript serving — they share no code, only the ADR-024 *principle*, which is decidable independently). E08 reads the existing dev Supabase corpus (Montana frozen at `m1`; Colorado present from the M2-build operator pass) — it writes no data. **Authorized to plan + execute in parallel with M2's E06** (human direction 2026-06-26): the serving stack touches only `mcp-server/` and never `ingestion/`, so there is **no shared-file race** with in-flight E06 ingestion PRs (unlike E07). Run E08 on a separate worktree.
 **Validated:** 2026-06-26 (E08 serving triad — MCP Protocol & Transport Conformance + Edge Runtime & Data-Access + Response-Envelope/Shape-C reviewers all returned LAND-WITH-EDITS; all MUST-FIX + SHOULD-FIX findings applied; see "Validation triad notes" below. **Independent epic review** (`/roughly:review-epic`, opus) 2026-06-26 returned **Ready** — all 6 recommendations applied; see [`E08-mcp-server-foundation-review.md`](E08-mcp-server-foundation-review.md))
@@ -238,7 +239,34 @@ The Shape C envelope (ADR-011) is intricate and easy to get subtly wrong (PRD 00
 
 ### S08.4: CORS/preflight + OAuth-2.1 auth seam (wired, unenforced) + boundary guards
 
-**Status:** Not started
+**Status:** **Complete at-merge 2026-06-30** — PR #86 / `677ab74` on `main` (no Group A/B split; CI-verified; the deployed-endpoint auth UAT is E11's). **The last E08 story → E08 closes.** Shipped a **pure-module + thin-shim** architecture (the established serving pattern E09/E10 inherit): `src/cors.ts` (`buildCorsHeaders`/`isCorsPreflightRequest`/`applyCorsHeaders`; configurable allowed-origin policy; never `Access-Control-Allow-Credentials`; exposes `WWW-Authenticate` + `Mcp-Session-Id`; merges `Vary`), `src/auth.ts` (`isAuthSeamEnabled`/`isAuthorized` fail-closed/`buildUnauthorizedResponse` with an RFC 9728 origin-derived `WWW-Authenticate`; `@cloudflare/workers-oauth-provider` named as the drop-in, **not built**), `src/router.ts` (the 4-step dispatch — CORS preflight → `/healthz` → auth seam → MCP — with the MCP handler **injected** so it imports no `agents/mcp` and is behavior-testable in the Node pool), and `src/index.ts` reduced to a thin Worker shim (per-request `createMcpServer()` lock preserved inside the injected callback). All 5 ACs PM-verified MET against the merged code 2026-06-30; scope clean (`schema.ts`/`migrations/`/`ingestion/`/`web/` zero-diff); no `any`; the recursive `collectTsFiles` AST no-`ingestion`-import guard auto-covers the new `src/*.ts`.
+
+**Test baseline shifted: 56 + 6 skipped → 131 passed + 6 skipped (local) / 62 → 137 (CI)** (+75 additive; 3 new test files — cors/auth/router; one brittle source-order AST test removed, superseded by behavioral router tests). New floor for E09: **131 + 6 skipped (local) / 137 (CI)**.
+
+**Decisions / deviations recorded at close:**
+- **Pure-module + thin-shim architecture** (`cors`/`auth`/`router` import no `agents/mcp`) is the serving routing/middleware pattern E09/E10 inherit.
+- **`/healthz` dispatched *before* the auth seam** (fixes a latent P1: both read the single `Authorization` header but expect different tokens; sequencing `/healthz` behind the seam made it unreachable when both were enabled with distinct tokens).
+- **CORS policy is 3-case** (trimmed): unset/empty/whitespace-only → permissive (open-V1 default); `*` as any entry → permissive; a botched non-empty list with zero valid origins → fail-closed deny. CORS is applied on **every** response path (incl. the MCP-handler response and try/catch'd platform-500s).
+- **New config/secret surface (for the E11 deploy runbook):** `CORS_ALLOWED_ORIGINS` (optional var, default `*`), `AUTH_SEAM_ENABLED` (optional toggle; unset = disabled = deployed V1 default), `AUTH_SEAM_TOKEN` (optional Workers Secret, test/staging only) — alongside the existing `SUPABASE_READONLY_DSN` + `HEALTHCHECK_TOKEN`.
+- **Documented deferral (cubic conflict):** whitespace-only `CORS_ALLOWED_ORIGINS` stays **permissive** (per the explicit human finding + open-V1 default), conflicting with a cubic P2 that wanted fail-closed. Decision documented in `cors.ts`.
+- **No new ADRs.** Refines ADR-023 (CORS = the no-BFF/Q5 consequence + the wired-unenforced auth seam; ADR-023 progresses toward `Accepted` — transport + CORS + seam now stood up; finalization + deployed verification is E11) and ADR-003/ADR-005 (no-`ingestion`-import + no-`any`). ADR-024 unchanged (stays `Proposed` pending S08.2 Group B).
+
+---
+
+## E08 close-out (2026-06-30)
+
+**E08 — MCP Server Foundation is COMPLETE: all 4 stories merged** (S08.1 #79 `0361a65` · S08.2 #82 `dc4749c` · S08.3 #84 `7dc2740` · S08.4 #86 `677ab74`). The serving foundation E09/E10 build on now exists: Streamable HTTP transport on Workers (stateless, per-request, empty-but-conformant `tools/list`); a read-only-enforced edge-Postgres single read path (`src/db.ts` + the WKT `extensions.ST_*` idiom + the SELECT-only-role GRANT); the Shape C response envelope + `getRegulationsResponseSchema` + the `structuredContent`/`outputSchema`/annotation + schema-version-gating reusable mechanisms; and CORS + the wired-unenforced OAuth seam behind a pure-module/thin-shim router. Serving test baseline **0 → 137 (CI)**.
+
+**⏳ Audit gate before E09:** per the project's post-implementation-audit standard, E08 closes with an audit recorded before `/plan-next-epic` is invoked for E09. The human is running `roughly:audit-epic` on E08 separately; this establishes the **serving-audit shape** (the E08/E11 forward-item). **The PM does NOT run `/plan-next-epic` for E09 until E08's audit lands + the E09-entry decisions below are resolved.** (`Audited:` field is left pending in the header until then.)
+
+**E09-entry decisions that must resolve before E09 planning** (carried, untouched by S08.4):
+1. **🚩 SPEC-CANDIDATE (human):** `sources.min(1)` vs nullable `meta.data_freshness` in `architecture.md` §"Response shape" (S08.3) — `get_regulations` is the first tool that can produce a zero-source response.
+2. **Empty-`tools/list`:** keep the S08.1 register-then-remove bootstrap vs relax the invariant (E09's first `registerTool()` would auto-enable).
+3. **`gateBySchemaVersion` warning-wiring:** every E09/E10 tool call site must merge its `warnings` into `meta.warnings` or excluded rows vanish silently — bake an AST/test guard into E09 ACs.
+
+**Operator-pending Group B (non-blocking for E08 close; gates ADR flips):** S08.1 (deploy + MCP Inspector) and S08.2 (live edge read + provably-rejected write → flips **ADR-024 → `Accepted`**). ADR-023 finalizes at E11.
+
+**Carried for a doc-writer pass (`.roughly/` is implementation territory — PM flags, doesn't edit):** the S08.4 mid-build pitfall "AST source-order assertion for workerd-only entrypoints" was superseded by the fix cycle — the durable lesson is "extract a pure injectable dispatcher and behavior-test it" (the `router.ts` pattern). Recommend updating that `known-pitfalls.md` entry.
 
 **As a** developer making the open V1 endpoint browser-reachable and auth-upgrade-ready
 **I want** CORS headers + `OPTIONS` preflight handling, the OAuth-2.1 auth seam wired as a single middleware integration point (present but unenforced in the deployed V1 config), and the architecture-boundary guards (no `ingestion/` import, no `any`)
@@ -260,11 +288,11 @@ The Shape C envelope (ADR-011) is intricate and easy to get subtly wrong (PRD 00
 
 **Acceptance Criteria:**
 
-- [ ] The Worker emits CORS headers and handles `OPTIONS` preflight; a test exercises a preflight from a configured test browser origin and asserts the response headers. The allowed-origin policy is **configurable** (env/config, not hardcoded) so M4 can tighten it; a permissive default is acceptable for the M3 demo window.
-- [ ] The OAuth-2.1 auth seam is a **single middleware integration point** whose enabled/disabled state is a **config toggle (one gated code path, not a separate route)**; `@cloudflare/workers-oauth-provider` is named as the drop-in. With the seam **enabled in test mode**, an unauthenticated request is rejected with `401` and the response advertises the auth requirement in spec shape (a `WWW-Authenticate` / Protected-Resource-Metadata pointer — the OAuth-2.1 drop-in surface, **not** a bare static-token string-compare); a request bearing the configured test credential is admitted. The **deployed V1 config disables the seam (open endpoint)**. The test documents that the credential is a **test fixture, not a V1 enforcement boundary** — no story text or AC claims an enforced V1 token boundary on the single open endpoint.
-- [ ] Any seam credential is read from Workers Secrets, never committed; detect-secrets baseline preserved.
-- [ ] A mechanical boundary guard verifies `mcp-server/` imports nothing from `ingestion/` (lint rule or AST/test); `tsc` strict passes with no `any` types across the serving codebase.
-- [ ] Q22 (production auth model) is referenced as the deferred decision; nothing in E08 decides it. Cloudflare ambient DDoS/WAF is named as the V1 baseline protection.
+- [x] The Worker emits CORS headers and handles `OPTIONS` preflight; a test exercises a preflight from a configured test browser origin and asserts the response headers. The allowed-origin policy is **configurable** (env/config, not hardcoded) so M4 can tighten it; a permissive default is acceptable for the M3 demo window.
+- [x] The OAuth-2.1 auth seam is a **single middleware integration point** whose enabled/disabled state is a **config toggle (one gated code path, not a separate route)**; `@cloudflare/workers-oauth-provider` is named as the drop-in. With the seam **enabled in test mode**, an unauthenticated request is rejected with `401` and the response advertises the auth requirement in spec shape (a `WWW-Authenticate` / Protected-Resource-Metadata pointer — the OAuth-2.1 drop-in surface, **not** a bare static-token string-compare); a request bearing the configured test credential is admitted. The **deployed V1 config disables the seam (open endpoint)**. The test documents that the credential is a **test fixture, not a V1 enforcement boundary** — no story text or AC claims an enforced V1 token boundary on the single open endpoint.
+- [x] Any seam credential is read from Workers Secrets, never committed; detect-secrets baseline preserved.
+- [x] A mechanical boundary guard verifies `mcp-server/` imports nothing from `ingestion/` (lint rule or AST/test); `tsc` strict passes with no `any` types across the serving codebase.
+- [x] Q22 (production auth model) is referenced as the deferred decision; nothing in E08 decides it. Cloudflare ambient DDoS/WAF is named as the V1 baseline protection.
 
 ---
 
