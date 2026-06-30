@@ -7,6 +7,13 @@
  *   This module provides ONE middleware integration point — a gated code path
  *   that can be toggled via the `AUTH_SEAM_ENABLED` Workers Secret/binding.
  *
+ * V1 BASELINE PROTECTION (not this module):
+ *   With the seam unenforced, the deployed endpoint's baseline abuse protection
+ *   is Cloudflare's ambient DDoS mitigation and WAF — a platform default of
+ *   deploying on Cloudflare Workers, NOT a feature this module configures. Any
+ *   ENFORCED token / tier / quota is V2 scope and needs a real boundary (a
+ *   separate authenticated route or Cloudflare Access) — Q22, flag-don't-decide.
+ *
  * TEST FIXTURE, NOT A V1 ENFORCEMENT BOUNDARY:
  *   The test credential (`AUTH_SEAM_TOKEN` Workers Secret) is a fixture that
  *   PROVES THE SEAM IS REAL — a test with the seam enabled verifies that an

@@ -83,6 +83,47 @@ describe("handleRequest — CORS preflight", () => {
     expect(res.status).toBe(204);
     expect(res.headers.get("WWW-Authenticate")).toBeNull();
   });
+
+  it("echoes a configured (restricted) browser origin in the 204 preflight — not '*'", async () => {
+    // S08.4 AC1: a preflight from a CONFIGURED restricted origin must echo that
+    // origin in the 204, proving the allowed-origin policy flows through the
+    // dispatcher on the preflight path (not only on the normal MCP response).
+    const mcp = makeMcpHandler();
+    const res = await handleRequest(
+      new Request(MCP_URL, {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://app.example.com",
+          "Access-Control-Request-Method": "POST",
+        },
+      }),
+      cfg({ corsAllowedOrigins: "https://app.example.com,https://staging.example.com" }),
+      mcp,
+    );
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("https://app.example.com");
+    expect(res.headers.get("Access-Control-Allow-Origin")).not.toBe("*");
+    expect(res.headers.get("Vary")).toContain("Origin");
+    expect(mcp).not.toHaveBeenCalled();
+  });
+
+  it("omits Access-Control-Allow-Origin on a preflight from a non-allowlisted origin", async () => {
+    const mcp = makeMcpHandler();
+    const res = await handleRequest(
+      new Request(MCP_URL, {
+        method: "OPTIONS",
+        headers: {
+          Origin: "https://evil.example.com",
+          "Access-Control-Request-Method": "POST",
+        },
+      }),
+      cfg({ corsAllowedOrigins: "https://app.example.com" }),
+      mcp,
+    );
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBeNull();
+    expect(mcp).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
