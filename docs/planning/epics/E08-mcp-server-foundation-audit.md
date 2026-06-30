@@ -4,7 +4,7 @@
 **Auditor:** `roughly:audit-epic` (post-implementation, read-only; no source code modified)
 **Epic:** [`E08-mcp-server-foundation.md`](E08-mcp-server-foundation.md)
 **Stories audited:** 4 (S08.1, S08.2, S08.3, S08.4)
-**Acceptance criteria:** 35 total — **at audit: 31 MET, 2 PARTIALLY MET, 0 NOT MET, 2 DEFERRED** (Group B, operator-pending by design). **The 2 PARTIALLY-MET S08.4 items were remediated same-day (2026-06-30) → 33 MET, 0 PARTIALLY MET** (see "Remediation" below).
+**Acceptance criteria:** 31 total (S08.1: 8 · S08.2: 10 · S08.3: 8 · S08.4: 5) — **at audit: 27 MET, 2 PARTIALLY MET, 0 NOT MET, 2 DEFERRED** (Group B, operator-pending by design). **The 2 PARTIALLY-MET S08.4 items were remediated same-day (2026-06-30) → 29 MET, 0 PARTIALLY MET** (see "Remediation" below).
 
 > Method: each story reviewed by an independent per-story agent (sonnet) against its AC list and the merge-commit file set; cross-cutting consistency/integration/regression pass by the PM; quality gates re-run independently from the repo root.
 
