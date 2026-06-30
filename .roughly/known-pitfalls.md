@@ -452,6 +452,29 @@ Surfaced by S06.5 real-PDF probe on 2026-06-17 (CPW Big Game brochure p. 78, `ve
 
 Surfaced by S06.9 implementation on 2026-06-28 (CPW Big Game brochure p. 73 mandatory-inspection prose extraction).
 
+### Multi-column PDF prose: a non-empty bbox crop is insufficient against layout drift — assert interior body content, not just non-emptiness
+
+**Symptom (S06.9.1):** The fix for the S06.9 END-anchor / sibling-column pitfall above is to switch from un-cropped `extract_text()` + END-anchor to column-scoped bbox crops assembled in reading order (heading → Col A → Col B), per the S06.5 multi-column-crop pitfall. The crop guard checks that `.strip()` is non-empty. However, if a future brochure re-render shifts column layout so the bbox falls over an adjacent table instead of the prose block, the crop is still non-empty (table rows) and a heading anchor can still match — the guard passes and silently produces **non-empty-but-wrong** regulatory text. Neither a non-empty check nor an anchor-absent raise catches this failure.
+
+**The root cause:** "non-empty" proves only that pdfplumber extracted *some* characters inside the bbox. It says nothing about whether the extracted text is the regulation prose you intended to capture.
+
+**Fix:** After assembling the cropped text, assert a **positive interior-prose anchor** — a regex that matches a phrase from the *body* of the rule, not the heading and not a structural marker. Raise (or return `None` → caller raises `PdfExtractionError`) if the anchor is absent.
+
+```python
+_INSPECTION_BODY_ANCHOR_RE = re.compile(r"(?i)five\s+working\s+days")
+if not _INSPECTION_BODY_ANCHOR_RE.search(assembled_text):
+    _LOGGER.warning("interior-prose anchor absent — possible layout drift on p.73")
+    return None
+```
+
+This makes bbox drift fail loud instead of emitting plausible-looking wrong text.
+
+**Scope:** bbox coordinates are page-specific — do not copy S06.5's page-78 values; re-probe each page independently. Soft-hyphens at line wraps (e.g., `"inspec- tion"`) are preserved verbatim by the existing `re.sub(r"\s+", " ", ...)` normalization and are faithful, not a defect (ADR-008).
+
+**General rule:** when a fixed-geometry crop carries regulatory text, verify *content* (interior-prose anchor), not just *presence* (non-empty). Apply alongside the two existing guards from the S06.5 pitfall ("anchor absent" and "column crop empty").
+
+Surfaced by S06.9.1 implementation on 2026-06-30 (re-anchor of CPW Big Game brochure p. 73 prose in `extract_black_bear.py`). See adjacent S06.9 entry for the upstream END-anchor failure this resolves, and S06.5 multi-column-crop pitfall for the bbox-column approach.
+
 ## Build & Deploy
 
 ### Style anchor for adding a nullable text column
