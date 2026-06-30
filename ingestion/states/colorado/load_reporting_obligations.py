@@ -142,12 +142,9 @@ _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# Naming note: the four existing CO loaders (load_state_boundary.py,
-# load_gmus.py, load_restricted_areas.py, build_overlay_fixture.py) use
-# ``CO_STATE_CODE = "US-CO"``.  This loader uses ``_STATE`` to mirror MT
-# precedent (montana/load_reporting_obligations.py) and the S05.6 scaffold
-# (colorado/load_jurisdiction_bindings.py), ahead of the S06.0/D3 rename of
-# those four loaders that ships bundled with S06.10.
+# All CO loaders use ``_STATE``. The four geometry-era loaders (load_state_boundary,
+# load_gmus, load_restricted_areas, build_overlay_fixture) were renamed from
+# ``CO_STATE_CODE`` in S06.10 per S06.0/D3.
 _STATE: Final[str] = "US-CO"
 
 _LICENSE_YEAR: Final[int] = 2026

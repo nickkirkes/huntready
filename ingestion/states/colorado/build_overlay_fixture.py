@@ -54,6 +54,7 @@ import argparse
 import json
 import logging
 from pathlib import Path
+from typing import Final
 
 import psycopg
 from shapely import from_wkt
@@ -70,7 +71,7 @@ from ingestion.lib.overlays import (
 )
 
 
-CO_STATE_CODE = "US-CO"
+_STATE: Final[str] = "US-CO"
 CO_FIXTURE_DIR = Path(__file__).parent / "fixtures"
 OVERLAY_FIXTURE_PATH = CO_FIXTURE_DIR / "geometry-overlays.json"
 DROPPED_AUDIT_PATH = CO_FIXTURE_DIR / "geometry-overlays-dropped.json"
@@ -109,7 +110,7 @@ def _load_geometries(
     ``::geometry`` cast.
     """
     with conn.cursor() as cur:
-        cur.execute(_LOAD_GEOMS_SQL, (CO_STATE_CODE,))
+        cur.execute(_LOAD_GEOMS_SQL, (_STATE,))
         rows = cur.fetchall()
     parsed: list[tuple[str, str, BaseGeometry]] = []
     for geom_id, kind, wkt_text in rows:
@@ -305,7 +306,7 @@ def _collect_overlay_rows(
 
     if not gmus:
         msg = (
-            f"no gmu rows found for state {CO_STATE_CODE!r} — "
+            f"no gmu rows found for state {_STATE!r} — "
             "geometry table unpopulated? Re-run S05.2 loader before building the overlay fixture."
         )
         raise OverlayFixtureError(msg)
