@@ -2447,15 +2447,31 @@ def _bear_sort_key(
 # T3: Prose extraction — reporting obligation candidate
 # ---------------------------------------------------------------------------
 
-# Anchors for the "Mandatory Bear Inspections & Seals" prose block (p. 73).
-# The block starts immediately after the heading and ends at a blank line
-# or at the "Multiple Options" heading which begins the right column.
+# Anchor for the "Mandatory Bear Inspections & Seals" heading (p. 73).
+# Used to validate that the heading crop contains the expected text.
+# The right-column "Multiple Options for Hunting Bear" section is excluded
+# by the fixed-geometry bbox crops below rather than an END-anchor regex.
 _BEAR_INSPECTION_START_RE = re.compile(
     r"(?i)mandatory\s+bear\s+inspections\s+[&and]+\s+seals"
 )
-_BEAR_INSPECTION_END_RE = re.compile(
-    r"(?i)multiple\s+options\s+for\s+hunting\s+bear"
-)
+# Interior-prose anchor: a phrase from the body of the rule (not the heading).
+# After assembly, the verbatim_rule must contain this — a guard against bbox
+# drift that would otherwise capture non-empty-but-wrong text (e.g. hunt-code
+# table rows) and silently re-introduce the truncation class this story fixed.
+_BEAR_INSPECTION_PROSE_ANCHOR_RE = re.compile(r"(?i)five\s+working\s+days")
+
+# Page-73 column geometry for the "Mandatory Bear Inspections & Seals" rule.
+# The rule is a two-narrow-column flow under one wide heading; the right
+# column (x>=324) is a SEPARATE "Multiple Options for Hunting Bear" section.
+# bbox = (x0, top, x1, bottom) in PDF points (page is 603x783). Validated
+# against co-cpw-big-game-2026-brochure-2026-03-04.pdf during S06.9.1.
+# Col A ends above the "Limited Licenses" table heading (top~228); Col B ends
+# above the "Unit Valid GMUs..." table header (top~286). Col A's last line
+# ("...the jaw is propped") flows into Col B ("open with a stick..."), so the
+# faithful reading order is heading -> Col A -> Col B.
+_INSPECTION_HEADING_BBOX: Final = (0.0, 36.0, 310.0, 52.0)
+_INSPECTION_COL_A_BBOX: Final = (14.0, 52.0, 162.0, 226.0)
+_INSPECTION_COL_B_BBOX: Final = (165.0, 52.0, 312.0, 284.0)
 
 
 def _extract_mandatory_inspection_candidate(
@@ -2467,12 +2483,22 @@ def _extract_mandatory_inspection_candidate(
     """Extract the "Mandatory Bear Inspections & Seals" prose as a reporting-
     obligation candidate.
 
-    Reads PDF p. 73 (0-indexed page 72), finds the "Mandatory Bear
-    Inspections & Seals" prose block via ``_BEAR_INSPECTION_START_RE`` +
-    ``_BEAR_INSPECTION_END_RE`` anchors, and returns a
-    ``BearReportingObligationCandidate`` with the verbatim text per ADR-008.
+    Reads PDF p. 73 (0-indexed page 72) using three fixed-geometry bbox crops
+    (``_INSPECTION_HEADING_BBOX``, ``_INSPECTION_COL_A_BBOX``,
+    ``_INSPECTION_COL_B_BBOX``) and assembles the rule text in faithful reading
+    order: heading → Col A → Col B.  The right-column "Multiple Options for
+    Hunting Bear" section (x >= ~324) is excluded by the bbox geometry rather
+    than an END-anchor regex, which previously truncated the prose because the
+    right-column heading appeared early in the interleaved un-cropped text
+    stream.  Returns a ``BearReportingObligationCandidate`` with the verbatim
+    text per ADR-008.
 
-    Returns ``None`` if the prose block cannot be found — logged at WARNING.
+    Returns ``None`` if the heading crop does not contain
+    ``_BEAR_INSPECTION_START_RE``, if either column crop is empty, or if the
+    assembled prose lacks the interior anchor ``_BEAR_INSPECTION_PROSE_ANCHOR_RE``
+    ("five working days") — each logged at WARNING so a future brochure layout
+    change (including a bbox drift that captures non-empty-but-wrong text)
+    trips here rather than silently emitting truncated or wrong prose.
 
     The verbatim text from the live PDF probe 2026-06-13 (shortened, actual
     extraction is full verbatim):
@@ -2495,30 +2521,52 @@ def _extract_mandatory_inspection_candidate(
         extracted_at=extracted_at,
     )
 
-    raw_text = page.extract_text() or ""
+    # The rule occupies a two-column flow under one wide heading on p. 73.
+    # Crop each region separately so column text is read in faithful order
+    # (heading -> Col A -> Col B), excluding the right-column "Multiple Options
+    # for Hunting Bear" section and the hunt-code tables below. See the bbox
+    # constants above. (S06.9.1: replaces the prior un-cropped extract whose
+    # END-anchor matched the right-column heading and truncated the prose.)
+    heading_text = extract_text(page, bbox=_INSPECTION_HEADING_BBOX) or ""
+    col_a_text = extract_text(page, bbox=_INSPECTION_COL_A_BBOX) or ""
+    col_b_text = extract_text(page, bbox=_INSPECTION_COL_B_BBOX) or ""
 
-    # Find the start of the inspection block.
-    start_m = _BEAR_INSPECTION_START_RE.search(raw_text)
-    if start_m is None:
+    # Fail loud (return None -> _build_base_records raises) if the layout
+    # shifts: the heading crop must carry the start anchor, and both columns
+    # must be non-empty. A future brochure edition that moves these regions
+    # trips here rather than silently emitting truncated prose.
+    if _BEAR_INSPECTION_START_RE.search(heading_text) is None:
         _logger.warning(
-            "_extract_mandatory_inspection_candidate: "
-            "could not find 'Mandatory Bear Inspections & Seals' heading on p. 73"
+            "_extract_mandatory_inspection_candidate: heading crop on p. 73 did "
+            "not contain the 'Mandatory Bear Inspections & Seals' anchor (got %r)",
+            heading_text,
+        )
+        return None
+    if not col_a_text.strip() or not col_b_text.strip():
+        _logger.warning(
+            "_extract_mandatory_inspection_candidate: empty Col A or Col B crop "
+            "on p. 73 (A=%r, B=%r)",
+            col_a_text,
+            col_b_text,
         )
         return None
 
-    # Extract from the heading onward; stop at the right-column heading.
-    block_text = raw_text[start_m.start():]
-    end_m = _BEAR_INSPECTION_END_RE.search(block_text)
-    if end_m is not None:
-        block_text = block_text[: end_m.start()]
-
-    # Collapse whitespace for prose readability (Rule R4 analog for prose).
+    block_text = heading_text + "\n" + col_a_text + "\n" + col_b_text
+    # Collapse whitespace for prose readability; soft-hyphens at line-wraps are
+    # preserved verbatim per ADR-008 (e.g. "inspec- tion").
     verbatim_rule = re.sub(r"\s+", " ", block_text).strip()
 
-    if not verbatim_rule:
+    # Content guard: the assembled prose must contain an interior phrase from
+    # the rule body. A bbox drift (e.g. a future brochure re-render shifting the
+    # columns over the hunt-code table) would yield non-empty-but-wrong text
+    # that the non-empty checks above cannot catch; this fails loud instead of
+    # silently emitting degraded prose (the truncation class this story fixed).
+    if _BEAR_INSPECTION_PROSE_ANCHOR_RE.search(verbatim_rule) is None:
         _logger.warning(
-            "_extract_mandatory_inspection_candidate: "
-            "extracted empty inspection prose block on p. 73"
+            "_extract_mandatory_inspection_candidate: assembled inspection prose "
+            "on p. 73 lacks the expected interior anchor 'five working days' — "
+            "bbox geometry may have drifted (got %r)",
+            verbatim_rule[:200],
         )
         return None
 
