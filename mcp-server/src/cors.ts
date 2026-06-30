@@ -94,33 +94,51 @@ export function buildCorsHeaders(
   const headers = new Headers();
 
   // ── Origin policy ──────────────────────────────────────────────────────────
-  const isPermissive =
-    allowedOrigins === undefined ||
-    allowedOrigins === "" ||
-    allowedOrigins === "*";
+  // Decide by the TRIMMED raw value, so incidental whitespace cannot flip the
+  // policy AND a malformed value cannot silently widen it. Three cases:
+  //   (1) unset / empty / whitespace-only       → permissive ("*"): the
+  //       documented "no policy configured" default for the open, read-only V1
+  //       endpoint. Whitespace-only is treated as blank/unset BY DESIGN (NOT as a
+  //       malformed restriction): incidental whitespace around the env var (a
+  //       dashboard var / `.dev.vars`) must not silently flip the intended
+  //       permissive default into deny-all. CORS is not a V1 security boundary
+  //       (public data; tightened at M4), so "blank → open default" is correct
+  //       here rather than fail-closed.
+  //   (2) `*` present as any entry              → permissive ("*"): an explicit
+  //       allow-all (handles "*", " * ", "https://a, *").
+  //   (3) a present, non-blank value            → restricted to the parsed
+  //       origins. A value that is genuinely a botched LIST — commas but ZERO
+  //       valid origins (e.g. ",") — DOES fail CLOSED (deny-all), never a silent
+  //       "*"; that case is distinct from the blank value in (1).
+  const trimmedRaw = allowedOrigins?.trim() ?? "";
 
-  if (isPermissive) {
+  if (trimmedRaw === "") {
+    // (1) unset / empty / whitespace-only → permissive.
     headers.set("Access-Control-Allow-Origin", "*");
-    // Do NOT set Vary: Origin when wildcarding — the response is the same for
-    // every origin, so adding Vary would unnecessarily fragment CDN caches.
+    // No Vary: Origin on the uniform wildcard response (avoids CDN fragmentation).
   } else {
-    // Parse the allowlist: split on commas, trim whitespace, drop empty strings.
-    const list = allowedOrigins
+    const entries = trimmedRaw
       .split(",")
       .map((o) => o.trim())
       .filter((o) => o.length > 0);
 
-    // Set Vary: Origin unconditionally in the restricted case so CDN/proxy
-    // layers always cache per-origin — even for denied requests — preventing
-    // a cached denial from being served to a permitted origin on the next hit.
-    headers.set("Vary", "Origin");
+    if (entries.includes("*")) {
+      // (2) explicit allow-all.
+      headers.set("Access-Control-Allow-Origin", "*");
+    } else {
+      // (3) restricted. Set Vary: Origin so CDN/proxy layers always cache
+      // per-origin — even for denied requests — preventing a cached denial from
+      // being served to a permitted origin on the next hit.
+      headers.set("Vary", "Origin");
 
-    if (requestOrigin !== null && list.includes(requestOrigin)) {
-      // Exact-match: echo the request origin back (per-origin reflection).
-      headers.set("Access-Control-Allow-Origin", requestOrigin);
+      if (requestOrigin !== null && entries.includes(requestOrigin)) {
+        // Exact-match: echo the request origin back (per-origin reflection).
+        headers.set("Access-Control-Allow-Origin", requestOrigin);
+      }
+      // No match — OR a malformed value that parsed to zero valid origins —
+      // leaves Access-Control-Allow-Origin absent: the browser blocks the
+      // response (fail-closed deny, never a silent widen to "*").
     }
-    // No match → Access-Control-Allow-Origin is intentionally absent; the
-    // browser will block the response (correct deny behavior).
   }
 
   // ── Always-present headers ─────────────────────────────────────────────────
@@ -177,7 +195,11 @@ export function isCorsPreflightRequest(request: Request): boolean {
  *   Start from `response.headers` (original), then apply each CORS header on
  *   top. CORS wins on key collision — this prevents an upstream handler from
  *   accidentally overriding the CORS policy with its own (possibly wrong)
- *   `Access-Control-Allow-Origin` header.
+ *   `Access-Control-Allow-Origin` header. The ONE exception is `Vary`, which is
+ *   a list-valued cache-key header: it is MERGED (existing tokens preserved +
+ *   `Origin` added) rather than overwritten, so an upstream `Vary` (e.g.
+ *   `Accept-Encoding`) is not dropped — dropping it would let a shared cache
+ *   serve a variant generated for the wrong request headers.
  *
  * @param response   - The upstream response whose status/body should be kept.
  * @param corsHeaders - The CORS headers produced by `buildCorsHeaders`.
@@ -189,7 +211,12 @@ export function applyCorsHeaders(
   // Build merged headers: original first, then CORS on top.
   const merged = new Headers(response.headers);
   corsHeaders.forEach((value, key) => {
-    merged.set(key, value);
+    if (key.toLowerCase() === "vary") {
+      // Merge, don't overwrite — preserve any upstream Vary tokens.
+      merged.set("Vary", mergeVary(merged.get("Vary"), value));
+    } else {
+      merged.set(key, value);
+    }
   });
 
   return new Response(response.body, {
@@ -197,4 +224,36 @@ export function applyCorsHeaders(
     statusText: response.statusText,
     headers: merged,
   });
+}
+
+/**
+ * Combine an existing `Vary` header value with additional token(s) without
+ * dropping any upstream values. `Vary` controls how shared caches key a
+ * response; overwriting it (e.g. replacing an upstream `Vary: Accept-Encoding`
+ * with `Vary: Origin`) can make a cache serve a variant generated for the wrong
+ * request headers. Tokens are de-duplicated case-insensitively, preserving the
+ * existing order/casing; a `*` token in either input short-circuits to `*` (the
+ * response varies on everything).
+ */
+function mergeVary(existing: string | null, addition: string): string {
+  const parse = (raw: string): string[] =>
+    raw
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0);
+
+  const existingTokens = parse(existing ?? "");
+  const additionTokens = parse(addition);
+
+  if (existingTokens.includes("*") || additionTokens.includes("*")) {
+    return "*";
+  }
+
+  const result = [...existingTokens];
+  for (const token of additionTokens) {
+    if (!result.some((t) => t.toLowerCase() === token.toLowerCase())) {
+      result.push(token);
+    }
+  }
+  return result.join(", ");
 }

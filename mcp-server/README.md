@@ -96,7 +96,7 @@ The CI workflow (`.github/workflows/ci.yml`) provisions the container and runs t
 
 ### CORS
 
-The Worker emits CORS headers on every response and handles `OPTIONS` preflight requests with a `204` short-circuit — before any auth check runs (an `OPTIONS` preflight carries no credentials per RFC 6454, so authenticating it would break every browser MCP client).
+The Worker emits CORS headers on every response and handles `OPTIONS` preflight requests with a `204` short-circuit — before any auth check runs (an `OPTIONS` preflight carries no credentials per the WHATWG Fetch standard's CORS protocol, so authenticating it would break every browser MCP client).
 
 The allowed-origin policy is configurable via `CORS_ALLOWED_ORIGINS` (comma-separated; default `*` when unset). The `*` default is intentional for the M3 demo window: the V1 endpoint is open and read-only, so a permissive origin policy adds no additional exposure. The origin list will be tightened at M4 when the web app's origin is known.
 

@@ -37,6 +37,36 @@ describe("buildCorsHeaders", () => {
     expect(headers.get("Access-Control-Allow-Origin")).toBe("*");
   });
 
+  it("whitespace-only allowedOrigins → permissive (incidental whitespace must not become deny-all)", () => {
+    const headers = buildCorsHeaders("https://app.example.com", "   ");
+    expect(headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("' * ' (star with surrounding whitespace) → permissive (trim before the wildcard check)", () => {
+    const headers = buildCorsHeaders("https://app.example.com", " * ");
+    expect(headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("'*' appearing as any list entry → permissive allow-all", () => {
+    const headers = buildCorsHeaders(
+      "https://anything.example.com",
+      "https://app.example.com, *",
+    );
+    expect(headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("present-but-malformed value (',') → fail CLOSED (deny, not a silent '*')", () => {
+    // A present, non-blank value that parses to zero valid origins is a
+    // malformed restriction, distinct from "unset" — it must deny, not widen.
+    const headers = buildCorsHeaders("https://app.example.com", ",");
+    expect(headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  it("present-but-malformed value (' , , ') → fail CLOSED (deny)", () => {
+    const headers = buildCorsHeaders("https://app.example.com", " , , ");
+    expect(headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
   it("permissive case does NOT set Vary: Origin (wildcard response is uniform — no CDN fragmentation)", () => {
     const headers = buildCorsHeaders(null, undefined);
     expect(headers.get("Vary")).toBeNull();
@@ -291,5 +321,53 @@ describe("applyCorsHeaders", () => {
     const corsHeaders = buildCorsHeaders(null, undefined); // produces "*"
     const result = applyCorsHeaders(original, corsHeaders);
     expect(result.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("Vary is MERGED, not overwritten — an upstream Vary token survives", () => {
+    // Upstream sets Vary: Accept-Encoding (content-negotiation cache key); the
+    // restricted CORS policy adds Vary: Origin. Both must survive, or a shared
+    // cache could serve a variant keyed on the wrong request headers.
+    const original = new Response("ok", {
+      status: 200,
+      headers: { Vary: "Accept-Encoding" },
+    });
+    const corsHeaders = buildCorsHeaders(
+      "https://app.example.com",
+      "https://app.example.com",
+    ); // restricted → corsHeaders carries Vary: Origin
+    const result = applyCorsHeaders(original, corsHeaders);
+    const vary = result.headers.get("Vary") ?? "";
+    const tokens = vary.split(",").map((t) => t.trim());
+    expect(tokens).toContain("Accept-Encoding");
+    expect(tokens).toContain("Origin");
+  });
+
+  it("Vary merge de-duplicates (no double Origin when upstream already varies on Origin)", () => {
+    const original = new Response("ok", {
+      status: 200,
+      headers: { Vary: "Origin" },
+    });
+    const corsHeaders = buildCorsHeaders(
+      "https://app.example.com",
+      "https://app.example.com",
+    );
+    const result = applyCorsHeaders(original, corsHeaders);
+    const tokens = (result.headers.get("Vary") ?? "")
+      .split(",")
+      .map((t) => t.trim().toLowerCase());
+    expect(tokens.filter((t) => t === "origin")).toHaveLength(1);
+  });
+
+  it("Vary: * upstream short-circuits to * (response varies on everything)", () => {
+    const original = new Response("ok", {
+      status: 200,
+      headers: { Vary: "*" },
+    });
+    const corsHeaders = buildCorsHeaders(
+      "https://app.example.com",
+      "https://app.example.com",
+    );
+    const result = applyCorsHeaders(original, corsHeaders);
+    expect(result.headers.get("Vary")).toBe("*");
   });
 });

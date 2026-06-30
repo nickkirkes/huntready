@@ -54,8 +54,9 @@ export type McpHandler = (request: Request) => Promise<Response>;
  *
  * Order (load-bearing for correctness):
  *   1. CORS preflight — must be FIRST: an OPTIONS preflight carries no
- *      credentials (RFC 6454), so 401'ing it would break every browser MCP
- *      client. It short-circuits before any auth.
+ *      credentials (per the WHATWG Fetch standard's CORS-preflight fetch — the
+ *      preflight is sent without credentials), so 401'ing it would break every
+ *      browser MCP client. It short-circuits before any auth.
  *   2. /healthz — the internal liveness endpoint, handled BEFORE the auth seam.
  *      It has its OWN independent token gate (HEALTHCHECK_TOKEN). A request
  *      carries a single `Authorization` bearer value, so sequencing /healthz
