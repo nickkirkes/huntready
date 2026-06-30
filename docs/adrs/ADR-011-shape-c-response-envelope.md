@@ -25,6 +25,8 @@ The argument for Shape A (flat array) held for search-style tools — Linear's i
 
 The committed envelope differs from the original research recommendation in three ways, driven by the decomposed entity model in [ADR-010](ADR-010-decomposed-entity-model.md): `tags` and `reporting` are plural arrays rather than singular objects, and closure predicates are inline on season windows rather than a separate section. The full `GetRegulationsResponse` interface is documented in `architecture.md`.
 
+**M3 refinement (2026-06-30).** The total-coverage-gap response (`meta.coverage.overall: "none"` — an out-of-scope species or a coordinate outside coverage) carries `sources: []` and `meta.data_freshness: null`, tied by the invariant **`data_freshness` is `null` iff `sources` is empty**. This preserves Shape C's uniform null-bearing envelope for the zero-data case without smuggling sentinel dates into the freshness block (the freshness dates are uncomputable from zero sources); it stays ADR-001-consistent because a coverage-`none` response emits no regulation *content*, so no citation is owed. Partial-coverage responses always have ≥1 cited section and therefore a populated `data_freshness`. See `architecture.md` §"Response shape".
+
 ## Alternatives Considered
 
 **Shape A — flat array of regulation records.** Rejected because it pushes grouping and coverage judgment onto the consumer, and because the absence of a record type cannot distinguish "not required" from "not in the dataset."

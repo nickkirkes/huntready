@@ -386,7 +386,7 @@ Four cross-cutting schema conventions worth stating explicitly.
 
 ### Response shape: `GetRegulationsResponse`
 
-The MCP tool `get_regulations(lat, lng, species, date)` returns a structured envelope with always-present, null-bearing sections. Every response has the same top-level shape regardless of data coverage; sections that don't apply carry explicit `null`, not omitted keys. This is Shape C in the taxonomy evaluated during response-shape research — the shape that distinguishes "not applicable" from "not in our dataset" explicitly rather than collapsing both to absence.
+The MCP tool `get_regulations(lat, lng, species, date)` returns a structured envelope with always-present, null-bearing sections. Every response has the same top-level shape regardless of data coverage; sections that don't apply carry explicit `null`, not omitted keys. This is Shape C in the taxonomy evaluated during response-shape research — the shape that distinguishes "not applicable" from "not in our dataset" explicitly rather than collapsing both to absence. **For the total-coverage-gap case** (`meta.coverage.overall === "none"` — an out-of-scope species or a coordinate outside coverage), the response carries `sources: []` and `meta.data_freshness: null`, tied by the invariant **`data_freshness` is `null` iff `sources` is empty**. This stays ADR-001-consistent: a coverage-`none` response emits no regulation *content*, so no citation is owed; partial-coverage responses always have ≥1 cited section and therefore a populated `data_freshness`.
 
 The server returns structure; clients compose presentation. There is no server-side `overview` or `headline` field. Web UIs and agentic clients each compose their own summary from the structured sections because each knows its presentation context.
 
@@ -413,16 +413,19 @@ interface GetRegulationsResponse {
   reporting: ReportingSection | null;
   contacts:  ContactsSection  | null;
 
-  sources: SourceCitation[];
+  sources: SourceCitation[];   // may be empty ONLY on a total-coverage-gap response
+                               // (meta.coverage.overall === "none"); non-empty otherwise.
 
   meta: {
     schema_version: 2;
     generated_at: string;
+    // null ONLY on a total-coverage-gap response — invariant: data_freshness is null
+    // iff sources is empty (⇔ coverage.overall === "none"); otherwise both are populated.
     data_freshness: {
       most_recent_source_date: string;
       stalest_source_date: string;
       is_stale: boolean;              // any source > 180 days
-    };
+    } | null;
     coverage: {
       jurisdiction: Coverage;
       species: Coverage;
