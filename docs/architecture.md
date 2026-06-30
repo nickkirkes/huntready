@@ -386,7 +386,7 @@ Four cross-cutting schema conventions worth stating explicitly.
 
 ### Response shape: `GetRegulationsResponse`
 
-The MCP tool `get_regulations(lat, lng, species, date)` returns a structured envelope with always-present, null-bearing sections. Every response has the same top-level shape regardless of data coverage; sections that don't apply carry explicit `null`, not omitted keys. This is Shape C in the taxonomy evaluated during response-shape research — the shape that distinguishes "not applicable" from "not in our dataset" explicitly rather than collapsing both to absence. **For the total-coverage-gap case** (`meta.coverage.overall === "none"` — an out-of-scope species or a coordinate outside coverage), the response carries `sources: []` and `meta.data_freshness: null`, tied by the invariant **`data_freshness` is `null` iff `sources` is empty**. This stays ADR-001-consistent: a coverage-`none` response emits no regulation *content*, so no citation is owed; partial-coverage responses always have ≥1 cited section and therefore a populated `data_freshness`.
+The MCP tool `get_regulations(lat, lng, species, date)` returns a structured envelope with always-present, null-bearing sections. Every response has the same top-level shape regardless of data coverage; sections that don't apply carry explicit `null`, not omitted keys. This is Shape C in the taxonomy evaluated during response-shape research — the shape that distinguishes "not applicable" from "not in our dataset" explicitly rather than collapsing both to absence. **For the total-coverage-gap case** (`meta.coverage.overall === "none"` — an out-of-scope species or a coordinate outside coverage), the response carries `sources: []` and `meta.data_freshness: null`, tied by the invariant **`data_freshness` is `null` iff `sources` is empty**. This stays ADR-001-consistent: a coverage-`none` response emits no regulation *content*, so no citation is owed; partial-coverage responses always have ≥1 cited section and therefore a populated `data_freshness`. The `additional_rules` section surfaces HD-wide verbatim prose (DEA `NOTE:` lines, the statewide Bear ID Test rule) from `RegulationRecord.additional_rules` that no season/tag/reporting child structures — surfaced byte-identically (ADR-008) so the corpus's verbatim regulatory text is not silently dropped at the serving layer.
 
 The server returns structure; clients compose presentation. There is no server-side `overview` or `headline` field. Web UIs and agentic clients each compose their own summary from the structured sections because each knows its presentation context.
 
@@ -407,11 +407,12 @@ interface GetRegulationsResponse {
   };
 
   // Always-present, null-bearing sections
-  seasons:   SeasonsSection   | null;
-  tags:      TagsSection      | null;
-  methods:   MethodsSection   | null;
-  reporting: ReportingSection | null;
-  contacts:  ContactsSection  | null;
+  seasons:          SeasonsSection         | null;
+  tags:             TagsSection            | null;
+  methods:          MethodsSection         | null;
+  reporting:        ReportingSection       | null;
+  contacts:         ContactsSection        | null;
+  additional_rules: AdditionalRulesSection | null;
 
   sources: SourceCitation[];   // may be empty ONLY on a total-coverage-gap response
                                // (meta.coverage.overall === "none"); non-empty otherwise.
@@ -522,6 +523,18 @@ interface Contact {
   source: SourceCitation;
 }
 
+interface AdditionalRulesSection {
+  // HD-wide verbatim prose not structured by a season/tag/reporting child entity —
+  // e.g. DEA `NOTE:` lines, the statewide Bear ID Test rule (RegulationRecord.additional_rules,
+  // aggregated across the resolved record(s)). Each VerbatimRule carries its own text,
+  // page_reference, confidence, and source — additional_rules is one of only two confidence
+  // carriers per ADR-017 §3; text is surfaced byte-identically per ADR-008. Section is
+  // populated-but-empty (rules: []) when a record resolved with no such prose; null only
+  // when no record resolved (coverage.overall === "none").
+  rules: VerbatimRule[];
+  source: SourceCitation;
+}
+
 interface Warning {
   code:
     | "STALE_SOURCE"
@@ -534,7 +547,7 @@ interface Warning {
                                      // server's supported range: the row is excluded from output and
                                      // surfaced here (never silent-dropped, never a hard error) per the
                                      // ADR-006 schema-version gating; typically section: "overall"
-  section: "seasons" | "tags" | "methods" | "reporting" | "contacts" | "overall";
+  section: "seasons" | "tags" | "methods" | "reporting" | "contacts" | "additional_rules" | "overall";
   message: string;
 }
 ```
