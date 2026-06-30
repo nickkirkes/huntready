@@ -55,8 +55,10 @@ All CO loaders use:
 _STATE: Final[str] = "US-CO"
 ```
 
-This mirrors Montana's `_STATE` convention in `load_regulation_records.py` and
-the S05.6 scaffold. Use `_STATE` for any new Colorado loader.
+This mirrors Montana's `_STATE` convention in `load_jurisdiction_bindings.py`
+and the S05.6 scaffold. (Montana's `load_regulation_records.py` predates that
+convention and still uses `_MT_STATE_CODE`.) Use `_STATE` for any new Colorado
+loader.
 
 ## CRS / projection handling
 

@@ -2095,65 +2095,15 @@ class TestFix3MalformedRegRecordSource:
 
 
 class TestFix4NoRegRecordsWarning:
-    """FIX 4: nearby GMU with no CO regulation_records emits WARNING, no raise.
+    """FIX 4: the per-GMU empty-fan-out WARNING in _build_no_hunt_zone_bindings_co.
 
-    FIX A (Guard 20) adds a per-zone zero-bindings guard: if ALL nearby GMUs
-    lack reg_records, raises RuntimeError. The per-GMU WARNING still fires for
-    the PARTIAL case (some GMUs have reg_records, some do not).
+    The partial case (some nearby GMUs have reg_records, some do not — the zone
+    still binds and the empty GMU warns) and the all-empty case (Guard 20 raises)
+    are covered in TestBuildNoHuntZoneBindings
+    (test_gmu_with_no_reg_records_emits_warning_zone_still_binds +
+    test_zone_with_all_empty_gmus_raises). This class covers the complementary
+    assertion: a nearby GMU WITH reg_records must NOT emit the empty-fan-out warning.
     """
-
-    def test_empty_rrs_for_nearby_gmu_emits_warning_not_raise(
-        self, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """PARTIAL case: one nearby GMU has reg_records, one does not.
-
-        FIX A: zone still produces ≥1 binding (no raise), but the empty GMU
-        emits a per-GMU WARNING. This is the partial case vs. the all-empty
-        case (Guard 20) tested in TestBuildNoHuntZoneBindings.
-        """
-        # CO-GMU-1 has the reg_record; CO-GMU-2 is returned as nearby but has no rr
-        rr = _make_reg_record(jurisdiction_code="CO-GMU-1", species_group="mule_deer")
-        source_lookup = {
-            _RMNP_GEOM_ID: _make_gis_source(_RMNP_GEOM_ID),
-            "CO-GMU-1-geom": _make_gis_source("CO-GMU-1-geom"),
-            "CO-GMU-2-geom": _make_gis_source("CO-GMU-2-geom"),
-        }
-        conn = MagicMock()
-
-        with (
-            patch(
-                "states.colorado.load_jurisdiction_bindings._fetch_zone_wkts",
-                return_value={_RMNP_GEOM_ID: "MULTIPOLYGON EMPTY"},
-            ),
-            patch(
-                "states.colorado.load_jurisdiction_bindings.query_nearby_gmus_for_zone",
-                # Two nearby GMUs: CO-GMU-1 (has rr) + CO-GMU-2 (no rr)
-                return_value=["CO-GMU-1-geom", "CO-GMU-2-geom"],
-            ),
-            patch(
-                "states.colorado.load_jurisdiction_bindings.EXPECTED_CO_RA_ORPHAN_IDS",
-                frozenset({_RMNP_GEOM_ID}),
-            ),
-            caplog.at_level(logging.WARNING, logger="states.colorado.load_jurisdiction_bindings"),
-        ):
-            # Does NOT raise — CO-GMU-1 provides ≥1 binding; zone is visible.
-            result = _build_no_hunt_zone_bindings_co(conn, [rr], source_lookup)
-
-        # Zone produces ≥1 binding (from CO-GMU-1)
-        zone_bindings = [b for b in result if b.geometry_id == _RMNP_GEOM_ID]
-        assert len(zone_bindings) >= 1, (
-            "Zone must produce ≥1 binding when at least one nearby GMU has reg_records"
-        )
-
-        # WARNING must have been emitted for the empty GMU (CO-GMU-2)
-        warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
-        assert any(
-            "CO-GMU-2-geom" in msg and "no CO regulation_records" in msg
-            for msg in warning_messages
-        ), (
-            f"Expected a WARNING about CO-GMU-2-geom having no regulation_records. "
-            f"Got warnings: {warning_messages!r}"
-        )
 
     def test_nearby_gmu_with_rrs_does_not_emit_warning(
         self, caplog: pytest.LogCaptureFixture
