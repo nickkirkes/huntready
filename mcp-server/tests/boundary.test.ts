@@ -219,38 +219,11 @@ describe("src/index.ts — no app-layer protocolVersion", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Test 4b: CORS preflight is dispatched BEFORE the auth seam (AST, source order)
-// index.ts imports `agents/mcp` (workerd-only) so the 4-step dispatch wiring
-// cannot be exercised in the Node vitest pool. This guard locks the one ordering
-// invariant that is load-bearing for correctness: the CORS preflight short-circuit
-// (`isCorsPreflightRequest`) must run before the auth-seam check
-// (`isAuthSeamEnabled`). A CORS preflight (OPTIONS) carries no credentials per
-// RFC 6454; if the auth seam ran first it would 401 the preflight and break every
-// browser MCP client. Checks call-site source positions in the syntax tree (same
-// AST approach as Test 3), so a future refactor that reorders the dispatch fails
-// loudly. A comment mentioning either identifier cannot affect this (only call
-// expressions are inspected).
-// ---------------------------------------------------------------------------
-describe("src/index.ts — CORS preflight dispatched before the auth seam", () => {
-  it("calls isCorsPreflightRequest before isAuthSeamEnabled in source order", () => {
-    const sf = parseSourceFile(indexTsPath);
-    const preflightCalls = callsToIdentifier(sf, "isCorsPreflightRequest");
-    const authCalls = callsToIdentifier(sf, "isAuthSeamEnabled");
-
-    // Both must actually be called…
-    expect(preflightCalls.length).toBeGreaterThan(0);
-    expect(authCalls.length).toBeGreaterThan(0);
-
-    // …and the first preflight check must lexically precede the first auth check.
-    const firstPreflight = Math.min(...preflightCalls.map((c) => c.getStart(sf)));
-    const firstAuth = Math.min(...authCalls.map((c) => c.getStart(sf)));
-    expect(
-      firstPreflight,
-      "isCorsPreflightRequest must be dispatched before isAuthSeamEnabled (preflights carry no credentials — RFC 6454)",
-    ).toBeLessThan(firstAuth);
-  });
-});
+// Dispatch ORDER (CORS preflight → /healthz → auth seam → MCP) is no longer
+// asserted here by lexical source position — that was brittle to behaviour-
+// preserving refactors. The dispatch now lives in the pure src/router.ts module
+// (index.ts is a thin shim), so tests/router.test.ts locks the ordering by
+// OBSERVABLE BEHAVIOUR (real Requests through handleRequest) in the Node pool.
 
 // ---------------------------------------------------------------------------
 // Test 5: DB client constructed per request, never at module scope (AST)

@@ -1,9 +1,7 @@
 import { createMcpHandler } from "agents/mcp";
 
-import { buildCorsHeaders, isCorsPreflightRequest, applyCorsHeaders } from "./cors.js";
-import { isAuthSeamEnabled, isAuthorized, buildUnauthorizedResponse } from "./auth.js";
 import { createMcpServer } from "./server.js";
-import { runHealthCheck } from "./health-check.js";
+import { handleRequest } from "./router.js";
 
 interface Env {
   // SELECT-only-role DSN, held as a Workers Secret.
@@ -47,93 +45,33 @@ interface Env {
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Compute CORS headers once for the entire request. Every response path —
-    // preflight, auth seam 401, /healthz, and the MCP handler — applies them.
-    const requestOrigin = request.headers.get("Origin");
-    const corsHeaders = buildCorsHeaders(requestOrigin, env.CORS_ALLOWED_ORIGINS);
-
-    // Parse the URL once; reused by the auth seam and /healthz block below.
-    const url = new URL(request.url);
-
-    // ── Step 1: CORS preflight short-circuit ───────────────────────────────────
-    // Must come BEFORE the auth seam: an OPTIONS preflight carries no credentials
-    // (RFC 6454), so 401'ing it would break every browser MCP client.
-    if (isCorsPreflightRequest(request)) {
-      return new Response(null, { status: 204, headers: corsHeaders });
-    }
-
-    // ── Step 2: Auth seam ──────────────────────────────────────────────────────
-    // One gated code path toggled by AUTH_SEAM_ENABLED. Wired but unenforced in
-    // the deployed V1 endpoint (ADR-023). Runs after preflight, before /healthz
-    // and /mcp, so both internal and MCP routes require a credential when enabled.
-    if (isAuthSeamEnabled(env.AUTH_SEAM_ENABLED) && !isAuthorized(request, env.AUTH_SEAM_TOKEN)) {
-      return buildUnauthorizedResponse(url, corsHeaders);
-    }
-
-    // ── Step 3: /healthz ───────────────────────────────────────────────────────
-    // Internal smoke endpoint (DB read + Shape C envelope round-trip).
-    // NOT an MCP tool; tools/list stays empty. Gated by an internal token so it
-    // is not a public, unauthenticated, DB-hitting path: disabled (404) unless
-    // HEALTHCHECK_TOKEN is configured AND presented as a Bearer credential. The
-    // DSN is never included in the response body. runHealthCheck itself is
-    // exercised directly by tests/health-check.test.ts, so this gate costs no
-    // test coverage.
-    if (url.pathname === "/healthz") {
-      const expected = env.HEALTHCHECK_TOKEN;
-      const presented = request.headers.get("authorization");
-      if (!expected || presented !== `Bearer ${expected}`) {
-        // 404 (not 401) so an unauthorized caller cannot even confirm the
-        // endpoint exists.
-        return applyCorsHeaders(new Response("Not found", { status: 404 }), corsHeaders);
-      }
-      try {
-        const health = await runHealthCheck(env.SUPABASE_READONLY_DSN);
-        return applyCorsHeaders(
-          new Response(JSON.stringify(health), {
-            status: health.ok ? 200 : 503,
-            headers: { "content-type": "application/json" },
-          }),
-          corsHeaders,
-        );
-      } catch {
-        // runHealthCheck can throw rather than return an error-shaped result
-        // (e.g. postgres.js throwing synchronously on a malformed DSN). Without
-        // this catch the throw becomes a platform 500 with NO CORS headers — a
-        // browser-origin monitor would see an opaque CORS error instead of a
-        // readable 503. The error detail is intentionally not surfaced (the DSN
-        // must never appear in the body); the cause is in Worker logs.
-        return applyCorsHeaders(
-          new Response(JSON.stringify({ ok: false, error: "health check failed" }), {
-            status: 503,
-            headers: { "content-type": "application/json" },
-          }),
-          corsHeaders,
-        );
-      }
-    }
-
-    // ── Step 4: MCP handler ────────────────────────────────────────────────────
-    // PER-REQUEST INSTANTIATION (REQUIRED): SDK >=1.26 + stateless workerd both require
-    // the MCP server + handler to be constructed inside fetch, never in module/global
-    // scope. workerd cannot safely share server/transport state across concurrent
-    // invocations. tests/boundary.test.ts locks this via a source scan.
-    const server = createMcpServer();
-    // createMcpHandler serves the MCP endpoint at the default route "/mcp"; any other
-    // path returns 404. The route is the Agents-SDK default (not overridden here) — E09/E10
-    // and the MCP Inspector connect to "<origin>/mcp".
-    const handler = createMcpHandler(server);
-    try {
-      const response = await handler(request, env, ctx);
-      return applyCorsHeaders(response, corsHeaders);
-    } catch {
-      // A throw/rejection from the MCP handler would otherwise surface as a
-      // platform 500 with NO CORS headers — invisible to a browser MCP client
-      // as an opaque CORS error rather than a readable failure. Return a
-      // CORS-headered 500 with a generic body so the failure is legible.
-      return applyCorsHeaders(
-        new Response("Internal Server Error", { status: 500 }),
-        corsHeaders,
-      );
-    }
+    // Thin Worker shim: project `env` onto the pure dispatcher's RouterConfig and
+    // inject a PER-REQUEST MCP handler. The 4-step dispatch order (preflight →
+    // /healthz → auth seam → MCP) and CORS-on-every-response live in src/router.ts,
+    // which is behaviourally unit-tested in tests/router.test.ts (router.ts imports
+    // no workerd-only module, so it can run in the Node vitest pool — index.ts
+    // cannot, because of `agents/mcp`).
+    return handleRequest(
+      request,
+      {
+        corsAllowedOrigins: env.CORS_ALLOWED_ORIGINS,
+        authSeamEnabled: env.AUTH_SEAM_ENABLED,
+        authSeamToken: env.AUTH_SEAM_TOKEN,
+        healthcheckToken: env.HEALTHCHECK_TOKEN,
+        readonlyDsn: env.SUPABASE_READONLY_DSN,
+      },
+      // PER-REQUEST INSTANTIATION (REQUIRED): SDK >=1.26 + stateless workerd both
+      // require the MCP server + handler to be constructed inside the request flow,
+      // never at module/global scope (workerd cannot safely share server/transport
+      // state across concurrent invocations). This callback runs once per MCP
+      // request; tests/boundary.test.ts locks the in-function call site.
+      // createMcpHandler serves the MCP endpoint at the Agents-SDK default route
+      // "/mcp"; E09/E10 and the MCP Inspector connect to "<origin>/mcp".
+      (mcpRequest) => {
+        const server = createMcpServer();
+        const handler = createMcpHandler(server);
+        return handler(mcpRequest, env, ctx);
+      },
+    );
   },
 } satisfies ExportedHandler<Env>;
