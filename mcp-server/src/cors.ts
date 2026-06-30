@@ -40,10 +40,18 @@ const ALLOWED_HEADERS =
 
 /**
  * Headers the browser is permitted to expose to JS in cross-origin responses.
+ * `WWW-Authenticate` is NOT a CORS-safelisted response header, so without it
+ * here a browser `fetch()` can read a 401's status but NOT its
+ * `WWW-Authenticate` value — which would hide the OAuth-2.1 / RFC 9728
+ * `resource_metadata` discovery hint from exactly the browser MCP clients the
+ * auth seam exists to support. Listing it is harmless on responses that don't
+ * carry it (the browser simply has nothing to expose).
  *   - `Mcp-Session-Id` — returned by `createMcpHandler` on session creation;
  *     clients need to read it in order to resume sessions.
+ *   - `WWW-Authenticate` — emitted by the auth-seam 401 (`buildUnauthorizedResponse`);
+ *     OAuth-2.1 clients read it to discover the protected-resource-metadata URL.
  */
-const EXPOSE_HEADERS = "Mcp-Session-Id";
+const EXPOSE_HEADERS = "Mcp-Session-Id, WWW-Authenticate";
 
 /**
  * Preflight cache lifetime in seconds (24 hours).

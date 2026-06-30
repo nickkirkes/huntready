@@ -144,6 +144,16 @@ describe("buildCorsHeaders", () => {
     );
   });
 
+  it("Access-Control-Expose-Headers contains WWW-Authenticate (so browser fetch() can read the 401 OAuth-2.1 discovery hint)", () => {
+    // WWW-Authenticate is NOT a CORS-safelisted response header, so it must be
+    // exposed explicitly or a cross-origin browser client cannot read the
+    // resource_metadata discovery pointer advertised by the auth-seam 401.
+    const headers = buildCorsHeaders(null, undefined);
+    expect(headers.get("Access-Control-Expose-Headers")).toContain(
+      "WWW-Authenticate",
+    );
+  });
+
   it("Access-Control-Max-Age is present and non-empty", () => {
     const headers = buildCorsHeaders(null, undefined);
     const maxAge = headers.get("Access-Control-Max-Age");

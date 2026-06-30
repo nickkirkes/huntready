@@ -136,6 +136,18 @@ describe("buildUnauthorizedResponse", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).not.toBeNull();
   });
 
+  it("exposes WWW-Authenticate via Access-Control-Expose-Headers (browser fetch() can read the OAuth-2.1 discovery hint)", () => {
+    // End-to-end with the shared CORS policy: without WWW-Authenticate in the
+    // expose list a cross-origin browser client receives the 401 but cannot read
+    // its WWW-Authenticate value — making the advertised resource_metadata hint
+    // invisible to exactly the clients the seam supports.
+    const response = buildUnauthorizedResponse(MCP_URL, corsHeaders);
+    expect(response.headers.get("WWW-Authenticate")).not.toBeNull();
+    expect(response.headers.get("Access-Control-Expose-Headers")).toContain(
+      "WWW-Authenticate",
+    );
+  });
+
   it("Content-Type is application/json", () => {
     const response = buildUnauthorizedResponse(MCP_URL, corsHeaders);
     expect(response.headers.get("Content-Type")).toContain("application/json");
