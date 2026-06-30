@@ -1136,6 +1136,16 @@ Surfaced by S04.2 Stage 6 + cubic post-merge review on 2026-05-29.
 
 Surfaced by S06.3 6-round cubic iteration sequence on 2026-06-10.
 
+### A story's AC list is necessary but not sufficient to scope the work — grep the whole epic and predecessor closure notes for contracted deliverables
+
+**Symptom:** A story's AC list and Deliverables block name only entity X. The story is implemented and reviewed AC-by-AC, passing cleanly. At Stage-6 silent-failure-hunter review (which reads the broader epic), it is discovered that entity Y link writes were also contracted for this story — in the preceding story's closure note ("entity rows ONLY — Y links are the current story's job"), the epic's Depends-on block ("for Y link writes"), the epic's Exit Criteria, and the epic's dependency-rationale prose — but are absent from the AC list.
+
+**Concrete instance (S06.10):** The S06.10 AC list (#1100–#1116) and Deliverables block named only `jurisdiction_binding` rows. But `regulation_reporting` link writes were mandated in six other places — epic lines 994, 1017, 1024, 1094, 1221, and 1256 — and S06.9's closure explicitly deferred them. The omission survived planning and was caught only by the Stage-6 silent-failure-hunter. The fix added a `_build_regulation_reporting_links` builder and write loop in the same review-fix cycle.
+
+**Fix:** When scoping a story (discovery + planning), grep the WHOLE epic for the story id and for the entity/output names the story produces — not just its AC block. Cross-check the predecessor story's closure note for explicit deferrals naming the current story, and the epic Exit Criteria for outputs that must exist at close. Treat the AC list as one input among several, not the authoritative scope boundary. Extends the existing "spec-named location lists need grep-verification" / "name the source-of-truth before copying" family: here the failure mode is an under-specified AC list contradicted by the rest of the epic, which static AC-by-AC review cannot catch.
+
+Surfaced by S06.10 Stage-6 silent-failure-hunter review on 2026-06-29.
+
 ## Conventions — Python
 
 ### PEP 563 deferred annotations do not satisfy ruff F821 — hoist annotation-only names to module level

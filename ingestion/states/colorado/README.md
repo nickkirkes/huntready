@@ -49,17 +49,16 @@ ArcGIS requests as `(contact: <value>)`).
 
 ## State-code constant convention
 
-Current S05.0 code uses:
+All CO loaders use:
 
 ```python
-CO_STATE_CODE = "US-CO"
+_STATE: Final[str] = "US-CO"
 ```
 
-This parallels Montana's `MT_STATE_CODE = "US-MT"` in `load_state_boundary.py`
-and other MT loaders. Per the E05 epic (S05.6), the project may codify the
-shorter `_STATE = "US-CO"` form across all Colorado loaders for consistency.
-Until S05.6 lands, use `CO_STATE_CODE` for any new Colorado loader added in
-S05.2 / S05.3 / S05.4.
+This mirrors Montana's `_STATE` convention in `load_jurisdiction_bindings.py`
+and the S05.6 scaffold. (Montana's `load_regulation_records.py` predates that
+convention and still uses `_MT_STATE_CODE`.) Use `_STATE` for any new Colorado
+loader.
 
 ## CRS / projection handling
 

@@ -39,7 +39,7 @@ import re
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 from urllib.parse import urlparse
 
 import psycopg
@@ -75,7 +75,7 @@ CO_FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 CO_AGENCY = "U.S. Geological Survey (PAD-US)"
 CO_STATE_SLUG = "co-usgs-padus"
-CO_STATE_CODE = "US-CO"
+_STATE: Final[str] = "US-CO"
 CO_RESTRICTED_ID_PREFIX = "CO-restricted"
 
 # ---------------------------------------------------------------------------
@@ -233,7 +233,7 @@ def _feature_to_geometry(
             name=unit_nm,
             kind="restricted_area",
             geom=geometry_wkt,
-            state=CO_STATE_CODE,
+            state=_STATE,
             license_year=None,
             verbatim_rule=None,
             source=citation,

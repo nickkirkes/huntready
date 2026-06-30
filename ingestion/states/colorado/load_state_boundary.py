@@ -39,7 +39,7 @@ import logging
 import pathlib
 import tempfile
 import zipfile
-from typing import Literal
+from typing import Final, Literal
 
 import geopandas  # type: ignore[import-untyped]  # no stubs package published
 import requests
@@ -69,7 +69,7 @@ STATE_BOUNDARY_TITLE = (
     "TIGER/Line State Shapefile 2024 (filtered to Colorado, STATEFP=08)"
 )
 
-CO_STATE_CODE = "US-CO"
+_STATE: Final[str] = "US-CO"
 CO_STATEFP = "08"
 GEOMETRY_ID = "CO-STATEWIDE-geom"
 GEOMETRY_NAME = "Colorado"
@@ -304,7 +304,7 @@ def main(argv: list[str] | None = None) -> int:
         name=GEOMETRY_NAME,
         kind="state",
         geom=wkt,
-        state=CO_STATE_CODE,
+        state=_STATE,
         license_year=None,       # year-invariant per ADR-018 §3
         verbatim_rule=None,
         legal_description=None,  # state-level boundary; no agency prose for state shape
