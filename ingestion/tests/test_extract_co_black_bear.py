@@ -1892,12 +1892,12 @@ class TestDeterministicJsonOutput:
 
         Two consecutive ``extract()`` runs against the committed PDF produced
         byte-identical output with SHA-256:
-            7b35c202fd614f37fb529c2cc308fbf0004192eefd07fdf6963772dcc867d5f6  # pragma: allowlist secret
+            0c1f0fd17a22c64a79b4500c2cc6d173eb3fd89f346a844603917c020432670b  # pragma: allowlist secret
         """
         pytest.skip(
             "integration — requires real CPW Big Game PDF (~96 MB, gitignored); "
             "determinism verified by manual 2-run SHA recipe "
-            "(SHA-256: 7b35c202fd614f37fb529c2cc308fbf0004192eefd07fdf6963772dcc867d5f6)"  # pragma: allowlist secret
+            "(SHA-256: 0c1f0fd17a22c64a79b4500c2cc6d173eb3fd89f346a844603917c020432670b)"  # pragma: allowlist secret
         )
 
 
@@ -2205,3 +2205,128 @@ class TestOtcFusedRowSplit:
         pdf = self._pdf_with_otc_table(rows)
         with pytest.raises(PdfExtractionError):
             _extract_otc_rows(pdf, extracted_at="2026-06-15T00:00:00Z")
+
+
+# ---------------------------------------------------------------------------
+# TestMandatoryInspectionFullProse
+# ---------------------------------------------------------------------------
+
+
+class TestMandatoryInspectionFullProse:
+    """S06.9.1: the p.73 reporting_obligation record carries the full
+    "Mandatory Bear Inspections & Seals" rule prose, not the heading-only
+    string (closes Known Issue #16)."""
+
+    def _ro_verbatim(self) -> str:
+        records = _load_merged_artifact()  # reuse existing helper
+        ros = [r for r in records if r.get("record_type") == "reporting_obligation"]
+        assert len(ros) == 1, f"expected exactly 1 reporting_obligation, got {len(ros)}"
+        return ros[0]["verbatim_rule"]
+
+    def test_contains_full_prose(self) -> None:
+        v = self._ro_verbatim()
+        assert "Hunters must personally present their bear head and hide" in v
+        assert "within five working days after harvest" in v
+        assert "prepared for human consumption" in v
+
+    def test_not_heading_only(self) -> None:
+        assert self._ro_verbatim() != "Mandatory Bear Inspections & Seals"
+
+    def test_excludes_adjacent_table_text(self) -> None:
+        v = self._ro_verbatim()
+        assert "Limited Licenses" not in v
+        assert "Unit Valid GMUs" not in v
+
+
+class _StubPages:
+    """Index-anything stub: pdf.pages[72] returns a page sentinel."""
+
+    def __getitem__(self, idx: int) -> object:
+        return object()
+
+
+class _StubPdf:
+    pages = _StubPages()
+
+
+def _patch_inspection_crops(
+    monkeypatch: pytest.MonkeyPatch, mapping: dict[object, str]
+) -> None:
+    """Patch the module-level ``extract_text`` so each bbox crop returns the
+    text mapped to its bbox tuple (default ''), exercising the p.73 guards
+    without the real PDF."""
+
+    def fake(page: object, bbox: object = None) -> str:
+        return mapping.get(bbox, "")
+
+    monkeypatch.setattr(extract_black_bear, "extract_text", fake)
+
+
+class TestExtractMandatoryInspectionGuards:
+    """S06.9.1: the fail-loud guards in _extract_mandatory_inspection_candidate
+    each return None (-> _build_base_records raises) on a degraded crop, without
+    needing the real ~96 MB PDF (mocked column crops)."""
+
+    _GOOD_HEADING = "Mandatory Bear Inspections & Seals"
+    _GOOD_COL_A = (
+        "Hunters must personally present their bear head and hide to any CPW "
+        "office for inspection within five working days after harvest."
+    )
+    _GOOD_COL_B = (
+        "Bears cannot be taken out of Colorado until head and hide are "
+        "inspected and sealed. Meat must be prepared for human consumption."
+    )
+
+    def _call(self) -> object | None:
+        return extract_black_bear._extract_mandatory_inspection_candidate(
+            _StubPdf(), "2026-01-01T00:00:00+00:00", "src", "2026-03-04"
+        )
+
+    def test_missing_heading_anchor_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch_inspection_crops(
+            monkeypatch,
+            {
+                extract_black_bear._INSPECTION_HEADING_BBOX: "Some Other Heading",
+                extract_black_bear._INSPECTION_COL_A_BBOX: self._GOOD_COL_A,
+                extract_black_bear._INSPECTION_COL_B_BBOX: self._GOOD_COL_B,
+            },
+        )
+        assert self._call() is None
+
+    def test_empty_column_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch_inspection_crops(
+            monkeypatch,
+            {
+                extract_black_bear._INSPECTION_HEADING_BBOX: self._GOOD_HEADING,
+                extract_black_bear._INSPECTION_COL_A_BBOX: "   ",
+                extract_black_bear._INSPECTION_COL_B_BBOX: self._GOOD_COL_B,
+            },
+        )
+        assert self._call() is None
+
+    def test_prose_anchor_missing_returns_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Both columns non-empty but wrong content (e.g. a bbox drift onto the
+        # hunt-code table) — the non-empty checks pass, the prose anchor fails.
+        _patch_inspection_crops(
+            monkeypatch,
+            {
+                extract_black_bear._INSPECTION_HEADING_BBOX: self._GOOD_HEADING,
+                extract_black_bear._INSPECTION_COL_A_BBOX: "Unit Valid GMUs Hunt Code List",
+                extract_black_bear._INSPECTION_COL_B_BBOX: "1 1 B-E-001-O1-A B",
+            },
+        )
+        assert self._call() is None
+
+    def test_happy_path_returns_candidate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _patch_inspection_crops(
+            monkeypatch,
+            {
+                extract_black_bear._INSPECTION_HEADING_BBOX: self._GOOD_HEADING,
+                extract_black_bear._INSPECTION_COL_A_BBOX: self._GOOD_COL_A,
+                extract_black_bear._INSPECTION_COL_B_BBOX: self._GOOD_COL_B,
+            },
+        )
+        result = self._call()
+        assert result is not None
+        assert result["record_type"] == "reporting_obligation"
+        assert "five working days" in result["verbatim_rule"]

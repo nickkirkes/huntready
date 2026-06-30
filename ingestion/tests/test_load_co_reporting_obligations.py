@@ -330,17 +330,22 @@ class TestBuildReportingObligations:
         assert isinstance(obs[0].verbatim_rule, str)
         assert len(obs[0].verbatim_rule) > 0
 
-    def test_happy_path_verbatim_rule_exact_value(self) -> None:
-        """obligation.verbatim_rule == 'Mandatory Bear Inspections & Seals' (heading-only value from current artifact).
+    def test_happy_path_verbatim_rule_full_prose(self) -> None:
+        """obligation.verbatim_rule contains the full p.73 rule prose (S06.9.1 recovery).
 
-        Locks the known-degraded-extraction state documented in the module
-        docstring 'verbatim_rule limitation' note. When the extract_black_bear.py
-        carve-out lands and the full-prose verbatim_rule is recovered, this test
-        will need to be updated — that update is the signal the carve-out worked.
+        Verifies that the S06.9.1 extract_black_bear.py re-anchor fix succeeded:
+        the committed artifact's verbatim_rule is no longer the heading-only string
+        but the complete CPW mandatory-inspection rule from brochure p.73.
+        Checked via representative substring matches rather than byte-for-byte to
+        avoid whitespace-drift brittleness.
         """
         art = json.loads(mod._BEAR_ARTIFACT_PATH.read_text(encoding="utf-8"))
         obs = mod._build_reporting_obligations(art)
-        assert obs[0].verbatim_rule == "Mandatory Bear Inspections & Seals"
+        v = obs[0].verbatim_rule
+        assert "Hunters must personally present their bear head and hide" in v
+        assert "within five working days after harvest" in v
+        assert "prepared for human consumption" in v
+        assert v != "Mandatory Bear Inspections & Seals"
 
     def test_happy_path_source_id(self) -> None:
         """obligation.source.id == 'co-cpw-big-game-2026-brochure'."""
@@ -626,6 +631,21 @@ class TestNewGuards:
         assert not heading_warnings, (
             f"Unexpected heading-only WARNING for non-heading verbatim_rule: {heading_warnings}"
         )
+
+    def test_live_artifact_does_not_log_heading_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """S06.9.1: the re-extracted artifact's full-prose verbatim_rule does not
+        trip the loader's heading-only WARNING gate."""
+        import logging
+
+        art = json.loads(mod._BEAR_ARTIFACT_PATH.read_text(encoding="utf-8"))
+        with caplog.at_level(logging.WARNING, logger=mod.__name__):
+            obs = mod._build_reporting_obligations(art)
+        assert len(obs) == 1
+        heading_warnings = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING and "heading-only" in r.message
+        ]
+        assert not heading_warnings, f"Unexpected heading-only WARNING: {heading_warnings}"
 
 
 # ---------------------------------------------------------------------------

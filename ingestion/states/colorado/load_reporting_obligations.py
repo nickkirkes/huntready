@@ -23,17 +23,18 @@ are S06.10's job.  This mirrors the MT split where S03.9 wrote the entity
 rows and S03.10/load_regulation_records.py generated the link rows as part
 of the binding sweep.
 
-verbatim_rule limitation
--------------------------
-The committed bear artifact (``extracted/black-bear-2026.json``) currently
-carries a heading-only ``verbatim_rule`` for the reporting-obligation entry
-(``"Mandatory Bear Inspections & Seals"``).  This loader consumes it
-faithfully per ADR-008 (no fabrication, no paraphrase).  The full-prose
-verbatim rule (brochure pp. 77–78 inspection + seal prose) is a separate
-flagged ``extract_black_bear.py`` carve-out candidate (analogous to S06.3.1
-for the big-game extractor) and is NOT addressed here.  S06.10 UAT should
-note this limitation and flag the carve-out if the prose is load-bearing for
-downstream queries.
+verbatim_rule provenance
+------------------------
+The committed bear artifact (``extracted/black-bear-2026.json``) carries the
+full p.73 "Mandatory Bear Inspections & Seals" rule prose for the
+reporting-obligation entry.  This loader consumes it faithfully per ADR-008
+(no fabrication, no paraphrase).  The earlier heading-only truncation
+(``"Mandatory Bear Inspections & Seals"`` only) was resolved by the S06.9.1
+``extract_black_bear.py`` column-crop carve-out (analogous to S06.3.1 for the
+big-game extractor).  The ``_KNOWN_HEADING_ONLY_VERBATIM`` constant and its
+WARNING gate below are retained as forward-safety: if a future re-extraction
+ever regresses to heading-only, the loader warns before the DB write rather
+than silently storing degraded text.
 
 Inputs
 ------
@@ -242,11 +243,12 @@ _KIND_SLUG_OVERRIDES: Final[dict[str, str]] = {}
 
 _REGION_SCOPE_SLUG: Final[dict[str, str]] = {"STATEWIDE": "statewide"}
 
-# Known heading-only verbatim_rule from the current committed artifact. The
-# full inspection prose is pending an extract_black_bear.py carve-out (the
-# END-anchor matched early in the multi-column layout). Surfaced at WARNING
-# so an operator running the live loader sees the gap. See the module
-# docstring "verbatim_rule limitation" note.
+# Forward-safety sentinel: the heading-only verbatim_rule that the pre-S06.9.1
+# artifact carried before the extract_black_bear.py column-crop carve-out fixed
+# the multi-column truncation. The committed artifact now carries full prose, so
+# the WARNING gate below no longer fires; it is retained to catch a future
+# re-extraction that regresses to heading-only. See the module docstring
+# "verbatim_rule provenance" note.
 _KNOWN_HEADING_ONLY_VERBATIM: Final[str] = "Mandatory Bear Inspections & Seals"
 
 
@@ -560,12 +562,14 @@ def _build_reporting_obligations(
             source=citation,
         )
 
-        # --- Fix 5: warn when verbatim_rule is the known heading-only value ---
+        # Forward-safety: warn if verbatim_rule regresses to the heading-only
+        # value. Resolved by the S06.9.1 carve-out (artifact now carries full
+        # prose); this gate guards against a future re-extraction regression.
         if obligation.verbatim_rule == _KNOWN_HEADING_ONLY_VERBATIM:
             _LOGGER.warning(
                 "reporting_obligation id=%s has a heading-only verbatim_rule (%r); "
-                "the full inspection prose is pending an extract_black_bear.py "
-                "carve-out — see module docstring",
+                "this indicates an extract_black_bear.py regression — the S06.9.1 "
+                "carve-out should keep the full p.73 prose. See module docstring",
                 obligation.id, obligation.verbatim_rule,
             )
 
