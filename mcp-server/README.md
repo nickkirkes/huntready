@@ -92,6 +92,42 @@ TEST_READONLY_DSN=postgresql://huntready_readonly:<password>@localhost:5432/hunt
 
 The CI workflow (`.github/workflows/ci.yml`) provisions the container and runs these tests automatically on every push/PR.
 
+## CORS + auth seam (S08.4)
+
+### CORS
+
+The Worker emits CORS headers on every response and handles `OPTIONS` preflight requests with a `204` short-circuit — before any auth check runs (an `OPTIONS` preflight carries no credentials per the WHATWG Fetch standard's CORS protocol, so authenticating it would break every browser MCP client).
+
+The allowed-origin policy is configurable via `CORS_ALLOWED_ORIGINS` (comma-separated; default `*` when unset). The `*` default is intentional for the M3 demo window: the V1 endpoint is open and read-only, so a permissive origin policy adds no additional exposure. The origin list will be tightened at M4 when the web app's origin is known.
+
+`Access-Control-Allow-Credentials` is intentionally **never** set. MCP clients authenticate with `Authorization: Bearer` tokens, not cookies. A `credentials: include` browser request paired with `Access-Control-Allow-Origin: *` is a browser-rejected misconfiguration — the two are mutually exclusive.
+
+### Auth seam (wired, unenforced in V1)
+
+The OAuth-2.1 auth seam is a **single, config-toggled middleware path**. In the deployed V1 configuration it is **disabled** (open endpoint, ADR-023).
+
+Enabling it (by setting `AUTH_SEAM_ENABLED="true"` and `AUTH_SEAM_TOKEN=<token>`) activates the seam for tests or staging:
+
+- An **unauthenticated** request receives a `401` with a spec-shaped `WWW-Authenticate` header pointing at `/.well-known/oauth-protected-resource` (RFC 9728).
+- A **credentialed** request (`Authorization: Bearer <token>`) is admitted.
+
+**The deployed V1 endpoint is open and read-only.** The `AUTH_SEAM_TOKEN` credential is a test fixture that proves the seam is real — it is **not** a V1 enforcement boundary. On an open endpoint a token is unenforceable (any client can omit it and take the open path).
+
+To enable locally, add both variables to the gitignored `.dev.vars`:
+
+```sh
+AUTH_SEAM_ENABLED=true
+AUTH_SEAM_TOKEN=<any-test-token>
+```
+
+### V1 baseline protection
+
+Cloudflare's ambient DDoS mitigation and WAF apply by default to all Workers deployments — this is a platform default, not a configured feature. No additional Cloudflare security rules are provisioned in E08.
+
+### Production auth: Q22 (deferred)
+
+Real OAuth-2.1 enforcement is the deferred Q22 decision, gated on GTM. `@cloudflare/workers-oauth-provider` is the named drop-in for real enforcement when that decision is made. Nothing in E08 decides Q22.
+
 ---
 
 ## Test-harness baseline

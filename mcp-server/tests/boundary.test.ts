@@ -219,6 +219,12 @@ describe("src/index.ts — no app-layer protocolVersion", () => {
   });
 });
 
+// Dispatch ORDER (CORS preflight → /healthz → auth seam → MCP) is no longer
+// asserted here by lexical source position — that was brittle to behaviour-
+// preserving refactors. The dispatch now lives in the pure src/router.ts module
+// (index.ts is a thin shim), so tests/router.test.ts locks the ordering by
+// OBSERVABLE BEHAVIOUR (real Requests through handleRequest) in the Node pool.
+
 // ---------------------------------------------------------------------------
 // Test 5: DB client constructed per request, never at module scope (AST)
 // Serving analog of the per-request createMcpServer() lock (Test 3 above).

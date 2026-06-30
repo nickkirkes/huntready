@@ -35,5 +35,31 @@
   //   boundary (real auth is S08.4 / Q22). Leave unset to keep /healthz off.
   //     wrangler secret put HEALTHCHECK_TOKEN
   //   Local dev: add `HEALTHCHECK_TOKEN=<token>` to the gitignored `.dev.vars`.
+  //
+  // CORS_ALLOWED_ORIGINS  (OPTIONAL)
+  //   Comma-separated list of browser origins the Worker allows via CORS (e.g.
+  //   "https://app.huntready.io,https://staging.huntready.io"). Unset/absent = `*`
+  //   (permissive default for the open, read-only V1 endpoint; M4 tightens it
+  //   when the web app origin is known). NOT sensitive — may be a plain `vars`
+  //   entry in wrangler.jsonc rather than a Workers Secret.
+  //   Local dev: add `CORS_ALLOWED_ORIGINS=<origins>` to the gitignored `.dev.vars`,
+  //   or leave unset to get the permissive `*` default.
+  //
+  // AUTH_SEAM_ENABLED  (OPTIONAL)
+  //   Set to the string `"true"` to enable the wired-but-unenforced OAuth-2.1
+  //   auth seam (useful for tests or staging environments). Unset/absent = disabled
+  //   (the deployed V1 default — open endpoint, ADR-023). Real production auth is
+  //   the deferred Q22 decision; `@cloudflare/workers-oauth-provider` is the named
+  //   drop-in for real enforcement when that decision is made.
+  //   Local dev: add `AUTH_SEAM_ENABLED=true` to the gitignored `.dev.vars`.
+  //
+  // AUTH_SEAM_TOKEN  (OPTIONAL)
+  //   The test-fixture Bearer credential the auth seam checks when enabled.
+  //   This value MUST NEVER appear in this file or in source control.
+  //   NOT a V1 enforcement boundary: the deployed endpoint is open, and a token
+  //   on an open endpoint is unenforceable (a client can omit it and take the open
+  //   path). Do NOT cite this as evidence of an enforced V1 auth boundary.
+  //     wrangler secret put AUTH_SEAM_TOKEN
+  //   Local dev: add `AUTH_SEAM_TOKEN=<token>` to the gitignored `.dev.vars`.
   // ---------------------------------------------------------------------------
 }

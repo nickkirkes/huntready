@@ -1616,6 +1616,34 @@ Note: a human-readable comment `"// No Durable Objects"` does NOT contain the su
 
 Surfaced by S08.1 implementation on 2026-06-26.
 
+### CORS headers must be applied to EVERY response in the workerd `fetch` entrypoint — including responses the entrypoint did not build
+
+`createMcpHandler` (from `agents/mcp`) returns its own `Response` that knows nothing about the caller's CORS policy. An uncaught throw from the MCP handler — or from a helper like `runHealthCheck` — surfaces as a Cloudflare platform 500 with NO CORS headers, which is invisible to a browser-origin MCP client as an opaque CORS error rather than a readable failure.
+
+**Fix (shipped in S08.4 `mcp-server/src/index.ts`):** write a pure `applyCorsHeaders(response, corsHeaders)` re-wrapper and apply it to (a) the handler's return value, (b) every `/healthz` branch response, and (c) 404 responses. Wrap the MCP handler call and `runHealthCheck` call each in their own `try/catch` that returns a CORS-headered 500/503. The preflight 204 short-circuit passes `corsHeaders` directly (no upstream response to wrap).
+
+Surfaced by S08.4 2026-06-29.
+
+### The wildcard-vs-credentials CORS trap: never set `Access-Control-Allow-Credentials` on an open endpoint
+
+`Access-Control-Allow-Origin: *` combined with `Access-Control-Allow-Credentials: true` is silently rejected by all browsers (CWE-942-class misconfig). MCP clients authenticate via the `Authorization` bearer header, not cookies, so credentials mode is never needed — omitting `Access-Control-Allow-Credentials` keeps the permissive `*` default safe for the open V1 endpoint. Lock this absence with tests in `mcp-server/tests/cors.test.ts` asserting the header is `null` on both preflight and non-preflight responses.
+
+Note also: `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, and `Access-Control-Max-Age` are preflight-only response headers (browsers ignore them on simple responses), but emitting them uniformly on the preflight 204 is the idiomatic, harmless middleware default.
+
+Surfaced by S08.4 2026-06-29.
+
+### CORS preflight (`OPTIONS`) must short-circuit BEFORE any auth check
+
+A CORS preflight carries no credentials per RFC 6454. If an auth seam runs first it 401s the preflight and breaks every browser MCP client before the actual request is ever attempted. The dispatch order in the Worker `fetch` entrypoint must be: **preflight → auth → routes**. Detect a genuine preflight via `OPTIONS` + `Origin` + `Access-Control-Request-Method` (a bare `OPTIONS` is not a preflight; a POST cannot masquerade as one).
+
+Surfaced by S08.4 2026-06-29.
+
+### Locking dispatch ORDER in a workerd entrypoint that cannot be imported in the Node vitest pool — use an AST source-order assertion
+
+`mcp-server/src/index.ts` imports `agents/mcp` (workerd-only), so it cannot be imported in the Node vitest pool — only its pure helper modules (`cors.ts`, `auth.ts`) can be unit-tested. To lock a load-bearing wiring invariant (e.g. "preflight check dispatched before the auth check") without booting workerd, add an AST test in `tests/boundary.test.ts` that parses `index.ts` with the TypeScript compiler API and asserts the source position of one call (`isCorsPreflightRequest`) precedes another (`isAuthSeamEnabled`) — using the existing `callsToIdentifier` helper + `node.getStart(sf)`. This is the exact analog of the per-request-instantiation AST guard (Test 3) and the no-`ingestion`-import guard already in that file.
+
+Surfaced by S08.4 2026-06-29.
+
 ### Keep `@types/node` out of the Workers `src` tsconfig — split into base + test configs
 
 A single `tsconfig.json` with `"types": ["@cloudflare/workers-types", "node"]` lets Node globals (`process`, `Buffer`, `__dirname`, sync `fs`) type-check cleanly in `src/` even though they don't exist in workerd — a runtime failure that `tsc` silently misses.
