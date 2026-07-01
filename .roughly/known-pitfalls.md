@@ -1179,6 +1179,24 @@ Surfaced by S06.10 Stage-6 silent-failure-hunter review on 2026-06-29.
 
 **Fix:** Import the name at module level even when it appears only in annotations. The cost of one additional import line is much smaller than a Stage-6 ruff failure. Surfaced by S05.1 Stage 6: `TestNoColoradoLeakIntoSharedLib._lib_python_files` declared `-> list[Path]` with `from pathlib import Path` inside the method body; hoisting the import to module level resolved F821.
 
+### Mixing `ingestion/lib/` and a `states/<state>/` path in one mypy invocation triggers a spurious "found twice" error
+
+**Symptom:** Running `mypy ingestion/lib/ states/colorado/load_jurisdiction_bindings.py` (or any single combined invocation of `ingestion/lib/` and a `states/<state>/` file) fails immediately with:
+
+```text
+error: Source file found twice under different module names: "colorado" and "states.colorado"
+```
+
+The error fires on an imported sibling (e.g. `load_regulation_records.py`), not necessarily the file named on the command line.
+
+**Cause:** The `states/` directory layout makes `states/colorado/` reachable under TWO module paths simultaneously — `colorado` (when `states/` is on the path) and `states.colorado` (when `ingestion/` is on the path). Passing both `ingestion/lib/` and a `states/` file in one invocation exposes both paths to mypy at once, triggering the double-module detection.
+
+**Fix:** Never mix `ingestion/lib/` and `states/<state>/` paths in a single mypy call. The canonical project gate per CLAUDE.md is **`mypy ingestion/lib/`** only — it does not type-check `states/`. If you want to spot-check a CO loader separately, run it in a SEPARATE invocation (e.g. `mypy --explicit-package-bases states/colorado/load_jurisdiction_bindings.py`) and do not combine both in one shell command.
+
+**Bonus trap:** a standalone `mypy --explicit-package-bases states/colorado/<loader>.py` can surface default-strictness notes on untouched code (e.g. an overload-resolution note on `list(raw_regions)`) that the canonical `mypy ingestion/lib/` gate never exercises. Do not treat such notes as regressions introduced by an unrelated change — they are an artifact of running mypy at a lower-strictness baseline than the lib gate assumes.
+
+Surfaced 2026-07-01 during the S06.10 `_BINDING_COUNT_GUARD_BAND` narrowing build.
+
 ## Conventions — Testing
 
 ### Class-body tuple invariants must be locked by an inline `assert all(...)` immediately after the tuple
