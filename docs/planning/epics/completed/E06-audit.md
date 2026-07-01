@@ -1,7 +1,7 @@
 # Epic Audit: E06 — Colorado Regulation Text Ingestion
 
 **Audited:** 2026-07-01
-**Method:** Independent per-story review — 4 parallel cluster-auditor agents (extraction / ingestion / infra+geometry-hardening / cross-cutting+binding) verifying each story's Acceptance Criteria against shipped evidence (epic per-story blocks, CLAUDE.md rolling closures, the `group-b-operator-pass.md` + `M2-operator-pass.md` live-write captures, on-disk artifacts/SHAs, test files, and git commits) + a PM-run faithfulness UAT batch (3 parallel agents comparing extracted artifacts against the source CPW brochure PDF) + PM cross-cutting synthesis. Mirrors the E05-audit re-run pattern (2026-06-08) and the E02/E04/E05 locked precedent.
+**Method:** Independent per-story review — 4 parallel cluster-auditor agents (extraction / ingestion / infra+geometry-hardening / cross-cutting+binding) verifying each story's Acceptance Criteria against shipped evidence (epic per-story blocks, CLAUDE.md rolling closures, the E06 Group B dev live-write capture — authored as `group-b-operator-pass.md`, deleted per ADR-017 §6 at this close with its load-bearing content preserved in `docs/runbooks/M2-uat.md` Appendix A — plus the `docs/runbooks/M2-operator-pass.md` live-write capture, on-disk artifacts/SHAs, test files, and git commits) + a PM-run faithfulness UAT batch (3 parallel agents comparing extracted artifacts against the source CPW brochure PDF) + PM cross-cutting synthesis. Mirrors the E05-audit re-run pattern (2026-06-08) and the E02/E04/E05 locked precedent.
 
 | Tally | Count |
 |---|---|
@@ -129,7 +129,7 @@ Executed in this audit: 3 parallel agents compared the committed extraction arti
 
 7. **Closure-narrative LOC drift (informational).** Several loader LOC figures in closure narratives (S06.7 ~1700 vs 1924; S06.8 ~640 vs 1093; S06.9 ~290 vs 742) were written before post-review hardening commits landed; the extra code is guards/validators/test-locked constants, not a quality concern. Future PM close notes should measure LOC from `wc -l` post-merge.
 
-8. **Two working notes absent** (`S06.9.md`, `S06.10.md`) from `E06-confidence-findings/` — non-blocking; their verification evidence lives in `group-b-operator-pass.md` and the epic/CLAUDE.md closures. Noted so the absence is explicit rather than an unrecorded gap; the T10 `git rm -r` removes only what exists.
+8. **Two working notes absent** (`S06.9.md`, `S06.10.md`) from `E06-confidence-findings/` — non-blocking; their verification evidence lives in `docs/runbooks/M2-uat.md` Appendix A (preserved from the now-deleted `group-b-operator-pass.md` per ADR-017 §6) and the epic/CLAUDE.md closures. Noted so the absence is explicit rather than an unrecorded gap; the T10 `git rm -r` removes only what exists.
 
 ---
 

@@ -377,6 +377,12 @@ and when CO / WY data lands.
 **Date opened:** 2026-05-20 (during S03.9 planning)
 **Status (2026-06-08 via S06.0/D1): RESOLVED — option (c), license-keyed.** M2 (Colorado, the second CWD-state) confirmed zone-keyed binding is structurally unavailable (CPW publishes no CWD-zone geometry — E05 S05.3). CO V1 ships 0 typed `cwd_sample` `reporting_obligation` rows (empirically 1 total CO reporting_obligation — the bear mandatory-check — per S06.9); the `cwd_sample` enum stays defined-but-unused; CWD text lives in `regulation_record.additional_rules` (S06.6). No new table, no ADR. Resolution home: S06.0 decision memo (D1); recorded in the M2→M3 handoff §6. *(Prior status: Open — M2 ADR candidate; V1 disposition: defer.)*
 
+### Options considered (resolved to (c) at S06.0/D1)
+
+- **(a) Zone-keyed typed `reporting_obligation` rows** — one row per CWD zone, bound to geometry via `geometry-overlays.json`. **Rejected:** CPW publishes no CWD-zone geometry (E05 S05.3 — structurally unavailable for CO; there is no zone to key on), and even in MT the sampling mandate is license-keyed not zone-keyed (the `103-50` case in Context below).
+- **(b) License-keyed typed `reporting_obligation` rows** — one typed `kind="cwd_sample"` row per sampling-bearing license. **Rejected for V1:** produces near-duplicate rows differing only in the zone-name token (the wrong row shape — see "Three sub-questions" #2), with an ambiguous `regulation_reporting` join key.
+- **(c) Keep CWD-sampling text in `regulation_record.additional_rules`; 0 typed `reporting_obligation` rows** (the license-keyed disposition — the text attaches to the license-bearing `regulation_record`). **SELECTED.** The rules are already searchable from `additional_rules` after S03.6/S06.6; the only thing V1 forgoes is the typed `kind="cwd_sample"` discrimination (see "Three sub-questions" #3). CO empirically writes exactly 1 `reporting_obligation` (the bear mandatory-check, S06.9) and 0 CWD rows.
+
 ### Context
 
 Montana V1 has 2 CWD zones (Kalispell, Libby). The 10-day-sampling sentence appears 5 times across 4 HDs (100/103/104/170) as per-license `extras` cells in `dea-2026.json`, already captured by S03.6 in `regulation_record.additional_rules`. The artifact pattern is **license-keyed**, not zone-keyed: HD 103's `Deer Permit: 103-50` (North Fisher Portion mule deer) carries the same sampling sentence, but that license is NOT inside the Libby CWD-zone overlap captured in `geometry-overlays.json`. The sampling mandate is bound to the LICENSE TYPE, not strictly geography.
