@@ -72,6 +72,20 @@ import type { ClosurePredicate, SourceCitation, WeaponType, Residency } from "..
 // Input schema (exported — passed to MCP SDK's registerTool / tool())
 // ---------------------------------------------------------------------------
 
+/**
+ * True iff `s` is a canonical `YYYY-MM-DD` calendar date. Rejects both malformed
+ * shapes (`2026-1-1`, `2026/09/15`) AND impossible dates that `Date.parse` would
+ * silently roll over (`2026-02-30` → Mar 2). Round-trips through a UTC `Date` and
+ * compares the re-serialized `YYYY-MM-DD` — a mismatch means the input was not a
+ * real, canonical date.
+ */
+function isCanonicalIsoDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const ms = Date.parse(`${s}T00:00:00Z`);
+  if (Number.isNaN(ms)) return false;
+  return new Date(ms).toISOString().slice(0, 10) === s;
+}
+
 export const getRegulationsInputSchema = z.object({
   // `.finite()` rejects NaN/Infinity at input validation (zod `z.number()` accepts
   // both by default) — otherwise a non-finite coordinate would reach the DB as a
@@ -80,7 +94,12 @@ export const getRegulationsInputSchema = z.object({
   lat: z.number().finite(),
   lng: z.number().finite(),
   species: z.string(),
-  date: z.string(),
+  // Reject non-canonical / impossible dates at the boundary so a malformed `date`
+  // cannot produce a plausible-but-wrong `out_of_season` status (and so the
+  // license-year selection below can trust `date.slice(0, 4)`).
+  date: z.string().refine(isCanonicalIsoDate, {
+    message: "date must be a canonical YYYY-MM-DD calendar date",
+  }),
 });
 
 // ---------------------------------------------------------------------------
@@ -191,6 +210,10 @@ const RESOLVE_GEOMETRY_SQL = `
  * $1 = the WKT geography literal `SRID=4326;POINT(<lng> <lat>)` (bound as one param).
  * $2 = species (matched against regulation_record.species_group).
  *
+ * `sd.opens`/`sd.closes` are cast `::text`: they are `date` columns and postgres.js
+ * returns bare `date` values as JS `Date` objects, but the response envelope types
+ * them as `YYYY-MM-DD` strings — the cast makes Postgres emit the canonical string.
+ *
  * S09.1b hardens this further (overlay-role distinction, the ≤N-query bound proof
  * on the max-overlay district, multi-year handling); the jurisdiction SCOPING is
  * correct here.
@@ -205,8 +228,8 @@ const REGULATION_SEASONS_SQL = `
     rr.license_year            AS rr_license_year,
     sd.id                      AS sd_id,
     sd.name                    AS sd_name,
-    sd.opens                   AS sd_opens,
-    sd.closes                  AS sd_closes,
+    sd.opens::text             AS sd_opens,
+    sd.closes::text            AS sd_closes,
     sd.weapon_type             AS sd_weapon_type,
     sd.residency               AS sd_residency,
     sd.closure_predicate       AS sd_closure_predicate,
@@ -362,12 +385,35 @@ export function createGetRegulationsHandler(
       // geometries, yielding duplicate (record, season) rows — de-dup on
       // (jurisdiction_code, license_year, season id) so a season is counted once.
       const seenSeasonKeys = new Set<string>();
-      const seasonRows = gated.included.filter((r) => {
+      const dedupedSeasonRows = gated.included.filter((r) => {
         const key = `${r.rr_jurisdiction_code}|${r.rr_license_year}|${r.sd_id}`;
         if (seenSeasonKeys.has(key)) return false;
         seenSeasonKeys.add(key);
         return true;
       });
+
+      // Select a SINGLE license_year so a date-specific query never mixes years.
+      // A jurisdiction/species can have multiple `regulation_record.license_year`
+      // rows; returning all of them (and picking the newest arbitrarily) would
+      // blend seasons across years. Prefer the year matching the requested date's
+      // calendar year (the `date` input is a validated canonical YYYY-MM-DD); fall
+      // back to the most-recent year present when that year is absent (e.g. the
+      // V1 corpus carries only the current license year). S09.1b may refine the
+      // date→license-year mapping for split (fall/winter) license years.
+      const requestedYear = Number.parseInt(date.slice(0, 4), 10);
+      const availableYears = [
+        ...new Set(dedupedSeasonRows.map((r) => r.rr_license_year)),
+      ];
+      const licenseYear =
+        availableYears.length === 0
+          ? null
+          : availableYears.includes(requestedYear)
+            ? requestedYear
+            : Math.max(...availableYears);
+      const seasonRows =
+        licenseYear === null
+          ? dedupedSeasonRows
+          : dedupedSeasonRows.filter((r) => r.rr_license_year === licenseYear);
 
       // ── 4. Collect unique SourceCitation objects ──────────────────────────
       // Deduplicate by citation `id` — both rr.source and sd.source contribute.
@@ -380,13 +426,11 @@ export function createGetRegulationsHandler(
       }
       const seasonSources = Array.from(sourcesById.values());
 
-      // ── 5. Derive license_year from the first row ─────────────────────────
-      // Rows come only from the point's covering jurisdiction(s) (step 2) and are
-      // ordered license_year DESC, so the first row carries the most-recent
-      // applicable regulation for this coordinate. S09.1b handles multi-year and
-      // multi-jurisdiction fan-out (distinct overlays).
+      // ── 5. Anchor row for the section-level source ────────────────────────
+      // seasonRows are already scoped to the point's covering jurisdiction(s)
+      // (step 2) and the single selected license_year (above), ordered by season
+      // open date; the first row anchors the section-level `source`.
       const firstRow = seasonRows[0];
-      const licenseYear = firstRow?.rr_license_year ?? null;
 
       // ── 6. Build ResolvedSeasonWindow array ────────────────────────────────
       // Confidence is inherited from the parent regulation_record (ADR-017

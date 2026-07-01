@@ -115,7 +115,7 @@ describe("null-bearing serialisation", () => {
     const fixture = makeResponse(); // all sections null
     const parsed: Record<string, unknown> = JSON.parse(JSON.stringify(fixture));
 
-    for (const key of ["seasons", "tags", "methods", "reporting", "contacts"] as const) {
+    for (const key of ["seasons", "tags", "methods", "reporting", "contacts", "additional_rules"] as const) {
       expect(Object.keys(parsed).includes(key), `key "${key}" must be present`).toBe(true);
       expect(parsed[key], `parsed.${key} must be null`).toBeNull();
     }

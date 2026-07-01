@@ -552,7 +552,23 @@ export const getRegulationsResponseSchema = z
       })
       .strict(),
   })
-  .strict();
+  .strict()
+  .superRefine((val, ctx) => {
+    // Decision-1 invariant (architecture.md §"Response shape"):
+    // meta.data_freshness must be null iff sources is empty.
+    const sourcesEmpty = val.sources.length === 0;
+    const freshnessNull = val.meta.data_freshness === null;
+    if (sourcesEmpty !== freshnessNull) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "data_freshness must be null iff sources is empty: " +
+          (sourcesEmpty
+            ? "sources is empty but data_freshness is non-null"
+            : "sources is non-empty but data_freshness is null"),
+      });
+    }
+  });
 
 const _assertGetRegulationsResponse: AssertEqual<
   z.infer<typeof getRegulationsResponseSchema>,
