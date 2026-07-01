@@ -13,7 +13,7 @@
  *   - ADR-001/ADR-008: verbatim + confidence pass through unchanged, no normalization
  */
 
-import { getRegulationsResponseSchema } from "./output-schema.js";
+import { z } from "zod";
 import type { GetRegulationsResponse, Warning } from "./types/response.js";
 
 // ---------------------------------------------------------------------------
@@ -85,7 +85,9 @@ function parseSourceDate(value: string): number {
  * Compute the data freshness block from the contributing source citations.
  *
  * @param sources - The sources whose `publication_date` values are compared.
- *   Must be non-empty — a freshness block with zero sources is builder misuse.
+ *   Returns `null` when empty (Decision-1 invariant: `data_freshness` is null
+ *   iff `sources` is empty — a total-coverage-gap response has no dates to
+ *   compute freshness from).
  * @param generatedAt - ISO-8601 timestamp for the response generation time
  *   (e.g. `new Date().toISOString()`).
  *
@@ -114,11 +116,14 @@ export function buildDataFreshness(
   most_recent_source_date: string;
   stalest_source_date: string;
   is_stale: boolean;
-} {
+} | null {
+  // Decision-1 invariant: data_freshness is null iff sources is empty.
+  // A freshness block with zero contributing sources is undefined by
+  // construction — there is no publication date to compare against. Return null
+  // rather than throwing so callers can build total-coverage-gap responses
+  // (sources: [], data_freshness: null) without special-casing (ADR-011).
   if (sources.length === 0) {
-    throw new Error(
-      "buildDataFreshness: sources must be non-empty — a freshness block with no contributing source is builder misuse",
-    );
+    return null;
   }
 
   // Fail loud on an unparseable generatedAt. `Date.parse` returns NaN for a
@@ -243,7 +248,7 @@ export function gateBySchemaVersion<T extends { schema_version: number }>(
  * client knows its display context.
  */
 export function renderThinText(response: GetRegulationsResponse): string {
-  const { meta, seasons, tags, methods, reporting, contacts } = response;
+  const { meta, seasons, tags, methods, reporting, contacts, additional_rules } = response;
 
   const coverageLine =
     `Coverage — jurisdiction: ${meta.coverage.jurisdiction}, ` +
@@ -256,6 +261,7 @@ export function renderThinText(response: GetRegulationsResponse): string {
     `methods: ${methods !== null ? "present" : "null"}`,
     `reporting: ${reporting !== null ? "present" : "null"}`,
     `contacts: ${contacts !== null ? "present" : "null"}`,
+    `additional_rules: ${additional_rules !== null ? "present" : "null"}`,
   ];
 
   const warningLine =
@@ -271,8 +277,12 @@ export function renderThinText(response: GetRegulationsResponse): string {
 // ---------------------------------------------------------------------------
 
 /**
- * Validate `response` against the zod output schema and return the
+ * Validate `payload` against `schema` and return the
  * `{ structuredContent, content }` payload the MCP SDK expects.
+ *
+ * This is the SOLE writer of `payload.meta.warnings` — the caller accumulates
+ * warnings and passes them here; the builder assigns them into the payload
+ * immediately before zod validation so the envelope is always consistent.
  *
  * Throws if zod validation fails — the server MUST conform to the declared
  * `outputSchema`; a validation failure is a server programming error, not a
@@ -280,25 +290,43 @@ export function renderThinText(response: GetRegulationsResponse): string {
  *
  * `verbatim_rule` and `confidence` values are passed through byte-identically
  * — this function performs no normalization (ADR-001/ADR-008).
+ *
+ * Generic over `T` so future narrower envelopes (E10, E11) can pass their own
+ * type + schema without needing a separate copy of this function. The minimal
+ * constraint `{ meta: { warnings: Warning[] } }` is sufficient to typecheck the
+ * warnings-assignment and the safeParse call.
+ *
+ * @param payload - The response envelope to validate and return as structured content.
+ * @param schema - The zod schema to validate `payload` against.
+ * @param warnings - Accumulated warnings to write into `payload.meta.warnings`.
+ * @param renderText - Produces the thin-text `content[0].text` for the MCP response.
  */
-export function buildStructuredToolResult(response: GetRegulationsResponse): {
+export function buildStructuredToolResult<T extends { meta: { warnings: Warning[] } }>(
+  payload: T,
+  schema: z.ZodType<T>,
+  warnings: Warning[],
+  renderText: (payload: T) => string,
+): {
   structuredContent: Record<string, unknown>;
   content: { type: "text"; text: string }[];
 } {
-  const parsed = getRegulationsResponseSchema.safeParse(response);
+  // Write warnings into the envelope — this function is the sole writer.
+  payload.meta.warnings = warnings;
+
+  const parsed = schema.safeParse(payload);
 
   if (!parsed.success) {
     const paths = parsed.error.issues.map((i) => i.path.join(".")).join(", ");
     throw new Error(
-      `GetRegulationsResponse failed schema validation — failing paths: ${paths}`,
+      `Response payload failed schema validation — failing paths: ${paths}`,
     );
   }
 
   return {
     // any-free boundary cast to the SDK's `structuredContent: Record<string, unknown>`.
-    // `response` is the validated GetRegulationsResponse; `as unknown as` is the
-    // single sanctioned seam (mirrors the db.ts boundary-cast discipline).
-    structuredContent: response as unknown as Record<string, unknown>,
-    content: [{ type: "text" as const, text: renderThinText(response) }],
+    // `payload` has passed zod validation; `as unknown as` is the single sanctioned
+    // seam (mirrors the db.ts boundary-cast discipline).
+    structuredContent: payload as unknown as Record<string, unknown>,
+    content: [{ type: "text" as const, text: renderText(payload) }],
   };
 }

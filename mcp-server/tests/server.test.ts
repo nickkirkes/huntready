@@ -5,7 +5,7 @@ import { LATEST_PROTOCOL_VERSION } from "@modelcontextprotocol/sdk/types.js";
 import { createMcpServer } from "../src/server.js";
 
 /**
- * Protocol-conformance + registry-empty tests for createMcpServer().
+ * Protocol-conformance + exact-tool-set tests for createMcpServer().
  *
  * These tests exercise the real MCP initialize/tools/list exchange via an
  * in-memory SDK Client/Server pair. They intentionally do NOT import
@@ -74,48 +74,22 @@ describe("createMcpServer — protocol conformance", () => {
     expect(LATEST_PROTOCOL_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("tools/list returns an empty array — registry-empty lock", async () => {
-    // E08 registers zero tools. This public-protocol assertion IS the
-    // registry-empty lock: if a future edit registers a tool in
-    // createMcpServer(), tools/list returns it and this test fails. The lock uses
-    // only the public MCP protocol — it asserts no private SDK internal fields, so
-    // a routine SDK refactor of non-public details cannot break this foundation
-    // test. The handler is always installed (never 404s).
+  it("tools/list — exact V1 registered-tool-set (UAT #1 guard)", async () => {
+    // Asserts the exact set of tools registered in createMcpServer().
+    // This is the UAT #1 guard: tools/list must equal exactly the V1 tools
+    // registered to date — no __bootstrap_noop__, no health/internal tools.
+    // When E09/E10 add further tools, extend this array rather than weaken the
+    // assertion. The lock uses only the public MCP protocol so a routine SDK
+    // refactor of non-public internals cannot break this foundation test.
     const { client: c } = await setup();
 
     const { tools } = await c.listTools();
-    expect(tools).toHaveLength(0);
-    expect(tools).toEqual([]);
-  });
-
-  it("tools added later via the normal McpServer.tool() API are additive — no conflict (E09/E10 extension contract)", async () => {
-    // Locks the forward path this bootstrap exists to enable: E09/E10 add a tool
-    // with the NORMAL server.tool() API and it just works — no factory line
-    // removed, no "a request handler for tools/list already exists" throw. The
-    // register-then-remove bootstrap in createMcpServer() initializes the tools
-    // subsystem so this additive call is conflict-free. This test fails loudly if
-    // a future bootstrap change reintroduces the double-register block.
-    const [clientTransport, serverTransport] =
-      InMemoryTransport.createLinkedPair();
-    const s = createMcpServer();
-    // Simulate E09 adding a tool the recommended way (must not throw).
-    // Use registerTool() — server.tool() is deprecated per the MCP TypeScript SDK
-    // / Anthropic mcp-builder guidance (DO use registerTool; DO NOT use tool() or
-    // low-level setRequestHandler for tools).
-    s.registerTool(
-      "ping",
-      { description: "health check" },
-      async () => ({ content: [{ type: "text" as const, text: "pong" }] }),
-    );
-    await s.connect(serverTransport);
-    const c = new Client({ name: "test", version: "0.0.0" });
-    await c.connect(clientTransport);
-    // Assign to outer vars so afterEach cleans up even on failure.
-    client = c;
-    server = s;
-
-    const { tools } = await c.listTools();
-    expect(tools.map((t) => t.name)).toEqual(["ping"]);
+    expect(tools.map((t) => t.name)).toEqual(["get_regulations"]);
+    // Sanity-check the tool's shape: name and description must be non-empty strings.
+    const tool = tools[0];
+    expect(tool.name).toBe("get_regulations");
+    expect(typeof tool.description).toBe("string");
+    expect(tool.description!.length).toBeGreaterThan(0);
   });
 
   it("per-request freshness — each createMcpServer() call yields a distinct instance", async () => {

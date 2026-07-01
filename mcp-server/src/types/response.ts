@@ -16,6 +16,7 @@
 
 import type {
   SourceCitation,
+  VerbatimRule,
   DrawSpec,
   ReservedPool,
   ClosurePredicate,
@@ -42,6 +43,7 @@ export interface GetRegulationsResponse {
   methods: MethodsSection | null;
   reporting: ReportingSection | null;
   contacts: ContactsSection | null;
+  additional_rules: AdditionalRulesSection | null;
 
   sources: SourceCitation[];
 
@@ -52,7 +54,7 @@ export interface GetRegulationsResponse {
       most_recent_source_date: string;
       stalest_source_date: string;
       is_stale: boolean;
-    };
+    } | null;
     coverage: {
       jurisdiction: Coverage;
       species: Coverage;
@@ -147,6 +149,11 @@ export interface Contact {
   source: SourceCitation;
 }
 
+export interface AdditionalRulesSection {
+  rules: VerbatimRule[];
+  source: SourceCitation;
+}
+
 export interface Warning {
   code:
     | "STALE_SOURCE"
@@ -156,6 +163,6 @@ export interface Warning {
     | "BOUNDARY_AMBIGUOUS"
     | "SUPERSEDED_BY_CORRECTION"
     | "UNSUPPORTED_SCHEMA_VERSION";
-  section: "seasons" | "tags" | "methods" | "reporting" | "contacts" | "overall";
+  section: "seasons" | "tags" | "methods" | "reporting" | "contacts" | "additional_rules" | "overall";
   message: string;
 }

@@ -16,7 +16,8 @@
  */
 
 import { createDbClient, READ_SMOKE_SQL, type DbClient } from "./db.js";
-import { buildDataFreshness, buildStructuredToolResult } from "./response-builder.js";
+import { buildStructuredToolResult, renderThinText } from "./response-builder.js";
+import { getRegulationsResponseSchema } from "./output-schema.js";
 import type { GetRegulationsResponse } from "./types/response.js";
 
 // ---------------------------------------------------------------------------
@@ -103,22 +104,6 @@ export async function runHealthCheck(dsn: string): Promise<HealthCheckResult> {
   // ── 2. Shape C envelope round-trip ────────────────────────────────────────
   const generatedAt = new Date().toISOString();
 
-  const oneCitation = {
-    id: "healthcheck-citation",
-    agency: "HuntReady Health Check",
-    title: "Internal smoke test citation",
-    url: "https://huntready.internal/healthz",
-    // Derive the date from generatedAt (YYYY-MM-DD slice) so the synthetic
-    // citation is always "today" — the fixture stays self-consistently fresh
-    // and the health check exercises the envelope builder, not staleness. (Note:
-    // is_stale does NOT affect `ok` regardless — `ok = db_reachable &&
-    // envelope_valid` — but a hardcoded date would needlessly age the fixture.)
-    publication_date: generatedAt.slice(0, 10),
-    document_type: "annual_regulations" as const,
-    supersedes: null,
-    page_reference: null,
-  };
-
   const fixture: GetRegulationsResponse = {
     query: {
       lat: 0,
@@ -136,11 +121,12 @@ export async function runHealthCheck(dsn: string): Promise<HealthCheckResult> {
     methods: null,
     reporting: null,
     contacts: null,
-    sources: [oneCitation],
+    additional_rules: null,
+    sources: [],
     meta: {
       schema_version: 2,
       generated_at: generatedAt,
-      data_freshness: buildDataFreshness([oneCitation], generatedAt),
+      data_freshness: null,
       coverage: {
         jurisdiction: "none",
         species: "none",
@@ -151,7 +137,7 @@ export async function runHealthCheck(dsn: string): Promise<HealthCheckResult> {
   };
 
   try {
-    buildStructuredToolResult(fixture);
+    buildStructuredToolResult(fixture, getRegulationsResponseSchema, [], renderThinText);
     envelope_valid = true;
   } catch {
     envelope_valid = false;

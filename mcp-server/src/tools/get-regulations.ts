@@ -1,0 +1,439 @@
+/**
+ * S09.1a — `get_regulations` thin handler (foundation happy-path).
+ *
+ * This module provides:
+ *   - `getRegulationsInputSchema`    — zod input schema for MCP `registerTool`.
+ *   - `createGetRegulationsHandler`  — factory that closes over a `dsn` string
+ *                                      and returns a typed MCP ToolCallback.
+ *
+ * The DSN is passed as a parameter (NOT via process.env) because the Cloudflare
+ * Workers runtime does NOT provide `process`. In `index.ts` `env.SUPABASE_READONLY_DSN`
+ * is projected onto `RouterConfig.readonlyDsn`, and `server.ts` / `createMcpServer`
+ * will pass the DSN through to this factory when wiring up the tool. The handler
+ * never reads global process state — keeping it unit-testable and Workers-compatible.
+ *
+ * Scope (thin happy-path only — S09.1b is the full composite):
+ *   • Resolves the covering `geometry` row for the given (lat, lng).
+ *   • Looks up `regulation_record` rows matching the resolved state + input species.
+ *   • Fetches `season_definition` rows via the `regulation_season` link table.
+ *   • Composes a schema-valid Shape C `GetRegulationsResponse` with `seasons`
+ *     populated and all other optional sections set to `null`.
+ *
+ * What this handler does NOT do (S09.1b):
+ *   • coverage tri-state boundaries (partial/none);
+ *   • overlay join (`jurisdiction_binding` role=overlay/no_hunt_zone rows);
+ *   • `tags`, `methods`, `reporting`, `contacts`, `additional_rules` sections;
+ *   • json_agg / multi-row fan-out composite queries.
+ *
+ * SQL idioms inherited from db.ts and the M2 known-pitfalls:
+ *   1. PostGIS functions are `extensions.`-prefixed (Supabase puts PostGIS in
+ *      the `extensions` schema, NOT on the default search_path; bare names
+ *      produce "function does not exist" at runtime).
+ *   2. `prepare: false` is set on the DbClient (pooler-safe, per createDbClient).
+ *   3. No direct geography-to-geometry cast; the WKT round-trip workaround is
+ *      used when geometry-type functions are needed (this file needs none).
+ *   4. Fixed SQL strings only — no in-SQL concatenation; params are positional
+ *      ($1…) and bound by postgres.js, never interpolated into the SQL text. The
+ *      geometry point is a single WKT literal built in JS from the `.finite()`-
+ *      validated coordinates and bound as one parameter (see RESOLVE_GEOMETRY_SQL).
+ *   5. `lng` is FIRST in the POINT literal: PostGIS POINT(x y) = (longitude latitude).
+ *
+ * What this handler does NOT do (S09.1b — deliberately deferred):
+ *   • The full geometry → `jurisdiction_binding` → `regulation_record` resolution
+ *     and jurisdiction-scoped season filtering (this thin path filters seasons by
+ *     the resolved STATE + species only — see REGULATION_SEASONS_SQL note).
+ *   • Nullable-column hardening on `season_definition.verbatim_rule` and shape
+ *     validation of the `source` jsonb before use (both currently fail loud via the
+ *     builder's zod validation; 1b adds diagnostic guards with better messages).
+ *   • A handler-level schema-version gating test (the mechanism is covered in
+ *     response.test.ts; the handler-wiring test lands with 1b's live composite).
+ */
+
+import { z } from "zod";
+
+import { createDbClient } from "../db.js";
+import {
+  buildDataFreshness,
+  buildStructuredToolResult,
+  gateBySchemaVersion,
+  renderThinText,
+} from "../response-builder.js";
+import { getRegulationsResponseSchema } from "../output-schema.js";
+import type { GetRegulationsResponse, Warning } from "../types/response.js";
+import type { ClosurePredicate, SourceCitation, WeaponType, Residency } from "../types/schema.js";
+
+// ---------------------------------------------------------------------------
+// Input schema (exported — passed to MCP SDK's registerTool / tool())
+// ---------------------------------------------------------------------------
+
+export const getRegulationsInputSchema = z.object({
+  // `.finite()` rejects NaN/Infinity at input validation (zod `z.number()` accepts
+  // both by default) — otherwise a non-finite coordinate would reach the DB as a
+  // malformed WKT literal and surface as a confusing Postgres parse error instead
+  // of a clean input-validation failure.
+  lat: z.number().finite(),
+  lng: z.number().finite(),
+  species: z.string(),
+  date: z.string(),
+});
+
+// ---------------------------------------------------------------------------
+// DB row types  (all extend Record<string, unknown> per DbClient.query<T>)
+// ---------------------------------------------------------------------------
+
+/** Columns returned by the point-in-polygon geometry resolution query. */
+interface GeometryRow extends Record<string, unknown> {
+  id: string;
+  state: string;
+  name: string;
+}
+
+/**
+ * Columns returned by the regulation_record + season_definition join.
+ * Aliased with `rr_` / `sd_` prefixes to avoid ambiguity (both tables carry
+ * a `source` jsonb column among others).
+ */
+interface SeasonRow extends Record<string, unknown> {
+  // regulation_record columns
+  rr_schema_version: number;
+  rr_source: SourceCitation;
+  rr_confidence: "high" | "medium" | "low";
+  rr_jurisdiction_code: string;
+  rr_species_group: string;
+  rr_license_year: number;
+  // season_definition columns
+  sd_name: string;
+  sd_opens: string;
+  sd_closes: string;
+  sd_weapon_type: string | null;
+  sd_residency: string | null;
+  sd_closure_predicate: ClosurePredicate | null;
+  sd_verbatim_rule: string;
+  sd_page_reference: string | null;
+  sd_source: SourceCitation;
+}
+
+// ---------------------------------------------------------------------------
+// Named SQL constants (fixed strings — no concatenation, positional params)
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve which `geometry` row covers the given geographic point.
+ *
+ * `extensions.ST_GeogFromText` parses a WKT geography literal (SRID=4326).
+ * `extensions.ST_Covers(geom, point)` — arg1 is the polygon geography column,
+ * arg2 is the query point; "polygon covers point" = point lies within or on
+ * the polygon's boundary.
+ *
+ * POINT(lng lat): PostGIS uses (x y) = (longitude latitude) ordering — lng
+ * is bound to $1, lat to $2.
+ *
+ * We select `name` to populate `resolved.jurisdiction.primary_unit`.
+ * `LIMIT 1` — take the first matching row; tie-breaking is S09.1b territory.
+ *
+ * $1 = the full WKT geography literal `SRID=4326;POINT(<lng> <lat>)`, built in JS
+ *      from the `.finite()`-validated coordinates and bound as a SINGLE positional
+ *      parameter — there is NO in-SQL `||` concatenation of caller values, so no
+ *      value ever reaches Postgres' SQL text (injection-safe; the coordinates are
+ *      finite numbers, so the WKT is always well-formed).
+ */
+const RESOLVE_GEOMETRY_SQL = `
+  SELECT g.id, g.state, g.name
+  FROM geometry g
+  WHERE extensions.ST_Covers(g.geom, extensions.ST_GeogFromText($1))
+  LIMIT 1
+`.trim();
+
+/**
+ * Fetch `regulation_record` rows joined to `season_definition` rows for the
+ * resolved state and input species, ordered by license_year DESC then season
+ * open date ASC.
+ *
+ * Join path (using actual column names from supabase/migrations/):
+ *   regulation_record  (PK: state, jurisdiction_code, species_group, license_year)
+ *   → regulation_season (link: same 4 cols + season_definition_id)
+ *   → season_definition (PK: id)
+ *
+ * $1 = state  (resolved from RESOLVE_GEOMETRY_SQL — e.g. "US-MT")
+ * $2 = species (input species matched against regulation_record.species_group)
+ *
+ * ⚠️ THIN-PATH SIMPLIFICATION (S09.1b hardens this): this filters by the resolved
+ * STATE + species only — NOT by the resolved jurisdiction. It therefore returns
+ * seasons for every jurisdiction (HD) in the state for that species, and step 5
+ * derives `jurisdiction_code`/`license_year` from the first (most-recent) row, NOT
+ * from the covering geometry. The correct geometry → `jurisdiction_binding`
+ * (on geometry_id) → `regulation_record` (flat FK cols) resolution and the
+ * jurisdiction-scoped `AND rr.jurisdiction_code = $3` filter are S09.1b's job.
+ */
+const REGULATION_SEASONS_SQL = `
+  SELECT
+    rr.schema_version          AS rr_schema_version,
+    rr.source                  AS rr_source,
+    rr.confidence              AS rr_confidence,
+    rr.jurisdiction_code       AS rr_jurisdiction_code,
+    rr.species_group           AS rr_species_group,
+    rr.license_year            AS rr_license_year,
+    sd.name                    AS sd_name,
+    sd.opens                   AS sd_opens,
+    sd.closes                  AS sd_closes,
+    sd.weapon_type             AS sd_weapon_type,
+    sd.residency               AS sd_residency,
+    sd.closure_predicate       AS sd_closure_predicate,
+    sd.verbatim_rule           AS sd_verbatim_rule,
+    sd.page_reference          AS sd_page_reference,
+    sd.source                  AS sd_source
+  FROM regulation_record rr
+  JOIN regulation_season rs
+    ON  rs.state             = rr.state
+    AND rs.jurisdiction_code = rr.jurisdiction_code
+    AND rs.species_group     = rr.species_group
+    AND rs.license_year      = rr.license_year
+  JOIN season_definition sd
+    ON sd.id = rs.season_definition_id
+  WHERE rr.state         = $1
+    AND rr.species_group = $2
+  ORDER BY rr.license_year DESC, sd.opens ASC
+`.trim();
+
+// ---------------------------------------------------------------------------
+// Handler factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Return type of `buildStructuredToolResult`, matched by the MCP SDK's
+ * `CallToolResult` shape (content[] + optional structuredContent).
+ */
+type ToolResult = {
+  structuredContent: Record<string, unknown>;
+  content: { type: "text"; text: string }[];
+};
+
+/**
+ * Factory that binds the SELECT-only-role DSN and returns a typed MCP
+ * ToolCallback for `get_regulations`.
+ *
+ * The DSN is threaded as a parameter (not from process.env) so:
+ *   a) The handler works in the Cloudflare Workers runtime (no `process` global).
+ *   b) Tests can inject a test-double DSN without patching globals.
+ *
+ * Connection lifecycle mirrors `runHealthCheck` in health-check.ts:
+ *   - `createDbClient(dsn)` called INSIDE the returned handler (never at module
+ *     scope) — the boundary.test.ts T5 AST guard locks this per-file invariant.
+ *   - `try { … } finally { await client.close() }` — close errors are swallowed
+ *     so a teardown failure never masks the query result or produces a hard 500.
+ *
+ * @param dsn - SELECT-only-role DSN (from env.SUPABASE_READONLY_DSN in index.ts).
+ */
+export function createGetRegulationsHandler(
+  dsn: string,
+): (args: z.output<typeof getRegulationsInputSchema>) => Promise<ToolResult> {
+  return async (args) => {
+    const { lat, lng, species, date } = args;
+
+    const generatedAt = new Date().toISOString();
+    const warnings: Warning[] = [];
+
+    // createDbClient is called INSIDE the handler (per-request, never at module
+    // scope) — the boundary.test.ts T5 AST guard locks this invariant.
+    const client = createDbClient(dsn);
+
+    try {
+      // ── 1. Point-in-polygon resolution ───────────────────────────────────
+      // The WKT point is `POINT(x y)` = `POINT(lng lat)` (lng first). It is built
+      // here from the `.finite()`-validated coordinates and bound as a single $1
+      // parameter — no in-SQL concatenation of caller values.
+      const geometryRows = await client.query<GeometryRow>(
+        RESOLVE_GEOMETRY_SQL,
+        [`SRID=4326;POINT(${lng} ${lat})`],
+      );
+
+      if (geometryRows.length === 0) {
+        // Point does not resolve to any geometry — return a structurally valid
+        // no-coverage envelope. S09.1b owns the full graceful no-coverage path.
+        const noConvResponse: GetRegulationsResponse = {
+          query: { lat, lng, species, date },
+          resolved: {
+            jurisdiction: null,
+            species_canonical: null,
+            license_year: null,
+          },
+          seasons: null,
+          tags: null,
+          methods: null,
+          reporting: null,
+          contacts: null,
+          additional_rules: null,
+          sources: [],
+          meta: {
+            schema_version: 2,
+            generated_at: generatedAt,
+            data_freshness: null,
+            coverage: { jurisdiction: "none", species: "none", overall: "none" },
+            // Placeholder — buildStructuredToolResult is the SOLE writer of
+            // meta.warnings and assigns the `warnings` arg passed below.
+            warnings: [],
+          },
+        };
+        return buildStructuredToolResult(
+          noConvResponse,
+          getRegulationsResponseSchema,
+          warnings,
+          renderThinText,
+        );
+      }
+
+      const geomRow = geometryRows[0]!;
+      const resolvedState = geomRow.state;
+      const resolvedGeomName = geomRow.name;
+
+      // ── 2. Regulation record + season_definition fetch ────────────────────
+      const rawSeasonRows = await client.query<SeasonRow>(
+        REGULATION_SEASONS_SQL,
+        [resolvedState, species],
+      );
+
+      // ── 3. Schema-version gate ────────────────────────────────────────────
+      // Partition rows by schema_version; unsupported rows are excluded and
+      // an UNSUPPORTED_SCHEMA_VERSION Warning is emitted per ADR-006.
+      const gated = gateBySchemaVersion(
+        rawSeasonRows.map((r) => ({
+          ...r,
+          schema_version: r.rr_schema_version,
+        })),
+      );
+      warnings.push(...gated.warnings);
+      const seasonRows = gated.included;
+
+      // ── 4. Collect unique SourceCitation objects ──────────────────────────
+      // Deduplicate by citation `id` — both rr.source and sd.source contribute.
+      const sourcesById = new Map<string, SourceCitation>();
+      for (const row of seasonRows) {
+        const rrSrc = row.rr_source;
+        const sdSrc = row.sd_source;
+        if (!sourcesById.has(rrSrc.id)) sourcesById.set(rrSrc.id, rrSrc);
+        if (!sourcesById.has(sdSrc.id)) sourcesById.set(sdSrc.id, sdSrc);
+      }
+      const sources = Array.from(sourcesById.values());
+
+      // ── 5. Derive license_year and jurisdiction from the first row ─────────
+      // Rows are ordered license_year DESC so the first row carries the most-
+      // recent regulation. S09.1b handles multi-year fan-out.
+      const firstRow = seasonRows[0];
+      const licenseYear = firstRow?.rr_license_year ?? null;
+      const jurisdictionCode = firstRow?.rr_jurisdiction_code ?? null;
+
+      // ── 6. Build ResolvedSeasonWindow array ────────────────────────────────
+      // Confidence is inherited from the parent regulation_record (ADR-017
+      // parent-inheritance rule). weapon_type and residency are nullable columns
+      // in season_definition (see initial_schema.sql:63/70).
+      const windows = seasonRows.map((row) => ({
+        name: row.sd_name,
+        opens: row.sd_opens,
+        closes: row.sd_closes,
+        weapon_type: (row.sd_weapon_type ?? null) as WeaponType | null,
+        residency: (row.sd_residency ?? null) as Residency | null,
+        closure_predicate: row.sd_closure_predicate ?? null,
+        verbatim_rule: row.sd_verbatim_rule,
+        page_reference: row.sd_page_reference ?? null,
+        confidence: row.rr_confidence,
+        source: row.sd_source,
+      }));
+
+      // ── 7. Determine season status ─────────────────────────────────────────
+      // Simple structural status from the input date vs window date ranges.
+      // S09.1b owns the full status resolution including conditionally_closed.
+      const queryDateMs = Date.parse(date);
+      const status: "in_season" | "out_of_season" | "no_season_defined" =
+        windows.length === 0
+          ? "no_season_defined"
+          : windows.some((w) => {
+                const opensMs = Date.parse(w.opens);
+                const closesMs = Date.parse(w.closes);
+                return (
+                  !Number.isNaN(queryDateMs) &&
+                  !Number.isNaN(opensMs) &&
+                  !Number.isNaN(closesMs) &&
+                  queryDateMs >= opensMs &&
+                  queryDateMs <= closesMs
+                );
+              })
+            ? "in_season"
+            : "out_of_season";
+
+      // ── 8. SeasonsSection (null when no windows were found) ────────────────
+      const seasonsSection =
+        windows.length > 0 && firstRow !== undefined
+          ? {
+              status,
+              windows,
+              // The regulation_record source is the regulation anchor for the
+              // section-level `source` field. Per-window sources are on each window.
+              source: firstRow.rr_source,
+            }
+          : null;
+
+      // ── 9. Coverage ────────────────────────────────────────────────────────
+      const jurisdictionCoverage =
+        geometryRows.length > 0 ? ("full" as const) : ("none" as const);
+      const speciesCoverage =
+        seasonRows.length > 0 ? ("full" as const) : ("none" as const);
+      const overallCoverage =
+        jurisdictionCoverage === "full" && speciesCoverage === "full"
+          ? ("full" as const)
+          : ("none" as const);
+
+      // ── 10. Compose and validate the Shape C envelope ──────────────────────
+      const response: GetRegulationsResponse = {
+        query: { lat, lng, species, date },
+        resolved: {
+          jurisdiction:
+            jurisdictionCode !== null
+              ? {
+                  state: resolvedState,
+                  primary_unit: resolvedGeomName,
+                  overlays: [],
+                }
+              : null,
+          species_canonical: seasonRows.length > 0 ? species : null,
+          license_year: licenseYear,
+        },
+        seasons: seasonsSection,
+        tags: null,
+        methods: null,
+        reporting: null,
+        contacts: null,
+        additional_rules: null,
+        sources,
+        meta: {
+          schema_version: 2,
+          generated_at: generatedAt,
+          data_freshness: buildDataFreshness(sources, generatedAt),
+          coverage: {
+            jurisdiction: jurisdictionCoverage,
+            species: speciesCoverage,
+            overall: overallCoverage,
+          },
+          // Placeholder — buildStructuredToolResult is the SOLE writer of
+          // meta.warnings and assigns the `warnings` arg (which already carries
+          // the gated UNSUPPORTED_SCHEMA_VERSION entries) passed below.
+          warnings: [],
+        },
+      };
+
+      return buildStructuredToolResult(
+        response,
+        getRegulationsResponseSchema,
+        warnings,
+        renderThinText,
+      );
+    } finally {
+      // Swallow close() errors — a teardown failure must not mask the query result
+      // or produce a hard 500. Mirrors the health-check.ts teardown discipline.
+      try {
+        await client.close();
+      } catch {
+        // intentionally ignored
+      }
+    }
+  };
+}

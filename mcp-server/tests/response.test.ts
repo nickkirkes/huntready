@@ -1,14 +1,14 @@
 /**
- * Shape C response mechanism tests (S08.3).
+ * Shape C response mechanism tests (S08.3 + T8 updates).
  *
  * Covers every S08.3 AC that requires no live DB:
  *   - null-bearing serialization (ADR-011: null ≠ omitted)
  *   - no-data vs not-required coverage distinction
  *   - all three Coverage values
- *   - buildDataFreshness (is_stale, extremes, empty-throw)
+ *   - buildDataFreshness (is_stale, extremes, null on empty sources — Decision 1)
  *   - sources[] presence
  *   - buildStructuredToolResult happy + negative (schema-violating → throws)
- *   - schema-version gating (UNSUPPORTED_SCHEMA_VERSION warning, excluded row)
+ *   - schema-version gating end-to-end: warnings thread into buildStructuredToolResult (Decision 3a)
  *   - verbatim_rule + confidence passthrough (byte-identical, never normalised)
  *   - read-only tool annotations shape
  */
@@ -20,6 +20,7 @@ import {
   gateBySchemaVersion,
   renderThinText,
 } from "../src/response-builder.js";
+import { getRegulationsResponseSchema } from "../src/output-schema.js";
 import type {
   GetRegulationsResponse,
   SeasonsSection,
@@ -89,6 +90,7 @@ function makeResponse(
     methods: null,
     reporting: null,
     contacts: null,
+    additional_rules: null,
     sources: [src],
     meta: {
       schema_version: 2,
@@ -154,7 +156,9 @@ describe("no-data vs not-required coverage distinction", () => {
     expect(fixture.reporting!.obligations).toEqual([]);
     expect(fixture.meta.coverage.overall).toBe("full");
     // Must pass zod validation
-    expect(() => buildStructuredToolResult(fixture)).not.toThrow();
+    expect(() =>
+      buildStructuredToolResult(fixture, getRegulationsResponseSchema, [], renderThinText),
+    ).not.toThrow();
   });
 });
 
@@ -187,16 +191,21 @@ describe("buildDataFreshness", () => {
 
   it("is_stale=true when publication date is far in the past", () => {
     const result = buildDataFreshness([{ publication_date: "2020-01-01" }], GENERATED_AT);
-    expect(result.is_stale).toBe(true);
+    expect(result).not.toBeNull();
+    expect(result?.is_stale).toBe(true);
   });
 
   it("is_stale=false when publication date is recent", () => {
     const result = buildDataFreshness([{ publication_date: "2026-06-01" }], GENERATED_AT);
-    expect(result.is_stale).toBe(false);
+    expect(result).not.toBeNull();
+    expect(result?.is_stale).toBe(false);
   });
 
-  it("throws when sources array is empty", () => {
-    expect(() => buildDataFreshness([], GENERATED_AT)).toThrow();
+  it("returns null when sources array is empty (Decision 1: data_freshness null iff sources empty)", () => {
+    // Decision 1 invariant: buildDataFreshness([]) returns null rather than throwing.
+    // A total-coverage-gap response (sources:[], data_freshness:null) is valid.
+    const result = buildDataFreshness([], GENERATED_AT);
+    expect(result).toBeNull();
   });
 
   it("throws when generatedAt is not a parseable timestamp (no silent is_stale=false)", () => {
@@ -218,7 +227,8 @@ describe("buildDataFreshness", () => {
       [{ publication_date: "2026-06-01" }],
       "2026-06-29T12:00:00+02:00",
     );
-    expect(result.is_stale).toBe(false);
+    expect(result).not.toBeNull();
+    expect(result?.is_stale).toBe(false);
   });
 
   it("throws when a source publication_date is unparseable (no silent is_stale=false)", () => {
@@ -268,7 +278,8 @@ describe("buildDataFreshness", () => {
       ],
       GENERATED_AT,
     );
-    expect(result.most_recent_source_date).toBe("2026-06-01");
+    expect(result).not.toBeNull();
+    expect(result?.most_recent_source_date).toBe("2026-06-01");
   });
 
   it("stalest_source_date picks the earliest date across multiple sources", () => {
@@ -280,13 +291,15 @@ describe("buildDataFreshness", () => {
       ],
       GENERATED_AT,
     );
-    expect(result.stalest_source_date).toBe("2023-11-15");
+    expect(result).not.toBeNull();
+    expect(result?.stalest_source_date).toBe("2023-11-15");
   });
 
   it("single source: most_recent and stalest are the same", () => {
     const result = buildDataFreshness([{ publication_date: "2026-01-01" }], GENERATED_AT);
-    expect(result.most_recent_source_date).toBe("2026-01-01");
-    expect(result.stalest_source_date).toBe("2026-01-01");
+    expect(result).not.toBeNull();
+    expect(result?.most_recent_source_date).toBe("2026-01-01");
+    expect(result?.stalest_source_date).toBe("2026-01-01");
   });
 });
 
@@ -307,7 +320,12 @@ describe("sources[] field", () => {
 describe("buildStructuredToolResult", () => {
   it("happy path: returns structuredContent deep-equal to the fixture + non-empty text", () => {
     const fixture = makeResponse();
-    const result = buildStructuredToolResult(fixture);
+    const result = buildStructuredToolResult(
+      fixture,
+      getRegulationsResponseSchema,
+      [],
+      renderThinText,
+    );
 
     expect(result.structuredContent).toEqual(fixture);
     expect(Array.isArray(result.content)).toBe(true);
@@ -324,7 +342,9 @@ describe("buildStructuredToolResult", () => {
       meta: { ...fixture.meta, schema_version: 3 },
     } as unknown as GetRegulationsResponse;
 
-    expect(() => buildStructuredToolResult(bad)).toThrow();
+    expect(() =>
+      buildStructuredToolResult(bad, getRegulationsResponseSchema, [], renderThinText),
+    ).toThrow();
   });
 
   it("negative: throws when an unknown top-level key is present (strict envelope rejects server-composed overview/headline drift)", () => {
@@ -334,32 +354,97 @@ describe("buildStructuredToolResult", () => {
       overview: "server-composed summary — forbidden by ADR-013",
     } as unknown as GetRegulationsResponse;
 
-    expect(() => buildStructuredToolResult(bad)).toThrow();
+    expect(() =>
+      buildStructuredToolResult(bad, getRegulationsResponseSchema, [], renderThinText),
+    ).toThrow();
   });
 
-  it("negative: throws when sources is empty (sources .min(1) — freshness cannot be truthfully built from zero sources)", () => {
-    const fixture = makeResponse({ sources: [] });
-    expect(() => buildStructuredToolResult(fixture)).toThrow();
+  it("empty sources with data_freshness:null is VALID — total-coverage-gap response succeeds (Decision 1)", () => {
+    // Decision 1: sources:[] + data_freshness:null is the canonical total-coverage-gap shape.
+    // buildDataFreshness([]) returns null (no longer throws); the schema permits null freshness.
+    const fixture = makeResponse({
+      sources: [],
+      meta: {
+        schema_version: 2,
+        generated_at: "2026-06-29T00:00:00Z",
+        data_freshness: null,
+        coverage: { jurisdiction: "none", species: "none", overall: "none" },
+        warnings: [],
+      },
+    });
+    let result: ReturnType<typeof buildStructuredToolResult> | undefined;
+    expect(() => {
+      result = buildStructuredToolResult(
+        fixture,
+        getRegulationsResponseSchema,
+        [],
+        renderThinText,
+      );
+    }).not.toThrow();
+    // structuredContent reflects zero sources and null freshness.
+    const sc = result!.structuredContent as unknown as GetRegulationsResponse;
+    expect(sc.sources).toEqual([]);
+    expect(sc.meta.data_freshness).toBeNull();
   });
 
   it("negative: throws when a meta.warnings element carries an unknown key (warningSchema is strict)", () => {
+    // The builder writes `warnings` into payload.meta.warnings before zod validation.
+    // Pass the bad warning as the `warnings` arg so it reaches the strict schema check.
     const fixture = makeResponse();
-    const bad = {
-      ...fixture,
-      meta: {
-        ...fixture.meta,
-        warnings: [
-          {
-            code: "STALE_SOURCE",
-            section: "overall",
-            message: "x",
-            extra: "server-composed field — forbidden",
-          },
-        ],
+    const badWarnings = [
+      {
+        code: "STALE_SOURCE",
+        section: "overall",
+        message: "x",
+        extra: "server-composed field — forbidden",
       },
-    } as unknown as GetRegulationsResponse;
+      // Cast through unknown: narrowest possible — we need to inject an extra key
+      // that `warningSchema.strict()` must reject; `Warning` type doesn't allow `extra`.
+    ] as unknown as import("../src/types/response.js").Warning[];
 
-    expect(() => buildStructuredToolResult(bad)).toThrow();
+    expect(() =>
+      buildStructuredToolResult(fixture, getRegulationsResponseSchema, badWarnings, renderThinText),
+    ).toThrow();
+  });
+
+  it("Decision 3a — gating: unsupported-schema-version warning threads from gateBySchemaVersion into meta.warnings (UNSUPPORTED_SCHEMA_VERSION, section=overall)", () => {
+    // Simulate an E09 tool handler that gates DB rows before building the response.
+    // The unsupported row is excluded; its warning travels through buildStructuredToolResult.
+    const { warnings } = gateBySchemaVersion([
+      { schema_version: 2, id: "supported-row" },
+      { schema_version: 999, id: "future-row" }, // unsupported → excluded, warning emitted
+    ]);
+
+    // Build a response that only includes the supported row's data.
+    const fixture = makeResponse();
+
+    const result = buildStructuredToolResult(
+      fixture,
+      getRegulationsResponseSchema,
+      warnings, // ← gateBySchemaVersion warnings threaded in here
+      renderThinText,
+    );
+
+    // (a) The unsupported row is excluded — the fixture itself only has supported data.
+    // (b) The builder wrote the gating warning into meta.warnings.
+    const sc = result.structuredContent as unknown as GetRegulationsResponse;
+    expect(sc.meta.warnings).toHaveLength(1);
+    expect(sc.meta.warnings[0].code).toBe("UNSUPPORTED_SCHEMA_VERSION");
+    expect(sc.meta.warnings[0].section).toBe("overall");
+    expect(sc.meta.warnings[0].message).toContain("999");
+  });
+
+  it("Decision 3b — negative: throws when payload violates the schema (extra key rejected by .strict())", () => {
+    // Proves the 4-arg generalization did not weaken the S08.3 validation bite.
+    // An extra server-composed key (like `overview`) is forbidden by ADR-013 and
+    // rejected by the .strict() envelope schema.
+    const fixture = makeResponse();
+    // Cast through unknown — narrowest possible; we need to add an illegal key.
+    const bad = { ...fixture, overview: "forbidden server summary" } as unknown as GetRegulationsResponse;
+
+    expect(() =>
+      buildStructuredToolResult(bad, getRegulationsResponseSchema, [], renderThinText),
+    ).toThrow();
   });
 });
 
@@ -438,7 +523,12 @@ describe("verbatim_rule and confidence passthrough", () => {
     };
 
     const fixture = makeResponse({ seasons: seasonsSection });
-    const result = buildStructuredToolResult(fixture);
+    const result = buildStructuredToolResult(
+      fixture,
+      getRegulationsResponseSchema,
+      [],
+      renderThinText,
+    );
 
     // Cast through unknown to read back the structuredContent as a typed response.
     const back = result.structuredContent as unknown as GetRegulationsResponse;
