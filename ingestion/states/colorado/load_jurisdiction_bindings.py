@@ -32,11 +32,9 @@ the three-phase discipline is:
 
 OQ7 row-count guard
 -------------------
-Band: ``(300, 1200)`` — PROVISIONAL pending the operator's first dry-run
-empirical count (the S04.2 T16-narrowing analog). After the first live dry-run,
-narrow to ±30% around the observed count and update the band constant + the
-AC #1087-equivalent footnote in the E06 epic. The current wide band prevents
-false fires before the empirical baseline is known.
+Band: ``(327, 607)`` — ±30% around the S06.10 Group B dev operator-empirical
+count of 467 (2026-07-01, PR #89 / c53a81d), mirroring the S04.2 T16-narrowing
+precedent for MT.
 
 Approximate expected counts
 ---------------------------
@@ -157,9 +155,9 @@ _OVERLAY_FIXTURE_PATH: Final[Path] = (
     Path(__file__).parent / "fixtures" / "geometry-overlays.json"
 )
 
-# OQ7 row-count guard band — PROVISIONAL. See module docstring.
-# Narrow to ±30% around the first dry-run empirical count per S04.2 T16 analog.
-_BINDING_COUNT_GUARD_BAND: Final[tuple[int, int]] = (300, 1200)
+# OQ7 row-count guard band — narrowed to ±30% around the Group B dev
+# operator-empirical count 467 (2026-07-01, PR #89 / c53a81d). See module docstring.
+_BINDING_COUNT_GUARD_BAND: Final[tuple[int, int]] = (327, 607)
 
 _CO_STATEWIDE_GEOM_ID: Final[str] = "CO-STATEWIDE-geom"
 _LICENSE_YEAR: Final[int] = 2026
@@ -822,9 +820,8 @@ def _build_no_hunt_zone_bindings_co(
 def _assert_binding_count_within_guard(written: int) -> None:
     """OQ7 row-count guard for S06.10.
 
-    Band is ``_BINDING_COUNT_GUARD_BAND`` — PROVISIONAL ``(300, 1200)`` pending
-    the operator's first dry-run empirical count. Narrow to ±30% around the
-    observed count per S04.2 T16-narrowing analog.
+    Band is ``_BINDING_COUNT_GUARD_BAND`` = ``(327, 607)``, narrowed to ±30%
+    around the Group B operator-empirical count 467 (S04.2 T16-narrowing analog).
 
     Guard 23: count outside band → raise.
     """
@@ -832,7 +829,7 @@ def _assert_binding_count_within_guard(written: int) -> None:
     if not (lo <= written <= hi):
         raise RuntimeError(
             f"jurisdiction_binding write count {written} outside expected "
-            f"band [{lo}, {hi}] (provisional — narrow after first dry-run). "
+            f"band [{lo}, {hi}]. "
             f"See S06.10 epic + plan § 'OQ7 row-count guard'."
         )
 

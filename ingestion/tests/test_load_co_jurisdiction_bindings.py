@@ -1161,9 +1161,32 @@ class TestCountGuard:
         with pytest.raises(RuntimeError):
             _assert_binding_count_within_guard(0)
 
-    def test_band_is_provisional_300_1200(self) -> None:
-        """Band is explicitly documented as provisional (300, 1200)."""
-        assert _BINDING_COUNT_GUARD_BAND == (300, 1200)
+    def test_band_is_narrowed_to_operator_empirical(self) -> None:
+        """Band narrowed to ±30% around the S06.10 Group B operator-empirical count (467; PR #89 / c53a81d) — no longer provisional."""
+        assert _BINDING_COUNT_GUARD_BAND == (327, 607)
+
+
+class TestBindingCountBandLockedToOperatorEmpirical:
+    """
+    Regression lock: the band must remain tuned to the S06.10 Group B
+    operator-pass empirical count (467), NOT reset to a wide pre-empirical
+    band that would silently accept regression.
+
+    Mirrors S04.2's TestCountGuard::test_band_locked_to_t16_empirical
+    circularity-gap-closure pattern: the arithmetic-derived boundary
+    tests in the sibling TestCountGuard class derive from the tuple itself,
+    so accidental widening (e.g., resetting to (300, 1200)) would pass
+    them silently. This test pins the tuple's numeric value.
+    """
+
+    def test_band_locked_to_group_b_empirical(self) -> None:
+        # Locked to +/-30% around the 2026-07-01 Group B dev empirical 467
+        # (PR #89 / c53a81d; capture at
+        # docs/planning/epics/E06-confidence-findings/group-b-operator-pass.md).
+        # If a future Group B run produces a materially different empirical
+        # count, the human re-narrows this band + updates this test's
+        # locked tuple in the same PR.
+        assert _BINDING_COUNT_GUARD_BAND == (327, 607)
 
 
 # ---------------------------------------------------------------------------
