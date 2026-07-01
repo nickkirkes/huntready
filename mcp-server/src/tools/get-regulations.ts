@@ -102,6 +102,44 @@ export const getRegulationsInputSchema = z.object({
   }),
 });
 
+/**
+ * Choose the single `license_year` whose regulations apply to `date`, from the
+ * distinct license years present in `rows`.
+ *
+ * A hunting season can span the calendar-year boundary — a fall season running
+ * into January/February still belongs to the PRIOR `license_year` — so the date's
+ * calendar year is NOT a reliable proxy. Selection order:
+ *   1. the year whose season windows CONTAIN `date` (the newest, if several
+ *      overlapping years qualify);
+ *   2. else the year equal to `date`'s calendar year, if present (out-of-season
+ *      queries still resolve to that year's record);
+ *   3. else the newest available year.
+ * Returns `null` when `rows` is empty.
+ *
+ * All dates are canonical `YYYY-MM-DD` (`date` is validated at input; `sd_opens`/
+ * `sd_closes` are `date::text` from the query), so lexicographic string comparison
+ * is a valid, inclusive date comparison.
+ */
+export function selectLicenseYear(
+  rows: readonly { rr_license_year: number; sd_opens: string; sd_closes: string }[],
+  date: string,
+): number | null {
+  const availableYears = [...new Set(rows.map((r) => r.rr_license_year))];
+  if (availableYears.length === 0) return null;
+
+  const yearsContainingDate = availableYears.filter((y) =>
+    rows.some(
+      (r) =>
+        r.rr_license_year === y && r.sd_opens <= date && date <= r.sd_closes,
+    ),
+  );
+  if (yearsContainingDate.length > 0) return Math.max(...yearsContainingDate);
+
+  const requestedYear = Number.parseInt(date.slice(0, 4), 10);
+  if (availableYears.includes(requestedYear)) return requestedYear;
+  return Math.max(...availableYears);
+}
+
 // ---------------------------------------------------------------------------
 // DB row types  (all extend Record<string, unknown> per DbClient.query<T>)
 // ---------------------------------------------------------------------------
@@ -392,24 +430,12 @@ export function createGetRegulationsHandler(
         return true;
       });
 
-      // Select a SINGLE license_year so a date-specific query never mixes years.
-      // A jurisdiction/species can have multiple `regulation_record.license_year`
-      // rows; returning all of them (and picking the newest arbitrarily) would
-      // blend seasons across years. Prefer the year matching the requested date's
-      // calendar year (the `date` input is a validated canonical YYYY-MM-DD); fall
-      // back to the most-recent year present when that year is absent (e.g. the
-      // V1 corpus carries only the current license year). S09.1b may refine the
-      // date→license-year mapping for split (fall/winter) license years.
-      const requestedYear = Number.parseInt(date.slice(0, 4), 10);
-      const availableYears = [
-        ...new Set(dedupedSeasonRows.map((r) => r.rr_license_year)),
-      ];
-      const licenseYear =
-        availableYears.length === 0
-          ? null
-          : availableYears.includes(requestedYear)
-            ? requestedYear
-            : Math.max(...availableYears);
+      // Select a SINGLE license_year so a date-specific query never mixes years,
+      // preferring the year whose season windows actually CONTAIN the date — a
+      // fall season can run into Jan/Feb of the next calendar year while still
+      // belonging to the prior license_year, so the date's calendar year is not a
+      // reliable proxy. See selectLicenseYear for the full precedence.
+      const licenseYear = selectLicenseYear(dedupedSeasonRows, date);
       const seasonRows =
         licenseYear === null
           ? dedupedSeasonRows

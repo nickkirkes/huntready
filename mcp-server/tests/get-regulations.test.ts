@@ -23,10 +23,68 @@
 import { describe, it, expect } from "vitest";
 
 import { createDbClient } from "../src/db.js";
-import { createGetRegulationsHandler } from "../src/tools/get-regulations.js";
+import {
+  createGetRegulationsHandler,
+  selectLicenseYear,
+} from "../src/tools/get-regulations.js";
 import { getRegulationsResponseSchema } from "../src/output-schema.js";
 
 const DSN = process.env.TEST_READONLY_DSN;
+
+// ---------------------------------------------------------------------------
+// selectLicenseYear — pure unit tests (no DB); always run.
+// ---------------------------------------------------------------------------
+describe("selectLicenseYear", () => {
+  const row = (year: number, opens: string, closes: string) => ({
+    rr_license_year: year,
+    sd_opens: opens,
+    sd_closes: closes,
+  });
+
+  it("returns null when there are no rows", () => {
+    expect(selectLicenseYear([], "2026-09-15")).toBeNull();
+  });
+
+  it("picks the single available year when its window contains the date", () => {
+    const rows = [row(2026, "2026-09-01", "2026-11-30")];
+    expect(selectLicenseYear(rows, "2026-09-15")).toBe(2026);
+  });
+
+  it("WINTER EDGE: picks the license_year whose window contains the date, not the date's calendar year", () => {
+    // A fall-2026 season runs into Jan 2027 (belongs to license_year 2026), while
+    // a 2027 license year also exists. A 2027-01-15 query must resolve to 2026.
+    const rows = [
+      row(2026, "2026-12-01", "2027-01-31"), // fall 2026 season → winter 2027
+      row(2027, "2027-09-01", "2027-11-30"), // fall 2027 season
+    ];
+    expect(selectLicenseYear(rows, "2027-01-15")).toBe(2026);
+  });
+
+  it("out-of-season: falls back to the date's calendar year when present", () => {
+    // No window contains 2027-06-01; both years exist → prefer the 2027 record.
+    const rows = [
+      row(2026, "2026-09-01", "2026-11-30"),
+      row(2027, "2027-09-01", "2027-11-30"),
+    ];
+    expect(selectLicenseYear(rows, "2027-06-01")).toBe(2027);
+  });
+
+  it("out-of-season with no matching calendar year: falls back to the newest year", () => {
+    const rows = [
+      row(2025, "2025-09-01", "2025-11-30"),
+      row(2026, "2026-09-01", "2026-11-30"),
+    ];
+    expect(selectLicenseYear(rows, "2030-06-01")).toBe(2026);
+  });
+
+  it("prefers the newest year when several overlapping years contain the date", () => {
+    const rows = [
+      row(2025, "2025-01-01", "2027-12-31"),
+      row(2026, "2026-01-01", "2027-12-31"),
+    ];
+    expect(selectLicenseYear(rows, "2026-06-15")).toBe(2026);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Top-level CI guard — NOT inside describe.skipIf so it ALWAYS runs in CI.
