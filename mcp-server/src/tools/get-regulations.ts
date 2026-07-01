@@ -39,10 +39,10 @@
  *   5. `lng` is FIRST in the POINT literal: PostGIS POINT(x y) = (longitude latitude).
  *
  * What this handler does NOT do (S09.1b — deliberately deferred):
- *   • Overlay-role resolution: `resolved.jurisdiction.overlays[]` is left empty and
- *     the covering geometry's binding `role` (primary_unit vs overlay) is not yet
- *     distinguished, nor is the `resolved.jurisdiction.primary_unit` chosen by role
- *     (seasons ARE correctly jurisdiction-scoped — see REGULATION_SEASONS_SQL).
+ *   • Overlay population: `resolved.jurisdiction.overlays[]` is left empty (the
+ *     non-primary covering roles — CWD zones, restricted areas — are not yet
+ *     surfaced). `primary_unit` IS chosen by binding role and seasons ARE
+ *     jurisdiction-scoped (see RESOLVE_GEOMETRY_SQL / REGULATION_SEASONS_SQL).
  *   • Nullable-column hardening on `season_definition.verbatim_rule` and shape
  *     validation of the `source` jsonb before use (both currently fail loud via the
  *     builder's zod validation; 1b adds diagnostic guards with better messages).
@@ -82,11 +82,17 @@ export const getRegulationsInputSchema = z.object({
 // DB row types  (all extend Record<string, unknown> per DbClient.query<T>)
 // ---------------------------------------------------------------------------
 
-/** Columns returned by the point-in-polygon geometry resolution query. */
+/**
+ * Columns returned by the point-in-polygon geometry resolution query: one row
+ * per (covering geometry × its binding), carrying the binding `role` so the
+ * PRIMARY UNIT can be chosen by role (not by polygon size). Ordered smallest-
+ * area first, so the first `role = 'primary_unit'` row is the most-specific
+ * covering primary unit.
+ */
 interface GeometryRow extends Record<string, unknown> {
-  id: string;
   state: string;
   name: string;
+  role: string;
 }
 
 /**
@@ -130,13 +136,17 @@ interface SeasonRow extends Record<string, unknown> {
  * POINT(lng lat): PostGIS uses (x y) = (longitude latitude) ordering — lng
  * is bound to $1, lat to $2.
  *
- * We select `name`/`state` to populate `resolved.jurisdiction` and to decide
- * jurisdiction coverage (did the point resolve to ANY geometry?). `ORDER BY
- * ST_Area ASC` + `LIMIT 1` deterministically prefers the SMALLEST covering
- * polygon — the most specific unit (e.g. a hunting district over the statewide
- * boundary) — for the `primary_unit` name. Full role-based primary/overlay
- * selection is S09.1b; the season SCOPING (below) already uses every covering
- * geometry's binding, so it does not depend on this single-row pick.
+ * Returns EVERY bound geometry covering the point (joined to `jurisdiction_binding`
+ * so each row carries its `role`), ordered SMALLEST-area first. The handler uses
+ * this to (a) decide jurisdiction coverage — did the point resolve to any bound
+ * geometry? — and (b) pick `resolved.jurisdiction.primary_unit` as the name of the
+ * smallest covering geometry whose binding `role = 'primary_unit'`, or `null` when
+ * none covers. **`primary_unit` is chosen by ROLE, not polygon size** — a point can
+ * fall inside a small overlay (restricted-area / CWD zone) that is smaller than its
+ * hunting district, so ordering by area alone would mislabel the overlay as the
+ * primary unit. Ordering by area only breaks ties AMONG primary-unit geometries
+ * (an HD is smaller than the statewide boundary, so the HD wins). Populating
+ * `resolved.jurisdiction.overlays[]` (the non-primary covering roles) is S09.1b.
  *
  * $1 = the full WKT geography literal `SRID=4326;POINT(<lng> <lat>)`, built in JS
  *      from the `.finite()`-validated coordinates and bound as a SINGLE positional
@@ -145,11 +155,12 @@ interface SeasonRow extends Record<string, unknown> {
  *      finite numbers, so the WKT is always well-formed).
  */
 const RESOLVE_GEOMETRY_SQL = `
-  SELECT g.id, g.state, g.name
+  SELECT g.state, g.name, jb.role
   FROM geometry g
+  JOIN jurisdiction_binding jb
+    ON jb.geometry_id = g.id
   WHERE extensions.ST_Covers(g.geom, extensions.ST_GeogFromText($1))
   ORDER BY extensions.ST_Area(g.geom) ASC
-  LIMIT 1
 `.trim();
 
 /**
@@ -303,9 +314,15 @@ export function createGetRegulationsHandler(
         );
       }
 
-      const geomRow = geometryRows[0]!;
-      const resolvedState = geomRow.state;
-      const resolvedGeomName = geomRow.name;
+      // Rows are ordered smallest-area first (all cover the point). State is the
+      // same across covering geometries at a point; read it from any row.
+      const resolvedState = geometryRows[0]!.state;
+      // primary_unit = the smallest covering geometry bound as role='primary_unit'
+      // (an HD/GMU or the statewide anchor) — NOT merely the smallest covering
+      // polygon, which could be an overlay (restricted area / CWD zone). Null when
+      // no primary-unit geometry covers the point (only overlays do).
+      const primaryUnitName =
+        geometryRows.find((r) => r.role === "primary_unit")?.name ?? null;
 
       // ── 2. Jurisdiction-scoped season fetch ───────────────────────────────
       // Seasons for the record(s) bound to the geometries covering THIS point
@@ -426,7 +443,7 @@ export function createGetRegulationsHandler(
             jurisdictionCode !== null
               ? {
                   state: resolvedState,
-                  primary_unit: resolvedGeomName,
+                  primary_unit: primaryUnitName,
                   overlays: [],
                 }
               : null,
