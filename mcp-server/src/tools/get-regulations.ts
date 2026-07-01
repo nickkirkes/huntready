@@ -39,9 +39,10 @@
  *   5. `lng` is FIRST in the POINT literal: PostGIS POINT(x y) = (longitude latitude).
  *
  * What this handler does NOT do (S09.1b — deliberately deferred):
- *   • The full geometry → `jurisdiction_binding` → `regulation_record` resolution
- *     and jurisdiction-scoped season filtering (this thin path filters seasons by
- *     the resolved STATE + species only — see REGULATION_SEASONS_SQL note).
+ *   • Overlay-role resolution: `resolved.jurisdiction.overlays[]` is left empty and
+ *     the covering geometry's binding `role` (primary_unit vs overlay) is not yet
+ *     distinguished, nor is the `resolved.jurisdiction.primary_unit` chosen by role
+ *     (seasons ARE correctly jurisdiction-scoped — see REGULATION_SEASONS_SQL).
  *   • Nullable-column hardening on `season_definition.verbatim_rule` and shape
  *     validation of the `source` jsonb before use (both currently fail loud via the
  *     builder's zod validation; 1b adds diagnostic guards with better messages).
@@ -102,6 +103,7 @@ interface SeasonRow extends Record<string, unknown> {
   rr_species_group: string;
   rr_license_year: number;
   // season_definition columns
+  sd_id: string;
   sd_name: string;
   sd_opens: string;
   sd_closes: string;
@@ -128,8 +130,13 @@ interface SeasonRow extends Record<string, unknown> {
  * POINT(lng lat): PostGIS uses (x y) = (longitude latitude) ordering — lng
  * is bound to $1, lat to $2.
  *
- * We select `name` to populate `resolved.jurisdiction.primary_unit`.
- * `LIMIT 1` — take the first matching row; tie-breaking is S09.1b territory.
+ * We select `name`/`state` to populate `resolved.jurisdiction` and to decide
+ * jurisdiction coverage (did the point resolve to ANY geometry?). `ORDER BY
+ * ST_Area ASC` + `LIMIT 1` deterministically prefers the SMALLEST covering
+ * polygon — the most specific unit (e.g. a hunting district over the statewide
+ * boundary) — for the `primary_unit` name. Full role-based primary/overlay
+ * selection is S09.1b; the season SCOPING (below) already uses every covering
+ * geometry's binding, so it does not depend on this single-row pick.
  *
  * $1 = the full WKT geography literal `SRID=4326;POINT(<lng> <lat>)`, built in JS
  *      from the `.finite()`-validated coordinates and bound as a SINGLE positional
@@ -141,29 +148,35 @@ const RESOLVE_GEOMETRY_SQL = `
   SELECT g.id, g.state, g.name
   FROM geometry g
   WHERE extensions.ST_Covers(g.geom, extensions.ST_GeogFromText($1))
+  ORDER BY extensions.ST_Area(g.geom) ASC
   LIMIT 1
 `.trim();
 
 /**
- * Fetch `regulation_record` rows joined to `season_definition` rows for the
- * resolved state and input species, ordered by license_year DESC then season
- * open date ASC.
+ * Fetch the `season_definition` rows applicable to the QUERIED POINT for the
+ * input species — scoped to the jurisdiction(s) that actually cover the point,
+ * NOT the whole state. This is the architecture's `jurisdiction_binding` fan-out
+ * (architecture.md §"Resolution sizing"): a coordinate resolves through the
+ * bindings on the geometries covering it, so a point in one hunting district
+ * never receives another district's seasons.
  *
- * Join path (using actual column names from supabase/migrations/):
- *   regulation_record  (PK: state, jurisdiction_code, species_group, license_year)
- *   → regulation_season (link: same 4 cols + season_definition_id)
- *   → season_definition (PK: id)
+ * Join path (actual column names from supabase/migrations/):
+ *   geometry               (covers the point via ST_Covers)
+ *   → jurisdiction_binding (on geometry_id → the record's flat FK cols)
+ *   → regulation_record    (PK: state, jurisdiction_code, species_group, license_year)
+ *   → regulation_season    (link: same 4 cols + season_definition_id)
+ *   → season_definition    (PK: id)
  *
- * $1 = state  (resolved from RESOLVE_GEOMETRY_SQL — e.g. "US-MT")
- * $2 = species (input species matched against regulation_record.species_group)
+ * The same regulation_record can be bound by more than one covering geometry
+ * (binding fan-out), so a (record, season) pair can appear multiple times — the
+ * handler de-duplicates by (jurisdiction_code, license_year, season id).
  *
- * ⚠️ THIN-PATH SIMPLIFICATION (S09.1b hardens this): this filters by the resolved
- * STATE + species only — NOT by the resolved jurisdiction. It therefore returns
- * seasons for every jurisdiction (HD) in the state for that species, and step 5
- * derives `jurisdiction_code`/`license_year` from the first (most-recent) row, NOT
- * from the covering geometry. The correct geometry → `jurisdiction_binding`
- * (on geometry_id) → `regulation_record` (flat FK cols) resolution and the
- * jurisdiction-scoped `AND rr.jurisdiction_code = $3` filter are S09.1b's job.
+ * $1 = the WKT geography literal `SRID=4326;POINT(<lng> <lat>)` (bound as one param).
+ * $2 = species (matched against regulation_record.species_group).
+ *
+ * S09.1b hardens this further (overlay-role distinction, the ≤N-query bound proof
+ * on the max-overlay district, multi-year handling); the jurisdiction SCOPING is
+ * correct here.
  */
 const REGULATION_SEASONS_SQL = `
   SELECT
@@ -173,6 +186,7 @@ const REGULATION_SEASONS_SQL = `
     rr.jurisdiction_code       AS rr_jurisdiction_code,
     rr.species_group           AS rr_species_group,
     rr.license_year            AS rr_license_year,
+    sd.id                      AS sd_id,
     sd.name                    AS sd_name,
     sd.opens                   AS sd_opens,
     sd.closes                  AS sd_closes,
@@ -182,7 +196,14 @@ const REGULATION_SEASONS_SQL = `
     sd.verbatim_rule           AS sd_verbatim_rule,
     sd.page_reference          AS sd_page_reference,
     sd.source                  AS sd_source
-  FROM regulation_record rr
+  FROM geometry g
+  JOIN jurisdiction_binding jb
+    ON jb.geometry_id = g.id
+  JOIN regulation_record rr
+    ON  rr.state             = jb.regulation_record_state
+    AND rr.jurisdiction_code = jb.regulation_record_jurisdiction_code
+    AND rr.species_group     = jb.regulation_record_species_group
+    AND rr.license_year      = jb.regulation_record_license_year
   JOIN regulation_season rs
     ON  rs.state             = rr.state
     AND rs.jurisdiction_code = rr.jurisdiction_code
@@ -190,7 +211,7 @@ const REGULATION_SEASONS_SQL = `
     AND rs.license_year      = rr.license_year
   JOIN season_definition sd
     ON sd.id = rs.season_definition_id
-  WHERE rr.state         = $1
+  WHERE extensions.ST_Covers(g.geom, extensions.ST_GeogFromText($1))
     AND rr.species_group = $2
   ORDER BY rr.license_year DESC, sd.opens ASC
 `.trim();
@@ -286,10 +307,13 @@ export function createGetRegulationsHandler(
       const resolvedState = geomRow.state;
       const resolvedGeomName = geomRow.name;
 
-      // ── 2. Regulation record + season_definition fetch ────────────────────
+      // ── 2. Jurisdiction-scoped season fetch ───────────────────────────────
+      // Seasons for the record(s) bound to the geometries covering THIS point
+      // (via jurisdiction_binding) — not the whole state. Re-uses the same WKT
+      // point literal; ST_Covers runs on the GiST index.
       const rawSeasonRows = await client.query<SeasonRow>(
         REGULATION_SEASONS_SQL,
-        [resolvedState, species],
+        [`SRID=4326;POINT(${lng} ${lat})`, species],
       );
 
       // ── 3. Schema-version gate ────────────────────────────────────────────
@@ -302,7 +326,17 @@ export function createGetRegulationsHandler(
         })),
       );
       warnings.push(...gated.warnings);
-      const seasonRows = gated.included;
+
+      // Binding fan-out can bind one regulation_record via multiple covering
+      // geometries, yielding duplicate (record, season) rows — de-dup on
+      // (jurisdiction_code, license_year, season id) so a season is counted once.
+      const seenSeasonKeys = new Set<string>();
+      const seasonRows = gated.included.filter((r) => {
+        const key = `${r.rr_jurisdiction_code}|${r.rr_license_year}|${r.sd_id}`;
+        if (seenSeasonKeys.has(key)) return false;
+        seenSeasonKeys.add(key);
+        return true;
+      });
 
       // ── 4. Collect unique SourceCitation objects ──────────────────────────
       // Deduplicate by citation `id` — both rr.source and sd.source contribute.
@@ -316,8 +350,10 @@ export function createGetRegulationsHandler(
       const sources = Array.from(sourcesById.values());
 
       // ── 5. Derive license_year and jurisdiction from the first row ─────────
-      // Rows are ordered license_year DESC so the first row carries the most-
-      // recent regulation. S09.1b handles multi-year fan-out.
+      // Rows come only from the point's covering jurisdiction(s) (step 2) and are
+      // ordered license_year DESC, so the first row carries the most-recent
+      // applicable regulation for this coordinate. S09.1b handles multi-year and
+      // multi-jurisdiction fan-out (distinct overlays).
       const firstRow = seasonRows[0];
       const licenseYear = firstRow?.rr_license_year ?? null;
       const jurisdictionCode = firstRow?.rr_jurisdiction_code ?? null;
