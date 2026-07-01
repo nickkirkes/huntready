@@ -375,7 +375,7 @@ and when CO / WY data lands.
 ## Q18: Does `reporting_obligation` model per-zone CWD sampling rules in V1?
 
 **Date opened:** 2026-05-20 (during S03.9 planning)
-**Status:** Open (M2 ADR candidate; V1 disposition: defer)
+**Status (2026-06-08 via S06.0/D1): RESOLVED — option (c), license-keyed.** M2 (Colorado, the second CWD-state) confirmed zone-keyed binding is structurally unavailable (CPW publishes no CWD-zone geometry — E05 S05.3). CO V1 ships 0 typed `cwd_sample` `reporting_obligation` rows (empirically 1 total CO reporting_obligation — the bear mandatory-check — per S06.9); the `cwd_sample` enum stays defined-but-unused; CWD text lives in `regulation_record.additional_rules` (S06.6). No new table, no ADR. Resolution home: S06.0 decision memo (D1); recorded in the M2→M3 handoff §6. *(Prior status: Open — M2 ADR candidate; V1 disposition: defer.)*
 
 ### Context
 
