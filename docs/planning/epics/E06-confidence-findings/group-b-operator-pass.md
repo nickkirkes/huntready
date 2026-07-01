@@ -253,7 +253,7 @@ No slug-drift, no symmetry violation (entity tables UPSERT by id; link tables ON
 ## PM action items unlocked by this pass
 
 - [ ] Tick S06.5 / S06.6 / S06.7 / S06.8 / S06.9 / S06.10 Group B ACs in the E06 epic (the operator-pending live-verification ACs).
-- [ ] Narrow `_BINDING_COUNT_GUARD_BAND` in `ingestion/states/colorado/load_jurisdiction_bindings.py` from provisional `(300, 1200)` to ±30% around the empirical **467** (≈ `(327, 607)`).
+- [x] Narrow `_BINDING_COUNT_GUARD_BAND` in `ingestion/states/colorado/load_jurisdiction_bindings.py` from provisional `(300, 1200)` to ±30% around the empirical **467** (= `(327, 607)`). **Done 2026-07-01 via commit `3aa5888`** (`TestBindingCountBandLockedToOperatorEmpirical` pins the tuple; Known Issue #19 RESOLVED).
 - [ ] Run PM Phase E UAT for S06.9 AC #1036 + S06.9.1 AC #1170: compare the captured 1238-char `verbatim_rule` against CPW Big Game brochure p.73 byte-for-byte. (The doc figure `1288 → 1238` was already corrected at source this pass.)
 - [ ] Run the deferred PM UAT batch (S06.3, S06.3.1, S06.4, S06.5 #486, S06.8.0 #905, S06.8 #983) before S06.11 dispatch.
 - [ ] (Runbook hygiene) Correct the Group B verification SQL column names per Anomalies #2.
