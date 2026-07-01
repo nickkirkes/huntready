@@ -13,17 +13,22 @@
  * never reads global process state — keeping it unit-testable and Workers-compatible.
  *
  * Scope (thin happy-path only — S09.1b is the full composite):
- *   • Resolves the covering `geometry` row for the given (lat, lng).
- *   • Looks up `regulation_record` rows matching the resolved state + input species.
- *   • Fetches `season_definition` rows via the `regulation_season` link table.
- *   • Composes a schema-valid Shape C `GetRegulationsResponse` with `seasons`
- *     populated and all other optional sections set to `null`.
+ *   • Resolves the covering bound `geometry`/`jurisdiction_binding` for (lat, lng),
+ *     picking `primary_unit` by binding role.
+ *   • Fetches `season_definition` rows scoped to the point's jurisdiction (via
+ *     `jurisdiction_binding` → `regulation_record` → `regulation_season`) for the
+ *     input species.
+ *   • Computes the coverage tri-state (none / partial / full) and composes a
+ *     schema-valid Shape C `GetRegulationsResponse` with `seasons` populated and
+ *     all other optional sections set to `null`.
  *
  * What this handler does NOT do (S09.1b):
- *   • coverage tri-state boundaries (partial/none);
- *   • overlay join (`jurisdiction_binding` role=overlay/no_hunt_zone rows);
+ *   • the populated-empty-section ↔ `full` distinction and the `conditionally_closed`
+ *     status (the none/partial/full coverage signals themselves ARE computed here);
+ *   • overlay population (`jurisdiction_binding` role=overlay/no_hunt_zone rows into
+ *     `resolved.jurisdiction.overlays[]`);
  *   • `tags`, `methods`, `reporting`, `contacts`, `additional_rules` sections;
- *   • json_agg / multi-row fan-out composite queries.
+ *   • json_agg / single bounded composite query (this uses 2 point-lookups).
  *
  * SQL idioms inherited from db.ts and the M2 known-pitfalls:
  *   1. PostGIS functions are `extensions.`-prefixed (Supabase puts PostGIS in
@@ -93,6 +98,7 @@ interface GeometryRow extends Record<string, unknown> {
   state: string;
   name: string;
   role: string;
+  source: SourceCitation;
 }
 
 /**
@@ -155,7 +161,7 @@ interface SeasonRow extends Record<string, unknown> {
  *      finite numbers, so the WKT is always well-formed).
  */
 const RESOLVE_GEOMETRY_SQL = `
-  SELECT g.state, g.name, jb.role
+  SELECT g.state, g.name, jb.role, g.source AS source
   FROM geometry g
   JOIN jurisdiction_binding jb
     ON jb.geometry_id = g.id
@@ -321,8 +327,16 @@ export function createGetRegulationsHandler(
       // (an HD/GMU or the statewide anchor) — NOT merely the smallest covering
       // polygon, which could be an overlay (restricted area / CWD zone). Null when
       // no primary-unit geometry covers the point (only overlays do).
-      const primaryUnitName =
-        geometryRows.find((r) => r.role === "primary_unit")?.name ?? null;
+      const primaryUnitRow = geometryRows.find((r) => r.role === "primary_unit");
+      const primaryUnitName = primaryUnitRow?.name ?? null;
+      // Citation for the resolved jurisdiction itself (the covering geometry's
+      // SourceCitation) — used as the sole `sources` entry on a PARTIAL response
+      // (jurisdiction resolved, species absent) so the invariant "data_freshness
+      // null iff sources empty" holds and the jurisdiction is cited per ADR-001.
+      // Prefer the primary-unit geometry; fall back to the smallest covering
+      // (overlay-only) geometry when no primary unit covers the point.
+      const jurisdictionSource: SourceCitation =
+        primaryUnitRow?.source ?? geometryRows[0]!.source;
 
       // ── 2. Jurisdiction-scoped season fetch ───────────────────────────────
       // Seasons for the record(s) bound to the geometries covering THIS point
@@ -364,16 +378,15 @@ export function createGetRegulationsHandler(
         if (!sourcesById.has(rrSrc.id)) sourcesById.set(rrSrc.id, rrSrc);
         if (!sourcesById.has(sdSrc.id)) sourcesById.set(sdSrc.id, sdSrc);
       }
-      const sources = Array.from(sourcesById.values());
+      const seasonSources = Array.from(sourcesById.values());
 
-      // ── 5. Derive license_year and jurisdiction from the first row ─────────
+      // ── 5. Derive license_year from the first row ─────────────────────────
       // Rows come only from the point's covering jurisdiction(s) (step 2) and are
       // ordered license_year DESC, so the first row carries the most-recent
       // applicable regulation for this coordinate. S09.1b handles multi-year and
       // multi-jurisdiction fan-out (distinct overlays).
       const firstRow = seasonRows[0];
       const licenseYear = firstRow?.rr_license_year ?? null;
-      const jurisdictionCode = firstRow?.rr_jurisdiction_code ?? null;
 
       // ── 6. Build ResolvedSeasonWindow array ────────────────────────────────
       // Confidence is inherited from the parent regulation_record (ADR-017
@@ -426,28 +439,35 @@ export function createGetRegulationsHandler(
           : null;
 
       // ── 9. Coverage ────────────────────────────────────────────────────────
-      const jurisdictionCoverage =
-        geometryRows.length > 0 ? ("full" as const) : ("none" as const);
-      const speciesCoverage =
-        seasonRows.length > 0 ? ("full" as const) : ("none" as const);
-      const overallCoverage =
-        jurisdictionCoverage === "full" && speciesCoverage === "full"
-          ? ("full" as const)
-          : ("none" as const);
+      // Jurisdiction ALWAYS resolves here — the "no covering geometry" case
+      // early-returned above, so a bound geometry covers the point. Species is
+      // "full" iff ≥1 season row survived gating. A jurisdiction that resolved
+      // but has no data for the species is PARTIAL, NOT none — do not collapse it
+      // (Shape C contract: architecture.md §"Response shape"; epic S09.1 mixed
+      // boundary). Only the total-gap early-return above is `overall:"none"`.
+      const speciesCovered = seasonRows.length > 0;
+      const speciesCoverage = speciesCovered ? ("full" as const) : ("none" as const);
+      const overallCoverage = speciesCovered ? ("full" as const) : ("partial" as const);
+
+      // Full → the season/record citations; partial → the resolved jurisdiction's
+      // own geometry citation (so `sources` is non-empty and `data_freshness` is
+      // non-null on a partial response — the invariant holds; only the total-gap
+      // early-return carries `sources: []` + `data_freshness: null`).
+      const responseSources = speciesCovered ? seasonSources : [jurisdictionSource];
 
       // ── 10. Compose and validate the Shape C envelope ──────────────────────
       const response: GetRegulationsResponse = {
         query: { lat, lng, species, date },
         resolved: {
-          jurisdiction:
-            jurisdictionCode !== null
-              ? {
-                  state: resolvedState,
-                  primary_unit: primaryUnitName,
-                  overlays: [],
-                }
-              : null,
-          species_canonical: seasonRows.length > 0 ? species : null,
+          // The point resolved to a bound geometry → jurisdiction is non-null
+          // whether or not the species has data (species-absence is `species:"none"`
+          // + `overall:"partial"`, not a null jurisdiction).
+          jurisdiction: {
+            state: resolvedState,
+            primary_unit: primaryUnitName,
+            overlays: [],
+          },
+          species_canonical: speciesCovered ? species : null,
           license_year: licenseYear,
         },
         seasons: seasonsSection,
@@ -456,13 +476,13 @@ export function createGetRegulationsHandler(
         reporting: null,
         contacts: null,
         additional_rules: null,
-        sources,
+        sources: responseSources,
         meta: {
           schema_version: 2,
           generated_at: generatedAt,
-          data_freshness: buildDataFreshness(sources, generatedAt),
+          data_freshness: buildDataFreshness(responseSources, generatedAt),
           coverage: {
-            jurisdiction: jurisdictionCoverage,
+            jurisdiction: "full",
             species: speciesCoverage,
             overall: overallCoverage,
           },

@@ -190,4 +190,87 @@ describe.skipIf(!DSN)("get_regulations — live happy path", () => {
     // generous timeout for a live DB round-trip (default 5s can be tight)
     15_000,
   );
+
+  it(
+    "resolves a jurisdiction but returns PARTIAL coverage for an out-of-dataset species",
+    async () => {
+      // The Shape C 'mixed boundary' (architecture.md §"Response shape"): a point
+      // that resolves to a jurisdiction but whose species has no regulation_record
+      // must be jurisdiction:"full" / species:"none" / overall:"partial" with a
+      // non-empty `sources` + non-null `data_freshness` — NOT collapsed to "none".
+      //
+      // Discover any covered MT point (we need only its lat/lng), then query an
+      // out-of-dataset species sentinel so the jurisdiction resolves but no season
+      // rows exist.
+      const discoveryClient = createDbClient(DSN!);
+      let lat: number;
+      let lng: number;
+      try {
+        const rows = await discoveryClient.query<{ lat: unknown; lng: unknown }>(
+          `
+            SELECT
+              extensions.ST_Y(extensions.ST_PointOnSurface(
+                extensions.ST_GeomFromText(extensions.ST_AsText(g.geom), 4326))) AS lat,
+              extensions.ST_X(extensions.ST_PointOnSurface(
+                extensions.ST_GeomFromText(extensions.ST_AsText(g.geom), 4326))) AS lng
+            FROM geometry g
+            JOIN jurisdiction_binding jb ON jb.geometry_id = g.id
+            WHERE g.state = $1 AND g.id <> 'MT-STATEWIDE-geom' AND g.kind <> 'state'
+            LIMIT 1
+          `.trim(),
+          ["US-MT"],
+        );
+        if (rows.length === 0) {
+          throw new Error(
+            "Discovery found no bound US-MT geometry to probe partial coverage.",
+          );
+        }
+        lat = Number(rows[0]!.lat);
+        lng = Number(rows[0]!.lng);
+      } finally {
+        try {
+          await discoveryClient.close();
+        } catch {
+          // swallow teardown errors — mirrors the health-check.ts discipline
+        }
+      }
+
+      // Out-of-dataset sentinel: guaranteed to have no regulation_record in any
+      // jurisdiction or corpus revision, so the jurisdiction resolves but the
+      // species does not.
+      const handler = createGetRegulationsHandler(DSN!);
+      const result = await handler({
+        lat,
+        lng,
+        species: "__partial_coverage_probe_no_such_species__",
+        date: "2026-09-15",
+      });
+
+      const parsed = getRegulationsResponseSchema.parse(result.structuredContent);
+
+      expect(
+        parsed.resolved.jurisdiction,
+        "jurisdiction must resolve even when the species is absent",
+      ).not.toBeNull();
+      expect(parsed.meta.coverage.jurisdiction).toBe("full");
+      expect(parsed.meta.coverage.species).toBe("none");
+      expect(
+        parsed.meta.coverage.overall,
+        "resolved jurisdiction + absent species must be PARTIAL, not none",
+      ).toBe("partial");
+      expect(
+        parsed.sources.length,
+        "partial coverage must cite the resolved jurisdiction",
+      ).toBeGreaterThanOrEqual(1);
+      expect(
+        parsed.meta.data_freshness,
+        "data_freshness is non-null iff sources is non-empty",
+      ).not.toBeNull();
+      expect(
+        parsed.seasons,
+        "seasons section is null (no species data), not a fabricated empty section",
+      ).toBeNull();
+    },
+    15_000,
+  );
 });
