@@ -1762,3 +1762,33 @@ Surfaced by S08.2 driver spike on 2026-06-27; decision recorded in ADR-024 adden
 **Finding B — in a CI substrate DDL, PostGIS types are bare but PostGIS function calls still need `extensions.` prefix.** Writing `geom extensions.geography(MultiPolygon, 4326)` in a `CREATE TABLE` fails with `type "extensions.geography" does not exist`. PostGIS types (`geography`, `geometry`, `box2d`, etc.) are registered in `pg_type` and resolved via `search_path` — reference them bare, exactly as the real migrations do: `geom geography(MultiPolygon, 4326)`. Only PostGIS *function calls* take the `extensions.` prefix (`extensions.ST_IsValid(...)`, `extensions.ST_DWithin(...)`, etc.). Additionally, a CI substrate must be minimal hand-authored DDL — NOT the real Supabase migrations — because the deny-all RLS migration references `anon` and `authenticated` roles absent from a vanilla `postgis/postgis` image. A `SELECT`-only role under `FORCE RLS` also needs an explicit `FOR SELECT ... USING (true)` ALLOW policy, because the deny-all policies are scoped to `anon`/`authenticated` only and do not cover a custom CI role.
 
 Surfaced by S08.2 CI substrate authoring on 2026-06-27 (`ci-substrate.sql` + `grant-readonly-role.sql`).
+
+### Workers tool handlers have no `process.env` — thread the DSN via a factory that closes over the `env` binding
+
+**Symptom:** A tool handler reads `process.env.SUPABASE_READONLY_DSN` at call time. The Workers runtime has no `process` global (`@cloudflare/workers-types` provides none), so the reference throws at workerd startup — not at test time, because vitest runs in Node where `process` exists.
+
+**Why:** The DSN is available only inside `src/index.ts`'s `fetch(request, env, ctx)` callback, on the `env` binding typed to `WorkerEnv`. Module-scope code runs before any request arrives and cannot access `env`.
+
+**Fix / convention:** A tool handler is produced by a factory that closes over the DSN — `createGetRegulationsHandler(dsn: string)` — and `createMcpServer(dsn)` threads `env.SUPABASE_READONLY_DSN` from the per-request `fetch` entrypoint down to each tool's factory. Every E09/E10/E11 tool inherits this pattern. The split tsconfig (`tsconfig.json` omits `"node"` from `types`) makes `process.env` a compile-time error in `src/` — catching the mistake before workerd does.
+
+Discovered in S09.1a 2026-07-01; the original plan wrongly assumed `process.env` was available.
+
+### `npm run lint` typechecks test files; `vitest` does NOT — always run lint before declaring green
+
+**Symptom:** `npx vitest run` exits 0 (all tests pass), but `npm run lint` fails with type errors in `tests/`. A type change in `src/` (e.g. making `buildDataFreshness` return `{…} | null`) leaves test files failing `tsc -p tsconfig.test.json` while vitest never surfaces the errors. In S09.1a this produced 7 `TS18047 'result' is possibly 'null'` errors in `response.test.ts` that vitest silently ignored.
+
+**Why:** vitest uses esbuild for transformation — no type checking. `mcp-server`'s `lint` script is `tsc --noEmit && tsc --noEmit -p tsconfig.test.json`, so it typechecks BOTH `src/` and `tests/`.
+
+**Fix:** Always run `npm run lint` (not just `npx vitest run`) before reporting a change as green. Add it to any local "done" checklist. CI runs both; a local-only vitest green is insufficient.
+
+Surfaced by S09.1a 2026-07-01.
+
+### `buildStructuredToolResult` is the SOLE writer of `meta.warnings` — handlers must init `meta.warnings: []`
+
+**Symptom:** A tool handler accumulates warnings (e.g. from `gateBySchemaVersion`) into a local array, writes them into the response object's `meta.warnings` at construction time, and ALSO passes the same array as the `warnings` argument to `buildStructuredToolResult`. Today this is a no-op (same reference; the builder assigns the same array back). It is a latent double-write: if the builder ever changes to append rather than assign, every warning is duplicated.
+
+**Why:** `buildStructuredToolResult(payload, schema, warnings, renderText)` takes ownership of `warnings` and assigns `payload.meta.warnings = warnings`. The handler should not write `meta.warnings` directly.
+
+**Convention:** Build the response with `meta.warnings: []` and let `buildStructuredToolResult` be the only writer. Accumulate gated warnings (from `gateBySchemaVersion(…).warnings`) into a local array and pass it as the builder's `warnings` argument — never also assigning it to the response object beforehand.
+
+Surfaced by S09.1a 2026-07-01.

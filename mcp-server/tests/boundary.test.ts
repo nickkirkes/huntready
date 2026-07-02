@@ -258,6 +258,59 @@ describe("src/ — DB client constructed per request, never at module scope", ()
 });
 
 // ---------------------------------------------------------------------------
+// Test 8: Single read-path guard — only db.ts opens a DB connection (AST)
+// Serving analog of the ingestion ADR-003/ADR-024 "single read path" principle.
+// Audit Rec 5 from the E08 post-implementation audit: no src/ file other than
+// db.ts may call `postgres(...)` (the postgres.js default export constructor)
+// or even import the `postgres` package. db.ts is the ONLY path from the
+// serving stack to the database.
+//
+// Two assertions per non-db.ts file:
+//   (a) no call expression targeting the bare identifier `postgres`
+//   (b) no import/export specifier for the `postgres` package
+//
+// Positive anchor: db.ts MUST call `postgres` — so a rename of the connection
+// constructor cannot silently make this guard vacuous.
+//
+// Checks AST nodes only — comments and string literals cannot trip it.
+// ---------------------------------------------------------------------------
+describe("src/ — single read path: only db.ts opens a DB connection (audit Rec 5)", () => {
+  const dbTsPath = resolve(__dirname, "../src/db.ts");
+  const tsFiles = collectTsFiles(srcDir);
+
+  it("db.ts calls postgres() — positive anchor (guard cannot go vacuous)", () => {
+    const sf = parseSourceFile(dbTsPath);
+    const calls = callsToIdentifier(sf, "postgres");
+    expect(
+      calls.length,
+      "db.ts must call postgres() to open the connection — if the constructor was renamed, update this guard and the sweep below",
+    ).toBeGreaterThan(0);
+  });
+
+  for (const filePath of tsFiles) {
+    if (filePath === dbTsPath) continue;
+
+    it(`${filePath} does not call postgres() or import the postgres package`, () => {
+      const sf = parseSourceFile(filePath);
+
+      // (a) No call to the bare `postgres` identifier.
+      const postgresCallSites = callsToIdentifier(sf, "postgres");
+      expect(
+        postgresCallSites.length,
+        `${filePath} must not call postgres() — only db.ts may open a DB connection`,
+      ).toBe(0);
+
+      // (b) No import of the "postgres" package specifier.
+      const postgresImports = moduleSpecifiers(sf).filter((s) => s === "postgres");
+      expect(
+        postgresImports,
+        `${filePath} must not import the "postgres" package — only db.ts may depend on it directly`,
+      ).toEqual([]);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Test 6: response.ts imports shared types from schema.js (AST)
 // Locks that response.ts does NOT redefine SourceCitation, DrawSpec, etc. from
 // scratch — it imports them from schema.js. A future refactor that moves the

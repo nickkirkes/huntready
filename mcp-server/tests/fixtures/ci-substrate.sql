@@ -74,9 +74,96 @@ CREATE TABLE geometry (
 -- -----------------------------------------------------------------------------
 -- 3. Seed row — ensures WHERE state = 'US-MT' returns at least one row in
 --    smoke queries.  name is NOT NULL so it must be provided.
+--
+--    `source` is a VALID SourceCitation (not `{}`) because the get_regulations
+--    partial-coverage path surfaces the covering geometry's `source` as the sole
+--    `sources[]` entry, which is validated against `sourceCitationSchema`.
 -- -----------------------------------------------------------------------------
 INSERT INTO geometry (id, name, kind, geom, state, source) VALUES (
   'MT-TEST-geom', 'MT Test', 'hunting_district',
   extensions.ST_GeogFromText('SRID=4326;MULTIPOLYGON(((-114 47,-113 47,-113 48,-114 48,-114 47)))'),
-  'US-MT', '{}'::jsonb
+  'US-MT',
+  '{"id":"mt-ci-geom-citation","agency":"CI Test Agency","title":"CI Test Boundary","url":"https://example.test/geom","publication_date":"2026-01-01","document_type":"gis_layer","supersedes":null,"page_reference":null}'::jsonb
+);
+
+
+-- -----------------------------------------------------------------------------
+-- 4. Regulation-stack tables — minimal mirrors of the real DDL, only the columns
+--    the E09 get_regulations live tests read.  DELIBERATELY NOT the full schema.
+--    opens/closes are `date` (matching the real DDL) so the handler's ::text cast
+--    is exercised; postgres.js returns bare `date` columns as JS Date objects, so
+--    the seasons query casts them to text for the string-typed response envelope.
+-- -----------------------------------------------------------------------------
+CREATE TABLE regulation_record (
+  state             text    NOT NULL,
+  jurisdiction_code text    NOT NULL,
+  species_group     text    NOT NULL,
+  license_year      integer NOT NULL,
+  schema_version    integer NOT NULL,
+  confidence        text    NOT NULL,
+  source            jsonb   NOT NULL,
+  PRIMARY KEY (state, jurisdiction_code, species_group, license_year)
+);
+
+CREATE TABLE season_definition (
+  id                text  PRIMARY KEY,
+  name              text  NOT NULL,
+  opens             date  NOT NULL,
+  closes            date  NOT NULL,
+  weapon_type       text,
+  residency         text,
+  closure_predicate jsonb,
+  verbatim_rule     text  NOT NULL,
+  page_reference    text,
+  source            jsonb NOT NULL
+);
+
+CREATE TABLE regulation_season (
+  state                text    NOT NULL,
+  jurisdiction_code    text    NOT NULL,
+  species_group        text    NOT NULL,
+  license_year         integer NOT NULL,
+  season_definition_id text    NOT NULL,
+  PRIMARY KEY (state, jurisdiction_code, species_group, license_year, season_definition_id)
+);
+
+CREATE TABLE jurisdiction_binding (
+  id                                  text    PRIMARY KEY,
+  regulation_record_state             text    NOT NULL,
+  regulation_record_jurisdiction_code text    NOT NULL,
+  regulation_record_species_group     text    NOT NULL,
+  regulation_record_license_year      integer NOT NULL,
+  geometry_id                         text    NOT NULL,
+  role                                text    NOT NULL
+);
+
+
+-- -----------------------------------------------------------------------------
+-- 5. Seed a full resolution chain for MT-TEST-geom:
+--      geometry (primary_unit binding) → regulation_record (elk, 2026)
+--      → regulation_season → season_definition (one General elk window).
+--    This makes:
+--      • the happy-path test resolve a jurisdiction with >=1 season (coverage full);
+--      • the partial-coverage test resolve the jurisdiction for an out-of-dataset
+--        species with 0 seasons (coverage partial, cited by the geometry source).
+-- -----------------------------------------------------------------------------
+INSERT INTO regulation_record (state, jurisdiction_code, species_group, license_year, schema_version, confidence, source) VALUES (
+  'US-MT', 'MT-HD-TEST', 'elk', 2026, 2, 'high',
+  '{"id":"mt-ci-reg-citation","agency":"CI Test Agency","title":"CI Test Regulations","url":"https://example.test/reg","publication_date":"2026-01-01","document_type":"annual_regulations","supersedes":null,"page_reference":null}'::jsonb
+);
+
+INSERT INTO season_definition (id, name, opens, closes, weapon_type, residency, closure_predicate, verbatim_rule, page_reference, source) VALUES (
+  'MT-HD-TEST-elk-general-2026', 'General', DATE '2026-09-15', DATE '2026-11-30',
+  'any_legal_weapon', 'both', NULL,
+  'General elk season, MT-HD-TEST. Verbatim CI fixture text.', NULL,
+  '{"id":"mt-ci-season-citation","agency":"CI Test Agency","title":"CI Test Regulations","url":"https://example.test/reg","publication_date":"2026-01-01","document_type":"annual_regulations","supersedes":null,"page_reference":null}'::jsonb
+);
+
+INSERT INTO regulation_season (state, jurisdiction_code, species_group, license_year, season_definition_id) VALUES (
+  'US-MT', 'MT-HD-TEST', 'elk', 2026, 'MT-HD-TEST-elk-general-2026'
+);
+
+INSERT INTO jurisdiction_binding (id, regulation_record_state, regulation_record_jurisdiction_code, regulation_record_species_group, regulation_record_license_year, geometry_id, role) VALUES (
+  'US-MT-MT-HD-TEST-elk-2026-primary_unit-MT-TEST-geom',
+  'US-MT', 'MT-HD-TEST', 'elk', 2026, 'MT-TEST-geom', 'primary_unit'
 );

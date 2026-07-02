@@ -68,7 +68,7 @@ export default {
       // createMcpHandler serves the MCP endpoint at the Agents-SDK default route
       // "/mcp"; E09/E10 and the MCP Inspector connect to "<origin>/mcp".
       (mcpRequest) => {
-        const server = createMcpServer();
+        const server = createMcpServer(env.SUPABASE_READONLY_DSN);
         const handler = createMcpHandler(server);
         return handler(mcpRequest, env, ctx);
       },

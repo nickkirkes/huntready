@@ -25,6 +25,7 @@ export type {
 export type {
   GetRegulationsResponse,
   Coverage,
+  AdditionalRulesSection,
   SeasonsSection,
   ResolvedSeasonWindow,
   TagsSection,

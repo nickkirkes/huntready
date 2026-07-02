@@ -28,6 +28,7 @@ import type {
   Residency,
   GeometryRole,
   SourceCitation,
+  VerbatimRule,
   ClosurePredicate,
   ReservedPool,
   PointSystem,
@@ -49,6 +50,7 @@ import type {
   ResolvedReportingObligation,
   ContactsSection,
   Contact,
+  AdditionalRulesSection,
   GetRegulationsResponse,
 } from "./types/response.js";
 
@@ -286,6 +288,25 @@ export const coverageSchema = z.enum(["full", "partial", "none"]);
 
 const _assertCoverage: AssertEqual<z.infer<typeof coverageSchema>, Coverage> = true;
 
+export const verbatimRuleSchema = z.object({
+  text: z.string(),
+  page_reference: z.string().nullable(),
+  confidence: confidenceSchema,
+  source: sourceCitationSchema,
+}).strict();
+
+const _assertVerbatimRule: AssertEqual<z.infer<typeof verbatimRuleSchema>, VerbatimRule> = true;
+
+export const additionalRulesSectionSchema = z.object({
+  rules: z.array(verbatimRuleSchema),
+  source: sourceCitationSchema,
+}).strict();
+
+const _assertAdditionalRulesSection: AssertEqual<
+  z.infer<typeof additionalRulesSectionSchema>,
+  AdditionalRulesSection
+> = true;
+
 export const warningSchema = z.object({
   code: z.enum([
     "STALE_SOURCE",
@@ -302,6 +323,7 @@ export const warningSchema = z.object({
     "methods",
     "reporting",
     "contacts",
+    "additional_rules",
     "overall",
   ]),
   message: z.string(),
@@ -503,15 +525,9 @@ export const getRegulationsResponseSchema = z
     methods: methodsSectionSchema.nullable(),
     reporting: reportingSectionSchema.nullable(),
     contacts: contactsSectionSchema.nullable(),
+    additional_rules: additionalRulesSectionSchema.nullable(),
 
-    // sources must be non-empty: meta.data_freshness carries non-null
-    // most_recent/stalest dates that are only computable from >=1 source, so an
-    // empty array cannot truthfully populate the freshness block. `.min(1)`
-    // enforces this at the validation boundary WITHOUT changing `z.infer` (still
-    // `SourceCitation[]`), so response.ts stays an exact mirror of architecture.md
-    // and the drift-guard below holds. (architecture.md's `sources` cardinality +
-    // the total-coverage-gap case is a spec-candidate for human clarification.)
-    sources: z.array(sourceCitationSchema).min(1),
+    sources: z.array(sourceCitationSchema),
 
     meta: z
       .object({
@@ -523,7 +539,8 @@ export const getRegulationsResponseSchema = z
             stalest_source_date: z.string(),
             is_stale: z.boolean(),
           })
-          .strict(),
+          .strict()
+          .nullable(),
         coverage: z
           .object({
             jurisdiction: coverageSchema,
@@ -535,7 +552,23 @@ export const getRegulationsResponseSchema = z
       })
       .strict(),
   })
-  .strict();
+  .strict()
+  .superRefine((val, ctx) => {
+    // Decision-1 invariant (architecture.md §"Response shape"):
+    // meta.data_freshness must be null iff sources is empty.
+    const sourcesEmpty = val.sources.length === 0;
+    const freshnessNull = val.meta.data_freshness === null;
+    if (sourcesEmpty !== freshnessNull) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "data_freshness must be null iff sources is empty: " +
+          (sourcesEmpty
+            ? "sources is empty but data_freshness is non-null"
+            : "sources is non-empty but data_freshness is null"),
+      });
+    }
+  });
 
 const _assertGetRegulationsResponse: AssertEqual<
   z.infer<typeof getRegulationsResponseSchema>,
