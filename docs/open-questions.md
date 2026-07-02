@@ -375,7 +375,13 @@ and when CO / WY data lands.
 ## Q18: Does `reporting_obligation` model per-zone CWD sampling rules in V1?
 
 **Date opened:** 2026-05-20 (during S03.9 planning)
-**Status:** Open (M2 ADR candidate; V1 disposition: defer)
+**Status (2026-06-08 via S06.0/D1): RESOLVED — option (c), license-keyed.** M2 (Colorado, the second CWD-state) confirmed zone-keyed binding is structurally unavailable (CPW publishes no CWD-zone geometry — E05 S05.3). CO V1 ships 0 typed `cwd_sample` `reporting_obligation` rows (empirically 1 total CO reporting_obligation — the bear mandatory-check — per S06.9); the `cwd_sample` enum stays defined-but-unused; CWD text lives in `regulation_record.additional_rules` (S06.6). No new table, no ADR. Resolution home: S06.0 decision memo (D1); recorded in the M2→M3 handoff §6. *(Prior status: Open — M2 ADR candidate; V1 disposition: defer.)*
+
+### Options considered (resolved to (c) at S06.0/D1)
+
+- **(a) Zone-keyed typed `reporting_obligation` rows** — one row per CWD zone, bound to geometry via `geometry-overlays.json`. **Rejected:** CPW publishes no CWD-zone geometry (E05 S05.3 — structurally unavailable for CO; there is no zone to key on), and even in MT the sampling mandate is license-keyed not zone-keyed (the `103-50` case in Context below).
+- **(b) License-keyed typed `reporting_obligation` rows** — one typed `kind="cwd_sample"` row per sampling-bearing license. **Rejected for V1:** produces near-duplicate rows differing only in the zone-name token (the wrong row shape — see "Three sub-questions" #2), with an ambiguous `regulation_reporting` join key.
+- **(c) Keep CWD-sampling text in `regulation_record.additional_rules`; 0 typed `reporting_obligation` rows** (the license-keyed disposition — the text attaches to the license-bearing `regulation_record`). **SELECTED.** The rules are already searchable from `additional_rules` after S03.6/S06.6; the only thing V1 forgoes is the typed `kind="cwd_sample"` discrimination (see "Three sub-questions" #3). CO empirically writes exactly 1 `reporting_obligation` (the bear mandatory-check, S06.9) and 0 CWD rows.
 
 ### Context
 
@@ -400,7 +406,7 @@ Ship 0 CWD-sampling `reporting_obligation` rows. Text is searchable via `regulat
 
 ### 2026-06-03 evidence (S05.3 — Colorado, the second CWD-state)
 
-Colorado's geometry ingestion (E05 S05.3) investigated CPW's CWD publications across all sources and found **CPW publishes no CWD-zone geometry at all** — no CPWAdminData layer (30 layers scanned), no ArcGIS Online service under the CPW org (~200-service listing scanned; org-scoped CWD search = 0), and no hand-traceable regulatory boundary. Colorado manages CWD by **hunt code / GMU** (2026: mandatory elk submission from specific rifle hunt codes, Big Game Brochure pp. 41–52; USGS reports CO CWD positives by wildlife-management-unit). This is the second-CWD-state trigger named above (line 376): it confirms the **license/unit-keyed model is the general pattern, not a Montana quirk** — and that zone-keyed binding is not merely awkward but **structurally unavailable** for Colorado (there is no zone to key on). Evidence strongly supports retaining the V1 license-keyed disposition; the formal Q18 decision remains E06's. Source: `ingestion/states/colorado/cwd-source-discovery.md`. **Status unchanged** (Open; V1 disposition: defer) — this note adds evidence only.
+Colorado's geometry ingestion (E05 S05.3) investigated CPW's CWD publications across all sources and found **CPW publishes no CWD-zone geometry at all** — no CPWAdminData layer (30 layers scanned), no ArcGIS Online service under the CPW org (~200-service listing scanned; org-scoped CWD search = 0), and no hand-traceable regulatory boundary. Colorado manages CWD by **hunt code / GMU** (2026: mandatory elk submission from specific rifle hunt codes, Big Game Brochure pp. 41–52; USGS reports CO CWD positives by wildlife-management-unit). This is the second-CWD-state trigger named above (line 376): it confirms the **license/unit-keyed model is the general pattern, not a Montana quirk** — and that zone-keyed binding is not merely awkward but **structurally unavailable** for Colorado (there is no zone to key on). Evidence strongly supports retaining the V1 license-keyed disposition; the formal Q18 decision remains E06's. Source: `ingestion/states/colorado/cwd-source-discovery.md`. **Status at the time of this 2026-06-03 note: Open** (V1 disposition: defer) — this note added evidence only; the formal decision was still E06's. **Q18 was subsequently RESOLVED at S06.0/D1 (option (c)) — see the status line + "Options considered" at the top of this entry.**
 
 ### Affected V1 entries
 
