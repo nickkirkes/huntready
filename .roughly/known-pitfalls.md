@@ -1169,6 +1169,32 @@ Surfaced by S06.3 6-round cubic iteration sequence on 2026-06-10.
 
 Surfaced by S06.10 Stage-6 silent-failure-hunter review on 2026-06-29.
 
+### Dual issue-numbering schemes in summary lists create false contradictions — pin one scheme per list
+
+**Symptom:** A milestone-close document (e.g., a handoff §8 summary table) lists Known Issues under both an epic-local sequential row number and a cross-epic-origin label (`KI#7`, `KI#12`). A later summary bullet says "#7 is in the deferred bundle" while another says "#7 is RESOLVED" — an apparent contradiction. In fact both claims are correct under different numbering schemes: row 7 of the table is the CPW-URL item (RESOLVED), while row 4 is the overlay-builder item carrying the cross-epic label `KI#7` (deferred).
+
+**Cause:** Two overlapping numbering schemes (table row index vs. cross-epic origin label) applied without disambiguation in the same prose makes each reference ambiguous. Readers resolving the reference against the wrong scheme see a contradiction that does not exist.
+
+**Fix:** Within any single summary list, pin ONE numbering scheme. Where a row carries a cross-origin label, disambiguate inline — e.g., "row #4 = overlay-builder extraction, cross-labeled as E05 KI#7" vs. "row #7 = CPW-URL item, RESOLVED". Related to the "name the source-of-truth before copying numbers" discipline; here the failure mode is ambiguous reference resolution rather than drifted values.
+
+Surfaced by M2→M3 handoff §8 summary cleanup during S06.11 on 2026-07-01.
+
+### Migrating an epic file to `completed/` keeps relative links as-is — do not rewrite them
+
+The established E03/E04/E05 convention is `git mv docs/planning/epics/<epic>.md docs/planning/epics/completed/<epic>.md` WITHOUT rewriting internal relative links (`](../adrs/…)`, `](../prds/…)`, `](../handoffs/…)`, etc.). From the new `completed/` subdirectory these links are technically one level short, but every already-migrated epic is in this state — it is the accepted convention. Do NOT "fix" the links on migration; doing so creates unnecessary diff noise and diverges from the audited pattern.
+
+**Two things that DO change on migration:** (1) the self-referential audit link the closing PM adds IS written relative to the post-move `completed/` location; (2) inbound references in `docs/planning/README.md`, CHANGELOG, or similar index files must be updated to point at the `completed/` path.
+
+Surfaced by E06 epic migration during S06.11 on 2026-07-01.
+
+### CLAUDE.md's rolling preamble is one giant single line — use Python `str.replace`, not the Edit tool
+
+The CLAUDE.md project-instructions preamble (the M1/M2/M3 rolling summary paragraph) is a single line of ~269k+ characters. Reading or editing it via the standard `Read`/`Edit` tools overflows the token limit and produces truncated results or silently corrupts adjacent content.
+
+**Fix:** For surgical in-place updates, write a Python script that (1) reads the entire file, (2) asserts `data.count(anchor) == 1` on a unique anchor substring to guard against mis-targeting, (3) applies `str.replace(anchor, replacement)`, and (4) writes back. Choose the anchor at a stable boundary — e.g., the transition from the newest content into older historical text. Verify the replacement leaves the overall character count plausible (not an accidental truncation). This is the only reliable editing pattern for a document whose largest "line" exceeds any reasonable token window.
+
+Surfaced by S06.11 CLAUDE.md update on 2026-07-01.
+
 ## Conventions — Python
 
 ### PEP 563 deferred annotations do not satisfy ruff F821 — hoist annotation-only names to module level
