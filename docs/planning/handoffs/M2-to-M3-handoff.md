@@ -65,11 +65,11 @@ Colorado ingestion required **one** schema addition (all others reused M1's sche
 
 | Table | Count | Notes |
 |---|---|---|
-| `regulation_record` (MT) | **437 (prod)** / 435 (dev)[^devprod] | |
+| `regulation_record` (MT) | **435 (DB — dev = prod)**; 437 is the loader build count[^devprod] | |
 | `geometry` (MT) | 350 | |
 | `jurisdiction_binding` (MT) | 788 | of which `role='no_hunt_zone'` = 50 (reclassified at S05.3.5 from `other_overlay`) |
 
-[^devprod]: The **dev** Supabase project reads 435 MT `regulation_record` rows vs the prod-anchored **437** (delta = exactly 2 pronghorn HD rows). Suspected cause: dev never received the post-S03.6.1 pronghorn build. The M2-release **prod** pass is expected to read 437 cleanly. Surfaced as group-b action item A1; the M2-uat runbook cites 437 as the prod baseline. Recommend investigating the 2-row dev/prod divergence before any future dev-vs-prod reconciliation, but it does not affect M2 correctness (MT was never written during M2 — both 435 and 437 are unchanged pre/post).
+[^devprod]: **No dev/prod divergence exists** (investigated 2026-07-02; group-b action item A1 resolved). MT `regulation_record` DB count = **435 on both dev and prod**. **437 is the loader's in-memory build count** (`load_regulation_records.py` logs `total | 437`); 2 build-rows share the composite PK `(state, jurisdiction_code, species_group, license_year)` and UPSERT-merge, leaving 435 rows in the DB. Prod was captured at 435 in M1 UAT (`docs/runbooks/M1-uat-results-2026-05-28.md` line 222); PRD 002 line 15 also cites 435 as the post-UPSERT DB baseline. This is the same build-vs-DB gap documented in `M1-to-M2-handoff.md` §3 (line 184: "regulation_record 437 build → 435 DB") — not a chronology divergence, and no backfill is needed. Full investigation: `docs/planning/investigations/mt-regulation-record-435-vs-437.md`. (This footnote previously misdescribed the gap as a "2-pronghorn dev/prod divergence / dev never received the post-S03.6.1 build" — corrected 2026-07-02.)
 
 ---
 

@@ -32,7 +32,7 @@ PRD-002-vs-actual-DB deviations, for orientation (footnoted in the relevant crit
 3. **CO ships 0 statewide-anchor `regulation_record` rows** — CPW publishes no CO statewide-anchor content analogous to MT's pronghorn `900-20` / MT's bear STATEWIDE anchor. The S06.6 `main()` guard fails loud on any unexpected `CO-STATEWIDE-*` pair. SC #1's representative-GMU lookup is per-GMU.
 4. **Asymmetric license-coverage (PRD SC #2)** is present in CO — GMU 001 mule_deer (3 distinct license_tags D-M-001-O1-A / O1-M / O2-R, 1 season each) is the CO analog of M1's HD 170 A/B split; the asymmetric clause is NOT marked N/A.
 5. **AFA 9+1 split (SC #4-adjacent):** of the 10 federal `restricted_area` geometries, 9 NPS/NM bind `role='no_hunt_zone'`; the 1 Air Force Academy row binds `role='other_overlay'` (regulated-access hunting area — Known Issue #12 RESOLVED via S06.10).
-6. **dev vs prod MT baseline:** the **dev** project reads 435 MT `regulation_record` rows; **prod is expected to read 437** (2 pronghorn rows; dev never received the post-S03.6.1 build). SC #9 cites 437 as the prod baseline.[^devprod]
+6. **MT baseline reconciliation — assert 435, not 437 (no dev/prod divergence):** MT `regulation_record` DB count is **435 on both dev and prod**. **437 is the loader _build_ count** — 2 build-rows share the composite PK and UPSERT-merge to 435 in the DB (the M1-documented build-vs-DB gap, not a dev/prod delta). **SC #9 (§9 below) asserts DB count = 435.** If the prod loader logs `total | 437`, that is expected and correct.[^devprod]
 
 ### 2.1 SQL conventions (read before running any query)
 
@@ -376,9 +376,9 @@ UNION ALL SELECT 'jurisdiction_binding_no_hunt_zone', COUNT(*) FROM jurisdiction
     WHERE regulation_record_state='US-MT' AND role='no_hunt_zone';
 ```
 
-**Expected result (prod):** regulation_record **437** · geometry **350** · jurisdiction_binding **788** · of which `no_hunt_zone` **50** (reclassified at S05.3.5). Test suite: **2301 passed + 5 skipped** (`cd ingestion && .venv/bin/pytest tests/`).
+**Expected result (prod):** regulation_record **435** (DB; loader logs `total | 437` build — 2 PK collapses[^devprod]) · geometry **350** · jurisdiction_binding **788** · of which `no_hunt_zone` **50** (reclassified at S05.3.5). Test suite: **2301 passed + 5 skipped** (`cd ingestion && .venv/bin/pytest tests/`).
 
-**Dev pre-verification (2026-07-01, group-b Z-1…Z-4):** MT reg_record 435 (dev) / geometry 350 / jurisdiction_binding 788 / no_hunt_zone 50 — unchanged pre/post the entire M2 write. **Prod expects 437 reg_record** per the dev/prod footnote.[^devprod]
+**Dev pre-verification (2026-07-01, group-b Z-1…Z-4):** MT reg_record 435 (dev) / geometry 350 / jurisdiction_binding 788 / no_hunt_zone 50 — unchanged pre/post the entire M2 write. **Prod DB is also 435** (M1 UAT capture) — no dev/prod divergence.[^devprod]
 
 **Prod actual output:**
 ```
@@ -422,7 +422,7 @@ git show <sha> --name-only   # expect: the migration + ingestion/ingestion/lib/s
 | #6 | no geometry with invalid topology | | |
 | #7 | idempotency — CO counts byte-identical after re-run | | |
 | #8 | RLS / no anon-authenticated privileges | | |
-| #9 | Montana unchanged (437/350/788/50; suite 2301+5) | | |
+| #9 | Montana unchanged (435 DB/350/788/50; suite 2301+5) | | |
 | #10 | coupled-PR ADR discipline (ADR-021 5-place sync) | | |
 
 ---
@@ -444,7 +444,7 @@ git show <sha> --name-only   # expect: the migration + ingestion/ingestion/lib/s
 
 **Milestone sign-off (operator completes after the prod pass):**
 
-> [N] of 10 M2 UAT criteria PASS against the live **prod** Supabase project (batch run + idempotency re-run both completed <date>). Colorado V1 ingestion complete: 197 geometry + 398 regulation_record + 10,979 S06.7 entity/link + 1914 draw_spec + 1 reporting_obligation + 467 jurisdiction_binding + 46 regulation_reporting rows. Montana unchanged (437/350/788/50). Full audit at `docs/runbooks/M2-uat-results-<date>.md`. M3 (MCP canonical interface) planning is unblocked.
+> [N] of 10 M2 UAT criteria PASS against the live **prod** Supabase project (batch run + idempotency re-run both completed <date>). Colorado V1 ingestion complete: 197 geometry + 398 regulation_record + 10,979 S06.7 entity/link + 1914 draw_spec + 1 reporting_obligation + 467 jurisdiction_binding + 46 regulation_reporting rows. Montana unchanged (435 reg_record DB/350/788/50). Full audit at `docs/runbooks/M2-uat-results-<date>.md`. M3 (MCP canonical interface) planning is unblocked.
 
 Signed: ________________  Date: __________
 
@@ -472,7 +472,7 @@ Signed: ________________  Date: __________
 | reporting_obligation | 1 | co-bear-mandatory-check-5day-statewide (verbatim_rule 1238 chars) |
 | jurisdiction_binding | 467 | primary_unit 398 / no_hunt_zone 63 / other_overlay 6 |
 | regulation_reporting | 46 | 1 STATEWIDE bear obligation × 46 bear reg_records |
-| **MT (untouched)** | 435 dev / 437 prod · 350 · 788 · 50 no_hunt_zone | PRD 002 SC #9 |
+| **MT (untouched)** | 435 reg_record DB (dev = prod; 437 is the build count) · 350 · 788 · 50 no_hunt_zone | PRD 002 SC #9 |
 
 ### A.2 Corrected verification SQL (KI#18 applied — the queries the operator actually ran)
 
@@ -515,4 +515,4 @@ Mandatory Bear Inspections & Seals Hunters must personally present their bear he
 
 [^psql]: If `psql` is not installed locally (not part of the standard macOS toolchain), use the Supabase CLI substitute `supabase db query --db-url "$DATABASE_URL" "<sql>"` — same service-role DSN, same RLS bypass, same result shape. This is the form used in the dev passes. Alternative: `brew install libpq && brew link --force libpq`.
 
-[^devprod]: The **dev** Supabase project reads 435 MT `regulation_record` rows; **prod is expected to read 437** (delta = exactly 2 pronghorn HD rows; dev never received the post-S03.6.1 pronghorn build). Surfaced as E06 Group B action item A1. MT was never written during M2, so both 435 (dev) and 437 (prod) are unchanged pre/post — SC #9 passes at either baseline; cite 437 for the prod pass. Recommend investigating the 2-row dev/prod divergence before any future dev/prod reconciliation.
+[^devprod]: **No dev/prod divergence exists.** MT `regulation_record` DB count = **435 on both dev and prod**. The **437** figure is the loader's in-memory **build count** (`load_regulation_records.py` logs `total | 437`); 2 of those build-rows share the composite PK `(state, jurisdiction_code, species_group, license_year)` and UPSERT-merge, leaving **435 rows in the DB**. Prod was captured at 435 in M1 UAT (`docs/runbooks/M1-uat-results-2026-05-28.md` line 222, 2026-05-28); dev is 435 (group-b pass, 2026-07-01). This is the same build-vs-DB gap already documented in `M1-to-M2-handoff.md` §3 (line 184: "regulation_record 437 build → 435 DB") and PRD 002 line 15 (which cites 435 as the post-UPSERT DB baseline). **SC #9 asserts the DB count 435.** If the prod loader logs `total | 437`, that is expected — it collapses to 435 in the DB. Full investigation: `docs/planning/investigations/mt-regulation-record-435-vs-437.md`. (This footnote previously misdescribed the gap as a "2-pronghorn dev/prod divergence / dev never received the post-S03.6.1 build" — corrected 2026-07-02; group-b action item A1 is resolved by that investigation.)
